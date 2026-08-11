@@ -1,0 +1,71 @@
+# .NET
+bin/
+obj/
+.agents/
+[Bb]uild/
+[Bb]uild/[Bb]in/
+[Bb]uild/[Oo]bj/
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/repositories.config
+
+# Visual Studio
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.aps
+*.ncb
+*.openidsettings
+*.rsuser
+
+# Rider
+.idea/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache/options
+.vs/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Self-contained
+*.pdb
+*.mdb
+*.ldf
+
+# Backup & Report files
+*.log
+*.tmp
+*.bak
+
+# Mac
+.DS_Store
