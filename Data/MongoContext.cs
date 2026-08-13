@@ -5,15 +5,19 @@ namespace HPParking.Data
 {
     public class MongoContext
     {
+        private static readonly MongoClient _client;
         private readonly IMongoDatabase _database;
+
+        static MongoContext()
+        {
+            string connectionString = ConfigurationManager.AppSettings["MongoConnectionString"];
+            _client = new MongoClient(connectionString);
+        }
 
         public MongoContext()
         {
-            string connectionString = ConfigurationManager.AppSettings["MongoConnectionString"];
             string databaseName = ConfigurationManager.AppSettings["MongoDatabase"];
-
-            var client = new MongoClient(connectionString);
-            _database = client.GetDatabase(databaseName);
+            _database = _client.GetDatabase(databaseName);
         }
 
         public IMongoCollection<T> GetCollection<T>(string name)

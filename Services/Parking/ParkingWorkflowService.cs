@@ -3,6 +3,7 @@ using HPParking.Models.Entities;
 using HPParking.Services.Controller;
 using HPParking.Services.LPR;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -38,8 +39,9 @@ namespace HPParking.Services.Parking
 
         private bool IsClientExpired(Client client)
         {
-            if ((client.Expired.StartDay > DateTime.UtcNow)) return false;
-            return client.Expired.EndDay.Value <= DateTime.UtcNow;
+            if (client.Expired.StartDay > DateTime.UtcNow) return true;
+            if (client.Expired.EndDay.Value <= DateTime.UtcNow) return true;
+            return false;
         }
 
         public async Task<ProcessResult> ProcessEntryAsync(Lane lane, RealtimeLog data, string imageBasePath)
@@ -53,7 +55,7 @@ namespace HPParking.Services.Parking
                 return new ProcessResult { Status = ProcessStatus.ConfirmRequired, Message = $"Người dùng chỉ được ra vào từ {client.Expired.StartDay:dd/MM/yyyy} - {client.Expired.EndDay:dd/MM/yyyy}" };
             }
 
-            var parkingInProgress = await _eventRepository.GetParkingInProgress(data.CardNo);
+            var parkingInProgress = await _eventRepository.GetParkingInProgress($"0{data.CardNo}");
             if (parkingInProgress != null)
                 return new ProcessResult { Status = ProcessStatus.AlreadyInParking, Message = "Khách hàng này đang có xe trong bãi." };
 
@@ -91,29 +93,37 @@ namespace HPParking.Services.Parking
             Bitmap plateSave = (Bitmap)plateImage.Clone();
             Bitmap overviewSave = (Bitmap)overviewImage.Clone();
             plateImage.Dispose();
+            overviewImage.Dispose();
 
             _ = Task.Run(async () =>
             {
-                using (plateSave)
-                using (overviewSave)
+                try
                 {
-                    string platePath = _imageStorageService.SaveImage(plateSave, "ImageIn", "BienSo", imageBasePath);
-                    string overviewPath = _imageStorageService.SaveImage(overviewSave, "ImageIn", "ToanCanh", imageBasePath);
-
-                    EventParking parking = new()
+                    using (plateSave)
+                    using (overviewSave)
                     {
-                        PhoneNumber = client.PhoneNumber,
-                        ClientName = client.Name,
-                        Card_Code = client.PhoneNumber,
-                        Card_Category = client.CardCategory,
-                        LicensePlate = client.LicensePlate != result.Plate ? "" : client.LicensePlate,
-                        LicensePlateIn = result.Plate,
-                        UrlImageLicensePlateIn = platePath,
-                        UrlImageClientIn = overviewPath,
-                        TimeIn = data.Time,
-                    };
+                        string platePath = _imageStorageService.SaveImage(plateSave, "ImageIn", "BienSo", imageBasePath);
+                        string overviewPath = _imageStorageService.SaveImage(overviewSave, "ImageIn", "ToanCanh", imageBasePath);
 
-                    await _eventRepository.Insert(parking);
+                        EventParking parking = new()
+                        {
+                            PhoneNumber = client.PhoneNumber,
+                            ClientName = client.Name,
+                            Card_Code = client.PhoneNumber,
+                            Card_Category = client.CardCategory,
+                            LicensePlate = client.LicensePlate != result.Plate ? "" : client.LicensePlate,
+                            LicensePlateIn = result.Plate,
+                            UrlImageLicensePlateIn = platePath,
+                            UrlImageClientIn = overviewPath,
+                            TimeIn = data.Time,
+                        };
+
+                        await _eventRepository.Insert(parking);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ParkingEntry Error] {ex.Message}");
                 }
             });
 
@@ -122,7 +132,7 @@ namespace HPParking.Services.Parking
                 Status = ProcessStatus.Success,
                 Client = client,
                 LprResult = result,
-                OverviewImage = overviewImage
+                OverviewImage = overviewSave
             };
         }
 
@@ -160,7 +170,7 @@ namespace HPParking.Services.Parking
                 return new ProcessResult { Status = ProcessStatus.LprFailed, Message = "Nhận diện biển số thất bại." };
             }
 
-            if (result.Plate != parking.LicensePlate)
+            if (result.Plate != parking.LicensePlateIn)
             {
                 plateImage.Dispose();
                 overviewImage.Dispose();
@@ -177,23 +187,31 @@ namespace HPParking.Services.Parking
             Bitmap plateSave = (Bitmap)plateImage.Clone();
             Bitmap overviewSave = (Bitmap)overviewImage.Clone();
             plateImage.Dispose();
+            overviewImage.Dispose();
 
             _ = Task.Run(async () =>
             {
-                using (plateSave)
-                using (overviewSave)
+                try
                 {
-                    string platePath = _imageStorageService.SaveImage(plateSave, "ImageOut", "BienSo", imageBasePath);
-                    string overviewPath = _imageStorageService.SaveImage(overviewSave, "ImageOut", "ToanCanh", imageBasePath);
+                    using (plateSave)
+                    using (overviewSave)
+                    {
+                        string platePath = _imageStorageService.SaveImage(plateSave, "ImageOut", "BienSo", imageBasePath);
+                        string overviewPath = _imageStorageService.SaveImage(overviewSave, "ImageOut", "ToanCanh", imageBasePath);
 
-                    parking.LicensePlateOut = result.Plate;
-                    parking.UrlImageLicensePlateOut = platePath;
-                    parking.UrlImageClientOut = overviewPath;
-                    parking.Status = "OUT";
-                    parking.StatusInOut = true;
-                    parking.TimeOut = data.Time;
+                        parking.LicensePlateOut = result.Plate;
+                        parking.UrlImageLicensePlateOut = platePath;
+                        parking.UrlImageClientOut = overviewPath;
+                        parking.Status = "OUT";
+                        parking.StatusInOut = true;
+                        parking.TimeOut = data.Time;
 
-                    await _eventRepository.Update(parking.Id, parking);
+                        await _eventRepository.Update(parking.Id, parking);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ParkingExit Error] {ex.Message}");
                 }
             });
 
@@ -203,7 +221,7 @@ namespace HPParking.Services.Parking
                 Client = client,
                 EventParking = parking,
                 LprResult = result,
-                OverviewImage = overviewImage
+                OverviewImage = overviewSave
             };
         }
     }
