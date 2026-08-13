@@ -128,7 +128,6 @@ namespace HPParking.Services.Camera
             {
                 if (!IsLoggedIn || _userId < 0)
                 {
-                    Debug.WriteLine("Camera chưa kết nối.");
                     return false;
                 }
 

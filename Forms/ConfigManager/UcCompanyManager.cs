@@ -2,6 +2,7 @@
 using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
+using Ookii.Dialogs.WinForms;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -51,15 +52,25 @@ namespace HPParking.Forms.CofigManager
 
         private void button3_Click(object sender, EventArgs e)
         {
-            using FolderBrowserDialog folderDialog = new();
-            folderDialog.Description = "Chọn thư mục lưu file";
-            folderDialog.ShowNewFolderButton = true;
-
-            if (folderDialog.ShowDialog() == DialogResult.OK)
+            try
             {
-                txtPathImage.Text = folderDialog.SelectedPath;
+                using VistaFolderBrowserDialog folderDialog = new()
+                {
+                    Description = "Chọn thư mục lưu file",
+                    UseDescriptionForTitle = true,
+                };
+
+                if (folderDialog.ShowDialog(FindForm()) == DialogResult.OK)
+                {
+                    txtPathImage.Text = folderDialog.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi: {ex.Message}\n\nStackTrace: {ex.StackTrace}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
 
         private async void button4_Click(object sender, EventArgs e)
         {
