@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Windows.Forms;
 
-namespace HPParking.helper
+namespace HPParking.Helper
 {
     public class ValidationHelper
     {

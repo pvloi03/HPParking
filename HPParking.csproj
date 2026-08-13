@@ -271,9 +271,9 @@
     <Compile Include="Forms\FrmRegisterClient.Designer.cs">
       <DependentUpon>FrmRegisterClient.cs</DependentUpon>
     </Compile>
-    <Compile Include="helper\FrmHelpers.cs" />
-    <Compile Include="helper\MachineCodeHelper.cs" />
-    <Compile Include="helper\ValidationHelper.cs" />
+    <Compile Include="Helper\FrmHelpers.cs" />
+    <Compile Include="Helper\MachineCodeHelper.cs" />
+    <Compile Include="Helper\ValidationHelper.cs" />
     <Compile Include="Interfaces\IClientRepository.cs" />
     <Compile Include="Interfaces\ICompanyRepository.cs" />
     <Compile Include="Interfaces\IEventParkingRepository.cs" />
