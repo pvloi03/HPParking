@@ -1,4 +1,4 @@
-﻿using HPParking.helper;
+﻿using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using System.Collections.Generic;
@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace HPParking.Forms.CofigManager
+namespace HPParking.Forms.ConfigManager
 {
     public partial class UcLanCarManager : UserControl
     {

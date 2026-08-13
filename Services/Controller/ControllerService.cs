@@ -44,6 +44,7 @@ namespace HPParking.Services.Controller
                     else
                     {
                         OnStatusChanged?.Invoke(false, $"Kết nối Controller {config.IP} thất bại!");
+                        StartAutoReconnect();
                     }
 
                     return success;

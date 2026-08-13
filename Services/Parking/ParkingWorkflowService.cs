@@ -40,7 +40,7 @@ namespace HPParking.Services.Parking
         private bool IsClientExpired(Client client)
         {
             if (client.Expired.StartDay > DateTime.UtcNow) return true;
-            if (client.Expired.EndDay.Value <= DateTime.UtcNow) return true;
+            if (client.Expired.EndDay <= DateTime.UtcNow) return true;
             return false;
         }
 

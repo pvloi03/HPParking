@@ -1,4 +1,4 @@
-﻿namespace HPParking.Forms.CofigManager
+﻿namespace HPParking.Forms.ConfigManager
 {
     partial class UcLanCarManager
     {

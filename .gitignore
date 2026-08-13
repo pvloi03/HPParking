@@ -1,7 +1,8 @@
 # .NET
 bin/
 obj/
-.agents/
+.claude/
+install.cmd
 [Bb]uild/
 [Bb]uild/[Bb]in/
 [Bb]uild/[Oo]bj/

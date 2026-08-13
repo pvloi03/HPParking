@@ -1,4 +1,4 @@
-﻿using HPParking.Forms.CofigManager;
+﻿using HPParking.Forms.ConfigManager;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
 using System.Windows.Forms;

@@ -1,13 +1,13 @@
-﻿using HPParking.helper;
 using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
+using Ookii.Dialogs.WinForms;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace HPParking.Forms.CofigManager
+namespace HPParking.Forms.ConfigManager
 {
     public partial class UcCompanyManager : UserControl
     {
@@ -22,8 +22,15 @@ namespace HPParking.Forms.CofigManager
 
         private async void UcCompanyManager_Load(object sender, EventArgs e)
         {
-            label4.Text = $"Mã máy: {MachineCodeHelper.GetMachineCode()}";
-            await LoadAndBindDataAsync();
+            try
+            {
+                label4.Text = $"Mã máy: {MachineCodeHelper.GetMachineCode()}";
+                await LoadAndBindDataAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi tải dữ liệu: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         /// <summary>
@@ -51,13 +58,23 @@ namespace HPParking.Forms.CofigManager
 
         private void button3_Click(object sender, EventArgs e)
         {
-            using FolderBrowserDialog folderDialog = new();
-            folderDialog.Description = "Chọn thư mục lưu file";
-            folderDialog.ShowNewFolderButton = true;
-
-            if (folderDialog.ShowDialog() == DialogResult.OK)
+            try
             {
-                txtPathImage.Text = folderDialog.SelectedPath;
+                using VistaFolderBrowserDialog folderDialog = new()
+                {
+                    Description = "Chọn thư mục lưu file",
+                    UseDescriptionForTitle = true,
+                };
+
+                Form? parentForm = FindForm();
+                if (parentForm != null && folderDialog.ShowDialog(parentForm) == DialogResult.OK)
+                {
+                    txtPathImage.Text = folderDialog.SelectedPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi: {ex.Message}\n\nStackTrace: {ex.StackTrace}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -92,6 +109,7 @@ namespace HPParking.Forms.CofigManager
                     PathImage = GetValue(txtPathImage)
                 };
 
+                bool success;
                 if (_company != null)
                 {
                     _company.Name = companyReq.Name;
@@ -100,18 +118,28 @@ namespace HPParking.Forms.CofigManager
                     _company.TimeFree = companyReq.TimeFree;
                     _company.PathImage = companyReq.PathImage;
 
-                    bool resultUpdateCompany = await _companyRepository.UpdateCompanyAsync(_company);
-                    if (resultUpdateCompany)
+                    success = await _companyRepository.UpdateCompanyAsync(_company);
+                    if (success)
                     {
                         MessageBox.Show("Cập nhật thông tin thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Cập nhật thông tin thất bại!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
                     }
                 }
                 else
                 {
-                    bool resultCreateCompany = await _companyRepository.CreateCompanyAsync(companyReq);
-                    if (resultCreateCompany)
+                    success = await _companyRepository.CreateCompanyAsync(companyReq);
+                    if (success)
                     {
                         MessageBox.Show("Tạo thông tin công ty thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Tạo thông tin công ty thất bại!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
                     }
                 }
 
@@ -133,6 +161,16 @@ namespace HPParking.Forms.CofigManager
             // Sao chép nội dung của Label vào Clipboard
             Clipboard.SetText(label4.Text);
             button1.Text = "Đã Copy";
+
+            // Reset text sau 2 giây
+            var timer = new Timer { Interval = 2000 };
+            timer.Tick += (s, args) =>
+            {
+                button1.Text = "Copy";
+                timer.Stop();
+                timer.Dispose();
+            };
+            timer.Start();
         }
     }
 }
