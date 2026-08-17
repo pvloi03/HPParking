@@ -37,10 +37,12 @@ namespace HPParking.Models.Entities
 
         public int InputLoop { get; set; } = 0;
 
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
         public DateTime CreatDay { get; set; } = DateTime.UtcNow;
 
         public string CreatUser { get; set; } = "";
 
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
         public DateTime UpdateDay { get; set; } = DateTime.UtcNow;
 
         public string UpdateUser { get; set; } = "";

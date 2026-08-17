@@ -31,6 +31,7 @@ namespace HPParking.Repositories
                 .Set(c => c.CameraLicensePlate, lane.CameraLicensePlate)
                 .Set(c => c.CameraClient, lane.CameraClient)
                 .Set(c => c.Controller, lane.Controller)
+                .Set(c => c.FaceId, lane.FaceId)
                 .Set(c => c.OutputRelay, lane.OutputRelay)
                 .Set(c => c.InputReader, lane.InputReader)
                 .Set(c => c.UpdateDay, DateTime.UtcNow);

@@ -11,13 +11,15 @@ namespace HPParking.Services.FaceId
     public class FaceIdApiService : IFaceIdApiService
     {
         private readonly HttpClient _httpClient;
+        public string Ip { get; set; }
 
         public FaceIdApiService(FaceIdConfig config)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
             ServicePointManager.Expect100Continue = false;
 
-            string baseUrl = $"https://{config.Ip}";
+            Ip = config.Ip;
+            string baseUrl = $"https://{Ip}";
             Uri baseUri = new(baseUrl);
 
             var credentialCache = new CredentialCache
@@ -118,10 +120,6 @@ namespace HPParking.Services.FaceId
                 return (false, ex.Message);
             }
         }
-
-        private const int MinFaceDimensionPx = 80;
-        private const int MaxFaceImageBytes = 200 * 1024;
-        private const int TargetLongEdgePx = 720;
 
         public async Task<(bool IsSuccess, string ErrorMessage)> AddFaceImageAsync(string employeeNo, byte[] faceImg)
         {

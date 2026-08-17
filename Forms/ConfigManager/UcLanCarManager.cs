@@ -64,6 +64,11 @@ namespace HPParking.Forms.ConfigManager
                     txtInUserController.Text = lane.ControllerConfig?.User ?? "";
                     txtInPassController.Text = lane.ControllerConfig?.Pass ?? "";
 
+                    txtInIpFaceId.Text = lane.FaceIdConfig?.IP ?? "";
+                    txtInPortFaceId.Text = lane.FaceIdConfig?.Port.ToString() ?? "";
+                    txtInUserFaceId.Text = lane.FaceIdConfig?.User ?? "";
+                    txtInPassFaceId.Text = lane.FaceIdConfig?.Pass ?? "";
+
                     txtInReader.Text = lane.InputReader.ToString();
                     txtInRelay.Text = lane.OutputRelay.ToString();
                 }
@@ -88,6 +93,11 @@ namespace HPParking.Forms.ConfigManager
                     txtOutPortController.Text = lane.ControllerConfig?.Port.ToString() ?? "";
                     txtOutUserController.Text = lane.ControllerConfig?.User ?? "";
                     txtOutPassController.Text = lane.ControllerConfig?.Pass ?? "";
+
+                    txtOutIpFaceId.Text = lane.FaceIdConfig?.IP ?? "";
+                    txtOutPortFaceId.Text = lane.FaceIdConfig?.Port.ToString() ?? "";
+                    txtOutUserFaceid.Text = lane.FaceIdConfig?.User ?? "";
+                    txtOutPassFaceId.Text = lane.FaceIdConfig?.Pass ?? "";
 
                     txtOutReader.Text = lane.InputReader.ToString();
                     txtOutRelay.Text = lane.OutputRelay.ToString();
@@ -145,6 +155,14 @@ namespace HPParking.Forms.ConfigManager
                     Pass = GetValue(txtInPassController),
                 };
 
+                var FaceIdIn = new
+                {
+                    IP = validationResult.Values[txtInIpFaceId.Name],
+                    Port = int.Parse(validationResult.Values[txtInPortFaceId.Name]),
+                    User = validationResult.Values[txtInUserFaceId.Name],
+                    Pass = validationResult.Values[txtInPassFaceId.Name],
+                };
+
                 Lane laneInReq = new()
                 {
                     Code = "LANEIN",
@@ -153,6 +171,7 @@ namespace HPParking.Forms.ConfigManager
                     CameraLicensePlate = JsonSerializer.Serialize(CameraLicensePlateIn),
                     CameraClient = JsonSerializer.Serialize(CameraClientIn),
                     Controller = JsonSerializer.Serialize(ControllerIn),
+                    FaceId = JsonSerializer.Serialize(FaceIdIn),
                     InputReader = int.Parse(GetValue(txtInReader)),
                     OutputRelay = int.Parse(GetValue(txtInRelay))
                 };
@@ -165,6 +184,7 @@ namespace HPParking.Forms.ConfigManager
                     laneIn.CameraLicensePlate = laneInReq.CameraLicensePlate;
                     laneIn.CameraClient = laneInReq.CameraClient;
                     laneIn.Controller = laneInReq.Controller;
+                    laneIn.FaceId = laneInReq.FaceId;
                     laneIn.InputReader = laneInReq.InputReader;
                     laneIn.OutputRelay = laneInReq.OutputRelay;
 
@@ -202,6 +222,14 @@ namespace HPParking.Forms.ConfigManager
                     Pass = GetValue(txtOutPassController),
                 };
 
+                var FaceIdOut = new
+                {
+                    IP = validationResult.Values[txtOutIpFaceId.Name],
+                    Port = int.Parse(validationResult.Values[txtOutPortFaceId.Name]),
+                    User = validationResult.Values[txtOutUserFaceid.Name],
+                    Pass = validationResult.Values[txtOutPassFaceId.Name],
+                };
+
                 Lane laneOutReq = new()
                 {
                     Code = "LANEOUT",
@@ -222,6 +250,7 @@ namespace HPParking.Forms.ConfigManager
                     laneOut.CameraLicensePlate = laneOutReq.CameraLicensePlate;
                     laneOut.CameraClient = laneOutReq.CameraClient;
                     laneOut.Controller = laneOutReq.Controller;
+                    laneOut.FaceId = laneOutReq.FaceId;
                     laneOut.InputReader = laneOutReq.InputReader;
                     laneOut.OutputRelay = laneOutReq.OutputRelay;
 

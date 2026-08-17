@@ -87,6 +87,22 @@
             this.label9 = new System.Windows.Forms.Label();
             this.txtInIpCameraLicenseplate = new System.Windows.Forms.TextBox();
             this.grbLaneOut = new System.Windows.Forms.GroupBox();
+            this.label1 = new System.Windows.Forms.Label();
+            this.txtInPassFaceId = new System.Windows.Forms.TextBox();
+            this.label2 = new System.Windows.Forms.Label();
+            this.txtInUserFaceId = new System.Windows.Forms.TextBox();
+            this.txtInPortFaceId = new System.Windows.Forms.TextBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.lbFaceId = new System.Windows.Forms.Label();
+            this.txtInIpFaceId = new System.Windows.Forms.TextBox();
+            this.label4 = new System.Windows.Forms.Label();
+            this.txtOutPassFaceId = new System.Windows.Forms.TextBox();
+            this.label33 = new System.Windows.Forms.Label();
+            this.txtOutUserFaceid = new System.Windows.Forms.TextBox();
+            this.txtOutPortFaceId = new System.Windows.Forms.TextBox();
+            this.label34 = new System.Windows.Forms.Label();
+            this.label35 = new System.Windows.Forms.Label();
+            this.txtOutIpFaceId = new System.Windows.Forms.TextBox();
             this.grbLaneIn.SuspendLayout();
             this.grbLaneOut.SuspendLayout();
             this.SuspendLayout();
@@ -104,7 +120,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(11, 82);
+            this.label12.Location = new System.Drawing.Point(15, 78);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(140, 20);
             this.label12.TabIndex = 8;
@@ -113,7 +129,7 @@
             // label19
             // 
             this.label19.AutoSize = true;
-            this.label19.Location = new System.Drawing.Point(305, 159);
+            this.label19.Location = new System.Drawing.Point(305, 200);
             this.label19.Name = "label19";
             this.label19.Size = new System.Drawing.Size(123, 20);
             this.label19.TabIndex = 26;
@@ -122,7 +138,7 @@
             // txtOutRelay
             // 
             this.txtOutRelay.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutRelay.Location = new System.Drawing.Point(443, 157);
+            this.txtOutRelay.Location = new System.Drawing.Point(443, 198);
             this.txtOutRelay.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtOutRelay.Name = "txtOutRelay";
             this.txtOutRelay.Size = new System.Drawing.Size(112, 26);
@@ -132,7 +148,7 @@
             // label20
             // 
             this.label20.AutoSize = true;
-            this.label20.Location = new System.Drawing.Point(11, 163);
+            this.label20.Location = new System.Drawing.Point(15, 200);
             this.label20.Name = "label20";
             this.label20.Size = new System.Drawing.Size(101, 20);
             this.label20.TabIndex = 24;
@@ -141,7 +157,7 @@
             // txtOutReader
             // 
             this.txtOutReader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutReader.Location = new System.Drawing.Point(158, 157);
+            this.txtOutReader.Location = new System.Drawing.Point(158, 198);
             this.txtOutReader.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtOutReader.Name = "txtOutReader";
             this.txtOutReader.Size = new System.Drawing.Size(112, 26);
@@ -265,7 +281,7 @@
             // label24
             // 
             this.label24.AutoSize = true;
-            this.label24.Location = new System.Drawing.Point(11, 120);
+            this.label24.Location = new System.Drawing.Point(15, 118);
             this.label24.Name = "label24";
             this.label24.Size = new System.Drawing.Size(77, 20);
             this.label24.TabIndex = 16;
@@ -284,7 +300,7 @@
             // label25
             // 
             this.label25.AutoSize = true;
-            this.label25.Location = new System.Drawing.Point(753, 79);
+            this.label25.Location = new System.Drawing.Point(753, 76);
             this.label25.Name = "label25";
             this.label25.Size = new System.Drawing.Size(44, 20);
             this.label25.TabIndex = 14;
@@ -293,7 +309,7 @@
             // txtOutPassCameraClient
             // 
             this.txtOutPassCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPassCameraClient.Location = new System.Drawing.Point(801, 75);
+            this.txtOutPassCameraClient.Location = new System.Drawing.Point(801, 72);
             this.txtOutPassCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtOutPassCameraClient.Name = "txtOutPassCameraClient";
             this.txtOutPassCameraClient.Size = new System.Drawing.Size(190, 26);
@@ -303,7 +319,7 @@
             // label26
             // 
             this.label26.AutoSize = true;
-            this.label26.Location = new System.Drawing.Point(500, 79);
+            this.label26.Location = new System.Drawing.Point(500, 76);
             this.label26.Name = "label26";
             this.label26.Size = new System.Drawing.Size(43, 20);
             this.label26.TabIndex = 12;
@@ -312,7 +328,7 @@
             // txtOutUserCameraClient
             // 
             this.txtOutUserCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutUserCameraClient.Location = new System.Drawing.Point(544, 75);
+            this.txtOutUserCameraClient.Location = new System.Drawing.Point(544, 72);
             this.txtOutUserCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtOutUserCameraClient.Name = "txtOutUserCameraClient";
             this.txtOutUserCameraClient.Size = new System.Drawing.Size(200, 26);
@@ -322,7 +338,7 @@
             // txtOutPortCameraClient
             // 
             this.txtOutPortCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPortCameraClient.Location = new System.Drawing.Point(407, 75);
+            this.txtOutPortCameraClient.Location = new System.Drawing.Point(407, 72);
             this.txtOutPortCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtOutPortCameraClient.Name = "txtOutPortCameraClient";
             this.txtOutPortCameraClient.Size = new System.Drawing.Size(79, 26);
@@ -352,7 +368,7 @@
             // label27
             // 
             this.label27.AutoSize = true;
-            this.label27.Location = new System.Drawing.Point(370, 79);
+            this.label27.Location = new System.Drawing.Point(370, 76);
             this.label27.Name = "label27";
             this.label27.Size = new System.Drawing.Size(38, 20);
             this.label27.TabIndex = 10;
@@ -371,7 +387,7 @@
             // label28
             // 
             this.label28.AutoSize = true;
-            this.label28.Location = new System.Drawing.Point(11, 81);
+            this.label28.Location = new System.Drawing.Point(15, 76);
             this.label28.Name = "label28";
             this.label28.Size = new System.Drawing.Size(140, 20);
             this.label28.TabIndex = 8;
@@ -380,7 +396,7 @@
             // txtOutIpCameraClient
             // 
             this.txtOutIpCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutIpCameraClient.Location = new System.Drawing.Point(158, 75);
+            this.txtOutIpCameraClient.Location = new System.Drawing.Point(158, 72);
             this.txtOutIpCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtOutIpCameraClient.Name = "txtOutIpCameraClient";
             this.txtOutIpCameraClient.Size = new System.Drawing.Size(201, 26);
@@ -447,7 +463,7 @@
             // label32
             // 
             this.label32.AutoSize = true;
-            this.label32.Location = new System.Drawing.Point(11, 38);
+            this.label32.Location = new System.Drawing.Point(15, 31);
             this.label32.Name = "label32";
             this.label32.Size = new System.Drawing.Size(120, 20);
             this.label32.TabIndex = 0;
@@ -474,7 +490,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(11, 38);
+            this.label5.Location = new System.Drawing.Point(15, 34);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(120, 20);
             this.label5.TabIndex = 0;
@@ -485,7 +501,7 @@
             this.button5.BackColor = System.Drawing.Color.Coral;
             this.button5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.button5.ForeColor = System.Drawing.Color.White;
-            this.button5.Location = new System.Drawing.Point(906, 433);
+            this.button5.Location = new System.Drawing.Point(906, 549);
             this.button5.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.button5.Name = "button5";
             this.button5.Size = new System.Drawing.Size(136, 37);
@@ -507,7 +523,7 @@
             // label18
             // 
             this.label18.AutoSize = true;
-            this.label18.Location = new System.Drawing.Point(305, 164);
+            this.label18.Location = new System.Drawing.Point(305, 214);
             this.label18.Name = "label18";
             this.label18.Size = new System.Drawing.Size(123, 20);
             this.label18.TabIndex = 26;
@@ -516,7 +532,7 @@
             // label17
             // 
             this.label17.AutoSize = true;
-            this.label17.Location = new System.Drawing.Point(11, 166);
+            this.label17.Location = new System.Drawing.Point(15, 214);
             this.label17.Name = "label17";
             this.label17.Size = new System.Drawing.Size(101, 20);
             this.label17.TabIndex = 24;
@@ -525,7 +541,7 @@
             // txtInReader
             // 
             this.txtInReader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInReader.Location = new System.Drawing.Point(158, 162);
+            this.txtInReader.Location = new System.Drawing.Point(158, 210);
             this.txtInReader.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtInReader.Name = "txtInReader";
             this.txtInReader.Size = new System.Drawing.Size(112, 26);
@@ -592,7 +608,7 @@
             // label16
             // 
             this.label16.AutoSize = true;
-            this.label16.Location = new System.Drawing.Point(11, 124);
+            this.label16.Location = new System.Drawing.Point(15, 122);
             this.label16.Name = "label16";
             this.label16.Size = new System.Drawing.Size(77, 20);
             this.label16.TabIndex = 16;
@@ -610,6 +626,14 @@
             // 
             // grbLaneIn
             // 
+            this.grbLaneIn.Controls.Add(this.label1);
+            this.grbLaneIn.Controls.Add(this.txtInPassFaceId);
+            this.grbLaneIn.Controls.Add(this.label2);
+            this.grbLaneIn.Controls.Add(this.txtInUserFaceId);
+            this.grbLaneIn.Controls.Add(this.txtInPortFaceId);
+            this.grbLaneIn.Controls.Add(this.label3);
+            this.grbLaneIn.Controls.Add(this.lbFaceId);
+            this.grbLaneIn.Controls.Add(this.txtInIpFaceId);
             this.grbLaneIn.Controls.Add(this.label18);
             this.grbLaneIn.Controls.Add(this.txtInRelay);
             this.grbLaneIn.Controls.Add(this.label17);
@@ -643,7 +667,7 @@
             this.grbLaneIn.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.grbLaneIn.Name = "grbLaneIn";
             this.grbLaneIn.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.grbLaneIn.Size = new System.Drawing.Size(1027, 203);
+            this.grbLaneIn.Size = new System.Drawing.Size(1027, 261);
             this.grbLaneIn.TabIndex = 3;
             this.grbLaneIn.TabStop = false;
             this.grbLaneIn.Text = "Thiết bị làn vào ô tô";
@@ -651,7 +675,7 @@
             // txtInRelay
             // 
             this.txtInRelay.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInRelay.Location = new System.Drawing.Point(443, 162);
+            this.txtInRelay.Location = new System.Drawing.Point(443, 210);
             this.txtInRelay.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.txtInRelay.Name = "txtInRelay";
             this.txtInRelay.Size = new System.Drawing.Size(112, 26);
@@ -679,12 +703,20 @@
             // 
             // grbLaneOut
             // 
+            this.grbLaneOut.Controls.Add(this.label4);
             this.grbLaneOut.Controls.Add(this.label19);
+            this.grbLaneOut.Controls.Add(this.txtOutPassFaceId);
+            this.grbLaneOut.Controls.Add(this.label33);
+            this.grbLaneOut.Controls.Add(this.txtOutUserFaceid);
             this.grbLaneOut.Controls.Add(this.txtOutRelay);
+            this.grbLaneOut.Controls.Add(this.txtOutPortFaceId);
             this.grbLaneOut.Controls.Add(this.label20);
             this.grbLaneOut.Controls.Add(this.txtOutReader);
             this.grbLaneOut.Controls.Add(this.label21);
+            this.grbLaneOut.Controls.Add(this.label34);
             this.grbLaneOut.Controls.Add(this.txtOutPassController);
+            this.grbLaneOut.Controls.Add(this.label35);
+            this.grbLaneOut.Controls.Add(this.txtOutIpFaceId);
             this.grbLaneOut.Controls.Add(this.label22);
             this.grbLaneOut.Controls.Add(this.txtOutUserController);
             this.grbLaneOut.Controls.Add(this.txtOutPortController);
@@ -708,14 +740,166 @@
             this.grbLaneOut.Controls.Add(this.label32);
             this.grbLaneOut.Controls.Add(this.txtOutIpCameraLicenseplate);
             this.grbLaneOut.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.grbLaneOut.Location = new System.Drawing.Point(15, 222);
+            this.grbLaneOut.Location = new System.Drawing.Point(15, 280);
             this.grbLaneOut.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.grbLaneOut.Name = "grbLaneOut";
             this.grbLaneOut.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.grbLaneOut.Size = new System.Drawing.Size(1027, 203);
+            this.grbLaneOut.Size = new System.Drawing.Size(1027, 249);
             this.grbLaneOut.TabIndex = 4;
             this.grbLaneOut.TabStop = false;
             this.grbLaneOut.Text = "Thiết bị làn ra ô tô";
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(753, 169);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(44, 20);
+            this.label1.TabIndex = 34;
+            this.label1.Text = "Pass";
+            // 
+            // txtInPassFaceId
+            // 
+            this.txtInPassFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtInPassFaceId.Location = new System.Drawing.Point(801, 165);
+            this.txtInPassFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtInPassFaceId.Name = "txtInPassFaceId";
+            this.txtInPassFaceId.Size = new System.Drawing.Size(190, 26);
+            this.txtInPassFaceId.TabIndex = 35;
+            this.txtInPassFaceId.Tag = "Passwork FaceId làn vào";
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(500, 169);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(43, 20);
+            this.label2.TabIndex = 32;
+            this.label2.Text = "User";
+            // 
+            // txtInUserFaceId
+            // 
+            this.txtInUserFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtInUserFaceId.Location = new System.Drawing.Point(544, 165);
+            this.txtInUserFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtInUserFaceId.Name = "txtInUserFaceId";
+            this.txtInUserFaceId.Size = new System.Drawing.Size(200, 26);
+            this.txtInUserFaceId.TabIndex = 33;
+            this.txtInUserFaceId.Tag = "UserName FaceID làn vào";
+            // 
+            // txtInPortFaceId
+            // 
+            this.txtInPortFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtInPortFaceId.Location = new System.Drawing.Point(407, 165);
+            this.txtInPortFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtInPortFaceId.Name = "txtInPortFaceId";
+            this.txtInPortFaceId.Size = new System.Drawing.Size(79, 26);
+            this.txtInPortFaceId.TabIndex = 31;
+            this.txtInPortFaceId.Tag = "|number";
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(370, 169);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(38, 20);
+            this.label3.TabIndex = 30;
+            this.label3.Text = "Port";
+            // 
+            // lbFaceId
+            // 
+            this.lbFaceId.AutoSize = true;
+            this.lbFaceId.Location = new System.Drawing.Point(15, 169);
+            this.lbFaceId.Name = "lbFaceId";
+            this.lbFaceId.Size = new System.Drawing.Size(59, 20);
+            this.lbFaceId.TabIndex = 28;
+            this.lbFaceId.Text = "FaceId";
+            // 
+            // txtInIpFaceId
+            // 
+            this.txtInIpFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtInIpFaceId.Location = new System.Drawing.Point(158, 165);
+            this.txtInIpFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtInIpFaceId.Name = "txtInIpFaceId";
+            this.txtInIpFaceId.Size = new System.Drawing.Size(201, 26);
+            this.txtInIpFaceId.TabIndex = 29;
+            this.txtInIpFaceId.Tag = "IP faceid làn vào";
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(753, 158);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(44, 20);
+            this.label4.TabIndex = 42;
+            this.label4.Text = "Pass";
+            // 
+            // txtOutPassFaceId
+            // 
+            this.txtOutPassFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtOutPassFaceId.Location = new System.Drawing.Point(801, 156);
+            this.txtOutPassFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtOutPassFaceId.Name = "txtOutPassFaceId";
+            this.txtOutPassFaceId.Size = new System.Drawing.Size(190, 26);
+            this.txtOutPassFaceId.TabIndex = 43;
+            this.txtOutPassFaceId.Tag = "Passwork FaceId làn ra";
+            // 
+            // label33
+            // 
+            this.label33.AutoSize = true;
+            this.label33.Location = new System.Drawing.Point(500, 158);
+            this.label33.Name = "label33";
+            this.label33.Size = new System.Drawing.Size(43, 20);
+            this.label33.TabIndex = 40;
+            this.label33.Text = "User";
+            // 
+            // txtOutUserFaceid
+            // 
+            this.txtOutUserFaceid.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtOutUserFaceid.Location = new System.Drawing.Point(544, 156);
+            this.txtOutUserFaceid.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtOutUserFaceid.Name = "txtOutUserFaceid";
+            this.txtOutUserFaceid.Size = new System.Drawing.Size(200, 26);
+            this.txtOutUserFaceid.TabIndex = 41;
+            this.txtOutUserFaceid.Tag = "UserName FaceId làn ra";
+            // 
+            // txtOutPortFaceId
+            // 
+            this.txtOutPortFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtOutPortFaceId.Location = new System.Drawing.Point(407, 156);
+            this.txtOutPortFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtOutPortFaceId.Name = "txtOutPortFaceId";
+            this.txtOutPortFaceId.Size = new System.Drawing.Size(79, 26);
+            this.txtOutPortFaceId.TabIndex = 39;
+            this.txtOutPortFaceId.Tag = "|number";
+            // 
+            // label34
+            // 
+            this.label34.AutoSize = true;
+            this.label34.Location = new System.Drawing.Point(370, 158);
+            this.label34.Name = "label34";
+            this.label34.Size = new System.Drawing.Size(38, 20);
+            this.label34.TabIndex = 38;
+            this.label34.Text = "Port";
+            // 
+            // label35
+            // 
+            this.label35.AutoSize = true;
+            this.label35.Location = new System.Drawing.Point(15, 158);
+            this.label35.Name = "label35";
+            this.label35.Size = new System.Drawing.Size(59, 20);
+            this.label35.TabIndex = 36;
+            this.label35.Text = "FaceId";
+            // 
+            // txtOutIpFaceId
+            // 
+            this.txtOutIpFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.txtOutIpFaceId.Location = new System.Drawing.Point(158, 156);
+            this.txtOutIpFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.txtOutIpFaceId.Name = "txtOutIpFaceId";
+            this.txtOutIpFaceId.Size = new System.Drawing.Size(201, 26);
+            this.txtOutIpFaceId.TabIndex = 37;
+            this.txtOutIpFaceId.Tag = "IP faceid làn ra";
             // 
             // UcLanCarManager
             // 
@@ -725,7 +909,7 @@
             this.Controls.Add(this.grbLaneIn);
             this.Controls.Add(this.grbLaneOut);
             this.Name = "UcLanCarManager";
-            this.Size = new System.Drawing.Size(1056, 480);
+            this.Size = new System.Drawing.Size(1056, 601);
             this.Load += new System.EventHandler(this.UcLanCarManager_Load);
             this.grbLaneIn.ResumeLayout(false);
             this.grbLaneIn.PerformLayout();
@@ -796,5 +980,21 @@
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.TextBox txtInIpCameraLicenseplate;
         private System.Windows.Forms.GroupBox grbLaneOut;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.TextBox txtInPassFaceId;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.TextBox txtInUserFaceId;
+        private System.Windows.Forms.TextBox txtInPortFaceId;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label lbFaceId;
+        private System.Windows.Forms.TextBox txtInIpFaceId;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.TextBox txtOutPassFaceId;
+        private System.Windows.Forms.Label label33;
+        private System.Windows.Forms.TextBox txtOutUserFaceid;
+        private System.Windows.Forms.TextBox txtOutPortFaceId;
+        private System.Windows.Forms.Label label34;
+        private System.Windows.Forms.Label label35;
+        private System.Windows.Forms.TextBox txtOutIpFaceId;
     }
 }

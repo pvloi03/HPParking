@@ -12,7 +12,8 @@ namespace HPParking.Models.Entities
 
         public string Name { get; set; } = "";
 
-        public DateTime BirthDay { get; set; }
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
+        public DateTime BirthDay { get; set; } = DateTime.UtcNow;
 
         public string Address { get; set; } = "";
 
@@ -38,11 +39,13 @@ namespace HPParking.Models.Entities
 
         public string Description { get; set; } = "";
 
-        public DateTime CreatDay { get; set; }
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
+        public DateTime CreatDay { get; set; } = DateTime.UtcNow;
 
         public string CreatUser { get; set; } = "";
 
-        public DateTime UpdateDay { get; set; }
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
+        public DateTime UpdateDay { get; set; } = DateTime.UtcNow;
 
         public string UpdateUser { get; set; } = "";
 
@@ -51,8 +54,10 @@ namespace HPParking.Models.Entities
 
     public class Expired
     {
-        public DateTime StartDay { get; set; }
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
+        public DateTime StartDay { get; set; } = DateTime.UtcNow;
 
-        public DateTime EndDay { get; set; }
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
+        public DateTime EndDay { get; set; } = DateTime.UtcNow;
     }
 }

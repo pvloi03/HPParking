@@ -45,7 +45,7 @@
             this.tcConfigManager.Location = new System.Drawing.Point(0, 0);
             this.tcConfigManager.Name = "tcConfigManager";
             this.tcConfigManager.SelectedIndex = 0;
-            this.tcConfigManager.Size = new System.Drawing.Size(1064, 513);
+            this.tcConfigManager.Size = new System.Drawing.Size(1034, 545);
             this.tcConfigManager.TabIndex = 0;
             // 
             // tpCompany
@@ -54,7 +54,7 @@
             this.tpCompany.Location = new System.Drawing.Point(4, 29);
             this.tpCompany.Name = "tpCompany";
             this.tpCompany.Padding = new System.Windows.Forms.Padding(3);
-            this.tpCompany.Size = new System.Drawing.Size(1056, 480);
+            this.tpCompany.Size = new System.Drawing.Size(1026, 512);
             this.tpCompany.TabIndex = 0;
             this.tpCompany.Text = "Phân Mềm";
             this.tpCompany.UseVisualStyleBackColor = true;
@@ -83,7 +83,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1064, 513);
+            this.ClientSize = new System.Drawing.Size(1034, 545);
             this.Controls.Add(this.tcConfigManager);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
