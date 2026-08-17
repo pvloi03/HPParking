@@ -8,7 +8,7 @@ namespace HPParking.Interfaces
 
         Task<(bool IsSuccess, string ErrorMessage)> AddCardAsync(string employeeNo, string cardNumber);
 
-        Task<(bool IsSuccess, string ErrorMessage)> AddFaceImageAsync(string employeeNo, string faceBase64);
+        Task<(bool IsSuccess, string ErrorMessage)> AddFaceImageAsync(string employeeNo, byte[] faceImg);
 
         Task<bool> RollbackUserAsync(string employeeNo);
     }
