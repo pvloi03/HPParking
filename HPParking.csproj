@@ -296,12 +296,6 @@
     <Compile Include="Forms\ConfigManager\UcLanMotoManager.Designer.cs">
       <DependentUpon>UcLanMotoManager.cs</DependentUpon>
     </Compile>
-    <Compile Include="Forms\FrmCameraStream.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Forms\FrmCameraStream.Designer.cs">
-      <DependentUpon>FrmCameraStream.cs</DependentUpon>
-    </Compile>
     <Compile Include="Forms\FrmMain.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -329,6 +323,7 @@
     <Compile Include="Helper\FrmHelpers.cs" />
     <Compile Include="Helper\MachineCodeHelper.cs" />
     <Compile Include="Helper\ValidationHelper.cs" />
+    <Compile Include="Interfaces\IDepartmentRepository.cs" />
     <Compile Include="Interfaces\IClientRepository.cs" />
     <Compile Include="Interfaces\ICompanyRepository.cs" />
     <Compile Include="Interfaces\IEventParkingRepository.cs" />
@@ -339,11 +334,13 @@
     <Compile Include="LicenseKey\LicenseValidator.cs" />
     <Compile Include="Models\Entities\Client.cs" />
     <Compile Include="Models\Entities\Company.cs" />
+    <Compile Include="Models\Entities\Department.cs" />
     <Compile Include="Models\Entities\DeviceConfig.cs" />
     <Compile Include="Models\Entities\EventParking.cs" />
     <Compile Include="Models\Entities\Lane.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Repositories\DepartmentRepository.cs" />
     <Compile Include="Repositories\ClientRepository.cs" />
     <Compile Include="Repositories\CompanyRepository.cs" />
     <Compile Include="Repositories\EventParkingRepository.cs" />
@@ -380,9 +377,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\ConfigManager\UcLanMotoManager.resx">
       <DependentUpon>UcLanMotoManager.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Forms\FrmCameraStream.resx">
-      <DependentUpon>FrmCameraStream.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\FrmMain.resx">
       <DependentUpon>FrmMain.cs</DependentUpon>

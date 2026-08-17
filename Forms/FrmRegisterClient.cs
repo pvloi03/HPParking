@@ -3,9 +3,11 @@ using HPParking.Models.Entities;
 using HPParking.Services.CCCDReader;
 using HPParking.Services.FaceId;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -16,7 +18,9 @@ namespace HPParking.Forms
         private readonly CccdReaderManager _readerManager;
         private readonly IClientRepository _clientRepository;
         private readonly ICompanyRepository _companyRepository;
-        private readonly IFaceIdApiService _faceIdApiService;
+        private readonly ILaneRepository _laneRepository;
+        private readonly List<IFaceIdApiService> _faceIdServices = [];
+        private readonly List<FaceIdConfig> _faceIdConfigs = [];
         private Client _clientExist;
         private string _pathAvatar;
         private PhotoCapturedDto _photo;
@@ -24,7 +28,8 @@ namespace HPParking.Forms
         public FrmRegisterClient(
             CccdReaderManager readerManager,
             IClientRepository clientRepository,
-            ICompanyRepository companyRepository)
+            ICompanyRepository companyRepository,
+            ILaneRepository laneRepository)
         {
             InitializeComponent();
             _readerManager = readerManager;
@@ -36,14 +41,7 @@ namespace HPParking.Forms
 
             _clientRepository = clientRepository;
             _companyRepository = companyRepository;
-
-            // Sử dụng Dependency Injection hoặc đọc Config từ File/Database
-            _faceIdApiService = new FaceIdApiService(new FaceIdConfig
-            {
-                Ip = "192.168.1.205",
-                Username = "admin",
-                Password = "Hoangphat130225"
-            });
+            _laneRepository = laneRepository;
         }
 
         private async void FrmRegisterClient_Load(object sender, EventArgs e)
@@ -58,6 +56,27 @@ namespace HPParking.Forms
 
             if (string.IsNullOrEmpty(txtIdCode.Text))
                 UpdateStatus("✘Đọc dữ liệu thất bại vui lòng thử lại!", Color.Red);
+
+            var lanes = await _laneRepository.GetAllAsync();
+
+            // Lọc bỏ lane null config và loại trùng lặp theo IP
+            var uniqueConfigs = lanes
+                .Where(l => l?.FaceIdConfig != null && !string.IsNullOrWhiteSpace(l.FaceIdConfig.IP))
+                .Select(l => new FaceIdConfig
+                {
+                    Ip = l.FaceIdConfig.IP,
+                    Username = l.FaceIdConfig.User,
+                    Password = l.FaceIdConfig.Pass
+                })
+                .GroupBy(c => c.Ip)
+                .Select(g => g.First())
+                .ToList();
+
+            _faceIdServices.Clear();
+            foreach (var config in uniqueConfigs)
+            {
+                _faceIdServices.Add(new FaceIdApiService(config));
+            }
         }
 
         public void UpdateStatus(string msg, Color color)
@@ -179,7 +198,6 @@ namespace HPParking.Forms
             }
         }
 
-        // Hàm hỗ trợ vẽ mảng byte[] ảnh an toàn
         public void SetPictureBoxImage(PictureBox pictureBox, byte[] byteArray)
         {
             if (byteArray == null || byteArray.Length == 0)
@@ -199,6 +217,39 @@ namespace HPParking.Forms
                 oldImg?.Dispose();
             }
             catch { }
+        }
+
+        private async Task<(bool Success, string DeviceIp, string ErrorMsg)> PushToSingleDeviceAsync(
+            IFaceIdApiService apiService,
+            string idCode,
+            string name,
+            bool isMale,
+            string phone,
+            byte[] photoBytes)
+        {
+            string deviceIp = apiService.Ip;
+
+            // 1. Add User
+            var (userOk, userErr) = await apiService.AddUserAsync(idCode, name, isMale);
+            if (!userOk) return (false, deviceIp, $"Lỗi tạo User trên thiết bị FaceID: {userErr}");
+
+            // 2. Add Card
+            var (cardOk, cardErr) = await apiService.AddCardAsync(idCode, phone);
+            if (!cardOk)
+            {
+                await apiService.RollbackUserAsync(idCode);
+                return (false, deviceIp, $"Lỗi gán thẻ trên thiết bị FaceID: {cardErr}");
+            }
+
+            // 3. Add Face Image
+            var (faceOk, faceErr) = await apiService.AddFaceImageAsync(idCode, photoBytes);
+            if (!faceOk)
+            {
+                await apiService.RollbackUserAsync(idCode);
+                return (false, deviceIp, $"Lỗi nạp khuôn mặt lên thiết bị FaceID: {faceErr}");
+            }
+
+            return (true, deviceIp, null);
         }
 
         private async void btnSave_Click(object sender, EventArgs e)
@@ -227,33 +278,30 @@ namespace HPParking.Forms
             }
 
             btnSave.Enabled = false;
-            bool isUserAdded = false;
             string createdFilePath = null;
 
             try
             {
                 // 2. NẠP DỮ LIỆU LÊN THIẾT BỊ HIKVISION
-                var (userOk, _) = await _faceIdApiService.AddUserAsync(txtIdCode.Text, txtName.Text, rbMale.Checked);
-                if (!userOk)
-                {
-                    MessageBox.Show("Lỗi tạo User trên thiết bị FaceID.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-                isUserAdded = true;
+                var pushTasks = _faceIdServices.Select(service =>
+                    PushToSingleDeviceAsync(
+                        service, txtIdCode.Text, txtName.Text, rbMale.Checked, txtPhoneNumber.Text, _photo.PhotoBytes)
+                    );
 
-                var (cardOk, _) = await _faceIdApiService.AddCardAsync(txtIdCode.Text, txtPhoneNumber.Text);
-                if (!cardOk)
-                {
-                    MessageBox.Show("Lỗi gán thẻ trên thiết bị FaceID. Đang thu hồi dữ liệu...", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    await RollbackFaceIdAsync();
-                    return;
-                }
+                var results = await Task.WhenAll(pushTasks);
 
-                var (faceOk, _) = await _faceIdApiService.AddFaceImageAsync(txtIdCode.Text, _photo.PhotoBytes);
-                if (!faceOk)
+                // Kiểm tra kết quả các thiết bị
+                var failedDevices = results.Where(r => !r.Success).ToList();
+
+                if (failedDevices.Any())
                 {
-                    MessageBox.Show("Lỗi nạp khuôn mặt lên thiết bị FaceID. Đang thu hồi dữ liệu...", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    await RollbackFaceIdAsync();
+                    var errorLogs = string.Join("\n", failedDevices.Select(f => $"- IP {f.DeviceIp}: {f.ErrorMsg}"));
+
+                    // Lựa chọn 1: Rollback tất cả thiết bị đã thành công trước đó (nếu muốn tính toàn vẹn 100%)
+                    var rollbackTasks = _faceIdServices.Select(s => s.RollbackUserAsync(txtIdCode.Text));
+                    await Task.WhenAll(rollbackTasks);
+
+                    MessageBox.Show($"Đồng bộ FaceID thất bại trên một số thiết bị:\n{errorLogs}\n\nĐã thu hồi dữ liệu toàn bộ thiết bị.", "Lỗi Đồng Bộ", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -301,25 +349,14 @@ namespace HPParking.Forms
                 }
 
                 // Rollback thiết bị nếu đã lỡ AddUser
-                if (isUserAdded)
-                {
-                    await RollbackFaceIdAsync();
-                }
+                var rollbackTasks = _faceIdServices.Select(s => s.RollbackUserAsync(txtIdCode.Text));
+                await Task.WhenAll(rollbackTasks);
 
                 MessageBox.Show($"Xảy ra lỗi hệ thống: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 btnSave.Enabled = true;
-            }
-        }
-
-        private async Task RollbackFaceIdAsync()
-        {
-            bool rollbackOk = await _faceIdApiService.RollbackUserAsync(txtIdCode.Text);
-            if (!rollbackOk)
-            {
-                Debug.WriteLine($"[FaceID] CẢNH BÁO: Rollback User {txtIdCode.Text} thất bại — có thể còn User rác trên thiết bị.");
             }
         }
 

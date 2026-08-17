@@ -144,7 +144,7 @@ namespace HPParking.Forms
 
                 if (status.IsCardPresent && (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed))
                 {
-                    _activeFrmRegisterClient = new FrmRegisterClient(_readerManager, _clientRepository, _companyRepository);
+                    _activeFrmRegisterClient = new FrmRegisterClient(_readerManager, _clientRepository, _companyRepository, _laneRepository);
 
                     // ShowDialog dạng Modal khóa màn hình chính
                     _activeFrmRegisterClient.ShowDialog(this);
