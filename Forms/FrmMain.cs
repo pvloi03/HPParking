@@ -1,12 +1,10 @@
 using HPParking.Interfaces;
 using HPParking.LicenseKey;
 using HPParking.Models.Entities;
+using HPParking.Services.CCCDReader;
 using HPParking.Services.Controller;
 using HPParking.Services.Devices;
-using HPParking.Services.LPR;
 using HPParking.Services.Parking;
-using HPParking.Services.Storage;
-using HPParking.Services.Worker;
 using HPParking.UI;
 using System;
 using System.Collections.Generic;
@@ -20,12 +18,12 @@ namespace HPParking.Forms
     {
         private readonly ILaneRepository _laneRepository;
         private readonly ICompanyRepository _companyRepository;
-        private readonly IEventParkingRepository _eventRepository;
         private readonly IClientRepository _clientRepository;
 
-        private readonly CccdWorkerManager _cccdWorkerManager = new();
+        private readonly CccdReaderManager _readerManager;
+        private FrmRegisterClient _activeFrmRegisterClient;
         private readonly DeviceOrchestrator _deviceOrchestrator = new();
-        private IParkingWorkflowService _workflowService;
+        private readonly IParkingWorkflowService _workflowService;
 
         private List<Lane> _lanes;
         private Company _company;
@@ -34,7 +32,6 @@ namespace HPParking.Forms
         public FrmMain(
             ILaneRepository laneRepository,
             ICompanyRepository companyRepository,
-            IEventParkingRepository eventRepository,
             IClientRepository clientRepository)
         {
             InitializeComponent();
@@ -45,8 +42,13 @@ namespace HPParking.Forms
 
             _laneRepository = laneRepository;
             _companyRepository = companyRepository;
-            _eventRepository = eventRepository;
             _clientRepository = clientRepository;
+
+            // Khởi tạo Manager kết nối Service piper
+            _readerManager = new CccdReaderManager("http://localhost:5000/cardhub");
+
+            // Đăng ký nhận sự kiện
+            _readerManager.StatusUpdated += OnStatusUpdated;
         }
 
         private void FrmMain_KeyDown(object sender, KeyEventArgs e)
@@ -65,16 +67,8 @@ namespace HPParking.Forms
             {
                 Cursor.Current = Cursors.WaitCursor;
 
-                // 1. Khởi tạo Workflow Service & CCCD Worker
-                _workflowService = new ParkingWorkflowService(
-                    _clientRepository,
-                    _eventRepository,
-                    new LprService(),
-                    new ImageStorageService());
-
-                _cccdWorkerManager.OnCccdDataReceived += OnCccdReceived;
-                _cccdWorkerManager.OnError += msg => MessageBox.Show(msg, "Lỗi Worker");
-                _cccdWorkerManager.Start();
+                // Chạy kết nối ngầm khi mở App
+                await _readerManager.StartAsync();
 
                 // 2. Lấy dữ liệu Công ty (Company)
                 _company = await _companyRepository.GetFirstCompanyAsync();
@@ -82,7 +76,7 @@ namespace HPParking.Forms
                 {
                     using FrmLogin login = new();
                     login.Show();
-                    this.Hide();
+                    Hide();
                     return;
                 }
 
@@ -135,6 +129,29 @@ namespace HPParking.Forms
             }
         }
 
+        private void OnStatusUpdated(DeviceStatusDto status)
+        {
+            if (status == null || IsDisposed) return;
+            BeginInvoke(new Action(() =>
+            {
+                string readerStatus = status.IsReaderConnected
+                    ? $"DẦU ĐỌC CCCD: ĐÃ CẮM ({status.ReaderSerialNumber})"
+                    : "DẦU ĐỌC CCCD: CHƯA CẮM";
+
+                lblServerStatus.Text = status.IsServerReady ? $"SERVER ĐẦU ĐỌC CCCD: ONLINE - {readerStatus}" : $"SERVER ĐẦU ĐỌC CCCD: OFFLINE{readerStatus}";
+                lblServerStatus.ForeColor = status.IsServerReady && status.IsReaderConnected ? Color.Green : Color.Red;
+
+
+                if (status.IsCardPresent && (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed))
+                {
+                    _activeFrmRegisterClient = new FrmRegisterClient(_readerManager, _clientRepository, _companyRepository);
+
+                    // ShowDialog dạng Modal khóa màn hình chính
+                    _activeFrmRegisterClient.ShowDialog(this);
+                }
+            }));
+        }
+
         private void OnCardSwiped(RealtimeLog data)
         {
             Lane lane = _lanes.FirstOrDefault(x =>
@@ -179,15 +196,6 @@ namespace HPParking.Forms
             }
         }
 
-        private void OnCccdReceived(CccdModel cccdData)
-        {
-            BeginInvoke(new Action(() =>
-            {
-                using FrmRegisterClient registerClientForm = new(cccdData, _clientRepository, _company);
-                registerClientForm.ShowDialog(this);
-            }));
-        }
-
         private void BindLaneUI()
         {
             InfoUI laneUI = new()
@@ -229,10 +237,10 @@ namespace HPParking.Forms
             return [.. tlpPreview.SelectMany(tlp => tlp.Controls.OfType<T>()).Where(c => c.Tag?.ToString() == tag)];
         }
 
-        private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
+        private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
+            await _readerManager.StopAsync();
             _clockTimer?.Stop();
-            _cccdWorkerManager.Stop();
             _deviceOrchestrator.Dispose();
         }
     }

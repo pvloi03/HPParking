@@ -76,6 +76,7 @@ namespace HPParking.Forms
             this.pbMotoPlateInImg = new System.Windows.Forms.PictureBox();
             this.pbMotoEntryPlate = new System.Windows.Forms.PictureBox();
             this.pnlFooter = new System.Windows.Forms.Panel();
+            this.lblServerStatus = new System.Windows.Forms.Label();
             this.lbdayExpiryDate = new System.Windows.Forms.Label();
             this.lbRealTime = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
@@ -849,6 +850,7 @@ namespace HPParking.Forms
             // 
             this.pnlFooter.BackColor = System.Drawing.Color.Transparent;
             this.tlpMain.SetColumnSpan(this.pnlFooter, 2);
+            this.pnlFooter.Controls.Add(this.lblServerStatus);
             this.pnlFooter.Controls.Add(this.lbdayExpiryDate);
             this.pnlFooter.Controls.Add(this.lbRealTime);
             this.pnlFooter.Controls.Add(this.label3);
@@ -859,9 +861,24 @@ namespace HPParking.Forms
             this.pnlFooter.Size = new System.Drawing.Size(1878, 32);
             this.pnlFooter.TabIndex = 9;
             // 
+            // lblServerStatus
+            // 
+            this.lblServerStatus.BackColor = System.Drawing.Color.LightGray;
+            this.lblServerStatus.Dock = System.Windows.Forms.DockStyle.Left;
+            this.lblServerStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblServerStatus.ForeColor = System.Drawing.Color.Green;
+            this.lblServerStatus.Location = new System.Drawing.Point(736, 0);
+            this.lblServerStatus.Margin = new System.Windows.Forms.Padding(0);
+            this.lblServerStatus.Name = "lblServerStatus";
+            this.lblServerStatus.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblServerStatus.Size = new System.Drawing.Size(680, 32);
+            this.lblServerStatus.TabIndex = 5;
+            this.lblServerStatus.Text = "SERVER ĐẦU ĐỌC CCCD: ONLINE";
+            this.lblServerStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // lbdayExpiryDate
             // 
-            this.lbdayExpiryDate.BackColor = System.Drawing.Color.SlateGray;
+            this.lbdayExpiryDate.BackColor = System.Drawing.Color.Peru;
             this.lbdayExpiryDate.Dock = System.Windows.Forms.DockStyle.Left;
             this.lbdayExpiryDate.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lbdayExpiryDate.Location = new System.Drawing.Point(533, 0);
@@ -997,6 +1014,7 @@ namespace HPParking.Forms
         private Label lbdayExpiryDate;
         private Label lbRealTime;
         private Label label3;
+        private Label lblServerStatus;
     }
 }
 
