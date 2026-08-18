@@ -14,15 +14,15 @@ namespace HPParking.Services.Devices
 {
     public class DeviceOrchestrator : IDisposable
     {
-        private readonly ConcurrentDictionary<string, ControllerService> _controllers = new();
-        private readonly ConcurrentDictionary<string, Lazy<Task<ControllerService>>> _controllerConnectTasks = new();
-        private readonly ConcurrentBag<IDisposable> _cameras = new();
-        private CancellationTokenSource _ctsRealtime;
+        private readonly ConcurrentDictionary<string, ControllerService> _controllers = [];
+        private readonly ConcurrentDictionary<string, Lazy<Task<ControllerService>>> _controllerConnectTasks = [];
+        private readonly ConcurrentBag<IDisposable> _cameras = [];
+        private CancellationTokenSource _ctsRealtime = new();
         private volatile bool _disposed;
 
-        public event Action<string, bool, string> OnControllerStatusChanged;
+        public event Action<string, bool, string> OnControllerStatusChanged = delegate { };
 
-        public event Action<RealtimeLog> OnCardSwiped;
+        public event Action<RealtimeLog> OnCardSwiped = delegate { };
 
         public async Task InitializeDevicesAsync(List<Lane> lanes, List<PictureBox> previews)
         {
