@@ -10,13 +10,13 @@ namespace HPParking.Data
 
         static MongoContext()
         {
-            string connectionString = ConfigurationManager.AppSettings["MongoConnectionString"];
+            string connectionString = ConfigurationManager.AppSettings["MongoDbConnection"];
             _client = new MongoClient(connectionString);
         }
 
         public MongoContext()
         {
-            string databaseName = ConfigurationManager.AppSettings["MongoDatabase"];
+            string databaseName = ConfigurationManager.AppSettings["DatabaseName"];
             _database = _client.GetDatabase(databaseName);
         }
 

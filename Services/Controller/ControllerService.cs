@@ -139,11 +139,7 @@ namespace HPParking.Services.Controller
 
                         if (_disposed) break;
 
-                        if (await ConnectAsync(Config))
-                        {
-                            OnStatusChanged?.Invoke(true, $"Đã kết nối lại Controller {Config.IP}!");
-                            break;
-                        }
+                        await ConnectAsync(Config);
                     }
                 }
                 catch (OperationCanceledException)
