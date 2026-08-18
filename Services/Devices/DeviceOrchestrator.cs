@@ -20,6 +20,8 @@ namespace HPParking.Services.Devices
         private CancellationTokenSource _ctsRealtime;
         private volatile bool _disposed;
 
+        public event Action<string, bool, string> OnControllerStatusChanged;
+
         public event Action<RealtimeLog> OnCardSwiped;
 
         public async Task InitializeDevicesAsync(List<Lane> lanes, List<PictureBox> previews)
@@ -141,7 +143,7 @@ namespace HPParking.Services.Devices
 
             ctrlService.OnStatusChanged += (isConnected, message) =>
             {
-                Debug.WriteLine($"[Controller {ip}]: {message}");
+                OnControllerStatusChanged?.Invoke(ip, isConnected, message);
             };
 
             await ctrlService.ConnectAsync(new ControllerConfig

@@ -8,6 +8,7 @@ using HPParking.Services.Parking;
 using HPParking.UI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -16,6 +17,7 @@ namespace HPParking.Forms
 {
     public partial class FrmMain : Form
     {
+        private readonly Dictionary<string, ControllerService> _controllerServices = [];
         private readonly ILaneRepository _laneRepository;
         private readonly ICompanyRepository _companyRepository;
         private readonly IClientRepository _clientRepository;
@@ -49,6 +51,7 @@ namespace HPParking.Forms
 
             // Đăng ký nhận sự kiện
             _readerManager.StatusUpdated += OnStatusUpdated;
+            _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
         }
 
         private void FrmMain_KeyDown(object sender, KeyEventArgs e)
@@ -152,6 +155,11 @@ namespace HPParking.Forms
             }));
         }
 
+        private void Controller_OnStatusChanged(string controllerIp, bool isConnected, string message)
+        {
+            Debug.WriteLine($"{controllerIp}: {isConnected}");
+        }
+
         private void OnCardSwiped(RealtimeLog data)
         {
             Lane lane = _lanes.FirstOrDefault(x =>
@@ -210,7 +218,7 @@ namespace HPParking.Forms
                     LblPlateDetected = lblCarPlateDetected,
                     LblDepartment = lblCarDepartment,
                     PicPlateIn = pbCarPlateInImg,
-                    PicPlateOut = pbCarPlateOutImg
+                    PicPlateOut = pbCarPlateOutImg,
                 },
                 Moto = new VehicleUI
                 {
@@ -240,6 +248,7 @@ namespace HPParking.Forms
         private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             await _readerManager.StopAsync();
+            _readerManager.StatusUpdated -= OnStatusUpdated;
             _clockTimer?.Stop();
             _deviceOrchestrator.Dispose();
         }
