@@ -52,7 +52,7 @@ namespace HPParking.SDK.CtrlSDK
         [DllImport("plcommpro.dll", EntryPoint = "DeleteDeviceData")]
         public static extern int DeleteDeviceData(IntPtr h, string tablename, string data, string options);
 
-        [DllImport("C:\\WINDOWS\\system32\\plcommpro.dll", EntryPoint = "ProcessBackupData")]
+        [DllImport("plcommpro.dll", EntryPoint = "ProcessBackupData")]
         public static extern int ProcessBackupData(byte[] data, int fileLen, ref byte Buffer, int BufferSize);
 
     }
