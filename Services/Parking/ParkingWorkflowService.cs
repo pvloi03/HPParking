@@ -1,4 +1,4 @@
-﻿using HPParking.Interfaces;
+using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using HPParking.Services.Controller;
 using HPParking.Services.LPR;
@@ -6,7 +6,6 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace HPParking.Services.Parking
 {
@@ -23,18 +22,7 @@ namespace HPParking.Services.Parking
 
         private bool BarrierOpen(Lane lane)
         {
-            if (!lane.Ctrl.OpenBarrier(lane.InputReader, 1))
-            {
-                var confirmBarrierOpened = MessageBox.Show(
-                    "Không thể mở barrier. Vui lòng kiểm tra kết nối hoặc mở thủ công và xác nhận (Yes) khi xe đã vào, (No) để hủy lượt ra vào hiện tại", "Lỗi",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-                if (confirmBarrierOpened == DialogResult.No)
-                {
-                    return false;
-                }
-            }
-            return true;
+            return lane.Ctrl != null && lane.Ctrl.OpenBarrier(lane.InputReader, 1);
         }
 
         private bool IsClientExpired(Client client)
@@ -71,7 +59,7 @@ namespace HPParking.Services.Parking
             }
 
             LprResult result = await Task.Run(() => _lprService.Recognize(plateImage));
-            if (!result.Success)
+            if (!result.Success || string.IsNullOrEmpty(result.Plate))
             {
                 plateImage.Dispose();
                 overviewImage.Dispose();
@@ -86,10 +74,11 @@ namespace HPParking.Services.Parking
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở barrier. Vui lòng kiểm tra kết nối thiết bị controller."
                 };
             }
 
-            // Lưu dữ liệu ngầm
+            // Lưu dữ liệu ngầm - clone để lưu trữ
             Bitmap plateSave = (Bitmap)plateImage.Clone();
             Bitmap overviewSave = (Bitmap)overviewImage.Clone();
             plateImage.Dispose();
@@ -112,7 +101,7 @@ namespace HPParking.Services.Parking
                             Card_Code = client.PhoneNumber,
                             Card_Category = client.CardCategory,
                             LicensePlate = client.LicensePlate != result.Plate ? "" : client.LicensePlate,
-                            LicensePlateIn = result.Plate,
+                            LicensePlateIn = result.Plate!,
                             UrlImageLicensePlateIn = platePath,
                             UrlImageClientIn = overviewPath,
                             TimeIn = data.Time,
@@ -131,8 +120,7 @@ namespace HPParking.Services.Parking
             {
                 Status = ProcessStatus.Success,
                 Client = client,
-                LprResult = result,
-                OverviewImage = overviewSave
+                LprResult = result
             };
         }
 
@@ -181,7 +169,11 @@ namespace HPParking.Services.Parking
             {
                 plateImage.Dispose();
                 overviewImage.Dispose();
-                return new ProcessResult { Status = ProcessStatus.BarrierFailed };
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở barrier. Vui lòng kiểm tra kết nối thiết bị controller."
+                };
             }
 
             Bitmap plateSave = (Bitmap)plateImage.Clone();
@@ -211,7 +203,7 @@ namespace HPParking.Services.Parking
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ParkingExit Error] {ex.Message}");
+                    Debug.WriteLine($"[ParkingExit Error] {ex.Message}");
                 }
             });
 
@@ -220,8 +212,7 @@ namespace HPParking.Services.Parking
                 Status = ProcessStatus.Success,
                 Client = client,
                 EventParking = parking,
-                LprResult = result,
-                OverviewImage = overviewSave
+                LprResult = result
             };
         }
     }

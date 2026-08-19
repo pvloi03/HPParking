@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Windows.Forms;
 
 namespace HPParking.Helper
@@ -10,25 +10,34 @@ namespace HPParking.Helper
         /// Sử dụng thuộc tính Tag của Control để làm tên hiển thị thông báo.
         /// </summary>
         /// <param name="controls">Danh sách các Control cần kiểm tra (TextBox, ComboBox, ...)</param>
-        /// <returns>True nếu tất cả đều hợp lệ, False nếu có Control rỗng</returns>
-        /// 
+        /// <param name="showMessageBox">Có tự động hiển thị MessageBox khi lỗi hay không</param>
+        /// <returns>ValidationResult chứa trạng thái hợp lệ, thông báo lỗi và dictionary giá trị</returns>
         public class ValidationResult
         {
             public bool IsValid { get; set; }
+            public string ErrorMessage { get; set; } = string.Empty;
+            public Control? InvalidControl { get; set; }
             public Dictionary<string, string> Values { get; set; } = [];
         }
 
-        public static ValidationResult CheckControlsNotEmpty(IEnumerable<Control> controls)
+        public static ValidationResult CheckControlsNotEmpty(IEnumerable<Control> controls, bool showMessageBox = true)
         {
             ValidationResult validationResult = new();
             if (controls == null)
             {
-                MessageBox.Show("Danh sách kiểm tra không tồn tại!",
-                    "Cảnh báo",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
                 validationResult.IsValid = false;
+                validationResult.ErrorMessage = "Danh sách kiểm tra không tồn tại!";
                 validationResult.Values.Clear();
+
+                if (showMessageBox)
+                {
+                    MessageBox.Show(
+                        validationResult.ErrorMessage,
+                        "Cảnh báo",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+
                 return validationResult;
             }
 
@@ -37,14 +46,14 @@ namespace HPParking.Helper
                 if (control == null) continue;
 
                 // Không có Tag thì bỏ qua, không kiểm tra
-                string tag = control.Tag?.ToString();
+                string? tag = control.Tag?.ToString();
                 if (string.IsNullOrWhiteSpace(tag))
                 {
-                    validationResult.Values.Add(control.Name, control.Text.Trim());
+                    validationResult.Values[control.Name] = control.Text.Trim();
                     continue;
                 }
 
-                string[] parts = tag.Split('|');
+                string[] parts = tag!.Split('|');
 
                 string fieldName = parts[0];
                 string rule = parts.Length > 1 ? parts[1].ToLower() : "";
@@ -53,13 +62,19 @@ namespace HPParking.Helper
 
                 if (string.IsNullOrWhiteSpace(value))
                 {
-                    MessageBox.Show($"{fieldName} không được để trống!",
-                        "Thông báo",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-
-                    validationResult.Values.Clear();
                     validationResult.IsValid = false;
+                    validationResult.InvalidControl = control;
+                    validationResult.ErrorMessage = $"{fieldName} không được để trống!";
+                    validationResult.Values.Clear();
+
+                    if (showMessageBox)
+                    {
+                        MessageBox.Show(
+                            validationResult.ErrorMessage,
+                            "Thông báo",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                    }
 
                     control.Focus();
                     return validationResult;
@@ -67,20 +82,25 @@ namespace HPParking.Helper
 
                 if (rule == "number" && !int.TryParse(value, out _))
                 {
-                    MessageBox.Show(
-                        $"{fieldName} phải là số.",
-                        "Thông báo",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
-
-                    validationResult.Values.Clear();
                     validationResult.IsValid = false;
+                    validationResult.InvalidControl = control;
+                    validationResult.ErrorMessage = $"{fieldName} phải là số.";
+                    validationResult.Values.Clear();
+
+                    if (showMessageBox)
+                    {
+                        MessageBox.Show(
+                            validationResult.ErrorMessage,
+                            "Thông báo",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                    }
 
                     control.Focus();
                     return validationResult;
                 }
 
-                validationResult.Values.Add(control.Name, value);
+                validationResult.Values[control.Name] = value;
             }
 
             validationResult.IsValid = true;

@@ -1,5 +1,5 @@
-﻿using HPParking.Forms.ConfigManager;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 
@@ -52,6 +52,7 @@ namespace HPParking.Forms.ConfigManager
             _isRestarting = true;
 
             Application.Restart();
+            Environment.Exit(0);
         }
     }
 }

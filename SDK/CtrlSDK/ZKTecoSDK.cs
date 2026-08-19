@@ -1,13 +1,27 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace HPParking.SDK.CtrlSDK
 {
     public class ZKTecoSDK
     {
+        public const string DllName = "plcommpro.dll";
 
+        public static bool IsAvailable()
+        {
+            try
+            {
+                string localPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllName);
+                string sysPath = System.IO.Path.Combine(Environment.SystemDirectory, DllName);
+                return System.IO.File.Exists(localPath) || System.IO.File.Exists(sysPath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
-        [DllImport("plcommpro.dll", EntryPoint = "Connect")]
+        [DllImport(DllName, EntryPoint = "Connect")]
         public static extern IntPtr Connect(string Parameters);
 
         [DllImport("plcommpro.dll", EntryPoint = "PullLastError")]

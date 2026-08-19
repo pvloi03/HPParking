@@ -1,4 +1,4 @@
-﻿using HPParking.SDK.CamPlateSDK;
+using HPParking.SDK.CamPlateSDK;
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -19,11 +19,11 @@ namespace HPParking.Services.Camera
 
         private IntPtr _loginHandle = IntPtr.Zero;
 
-        public CameraConfig Config { get; set; }
+        public CameraConfig Config { get; set; } = new();
 
         public bool IsLoggedIn { get; private set; }
 
-        public event Action<bool, string> OnStatusChanged;
+        public event Action<bool, string> OnStatusChanged = delegate { };
 
         public PlateCameraService()
         {
@@ -38,14 +38,26 @@ namespace HPParking.Services.Camera
             {
                 if (_sdkInitialized) return;
 
-                int result = HiSdk.HI_SDK_Init();
-
-                if (result != HiConstants.Success)
+                try
                 {
-                    throw new InvalidOperationException("Khởi tạo HISDK thất bại.");
-                }
+                    int result = HiSdk.HI_SDK_Init();
 
-                _sdkInitialized = true;
+                    if (result != HiConstants.Success)
+                    {
+                        Debug.WriteLine($"[HiSdk] Khởi tạo HISDK không thành công (Code: {result}).");
+                        return;
+                    }
+
+                    _sdkInitialized = true;
+                }
+                catch (DllNotFoundException ex)
+                {
+                    Debug.WriteLine($"[HiSdk Error] Không tìm thấy file thư viện '{HiSdk.DllName}': {ex.Message}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[HiSdk Error] Lỗi khởi tạo HISDK: {ex.Message}");
+                }
             }
         }
 

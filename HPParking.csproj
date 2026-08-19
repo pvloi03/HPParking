@@ -352,7 +352,6 @@
     <Compile Include="SDK\CtrlSDK\ZKTecoSDK.cs" />
     <Compile Include="SDK\HikVision\CHCNetSDK.cs" />
     <Compile Include="SDK\HikVision\PlayCtrl.cs" />
-    <Compile Include="Services\Camera\BaseCameraService.cs" />
     <Compile Include="Services\Camera\PlateCameraService.cs" />
     <Compile Include="Services\Camera\OverviewCameraService.cs" />
     <Compile Include="Services\Devices\DeviceOrchestrator.cs" />

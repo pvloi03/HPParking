@@ -1,5 +1,6 @@
-﻿using HPParking.SDK.CtrlSDK;
+using HPParking.SDK.CtrlSDK;
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,18 +13,19 @@ namespace HPParking.Services.Controller
         private IntPtr _handle = IntPtr.Zero;
         private volatile bool _isReconnecting;
         private volatile bool _disposed;
-        private CancellationTokenSource _ctsReconnect;
+        private CancellationTokenSource? _ctsReconnect;
 
-        public ControllerConfig Config { get; set; }
+        public ControllerConfig? Config { get; set; }
         public bool IsConnected => _handle != IntPtr.Zero;
 
-        public event Action<bool, string> OnStatusChanged;
+        public event Action<bool, string>? OnStatusChanged;
 
-        public async Task<bool> ConnectAsync(ControllerConfig config)
+        public async Task<bool> ConnectAsync(ControllerConfig? config)
         {
             ThrowIfDisposed();
 
             Config = config;
+            if (config == null) return false;
 
             return await Task.Run(() =>
             {
@@ -31,10 +33,30 @@ namespace HPParking.Services.Controller
                 {
                     ThrowIfDisposed();
 
-                    if (IsConnected) Disconnect();
+                    try
+                    {
+                        if (IsConnected)
+                        {
+                            ZKTecoSDK.Disconnect(_handle);
+                            _handle = IntPtr.Zero;
+                        }
 
-                    string param = $"protocol=TCP,ipaddress={config.IP},port={config.Port},timeout=2000,passwd={config.Password}";
-                    _handle = ZKTecoSDK.Connect(param);
+                        string param = $"protocol=TCP,ipaddress={config.IP},port={config.Port},timeout=2000,passwd={config.Password}";
+                        _handle = ZKTecoSDK.Connect(param);
+                    }
+                    catch (DllNotFoundException ex)
+                    {
+                        Debug.WriteLine($"[ControllerService Error] Không tìm thấy file thư viện '{ZKTecoSDK.DllName}': {ex.Message}");
+                        OnStatusChanged?.Invoke(false, $"Thiếu thư viện {ZKTecoSDK.DllName}");
+                        _handle = IntPtr.Zero;
+                        return false;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"[ControllerService Error] Lỗi kết nối Controller: {ex.Message}");
+                        _handle = IntPtr.Zero;
+                        return false;
+                    }
 
                     bool success = _handle != IntPtr.Zero;
                     if (success)
@@ -52,7 +74,7 @@ namespace HPParking.Services.Controller
             });
         }
 
-        public string ReadRealtimeLog()
+        public string? ReadRealtimeLog()
         {
             lock (_lock)
             {
@@ -99,35 +121,37 @@ namespace HPParking.Services.Controller
         {
             if (_disposed) return;
 
+            CancellationToken token;
+            CancellationTokenSource? oldCts;
+            string? ip;
+
             lock (_lock)
             {
-                if (_isReconnecting || Config == null) return;
+                if (_disposed || _isReconnecting || Config == null) return;
                 _isReconnecting = true;
+
+                // Ngắt handle kết nối cũ trong lock
+                if (_handle != IntPtr.Zero)
+                {
+                    ZKTecoSDK.Disconnect(_handle);
+                    _handle = IntPtr.Zero;
+                }
+
+                // Cập nhật CancellationTokenSource nguyên tử trong lock
+                oldCts = _ctsReconnect;
+                _ctsReconnect = new CancellationTokenSource();
+                token = _ctsReconnect.Token;
+                ip = Config.IP;
             }
 
-            Disconnect();
-            OnStatusChanged?.Invoke(false, $"Mất kết nối Controller {Config.IP}! Đang kết nối lại...");
-
-            // Hủy + dispose CTS cũ (nếu còn) trước khi tạo cái mới, tránh leak handle.
-            CancellationTokenSource oldCts = _ctsReconnect;
-            _ctsReconnect = new CancellationTokenSource();
-            var token = _ctsReconnect.Token;
-
+            // Hủy + dispose CTS cũ bên ngoài lock
             if (oldCts != null)
             {
-                try
-                {
-                    oldCts.Cancel();
-                }
-                catch (ObjectDisposedException)
-                {
-                    // Đã dispose từ lần trước, bỏ qua.
-                }
-                finally
-                {
-                    oldCts.Dispose();
-                }
+                try { oldCts.Cancel(); } catch (ObjectDisposedException) { }
+                oldCts.Dispose();
             }
+
+            OnStatusChanged?.Invoke(false, $"Mất kết nối Controller {ip}! Đang kết nối lại...");
 
             Task.Run(async () =>
             {
@@ -139,17 +163,18 @@ namespace HPParking.Services.Controller
 
                         if (_disposed) break;
 
-                        await ConnectAsync(Config);
+                        if (Config != null)
+                        {
+                            await ConnectAsync(Config);
+                        }
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    // Bị hủy chủ động (Disconnect()/Dispose()) -> thoát êm, không phải lỗi.
+                    // Bị hủy chủ động (Disconnect()/Dispose()) -> thoát êm
                 }
                 finally
                 {
-                    // Luôn reset dù loop kết thúc do thành công, bị hủy, hay lỗi
-                    // bất ngờ -> tránh kẹt _isReconnecting = true vĩnh viễn.
                     lock (_lock)
                     {
                         _isReconnecting = false;
@@ -160,15 +185,23 @@ namespace HPParking.Services.Controller
 
         public void Disconnect()
         {
+            CancellationTokenSource? cts;
             lock (_lock)
             {
-                _ctsReconnect?.Cancel();
+                cts = _ctsReconnect;
+                _ctsReconnect = null;
 
                 if (_handle != IntPtr.Zero)
                 {
                     ZKTecoSDK.Disconnect(_handle);
                     _handle = IntPtr.Zero;
                 }
+            }
+
+            if (cts != null)
+            {
+                try { cts.Cancel(); } catch (ObjectDisposedException) { }
+                cts.Dispose();
             }
         }
 
@@ -178,8 +211,6 @@ namespace HPParking.Services.Controller
             _disposed = true;
 
             Disconnect();
-
-            _ctsReconnect?.Dispose();
         }
 
         private void ThrowIfDisposed()

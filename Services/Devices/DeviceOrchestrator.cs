@@ -1,4 +1,4 @@
-﻿using HPParking.Models.Entities;
+using HPParking.Models.Entities;
 using HPParking.Services.Camera;
 using HPParking.Services.Controller;
 using System;
@@ -17,12 +17,12 @@ namespace HPParking.Services.Devices
         private readonly ConcurrentDictionary<string, ControllerService> _controllers = [];
         private readonly ConcurrentDictionary<string, Lazy<Task<ControllerService>>> _controllerConnectTasks = [];
         private readonly ConcurrentBag<IDisposable> _cameras = [];
-        private CancellationTokenSource _ctsRealtime = new();
+        private CancellationTokenSource? _ctsRealtime;
         private volatile bool _disposed;
 
-        public event Action<string, bool, string> OnControllerStatusChanged = delegate { };
+        public event Action<string, bool, string>? OnControllerStatusChanged;
 
-        public event Action<RealtimeLog> OnCardSwiped = delegate { };
+        public event Action<RealtimeLog>? OnCardSwiped;
 
         public async Task InitializeDevicesAsync(List<Lane> lanes, List<PictureBox> previews)
         {
@@ -70,7 +70,7 @@ namespace HPParking.Services.Devices
                 Config = new CameraConfig
                 {
                     Ip = plateCamIp,
-                    Port = (ushort)lane.CameraLicensePlateConfig.Port,
+                    Port = SafeCastPort(lane.CameraLicensePlateConfig.Port),
                     UserName = lane.CameraLicensePlateConfig.User,
                     Password = lane.CameraLicensePlateConfig.Pass
                 }
@@ -87,7 +87,7 @@ namespace HPParking.Services.Devices
                 Config = new CameraConfig
                 {
                     Ip = overviewCamIp,
-                    Port = (ushort)lane.CameraClientConfig.Port,
+                    Port = SafeCastPort(lane.CameraClientConfig.Port),
                     UserName = lane.CameraClientConfig.User,
                     Password = lane.CameraClientConfig.Pass
                 }
@@ -132,8 +132,10 @@ namespace HPParking.Services.Devices
         /// </summary>
         private void RemoveFailedConnectTask(string ip, Lazy<Task<ControllerService>> failedTask)
         {
-            ((ICollection<KeyValuePair<string, Lazy<Task<ControllerService>>>>)_controllerConnectTasks)
-                .Remove(new KeyValuePair<string, Lazy<Task<ControllerService>>>(ip, failedTask));
+            if (_controllerConnectTasks.TryGetValue(ip, out var current) && ReferenceEquals(current, failedTask))
+            {
+                _controllerConnectTasks.TryRemove(ip, out _);
+            }
         }
 
         private async Task<ControllerService> ConnectControllerAsync(DeviceConfig config)
@@ -161,46 +163,67 @@ namespace HPParking.Services.Devices
         {
             ThrowIfDisposed();
 
+            CancellationTokenSource? oldCts = _ctsRealtime;
             _ctsRealtime = new CancellationTokenSource();
             var token = _ctsRealtime.Token;
 
+            if (oldCts != null)
+            {
+                try { oldCts.Cancel(); } catch (ObjectDisposedException) { }
+                oldCts.Dispose();
+            }
+
             Task.Run(async () =>
             {
-                while (!token.IsCancellationRequested)
+                try
                 {
-                    foreach (var kvp in _controllers)
+                    while (!token.IsCancellationRequested && !_disposed)
                     {
-                        string controllerIp = kvp.Key;
-                        ControllerService controller = kvp.Value;
-
-                        try
+                        foreach (var kvp in _controllers)
                         {
-                            string log = controller.ReadRealtimeLog();
-                            if (string.IsNullOrWhiteSpace(log)) continue;
+                            if (token.IsCancellationRequested || _disposed) break;
 
-                            RealtimeLog data = RealtimeLog.Parse(log, controllerIp);
-                            if (data == null || data.CardNo == "0") continue;
+                            string controllerIp = kvp.Key;
+                            ControllerService controller = kvp.Value;
 
-                            OnCardSwiped?.Invoke(data);
+                            try
+                            {
+                                string? log = controller.ReadRealtimeLog();
+                                if (string.IsNullOrWhiteSpace(log)) continue;
+
+                                RealtimeLog? data = RealtimeLog.Parse(log, controllerIp);
+                                if (data == null || data.CardNo == "0") continue;
+
+                                OnCardSwiped?.Invoke(data);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.WriteLine($"[Lỗi Realtime]: {ex.Message}");
+                            }
                         }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"[Lỗi Realtime]: {ex.Message}");
-                        }
+
+                        await Task.Delay(300, token);
                     }
-
-                    await Task.Delay(300, token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Dừng vòng lặp êm ái khi bị hủy hoặc Dispose
                 }
             }, token);
         }
 
         public void Dispose()
         {
-            // Set trước tiên để chặn mọi InitializeDevicesAsync/StartRealtimeLoop
-            // mới bắt đầu song song với quá trình dispose bên dưới.
+            if (_disposed) return;
             _disposed = true;
 
-            _ctsRealtime?.Cancel();
+            var cts = _ctsRealtime;
+            _ctsRealtime = null;
+            if (cts != null)
+            {
+                try { cts.Cancel(); } catch (ObjectDisposedException) { }
+                cts.Dispose();
+            }
 
             foreach (var ctrl in _controllers.Values)
             {
@@ -228,6 +251,15 @@ namespace HPParking.Services.Devices
 
             _controllers.Clear();
             _controllerConnectTasks.Clear();
+
+            // Dọn dẹp các external subscribers gắn vào Orchestrator
+            OnControllerStatusChanged = null;
+            OnCardSwiped = null;
+        }
+
+        private static ushort SafeCastPort(int port, ushort defaultPort = 8000)
+        {
+            return port > 0 && port <= ushort.MaxValue ? (ushort)port : defaultPort;
         }
 
         private void ThrowIfDisposed()

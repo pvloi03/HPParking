@@ -23,28 +23,30 @@ namespace HPParking.Forms
         private readonly IClientRepository _clientRepository;
 
         private readonly CccdReaderManager _readerManager;
-        private FrmRegisterClient _activeFrmRegisterClient;
+        private FrmRegisterClient? _activeFrmRegisterClient;
         private readonly DeviceOrchestrator _deviceOrchestrator = new();
         private readonly IParkingWorkflowService _workflowService;
 
-        private List<Lane> _lanes;
-        private Company _company;
-        private Timer _clockTimer;
+        private List<Lane> _lanes = [];
+        private Company? _company;
+        private Timer? _clockTimer;
 
         public FrmMain(
             ILaneRepository laneRepository,
             ICompanyRepository companyRepository,
-            IClientRepository clientRepository)
+            IClientRepository clientRepository,
+            IParkingWorkflowService workflowService)
         {
             InitializeComponent();
 
             // Đăng ký nhận phím tắt phím F1
-            this.KeyPreview = true;
-            this.KeyDown += FrmMain_KeyDown;
+            KeyPreview = true;
+            KeyDown += FrmMain_KeyDown;
 
             _laneRepository = laneRepository;
             _companyRepository = companyRepository;
             _clientRepository = clientRepository;
+            _workflowService = workflowService;
 
             // Khởi tạo Manager kết nối Service piper
             _readerManager = new CccdReaderManager("http://localhost:5000/cardhub");
@@ -108,12 +110,12 @@ namespace HPParking.Forms
                     MessageBox.Show(string.IsNullOrEmpty(error) ? "Hết hạn sử dụng phần mềm !" : error, "Thông báo License", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     using FrmLogin login = new();
                     login.Show();
-                    this.Hide();
+                    Hide();
                     return;
                 }
 
                 // 4. Lấy dữ liệu Làn & Cấu hình UI
-                _lanes = await _laneRepository.GetAllAsync();
+                _lanes = await _laneRepository.GetAllAsync() ?? [];
                 BindLaneUI();
 
                 // 5. Khởi tạo Thiết bị & LiveView trên PictureBox
@@ -162,17 +164,21 @@ namespace HPParking.Forms
 
         private void OnCardSwiped(RealtimeLog data)
         {
-            Lane lane = _lanes.FirstOrDefault(x =>
-            x.InputReader == data.DoorId &&
-            x.ControllerConfig?.IP == data.ControllerIp);
+            if (_lanes == null || _company == null) return;
+
+            Lane? lane = _lanes.FirstOrDefault(x =>
+                x.InputReader == data.DoorId &&
+                x.ControllerConfig?.IP == data.ControllerIp);
 
             if (lane == null) return;
+
+            string pathImage = _company.PathImage ?? string.Empty;
 
             BeginInvoke(new Action(async () =>
             {
                 ProcessResult result = (lane.Type % 2 != 0)
-                    ? await _workflowService.ProcessEntryAsync(lane, data, _company.PathImage)
-                    : await _workflowService.ProcessExitAsync(lane, data, _company.PathImage);
+                    ? await _workflowService.ProcessEntryAsync(lane, data, pathImage)
+                    : await _workflowService.ProcessExitAsync(lane, data, pathImage);
 
                 if (result.Status == ProcessStatus.Success)
                 {
@@ -187,21 +193,45 @@ namespace HPParking.Forms
 
         private void UpdateUI(Lane lane, ProcessResult result)
         {
-            lane.UI.LblFullName.Text = $"Họ và tên: {result.Client.Name}";
-            lane.UI.LblDepartment.Text = $"Phòng ban: {result.Client.Department_Code}";
-            lane.UI.LblPlateRegistered.Text = $"Biển số đăng ký: {result.Client.LicensePlate}";
-            lane.UI.LblPlateDetected.Text = $"Biển số phát hiện: {result.LprResult.Plate}";
-            lane.UI.LblCardId.Text = $"Số CCCD: {result.Client.ID_Code}";
-            lane.UI.LblTimeIn.Text = $"Thời gian vào: {result.EventParking.TimeIn:HH:mm:ss dd/MM/yyyy}";
+            if (lane.UI == null) return;
 
-            lane.UI.PicPlateIn.Image?.Dispose();
-            lane.UI.PicPlateIn.Image = new Bitmap(result.LprResult.PlateImage);
-            if (lane.Type % 2 == 0)
+            if (result.Client != null)
             {
-                lane.UI.PicPlateOut.Image?.Dispose();
-                lane.UI.PicPlateOut.Image = new Bitmap(result.LprResult.PlateImage);
-                lane.UI.LblTimeOut.Text = $"Thời gian ra: {result.EventParking.TimeOut:HH:mm:ss dd/MM/yyyy}";
+                lane.UI.LblFullName.Text = $"Họ và tên: {result.Client.Name}";
+                lane.UI.LblDepartment.Text = $"Phòng ban: {result.Client.Department_Code}";
+                lane.UI.LblPlateRegistered.Text = $"Biển số đăng ký: {result.Client.LicensePlate}";
+                lane.UI.LblCardId.Text = $"Số CCCD: {result.Client.ID_Code}";
             }
+
+            if (result.LprResult != null)
+            {
+                lane.UI.LblPlateDetected.Text = $"Biển số phát hiện: {result.LprResult.Plate}";
+            }
+
+            if (result.EventParking != null)
+            {
+                lane.UI.LblTimeIn.Text = $"Thời gian vào: {result.EventParking.TimeIn:HH:mm:ss dd/MM/yyyy}";
+                if (lane.Type % 2 == 0)
+                {
+                    lane.UI.LblTimeOut.Text = $"Thời gian ra: {result.EventParking.TimeOut:HH:mm:ss dd/MM/yyyy}";
+                }
+            }
+
+            if (result.LprResult?.PlateImage != null)
+            {
+                lane.UI.PicPlateIn.Image?.Dispose();
+                lane.UI.PicPlateIn.Image = new Bitmap(result.LprResult.PlateImage);
+
+                if (lane.Type % 2 == 0)
+                {
+                    lane.UI.PicPlateOut.Image?.Dispose();
+                    lane.UI.PicPlateOut.Image = new Bitmap(result.LprResult.PlateImage);
+                }
+            }
+
+            // Giải phóng các Bitmap tạm thời trong LprResult và ProcessResult sau khi UI đã copy/hiển thị
+            result.LprResult?.Dispose();
+            result.OverviewImage?.Dispose();
         }
 
         private void BindLaneUI()
@@ -247,9 +277,13 @@ namespace HPParking.Forms
 
         private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            await _readerManager.StopAsync();
+            KeyDown -= FrmMain_KeyDown;
             _readerManager.StatusUpdated -= OnStatusUpdated;
+            _deviceOrchestrator.OnControllerStatusChanged -= Controller_OnStatusChanged;
+            _deviceOrchestrator.OnCardSwiped -= OnCardSwiped;
             _clockTimer?.Stop();
+            _clockTimer?.Dispose();
+            await _readerManager.StopAsync();
             _deviceOrchestrator.Dispose();
         }
     }

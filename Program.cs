@@ -3,6 +3,9 @@ using HPParking.Forms;
 using HPParking.Forms.ConfigManager;
 using HPParking.Interfaces;
 using HPParking.Repositories;
+using HPParking.Services.LPR;
+using HPParking.Services.Parking;
+using HPParking.Services.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Windows.Forms;
@@ -24,6 +27,10 @@ namespace HPParking
             services.AddScoped<IEventParkingRepository, EventParkingRepository>();
             services.AddScoped<IClientRepository, ClientRepository>();
             services.AddScoped<ICompanyRepository, CompanyRepository>();
+
+            services.AddSingleton<LprService>();
+            services.AddSingleton<IImageStorageService, ImageStorageService>();
+            services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
 
             services.AddTransient<FrmMain>();
             services.AddTransient<FrmConfigManager>();

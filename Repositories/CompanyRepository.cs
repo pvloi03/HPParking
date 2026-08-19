@@ -43,11 +43,11 @@ namespace HPParking.Repositories
                 .Set(x => x.TimeFree, company.TimeFree)
                 .Set(x => x.PathImage, company.PathImage.Trim());
 
-            await _collection.UpdateOneAsync(
+            var result = await _collection.UpdateOneAsync(
                 x => x.Id == company.Id,
                 update
             );
-            return true;
+            return result.IsAcknowledged && result.ModifiedCount > 0;
         }
 
         public async Task<bool> DeleteCompanyAsync(string id)

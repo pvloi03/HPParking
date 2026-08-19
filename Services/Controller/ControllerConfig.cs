@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace HPParking.Services.Controller
 {
@@ -7,7 +7,7 @@ namespace HPParking.Services.Controller
     /// </summary>
     public class ControllerConfig
     {
-        public string IP { get; set; }
+        public string? IP { get; set; }
         public int Port { get; set; } = 4370;
         public string Password { get; set; } = "";
     }
@@ -15,18 +15,18 @@ namespace HPParking.Services.Controller
     public class RealtimeLog
     {
         public DateTime Time { get; set; }
-        public string CardNo { get; set; }
+        public string? CardNo { get; set; }
         public int VerifyMode { get; set; }
         public int DoorId { get; set; }
         public int EventType { get; set; }
         public int InOutState { get; set; }
-        public string ControllerIp { get; set; }
+        public string? ControllerIp { get; set; }
 
-        public static RealtimeLog Parse(string log, string controllerIp)
+        public static RealtimeLog? Parse(string? log, string controllerIp)
         {
             if (string.IsNullOrWhiteSpace(log)) return null;
 
-            string[] data = log.Split(',');
+            string[] data = log!.Split(',');
 
             if (data.Length < 7) return null;
 
