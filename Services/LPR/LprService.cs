@@ -1,4 +1,4 @@
-﻿using SimpleLPR3;
+using SimpleLPR3;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -18,12 +18,12 @@ namespace HPParking.Services.LPR
         /// <summary>
         /// SimpleLPR engine instance cho xử lý biển số
         /// </summary>
-        private ISimpleLPR _lpr;
+        private ISimpleLPR? _lpr;
 
         /// <summary>
         /// Processor instance được tạo từ LPR engine, dùng để phân tích ảnh
         /// </summary>
-        private IProcessor _processor;
+        private IProcessor? _processor;
 
         /// <summary>
         /// Khởi tạo SimpleLPR engine với cấu hình CPU
@@ -64,7 +64,7 @@ namespace HPParking.Services.LPR
                 // Cập nhật trọng số quốc gia vào engine
                 _lpr.realizeCountryWeights();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
                 return false;
@@ -85,14 +85,18 @@ namespace HPParking.Services.LPR
                 return;
 
             // Load khóa sản phẩm từ resource file
-            _lpr.set_productKey(System.Text.Encoding.UTF8.GetBytes(XDocument.Parse(Properties.Resources.SimpleLPR3_key).Document.ToString()));
+            if (_lpr != null)
+            {
 
-            // Tạo processor instance từ LPR engine
-            _processor = _lpr.createProcessor();
+                _lpr.set_productKey(System.Text.Encoding.UTF8.GetBytes(XDocument.Parse(Properties.Resources.SimpleLPR3_key).ToString()));
 
-            // Bật các tính năng xử lý ảnh
-            _processor.plateRegionDetectionEnabled = true;  // Phát hiện vùng biển số
-            _processor.cropToPlateRegionEnabled = true;     // Cắt ảnh theo vùng biển số
+                // Tạo processor instance từ LPR engine
+                _processor = _lpr.createProcessor();
+
+                // Bật các tính năng xử lý ảnh
+                _processor.plateRegionDetectionEnabled = true;  // Phát hiện vùng biển số
+                _processor.cropToPlateRegionEnabled = true;
+            }    // Cắt ảnh theo vùng biển số
         }
 
         /// <summary>
@@ -156,7 +160,7 @@ namespace HPParking.Services.LPR
         {
             // Nếu ảnh nhỏ hơn maxWidth, trả về bản sao của ảnh gốc
             if (source.Width <= maxWidth)
-                return new Bitmap(source);
+                return (Bitmap)source.Clone();
 
             // Tính toán tỷ lệ thu nhỏ
             double scale = (double)maxWidth / source.Width;
@@ -195,17 +199,19 @@ namespace HPParking.Services.LPR
             using Bitmap resized = ResizeBitmap(bitmap, 960);
 
             // Phân tích ảnh để phát hiện biển số
-            List<Candidate> candidates = _processor.analyze(resized);
+            List<Candidate> candidates = _processor!.analyze(resized);
 
             // Lấy ứng viên tốt nhất từ danh sách
             Candidate? candidate = GetBestCandidate(candidates);
 
             // Nếu không tìm thấy biển số, trả về kết quả rỗng
-            if (!candidate.HasValue)
+            if (!candidate.HasValue || candidate.Value.matches == null || candidate.Value.matches.Count == 0)
                 return new LprResult();
 
             // Lấy kết quả nhận dạng tốt nhất
             CountryMatch match = candidate.Value.matches[0];
+            if (string.IsNullOrEmpty(match.text))
+                return new LprResult();
 
             // Trả về kết quả nhận dạng đầy đủ
             return new LprResult
@@ -219,8 +225,8 @@ namespace HPParking.Services.LPR
                 .ToUpperInvariant(),
                 Confidence = match.confidence,
                 PlateImage = CropPlate(resized, candidate.Value),
-                FullImage = new Bitmap(resized),
-                RecognizedTime = DateTime.Now
+                FullImage = (Bitmap)resized.Clone(),
+                RecognizedTime = DateTime.UtcNow
             };
         }
     }

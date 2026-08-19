@@ -1,4 +1,4 @@
-﻿using HPParking.Helper;
+using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ namespace HPParking.Forms.ConfigManager
     public partial class UcLanCarManager : UserControl
     {
         private readonly ILaneRepository _laneRepository;
-        private List<Lane> _lanes;
+        private List<Lane>? _lanes;
 
         public UcLanCarManager(ILaneRepository laneRepository)
         {
@@ -157,10 +157,10 @@ namespace HPParking.Forms.ConfigManager
 
                 var FaceIdIn = new
                 {
-                    IP = validationResult.Values[txtInIpFaceId.Name],
-                    Port = int.Parse(validationResult.Values[txtInPortFaceId.Name]),
-                    User = validationResult.Values[txtInUserFaceId.Name],
-                    Pass = validationResult.Values[txtInPassFaceId.Name],
+                    IP = GetValue(txtInIpFaceId),
+                    Port = int.Parse(GetValue(txtInPortFaceId)),
+                    User = GetValue(txtInUserFaceId),
+                    Pass = GetValue(txtInPassFaceId),
                 };
 
                 Lane laneInReq = new()
@@ -224,10 +224,10 @@ namespace HPParking.Forms.ConfigManager
 
                 var FaceIdOut = new
                 {
-                    IP = validationResult.Values[txtOutIpFaceId.Name],
-                    Port = int.Parse(validationResult.Values[txtOutPortFaceId.Name]),
-                    User = validationResult.Values[txtOutUserFaceid.Name],
-                    Pass = validationResult.Values[txtOutPassFaceId.Name],
+                    IP = GetValue(txtOutIpFaceId),
+                    Port = int.Parse(GetValue(txtOutPortFaceId)),
+                    User = GetValue(txtOutUserFaceid),
+                    Pass = GetValue(txtOutPassFaceId),
                 };
 
                 Lane laneOutReq = new()

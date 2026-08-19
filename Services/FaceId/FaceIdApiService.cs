@@ -1,4 +1,4 @@
-﻿using HPParking.Interfaces;
+using HPParking.Interfaces;
 using System;
 using System.Diagnostics;
 using System.Net;
@@ -30,7 +30,20 @@ namespace HPParking.Services.FaceId
             var handler = new HttpClientHandler
             {
                 Credentials = credentialCache,
-                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
+                {
+                    if (errors == System.Net.Security.SslPolicyErrors.None)
+                        return true;
+
+                    // Thiết bị phần cứng FaceID trong mạng LAN thường dùng chứng chỉ tự ký (self-signed)
+                    if (errors.HasFlag(System.Net.Security.SslPolicyErrors.RemoteCertificateChainErrors) ||
+                        errors.HasFlag(System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch))
+                    {
+                        return true;
+                    }
+
+                    return false;
+                }
             };
 
             _httpClient = new HttpClient(handler)
@@ -44,7 +57,14 @@ namespace HPParking.Services.FaceId
 
         private async Task EnsureAuthChallengeAsync()
         {
-            try { await _httpClient.GetAsync("System/status"); } catch { }
+            try
+            {
+                await _httpClient.GetAsync("System/status");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[FaceId EnsureAuthChallenge Warning]: {ex.Message}");
+            }
         }
 
         public async Task<(bool IsSuccess, string ErrorMessage)> AddUserAsync(string employeeNo, string name, bool isMale)
@@ -265,8 +285,9 @@ namespace HPParking.Services.FaceId
                 HttpResponseMessage response = await _httpClient.PutAsJsonAsync("/ISAPI/AccessControl/UserInfo/Delete?format=json", delPayload);
                 return response.IsSuccessStatusCode;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[FaceId RollbackUser Error]: {ex.Message}");
                 return false;
             }
         }

@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace HPParking.Services.CCCDReader
@@ -10,16 +11,16 @@ namespace HPParking.Services.CCCDReader
 
     public class CccdReaderManager(string serverUrl = "http://localhost:5000/cardhub") : IDisposable
     {
-        private HubConnection _hubConnection;
+        private HubConnection? _hubConnection;
         private readonly string _serverUrl = serverUrl;
         private bool _isDisposing;
 
         // Bắn các sự kiện ra cho WinForms Form đăng ký nhận
-        public event Action<DeviceStatusDto> StatusUpdated;
-        public event Action<CardDataDto> CardScanned;
-        public event Action<byte[]> VideoFrameReceived;
-        public event Action<PhotoCapturedDto> PhotoCaptured;
-        public event Action<string, bool> ConnectionStateChanged; // (Thông báo, IsConnected)
+        public event Action<DeviceStatusDto>? StatusUpdated;
+        public event Action<CardDataDto>? CardScanned;
+        public event Action<byte[]>? VideoFrameReceived;
+        public event Action<PhotoCapturedDto>? PhotoCaptured;
+        public event Action<string, bool>? ConnectionStateChanged; // (Thông báo, IsConnected)
 
         public bool IsConnected => _hubConnection != null && _hubConnection.State == HubConnectionState.Connected;
 
@@ -33,14 +34,16 @@ namespace HPParking.Services.CCCDReader
                 await StopAsync();
             }
 
+            _isDisposing = false;
+
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(_serverUrl)
-                .WithAutomaticReconnect(new[] {
+                .WithAutomaticReconnect([
                     TimeSpan.Zero,
                     TimeSpan.FromSeconds(2),
                     TimeSpan.FromSeconds(5),
                     TimeSpan.FromSeconds(10)
-                })
+                ])
                 .Build();
 
             // Đăng ký nhận thông điệp từ SignalR Server
@@ -79,12 +82,14 @@ namespace HPParking.Services.CCCDReader
             {
                 try
                 {
+                    if (_hubConnection == null) break;
                     await _hubConnection.StartAsync();
                     ConnectionStateChanged?.Invoke("Đã kết nối thành công tới Service CCCD!", true);
                     break;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Debug.WriteLine($"[CCCD Service Connection Retry Error]: {ex.Message}");
                     ConnectionStateChanged?.Invoke("❌ Không thấy Service CCCD running. Đang thử kết nối lại sau 3s...", false);
                     await Task.Delay(3000);
                 }
@@ -96,7 +101,7 @@ namespace HPParking.Services.CCCDReader
         /// </summary>
         public async Task RequestCaptureAsync()
         {
-            if (IsConnected)
+            if (IsConnected && _hubConnection != null)
             {
                 await _hubConnection.InvokeAsync("RequestCapture");
             }
@@ -119,7 +124,10 @@ namespace HPParking.Services.CCCDReader
                     await _hubConnection.StopAsync();
                     await _hubConnection.DisposeAsync();
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[CCCD Service StopAsync Error]: {ex.Message}");
+                }
                 finally
                 {
                     _hubConnection = null;

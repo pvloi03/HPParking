@@ -1,11 +1,25 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace HPParking.SDK.CamPlateSDK
 {
     internal static class HiSdk
     {
-        private const string DllName = "HISDK.dll";
+        public const string DllName = "HISDK.dll";
+
+        public static bool IsAvailable()
+        {
+            try
+            {
+                string localPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DllName);
+                string sysPath = System.IO.Path.Combine(Environment.SystemDirectory, DllName);
+                return System.IO.File.Exists(localPath) || System.IO.File.Exists(sysPath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         #region SDK
 

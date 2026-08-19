@@ -1,4 +1,4 @@
-﻿using HPParking.Interfaces;
+using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using HPParking.Services.CCCDReader;
 using HPParking.Services.FaceId;
@@ -21,9 +21,9 @@ namespace HPParking.Forms
         private readonly ILaneRepository _laneRepository;
         private readonly List<IFaceIdApiService> _faceIdServices = [];
         private readonly List<FaceIdConfig> _faceIdConfigs = [];
-        private Client _clientExist;
-        private string _pathAvatar;
-        private PhotoCapturedDto _photo;
+        private Client? _clientExist;
+        private string? _pathAvatar;
+        private PhotoCapturedDto? _photo;
 
         public FrmRegisterClient(
             CccdReaderManager readerManager,
@@ -216,10 +216,13 @@ namespace HPParking.Forms
                 pictureBox.Image = new Bitmap(tempImg);
                 oldImg?.Dispose();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[FrmRegisterClient SafeSetImageBytes Error]: {ex.Message}");
+            }
         }
 
-        private async Task<(bool Success, string DeviceIp, string ErrorMsg)> PushToSingleDeviceAsync(
+        private async Task<(bool Success, string DeviceIp, string? ErrorMsg)> PushToSingleDeviceAsync(
             IFaceIdApiService apiService,
             string idCode,
             string name,
@@ -278,7 +281,7 @@ namespace HPParking.Forms
             }
 
             btnSave.Enabled = false;
-            string createdFilePath = null;
+            string? createdFilePath = null;
 
             try
             {
@@ -345,7 +348,14 @@ namespace HPParking.Forms
                 // Xóa file rác trên ổ đĩa nếu lưu DB lỗi
                 if (!string.IsNullOrEmpty(createdFilePath) && File.Exists(createdFilePath))
                 {
-                    try { File.Delete(createdFilePath); } catch { }
+                    try
+                    {
+                        File.Delete(createdFilePath);
+                    }
+                    catch (Exception delEx)
+                    {
+                        Debug.WriteLine($"[FrmRegisterClient DeleteTempFile Warning]: {delEx.Message}");
+                    }
                 }
 
                 // Rollback thiết bị nếu đã lỡ AddUser

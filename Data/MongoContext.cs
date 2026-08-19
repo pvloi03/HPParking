@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+using MongoDB.Driver;
+using System;
 using System.Configuration;
 
 namespace HPParking.Data
@@ -10,13 +11,27 @@ namespace HPParking.Data
 
         static MongoContext()
         {
-            string connectionString = ConfigurationManager.AppSettings["MongoDbConnection"];
-            _client = new MongoClient(connectionString);
+            string connectionString = ConfigurationManager.AppSettings["MongoDbConnection"]
+                ?? throw new InvalidOperationException(
+                    "Thiếu cấu hình 'MongoDbConnection' trong App.config.");
+
+            try
+            {
+                _client = new MongoClient(connectionString);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể khởi tạo MongoClient với connection string đã cấu hình: {ex.Message}", ex);
+            }
         }
 
         public MongoContext()
         {
-            string databaseName = ConfigurationManager.AppSettings["DatabaseName"];
+            string databaseName = ConfigurationManager.AppSettings["DatabaseName"]
+                ?? throw new InvalidOperationException(
+                    "Thiếu cấu hình 'DatabaseName' trong App.config.");
+
             _database = _client.GetDatabase(databaseName);
         }
 

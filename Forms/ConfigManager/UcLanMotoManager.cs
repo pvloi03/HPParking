@@ -1,4 +1,4 @@
-﻿using HPParking.Helper;
+using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ namespace HPParking.Forms.ConfigManager
     public partial class UcLanMotoManager : UserControl
     {
         private readonly ILaneRepository _laneRepository;
-        private List<Lane> _lanes;
+        private List<Lane>? _lanes;
 
         public UcLanMotoManager(ILaneRepository laneRepository)
         {
@@ -117,39 +117,49 @@ namespace HPParking.Forms.ConfigManager
                     return;
                 }
 
+                // Hàm hỗ trợ đọc giá trị an toàn tránh KeyNotFoundException
+                string GetValue(TextBox txt)
+                {
+                    if (validationResult.Values.TryGetValue(txt.Name, out string val))
+                    {
+                        return val;
+                    }
+                    return txt.Text.Trim();
+                }
+
                 // --- 1. XỬ LÝ LANE IN MOTO ---
                 var laneIn = _lanes?.FirstOrDefault(x => x.Type % 2 != 0 && x.InputReader % 2 != 0);
 
                 var CameraLicensePlateIn = new
                 {
-                    IP = validationResult.Values[txtInIpCameraLicenseplate.Name],
-                    Port = int.Parse(validationResult.Values[txtInPortCameraLicenseplate.Name]),
-                    User = validationResult.Values[txtInUserCameraLicenseplate.Name],
-                    Pass = validationResult.Values[txtInPassCameraLicenseplate.Name],
+                    IP = GetValue(txtInIpCameraLicenseplate),
+                    Port = int.Parse(GetValue(txtInPortCameraLicenseplate)),
+                    User = GetValue(txtInUserCameraLicenseplate),
+                    Pass = GetValue(txtInPassCameraLicenseplate),
                 };
 
                 var CameraClientIn = new
                 {
-                    IP = validationResult.Values[txtInIpCameraClient.Name],
-                    Port = int.Parse(validationResult.Values[txtInPortCameraClient.Name]),
-                    User = validationResult.Values[txtInUserCameraClient.Name],
-                    Pass = validationResult.Values[txtInPassCameraClient.Name],
+                    IP = GetValue(txtInIpCameraClient),
+                    Port = int.Parse(GetValue(txtInPortCameraClient)),
+                    User = GetValue(txtInUserCameraClient),
+                    Pass = GetValue(txtInPassCameraClient),
                 };
 
                 var ControllerIn = new
                 {
-                    IP = validationResult.Values[txtInIpController.Name],
-                    Port = int.Parse(validationResult.Values[txtInPortController.Name]),
-                    User = validationResult.Values[txtInUserController.Name],
-                    Pass = validationResult.Values[txtInPassController.Name],
+                    IP = GetValue(txtInIpController),
+                    Port = int.Parse(GetValue(txtInPortController)),
+                    User = GetValue(txtInUserController),
+                    Pass = GetValue(txtInPassController),
                 };
 
                 var FaceIdIn = new
                 {
-                    IP = validationResult.Values[txtInIpFaceId.Name],
-                    Port = int.Parse(validationResult.Values[txtInPortFaceId.Name]),
-                    User = validationResult.Values[txtInUserFaceId.Name],
-                    Pass = validationResult.Values[txtInPassFaceId.Name],
+                    IP = GetValue(txtInIpFaceId),
+                    Port = int.Parse(GetValue(txtInPortFaceId)),
+                    User = GetValue(txtInUserFaceId),
+                    Pass = GetValue(txtInPassFaceId),
                 };
 
                 Lane laneInReq = new()
@@ -161,8 +171,8 @@ namespace HPParking.Forms.ConfigManager
                     CameraClient = JsonSerializer.Serialize(CameraClientIn),
                     Controller = JsonSerializer.Serialize(ControllerIn),
                     FaceId = JsonSerializer.Serialize(FaceIdIn),
-                    InputReader = int.Parse(validationResult.Values[txtInReader.Name]),
-                    OutputRelay = int.Parse(validationResult.Values[txtInRelay.Name])
+                    InputReader = int.Parse(GetValue(txtInReader)),
+                    OutputRelay = int.Parse(GetValue(txtInRelay))
                 };
 
                 if (laneIn != null)
@@ -189,34 +199,34 @@ namespace HPParking.Forms.ConfigManager
 
                 var CameraLicensePlateOut = new
                 {
-                    IP = validationResult.Values[txtOutIpCameraLicenseplate.Name],
-                    Port = int.Parse(validationResult.Values[txtOutPortCameraLicenseplate.Name]),
-                    User = validationResult.Values[txtOutUserCameraLicenseplate.Name],
-                    Pass = validationResult.Values[txtOutPassCameraLicenseplate.Name],
+                    IP = GetValue(txtOutIpCameraLicenseplate),
+                    Port = int.Parse(GetValue(txtOutPortCameraLicenseplate)),
+                    User = GetValue(txtOutUserCameraLicenseplate),
+                    Pass = GetValue(txtOutPassCameraLicenseplate),
                 };
 
                 var CameraClientOut = new
                 {
-                    IP = validationResult.Values[txtOutIpCameraClient.Name],
-                    Port = int.Parse(validationResult.Values[txtOutPortCameraClient.Name]),
-                    User = validationResult.Values[txtOutUserCameraClient.Name],
-                    Pass = validationResult.Values[txtOutPassCameraClient.Name],
+                    IP = GetValue(txtOutIpCameraClient),
+                    Port = int.Parse(GetValue(txtOutPortCameraClient)),
+                    User = GetValue(txtOutUserCameraClient),
+                    Pass = GetValue(txtOutPassCameraClient),
                 };
 
                 var ControllerOut = new
                 {
-                    IP = validationResult.Values[txtOutIpController.Name],
-                    Port = int.Parse(validationResult.Values[txtOutPortController.Name]),
-                    User = validationResult.Values[txtOutUserController.Name],
-                    Pass = validationResult.Values[txtOutPassController.Name],
+                    IP = GetValue(txtOutIpController),
+                    Port = int.Parse(GetValue(txtOutPortController)),
+                    User = GetValue(txtOutUserController),
+                    Pass = GetValue(txtOutPassController),
                 };
 
                 var FaceIdOut = new
                 {
-                    IP = validationResult.Values[txtOutIpFaceId.Name],
-                    Port = int.Parse(validationResult.Values[txtOutPortFaceId.Name]),
-                    User = validationResult.Values[txtOutUserFaceid.Name],
-                    Pass = validationResult.Values[txtOutPassFaceId.Name],
+                    IP = GetValue(txtOutIpFaceId),
+                    Port = int.Parse(GetValue(txtOutPortFaceId)),
+                    User = GetValue(txtOutUserFaceid),
+                    Pass = GetValue(txtOutPassFaceId),
                 };
 
                 Lane laneOutReq = new()
@@ -228,8 +238,8 @@ namespace HPParking.Forms.ConfigManager
                     CameraClient = JsonSerializer.Serialize(CameraClientOut),
                     Controller = JsonSerializer.Serialize(ControllerOut),
                     FaceId = JsonSerializer.Serialize(FaceIdOut),
-                    InputReader = int.Parse(validationResult.Values[txtOutReader.Name]),
-                    OutputRelay = int.Parse(validationResult.Values[txtOutRelay.Name])
+                    InputReader = int.Parse(GetValue(txtOutReader)),
+                    OutputRelay = int.Parse(GetValue(txtOutRelay))
                 };
 
                 if (laneOut != null)

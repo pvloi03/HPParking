@@ -1,4 +1,4 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 
@@ -8,7 +8,7 @@ namespace HPParking.Models.Entities
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string Id { get; set; } = "";
 
         public string Name { get; set; } = "";
 
@@ -35,7 +35,13 @@ namespace HPParking.Models.Entities
 
         public string LicensePlate { get; set; } = "";
 
-        public Expired Expired { get; set; } = new Expired();
+        private Expired _expired = new();
+
+        public Expired Expired
+        {
+            get => _expired ??= new();
+            set => _expired = value ?? new();
+        }
 
         public string Description { get; set; } = "";
 

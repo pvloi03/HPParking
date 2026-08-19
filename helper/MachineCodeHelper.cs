@@ -1,4 +1,6 @@
-﻿using System.Management;
+using System;
+using System.Diagnostics;
+using System.Management;
 
 namespace HPParking.Helper
 {
@@ -7,7 +9,6 @@ namespace HPParking.Helper
         public static string GetMachineCode()
         {
             string cpuId = GetCpuId();
-
             return $"{cpuId}";
         }
 
@@ -15,16 +16,22 @@ namespace HPParking.Helper
         {
             try
             {
-                using (var mc = new ManagementClass("win32_processor"))
+                using var mc = new ManagementClass("win32_processor");
+                var moc = mc.GetInstances();
+                foreach (var mo in moc)
                 {
-                    var moc = mc.GetInstances();
-                    foreach (var mo in moc)
+                    string? id = mo["processorID"]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(id))
                     {
-                        return mo["processorID"]?.ToString();
+                        return id!;
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[MachineCodeHelper Error] Không thể lấy CPU ID qua WMI: {ex.Message}");
+            }
+
             return "unknownCPU";
         }
     }

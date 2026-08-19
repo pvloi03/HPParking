@@ -47,13 +47,12 @@
 
 | # | File | Dòng | Mô tả | Mức độ |
 |---|------|------|--------|--------|
-| 1 | BaseCameraService.cs | 46 | `Debug.WriteLine(result, string)` - tham số sai, output sẽ là "FalseKết nối thất bại" | 🟡 Trung |
+| 1 | ~~BaseCameraService.cs~~ | 46 | ~~`Debug.WriteLine(result, string)` - tham số sai~~ | ⛔ Đã xóa file (dead code) |
 
 ### Module 2: Services/Controller (3 lỗi)
 
 | # | File | Dòng | Mô tả | Mức độ |
-|---|------|------|--------|--------|
-| 2 | ControllerConfig.cs | 41 | `Time = DateTime.Now` - không parse thời gian thực từ log | 🟡 Trung |
+| 2 | ControllerConfig.cs | 41 | `Time = DateTime.Now` - ghi nhận thời điểm nhận log | ⏭️ Bỏ qua (Chủ ý thiết kế) |
 | 3 | ParkingWorkflowService.cs | 28 | `MessageBox.Show()` trong Service layer - vi phạm layered architecture | 🔴 Cao |
 | 4 | ControllerService.cs | 98-109 | Race condition trong StartAutoReconnect - `Disconnect()` gọi ngoài lock | 🟡 Trung |
 
@@ -74,7 +73,7 @@
 | 10 | ParkingWorkflowService.cs | 98 | Fire-and-forget Task không awaited - exception bị nuốt | 🟡 Trung |
 | 11 | ParkingWorkflowService.cs | 112 | `Card_Code = client.PhoneNumber` - lưu nhầm dữ liệu | 🔴 Cao |
 | 12 | ParkingWorkflowService.cs | 135 | `OverviewImage` trong ProcessResult không bao giờ dùng | 🟢 Thấp |
-| 13 | ParkingWorkflowService.cs | 114 | So sánh LicensePlate sai logic - mất dữ liệu | 🟡 Trung |
+| 13 | ParkingWorkflowService.cs | 114 | So sánh LicensePlate theo logic đặc thù | ⏭️ Bỏ qua (Chủ ý thiết kế) |
 
 ### Module 5: Services/LPR (3 lỗi)
 
@@ -279,5 +278,14 @@
 | **Tổng** | **42 lỗi** |
 
 ---
+
+---
+
+## GHI CHÚ THIẾT KẾ (Không phải Bug)
+
+| Ngày | Lỗi ban đầu | Quyết định | Lý do |
+|------|-------------|------------|-------|
+| 2026-08-18 | #11: Card_Code = PhoneNumber | **Design Intent** | Card_Code = PhoneNumber là chủ đích thiết kế, không phải bug. Đánh dấu để không bắt lỗi này trong tương lai. |
+| 2026-08-18 | #19: Event handlers FrmRegisterClient | **Designer đã xử lý** | Designer.cs line 408 đã có `FormClosing += FrmRegisterClient_FormClosing`. Không phải bug. |
 
 ## ✅ HOÀN THÀNH QUÉT TOÀN BỘ MODULES

@@ -12,7 +12,7 @@ namespace HPParking.Forms.ConfigManager
     public partial class UcCompanyManager : UserControl
     {
         private readonly ICompanyRepository _companyRepository;
-        private Company _company;
+        private Company? _company;
 
         public UcCompanyManager(ICompanyRepository companyRepository)
         {
@@ -159,18 +159,25 @@ namespace HPParking.Forms.ConfigManager
         private void button1_Click(object sender, EventArgs e)
         {
             // Sao chép nội dung của Label vào Clipboard
-            Clipboard.SetText(label4.Text);
-            button1.Text = "Đã Copy";
-
-            // Reset text sau 2 giây
-            var timer = new Timer { Interval = 2000 };
-            timer.Tick += (s, args) =>
+            try
             {
-                button1.Text = "Copy";
-                timer.Stop();
-                timer.Dispose();
-            };
-            timer.Start();
+                Clipboard.SetText(label4.Text);
+                button1.Text = "Đã Copy";
+
+                // Reset text sau 2 giây
+                var timer = new Timer { Interval = 2000 };
+                timer.Tick += (s, args) =>
+                {
+                    button1.Text = "Copy";
+                    timer.Stop();
+                    timer.Dispose();
+                };
+                timer.Start();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UcCompanyManager Clipboard Error]: {ex.Message}");
+            }
         }
     }
 }
