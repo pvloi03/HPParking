@@ -9,9 +9,9 @@ namespace HPParking.LicenseKey
 {
     public class LicenseInfo
     {
-        public string FixedCode { get; set; }
-        public string ExpiryDate { get; set; }
-        public string MachineCode { get; set; }
+        public string FixedCode { get; set; } = "";
+        public string ExpiryDate { get; set; } = "";
+        public string MachineCode { get; set; } = "";
     }
     public class LicenseValidator
     {
@@ -39,7 +39,7 @@ namespace HPParking.LicenseKey
 
                 var license = JsonConvert.DeserializeObject<LicenseInfo>(json);
 
-                if (license.FixedCode != "HOANGPHAT130225")
+                if (license?.FixedCode != "HOANGPHAT130225")
                 {
                     error = "Không đúng phần mềm.";
                     return false;
@@ -129,10 +129,10 @@ namespace HPParking.LicenseKey
                 using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\HPParking");
                 if (key != null)
                 {
-                    string encrypted = key.GetValue("SysCheck") as string;
+                    string? encrypted = key.GetValue("SysCheck") as string;
                     if (!string.IsNullOrEmpty(encrypted))
                     {
-                        string dateStr = DecryptString(encrypted, GetCurrentMachineCode());
+                        string dateStr = DecryptString(encrypted!, GetCurrentMachineCode());
                         if (DateTime.TryParse(dateStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out DateTime lastRun))
                         {
                             return lastRun;

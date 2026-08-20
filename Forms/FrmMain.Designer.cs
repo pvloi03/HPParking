@@ -556,10 +556,10 @@ namespace HPParking.Forms
             this.tlpPreviewMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tlpPreviewMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tlpPreviewMoto.Controls.Add(this.pbMotoEntryOverview, 0, 0);
+            this.tlpPreviewMoto.Controls.Add(this.pbMotoEntryPlate, 0, 1);
             this.tlpPreviewMoto.Controls.Add(this.pbMotoExitOverview, 1, 0);
             this.tlpPreviewMoto.Controls.Add(this.pbMotoExitPlate, 1, 1);
             this.tlpPreviewMoto.Controls.Add(this.pnlInfoMoto, 0, 2);
-            this.tlpPreviewMoto.Controls.Add(this.pbMotoEntryPlate, 0, 1);
             this.tlpPreviewMoto.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tlpPreviewMoto.ForeColor = System.Drawing.Color.White;
             this.tlpPreviewMoto.Location = new System.Drawing.Point(5, 107);

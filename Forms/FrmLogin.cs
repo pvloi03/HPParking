@@ -1,4 +1,4 @@
-﻿using HPParking.Forms.ConfigManager;
+using HPParking.Forms.ConfigManager;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Windows.Forms;
@@ -18,7 +18,7 @@ namespace HPParking.Forms
             string pass = txtPassWord.Text;
             if (user == "admin" && pass == "Hoangphat130225")
             {
-                using FrmConfigManager frm = Program.ServiceProvider.GetRequiredService<FrmConfigManager>();
+                using FrmConfigManager frm = Program.ServiceProvider!.GetRequiredService<FrmConfigManager>();
                 Hide();
                 frm.ShowDialog(this);
                 Close();

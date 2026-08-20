@@ -14,7 +14,7 @@ namespace HPParking
 {
     internal static class Program
     {
-        public static IServiceProvider ServiceProvider { get; private set; }
+        public static IServiceProvider? ServiceProvider { get; private set; }
 
         [STAThread]
         static void Main()

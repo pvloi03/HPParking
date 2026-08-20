@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using Ookii.Dialogs.WinForms;
 
 namespace HPParking.Helper
 {
@@ -33,6 +34,18 @@ namespace HPParking.Helper
             {
                 Debug.WriteLine($"[FrmHelpers Error] Không thể chuyển đổi Base64 sang Bitmap: {ex.Message}");
                 return null;
+            }
+        }
+
+        public static void ShowMessage(string message, string title = "Thông báo", TaskDialogIcon icon = TaskDialogIcon.Information)
+        {
+            using (var dialog = new TaskDialog())
+            {
+                dialog.WindowTitle = title;
+                dialog.MainInstruction = message;
+                dialog.MainIcon = icon;
+                dialog.Buttons.Add(new TaskDialogButton(ButtonType.Ok));
+                dialog.ShowDialog();
             }
         }
     }

@@ -32,5 +32,15 @@ namespace HPParking.Repositories
             client.CreatDay = DateTime.UtcNow;
             await _collection.InsertOneAsync(client);
         }
+
+        public async Task Update(Client client)
+        {
+            client.UpdateDay = DateTime.UtcNow;
+            var filter = Builders<Client>.Filter.And(
+                Builders<Client>.Filter.Eq(x => x.Id, client.Id),
+                Builders<Client>.Filter.Eq(x => x.IsDelete, false)
+            );
+            await _collection.ReplaceOneAsync(filter, client);
+        }
     }
 }
