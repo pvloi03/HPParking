@@ -12,20 +12,20 @@ namespace HPParking.Models.Entities
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+        public string Id { get; set; } = "";
 
-        public string Code { get; set; }
+        public string Code { get; set; } = "";
         public string Gate_Code { get; set; } = "";
 
-        public string Name { get; set; }
+        public string Name { get; set; } = "";
 
         public int Type { get; set; }
 
-        public string Controller { get; set; }
+        public string Controller { get; set; } = "";
 
-        public string CameraLicensePlate { get; set; }
+        public string CameraLicensePlate { get; set; } = "";
 
-        public string CameraClient { get; set; }
+        public string CameraClient { get; set; } = "";
 
         public string CameraLicensePlateOto { get; set; } = "";
 
@@ -55,31 +55,31 @@ namespace HPParking.Models.Entities
         // ============================
 
         [BsonIgnore]
-        public DeviceConfig ControllerConfig =>
-    string.IsNullOrWhiteSpace(Controller)
-        ? null
-        : JsonSerializer.Deserialize<DeviceConfig>(Controller);
+        public DeviceConfig? ControllerConfig =>
+            string.IsNullOrWhiteSpace(Controller)
+                ? null
+                : JsonSerializer.Deserialize<DeviceConfig>(Controller);
 
         [BsonIgnore]
-        public DeviceConfig CameraLicensePlateConfig =>
+        public DeviceConfig? CameraLicensePlateConfig =>
             string.IsNullOrWhiteSpace(CameraLicensePlate)
                 ? null
                 : JsonSerializer.Deserialize<DeviceConfig>(CameraLicensePlate);
 
         [BsonIgnore]
-        public DeviceConfig CameraClientConfig =>
+        public DeviceConfig? CameraClientConfig =>
             string.IsNullOrWhiteSpace(CameraClient)
                 ? null
                 : JsonSerializer.Deserialize<DeviceConfig>(CameraClient);
 
         [BsonIgnore]
-        public DeviceConfig CameraLicensePlateOtoConfig =>
+        public DeviceConfig? CameraLicensePlateOtoConfig =>
             string.IsNullOrWhiteSpace(CameraLicensePlateOto)
                 ? null
                 : JsonSerializer.Deserialize<DeviceConfig>(CameraLicensePlateOto);
 
         [BsonIgnore]
-        public DeviceConfig FaceIdConfig =>
+        public DeviceConfig? FaceIdConfig =>
             string.IsNullOrWhiteSpace(FaceId)
                 ? null
                 : JsonSerializer.Deserialize<DeviceConfig>(FaceId);
@@ -87,23 +87,23 @@ namespace HPParking.Models.Entities
         //================ Runtime =================
 
         [BsonIgnore]
-        public LaneCamera Cameras { get; set; }
+        public LaneCamera? Cameras { get; set; }
 
         [BsonIgnore]
-        public OverviewCameraService FaceIds { get; set; }
+        public OverviewCameraService? FaceIds { get; set; }
 
         [BsonIgnore]
-        public ControllerService Ctrl { get; set; }
+        public ControllerService? Ctrl { get; set; }
 
         [BsonIgnore]
-        public VehicleUI UI { get; set; }
+        public VehicleUI? UI { get; set; }
 
     }
 
     public class LaneCamera
     {
-        public PlateCameraService LicensePlateCamera { get; set; }
+        public PlateCameraService LicensePlateCamera { get; set; } = new();
 
-        public OverviewCameraService OverviewCamera { get; set; }
+        public OverviewCameraService OverviewCamera { get; set; } = new();
     }
 }

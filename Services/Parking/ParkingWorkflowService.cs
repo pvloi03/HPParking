@@ -34,6 +34,7 @@ namespace HPParking.Services.Parking
 
         public async Task<ProcessResult> ProcessEntryAsync(Lane lane, RealtimeLog data, string imageBasePath)
         {
+            EventParking? parking = null;
             var client = await _clientRepository.GetByCardCode($"0{data.CardNo}");
             if (client == null)
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
@@ -47,6 +48,8 @@ namespace HPParking.Services.Parking
             if (parkingInProgress != null)
                 return new ProcessResult { Status = ProcessStatus.AlreadyInParking, Message = "Khách hàng này đang có xe trong bãi." };
 
+            if (lane.Cameras == null)
+                return new ProcessResult { Status = ProcessStatus.CaptureFailed, Message = "Camera chưa được khởi tạo." };
             Bitmap plateImage, overviewImage;
             try
             {
@@ -94,7 +97,7 @@ namespace HPParking.Services.Parking
                         string platePath = _imageStorageService.SaveImage(plateSave, "ImageIn", "BienSo", imageBasePath);
                         string overviewPath = _imageStorageService.SaveImage(overviewSave, "ImageIn", "ToanCanh", imageBasePath);
 
-                        EventParking parking = new()
+                        parking = new()
                         {
                             PhoneNumber = client.PhoneNumber,
                             ClientName = client.Name,
@@ -120,7 +123,8 @@ namespace HPParking.Services.Parking
             {
                 Status = ProcessStatus.Success,
                 Client = client,
-                LprResult = result
+                LprResult = result,
+                EventParking = parking
             };
         }
 
@@ -138,6 +142,9 @@ namespace HPParking.Services.Parking
             var parking = await _eventRepository.GetParkingInProgress($"0{data.CardNo}");
             if (parking == null)
                 return new ProcessResult { Status = ProcessStatus.NotInParking, Message = "Khách hàng này không có xe trong bãi." };
+
+            if (lane.Cameras == null)
+                return new ProcessResult { Status = ProcessStatus.CaptureFailed, Message = "Camera chưa được khởi tạo." };
 
             Bitmap plateImage, overviewImage;
             try

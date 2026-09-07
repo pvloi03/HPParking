@@ -14,5 +14,7 @@ namespace HPParking.Interfaces
         Task<Client?> GetByIdCode(string idCode);
 
         Task Insert(Client client);
+
+        Task Update(Client client);
     }
 }

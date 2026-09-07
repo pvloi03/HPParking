@@ -42,7 +42,7 @@ namespace HPParking.Services.Devices
             // dù các lane chạy song song. Lazy<Task<T>>.Value mới thực sự đảm bảo
             // ConnectControllerAsync() chỉ được gọi đúng 1 lần (bản thân GetOrAdd
             // không đảm bảo điều đó nếu factory trả thẳng Task).
-            string ip = lane.ControllerConfig.IP;
+            string ip = lane.ControllerConfig!.IP;
 
             Lazy<Task<ControllerService>> lazyConnect = _controllerConnectTasks.GetOrAdd(
                 ip,
@@ -64,7 +64,7 @@ namespace HPParking.Services.Devices
             }
 
             // 2. Camera
-            string plateCamIp = lane.CameraLicensePlateConfig.IP;
+            string plateCamIp = lane.CameraLicensePlateConfig!.IP;
             PlateCameraService plateCam = new()
             {
                 Config = new CameraConfig
@@ -81,7 +81,7 @@ namespace HPParking.Services.Devices
                 Debug.WriteLine($"[Làn {lane.InputReader} - Cam Biển Số ({plateCamIp})]: {message}");
             };
 
-            string overviewCamIp = lane.CameraClientConfig.IP;
+            string overviewCamIp = lane.CameraClientConfig!.IP;
             OverviewCameraService overviewCam = new()
             {
                 Config = new CameraConfig
@@ -193,7 +193,7 @@ namespace HPParking.Services.Devices
 
                                 RealtimeLog? data = RealtimeLog.Parse(log, controllerIp);
                                 if (data == null || data.CardNo == "0") continue;
-
+                                Debug.WriteLine(data.CardNo);
                                 OnCardSwiped?.Invoke(data);
                             }
                             catch (Exception ex)
@@ -202,7 +202,7 @@ namespace HPParking.Services.Devices
                             }
                         }
 
-                        await Task.Delay(300, token);
+                        await Task.Delay(500, token);
                     }
                 }
                 catch (OperationCanceledException)

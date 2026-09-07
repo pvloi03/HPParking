@@ -1,7 +1,9 @@
+using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using HPParking.Services.CCCDReader;
 using HPParking.Services.FaceId;
+using Ookii.Dialogs.WinForms;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,7 +22,6 @@ namespace HPParking.Forms
         private readonly ICompanyRepository _companyRepository;
         private readonly ILaneRepository _laneRepository;
         private readonly List<IFaceIdApiService> _faceIdServices = [];
-        private readonly List<FaceIdConfig> _faceIdConfigs = [];
         private Client? _clientExist;
         private string? _pathAvatar;
         private PhotoCapturedDto? _photo;
@@ -49,13 +50,10 @@ namespace HPParking.Forms
             var company = await _companyRepository.GetFirstCompanyAsync();
             if (company == null)
             {
-                MessageBox.Show("KHông tìm thấy đường dẫn lưu ảnh");
+                MessageBox.Show("Không tìm thấy đường dẫn lưu ảnh");
                 return;
             }
             _pathAvatar = Path.Combine(company.PathImage, "Avatar");
-
-            if (string.IsNullOrEmpty(txtIdCode.Text))
-                UpdateStatus("✘Đọc dữ liệu thất bại vui lòng thử lại!", Color.Red);
 
             var lanes = await _laneRepository.GetAllAsync();
 
@@ -64,9 +62,9 @@ namespace HPParking.Forms
                 .Where(l => l?.FaceIdConfig != null && !string.IsNullOrWhiteSpace(l.FaceIdConfig.IP))
                 .Select(l => new FaceIdConfig
                 {
-                    Ip = l.FaceIdConfig.IP,
-                    Username = l.FaceIdConfig.User,
-                    Password = l.FaceIdConfig.Pass
+                    Ip = l!.FaceIdConfig!.IP,
+                    Username = l.FaceIdConfig!.User,
+                    Password = l.FaceIdConfig!.Pass
                 })
                 .GroupBy(c => c.Ip)
                 .Select(g => g.First())
@@ -103,7 +101,7 @@ namespace HPParking.Forms
         {
             if (status == null || IsDisposed) return;
 
-            this.BeginInvoke(new Action(() =>
+            BeginInvoke(new Action(() =>
             {
                 // Cập nhật thông báo tiến trình hoặc thông báo LỖI
                 if (!string.IsNullOrEmpty(status.ErrorMessage))
@@ -167,8 +165,8 @@ namespace HPParking.Forms
                 }
 
                 MessageBox.Show("Khách hàng đã tồn tại trong hệ thống.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                pnRegisterClient.Enabled = false;
-                btnSave.Enabled = false; // Disable nút bấm để tránh thao tác thừa
+                btnSave.Text = "Update"; // Disable nút bấm để tránh thao tác thừa
+                btnOpenCamera.Enabled = false;
                 return;
             }
             dtpTimeOut.Value = dtpTimeOut.Value.AddDays(1);
@@ -272,6 +270,36 @@ namespace HPParking.Forms
                 return;
             }
 
+            if (_clientExist != null)
+            {
+                try
+                {
+                    _clientExist.PhoneNumber = txtPhoneNumber.Text?.Trim() ?? "";
+                    _clientExist.Description = txtDescription.Text;
+                    _clientExist.LicensePlate = txtPlate.Text?
+                        .Trim()
+                        .Replace(" ", "")
+                        .Replace("-", "")
+                        .Replace(".", "")
+                        .ToUpperInvariant() ?? "";
+                    _clientExist.Expired = new Expired
+                    {
+                        StartDay = dtpTimeIn.Value,
+                        EndDay = dtpTimeOut.Value,
+                    };
+
+                    await _clientRepository.Update(_clientExist);
+                    btnSave.Enabled = true;
+                    FrmHelpers.ShowMessage("Cập nhật thông tin thành công.", "Thông báo");
+
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    btnSave.Enabled = true;
+                    FrmHelpers.ShowMessage($"Lỗi khi cập nhật thông tin: {ex.Message}", "Thông báo", TaskDialogIcon.Error);
+                }
+            }
 
             // Kiểm tra an toàn biến _photo tránh NullReferenceException
             if (_photo == null || _photo.PhotoBytes == null || _photo.PhotoBytes.Length == 0)

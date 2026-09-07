@@ -137,7 +137,7 @@ namespace HPParking.Forms
         private void OnStatusUpdated(DeviceStatusDto status)
         {
             if (status == null || IsDisposed) return;
-            BeginInvoke(new Action(() =>
+            BeginInvoke(new Action(async () =>
             {
                 string readerStatus = status.IsReaderConnected
                     ? $"DẦU ĐỌC CCCD: ĐÃ CẮM ({status.ReaderSerialNumber})"
@@ -151,8 +151,8 @@ namespace HPParking.Forms
                 {
                     _activeFrmRegisterClient = new FrmRegisterClient(_readerManager, _clientRepository, _companyRepository, _laneRepository);
 
-                    // ShowDialog dạng Modal khóa màn hình chính
-                    _activeFrmRegisterClient.ShowDialog(this);
+                    _activeFrmRegisterClient.UpdateStatus("Đọc thẻ CCCD thất bại, vui lòng thử lại!", Color.Red);
+                    _activeFrmRegisterClient.Show(this);
                 }
             }));
         }

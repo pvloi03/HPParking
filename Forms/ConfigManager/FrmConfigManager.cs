@@ -13,9 +13,9 @@ namespace HPParking.Forms.ConfigManager
             InitializeComponent();
             if (!DesignMode && LicenseManager.UsageMode != LicenseUsageMode.Designtime)
             {
-                UcCompanyManager ucCompany = Program.ServiceProvider.GetRequiredService<UcCompanyManager>();
-                UcLanCarManager ucLaneCar = Program.ServiceProvider.GetRequiredService<UcLanCarManager>();
-                UcLanMotoManager ucLaneMoto = Program.ServiceProvider.GetRequiredService<UcLanMotoManager>();
+                UcCompanyManager ucCompany = Program.ServiceProvider!.GetRequiredService<UcCompanyManager>();
+                UcLanCarManager ucLaneCar = Program.ServiceProvider!.GetRequiredService<UcLanCarManager>();
+                UcLanMotoManager ucLaneMoto = Program.ServiceProvider!.GetRequiredService<UcLanMotoManager>();
 
                 ucCompany.Dock = DockStyle.Fill;
                 ucLaneCar.Dock = DockStyle.Fill;

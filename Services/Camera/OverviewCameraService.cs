@@ -1,4 +1,4 @@
-﻿using CHCNetSDK_Library;
+using CHCNetSDK_Library;
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -21,11 +21,11 @@ namespace HPParking.Services.Camera
         private int _userId = -1;
         private int _realHandle = -1;
 
-        public CameraConfig Config { get; set; }
+        public CameraConfig Config { get; set; } = new();
 
         public bool IsLoggedIn { get; private set; }
 
-        public event Action<bool, string> OnStatusChanged;
+        public event Action<bool, string> OnStatusChanged = delegate { };
 
         public OverviewCameraService()
         {
@@ -140,7 +140,7 @@ namespace HPParking.Services.Camera
                     bBlocked = true
                 };
 
-                _realHandle = CHCNetSDK.NET_DVR_RealPlay_V40(_userId, ref previewInfo, null, IntPtr.Zero);
+                _realHandle = CHCNetSDK.NET_DVR_RealPlay_V40(_userId, ref previewInfo, null!, IntPtr.Zero);
 
                 bool success = _realHandle >= 0;
 

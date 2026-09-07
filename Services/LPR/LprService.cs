@@ -1,6 +1,7 @@
 using SimpleLPR3;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -32,6 +33,11 @@ namespace HPParking.Services.LPR
         /// - Chuẩn bị engine để xử lý ảnh
         /// </summary>
         /// <returns>True nếu khởi tạo thành công, False nếu có lỗi</returns>
+        /// 
+        public LprService()
+        {
+            Initialize();
+        }
         public bool Initialize()
         {
             try
@@ -195,11 +201,18 @@ namespace HPParking.Services.LPR
             // Tạo processor nếu chưa tồn tại
             CreateProcessor();
 
+            // Kiểm tra processor đã được khởi tạo thành công chưa
+            if (_processor == null)
+            {
+                Debug.WriteLine("[LprService] Lỗi: Processor chưa được khởi tạo. Gọi Initialize() trước.");
+                return new LprResult();
+            }
+
             // Thu nhỏ ảnh để tối ưu hóa performance (1960 là chiều rộng tiêu chuẩn)
             using Bitmap resized = ResizeBitmap(bitmap, 960);
 
             // Phân tích ảnh để phát hiện biển số
-            List<Candidate> candidates = _processor!.analyze(resized);
+            List<Candidate> candidates = _processor.analyze(resized);
 
             // Lấy ứng viên tốt nhất từ danh sách
             Candidate? candidate = GetBestCandidate(candidates);
