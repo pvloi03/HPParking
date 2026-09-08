@@ -1,7 +1,7 @@
 using HPParking.Helper;
 using HPParking.Interfaces;
 using HPParking.Models.Entities;
-using Ookii.Dialogs.WinForms;
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -60,7 +60,7 @@ namespace HPParking.Forms.ConfigManager
         {
             try
             {
-                using VistaFolderBrowserDialog folderDialog = new()
+                using FolderBrowserDialog folderDialog = new()
                 {
                     Description = "Chọn thư mục lưu file",
                     UseDescriptionForTitle = true,
@@ -93,9 +93,9 @@ namespace HPParking.Forms.ConfigManager
                 // Hàm hỗ trợ đọc giá trị an toàn từ validation hoặc trực tiếp từ TextBox
                 string GetValue(TextBox txt)
                 {
-                    if (validationResult.Values.TryGetValue(txt.Name, out string val))
+                    if (validationResult.Values.TryGetValue(txt.Name, out string? val))
                     {
-                        return val;
+                        return val!;
                     }
                     return txt.Text.Trim();
                 }

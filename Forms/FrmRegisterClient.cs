@@ -3,7 +3,6 @@ using HPParking.Interfaces;
 using HPParking.Models.Entities;
 using HPParking.Services.CCCDReader;
 using HPParking.Services.FaceId;
-using Ookii.Dialogs.WinForms;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -196,7 +195,7 @@ namespace HPParking.Forms
             }
         }
 
-        public void SetPictureBoxImage(PictureBox pictureBox, byte[] byteArray)
+        public static void SetPictureBoxImage(PictureBox pictureBox, byte[] byteArray)
         {
             if (byteArray == null || byteArray.Length == 0)
             {
@@ -220,7 +219,7 @@ namespace HPParking.Forms
             }
         }
 
-        private async Task<(bool Success, string DeviceIp, string? ErrorMsg)> PushToSingleDeviceAsync(
+        private static async Task<(bool Success, string DeviceIp, string? ErrorMsg)> PushToSingleDeviceAsync(
             IFaceIdApiService apiService,
             string idCode,
             string name,
@@ -324,7 +323,7 @@ namespace HPParking.Forms
                 // Kiểm tra kết quả các thiết bị
                 var failedDevices = results.Where(r => !r.Success).ToList();
 
-                if (failedDevices.Any())
+                if (failedDevices.Count != 0)
                 {
                     var errorLogs = string.Join("\n", failedDevices.Select(f => $"- IP {f.DeviceIp}: {f.ErrorMsg}"));
 
@@ -337,10 +336,13 @@ namespace HPParking.Forms
                 }
 
                 // 3. GHI FILE ẢNH LOCAL
-                Directory.CreateDirectory(_pathAvatar);
-                string fileName = $"{txtIdCode.Text}.jpg";
-                createdFilePath = Path.Combine(_pathAvatar, fileName);
-                await Task.Run(() => File.WriteAllBytes(createdFilePath, _photo.PhotoBytes));
+                if (!string.IsNullOrEmpty(_pathAvatar))
+                {
+                    Directory.CreateDirectory(_pathAvatar);
+                    string fileName = $"{txtIdCode.Text}.jpg";
+                    createdFilePath = Path.Combine(_pathAvatar, fileName);
+                    await Task.Run(() => File.WriteAllBytes(createdFilePath, _photo.PhotoBytes));
+                }
 
                 // 4. LƯU DATABASE
                 Client newClientDb = new()
@@ -351,7 +353,7 @@ namespace HPParking.Forms
                     BirthDay = dtpDateOfBirth.Value,
                     Address = txtAddress.Text,
                     Gender = rbMale.Checked ? 0 : 1,
-                    Avatar = createdFilePath,
+                    Avatar = createdFilePath ?? "",
                     PhoneNumber = txtPhoneNumber.Text?.Trim() ?? "",
                     Description = txtDescription.Text,
                     LicensePlate = txtPlate.Text?

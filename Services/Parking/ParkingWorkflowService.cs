@@ -12,12 +12,12 @@ namespace HPParking.Services.Parking
     public class ParkingWorkflowService(
         IClientRepository clientRepository,
         IEventParkingRepository eventRepository,
-        LprService lprService,
+        ILprService lprService,
         IImageStorageService imageStorageService) : IParkingWorkflowService
     {
         private readonly IClientRepository _clientRepository = clientRepository;
         private readonly IEventParkingRepository _eventRepository = eventRepository;
-        private readonly LprService _lprService = lprService;
+        private readonly ILprService _lprService = lprService;
         private readonly IImageStorageService _imageStorageService = imageStorageService;
 
         private bool BarrierOpen(Lane lane)
@@ -27,8 +27,9 @@ namespace HPParking.Services.Parking
 
         private bool IsClientExpired(Client client)
         {
-            if (client.Expired.StartDay > DateTime.UtcNow) return true;
-            if (client.Expired.EndDay <= DateTime.UtcNow) return true;
+            DateTime now = DateTime.Now;
+            if (client.Expired.StartDay > now) return true;
+            if (client.Expired.EndDay < now) return true;
             return false;
         }
 

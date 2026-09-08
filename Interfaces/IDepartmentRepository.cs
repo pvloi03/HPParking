@@ -1,4 +1,3 @@
-#nullable enable
 using HPParking.Models.Entities;
 using System.Threading.Tasks;
 

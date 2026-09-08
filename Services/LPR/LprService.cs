@@ -1,3 +1,4 @@
+using HPParking.Interfaces;
 using SimpleLPR3;
 using System;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ namespace HPParking.Services.LPR
     /// Dịch vụ nhận dạng biển số xe sử dụng SimpleLPR3 SDK
     /// Xử lý việc phát hiện, trích xuất và nhận dạng biển số từ hình ảnh
     /// </summary>
-    public class LprService
+    public class LprService : ILprService
     {
         /// <summary>
         /// SimpleLPR engine instance cho xử lý biển số

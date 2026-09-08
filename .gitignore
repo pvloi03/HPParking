@@ -1,6 +1,9 @@
 # .NET
 bin/
 obj/
+App.config
+Libs/
+Resources/
 .claude/
 install.cmd
 [Bb]uild/

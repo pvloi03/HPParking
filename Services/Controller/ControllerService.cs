@@ -96,7 +96,7 @@ namespace HPParking.Services.Controller
             }
         }
 
-        public bool OpenBarrier(int doorId, int seconds = 1)
+        public virtual bool OpenBarrier(int doorId, int seconds = 1)
         {
             lock (_lock)
             {

@@ -120,9 +120,9 @@ namespace HPParking.Forms.ConfigManager
                 // Hàm hỗ trợ đọc giá trị an toàn tránh KeyNotFoundException
                 string GetValue(TextBox txt)
                 {
-                    if (validationResult.Values.TryGetValue(txt.Name, out string val))
+                    if (validationResult.Values.TryGetValue(txt.Name, out string? val))
                     {
-                        return val;
+                        return val!;
                     }
                     return txt.Text.Trim();
                 }

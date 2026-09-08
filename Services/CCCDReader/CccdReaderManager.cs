@@ -73,16 +73,30 @@ namespace HPParking.Services.CCCDReader
                 await StartWithRetryAsync();
             };
 
-            await StartWithRetryAsync();
+            // Thử kết nối ban đầu, nếu chưa có Service CCCD thì chạy retry ở background để không block Form Main
+            try
+            {
+                await _hubConnection.StartAsync();
+                ConnectionStateChanged?.Invoke("Đã kết nối thành công tới Service CCCD!", true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[CCCD Service Initial Connect]: {ex.Message}");
+                ConnectionStateChanged?.Invoke("❌ Không thấy Service CCCD running. Đang thử kết nối lại...", false);
+                _ = Task.Run(StartWithRetryAsync);
+            }
         }
 
         private async Task StartWithRetryAsync()
         {
-            while (!_isDisposing && (_hubConnection == null || _hubConnection.State == HubConnectionState.Disconnected))
+            while (!_isDisposing && _hubConnection != null && _hubConnection.State == HubConnectionState.Disconnected)
             {
+                await Task.Delay(3000);
+                if (_isDisposing || _hubConnection == null || _hubConnection.State != HubConnectionState.Disconnected)
+                    break;
+
                 try
                 {
-                    if (_hubConnection == null) break;
                     await _hubConnection.StartAsync();
                     ConnectionStateChanged?.Invoke("Đã kết nối thành công tới Service CCCD!", true);
                     break;
@@ -91,7 +105,6 @@ namespace HPParking.Services.CCCDReader
                 {
                     Debug.WriteLine($"[CCCD Service Connection Retry Error]: {ex.Message}");
                     ConnectionStateChanged?.Invoke("❌ Không thấy Service CCCD running. Đang thử kết nối lại sau 3s...", false);
-                    await Task.Delay(3000);
                 }
             }
         }

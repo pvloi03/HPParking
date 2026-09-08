@@ -1,9 +1,9 @@
 using HPParking.Helper;
 using Microsoft.Win32;
-using Newtonsoft.Json;
 using System;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 namespace HPParking.LicenseKey
 {
@@ -37,7 +37,7 @@ namespace HPParking.LicenseKey
                     return false;
                 }
 
-                var license = JsonConvert.DeserializeObject<LicenseInfo>(json);
+                var license = JsonSerializer.Deserialize<LicenseInfo>(json);
 
                 if (license?.FixedCode != "HOANGPHAT130225")
                 {
@@ -108,7 +108,7 @@ namespace HPParking.LicenseKey
                 string dateStr = now.ToString("o"); // Định dạng ISO 8601
                 string encrypted = EncryptString(dateStr, GetCurrentMachineCode());
 
-                using RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\HPParking");
+                using RegistryKey? key = Registry.CurrentUser.CreateSubKey(@"Software\HPParking");
                 if (key != null)
                 {
                     key.SetValue("SysCheck", encrypted);
@@ -126,7 +126,7 @@ namespace HPParking.LicenseKey
         {
             try
             {
-                using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\HPParking");
+                using RegistryKey? key = Registry.CurrentUser.OpenSubKey(@"Software\HPParking");
                 if (key != null)
                 {
                     string? encrypted = key.GetValue("SysCheck") as string;
@@ -149,7 +149,7 @@ namespace HPParking.LicenseKey
 
         private static string EncryptString(string plainText, string secretKey)
         {
-            byte[] keyBytes = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(secretKey));
+            byte[] keyBytes = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
             byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
             using Aes aes = Aes.Create();
             aes.Key = keyBytes;
@@ -164,7 +164,7 @@ namespace HPParking.LicenseKey
 
         private static string DecryptString(string cipherText, string secretKey)
         {
-            byte[] keyBytes = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(secretKey));
+            byte[] keyBytes = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey));
             byte[] fullBytes = Convert.FromBase64String(cipherText);
             using Aes aes = Aes.Create();
             aes.Key = keyBytes;
@@ -184,7 +184,7 @@ namespace HPParking.LicenseKey
             rsa.FromXmlString(publicKeyXml);
             byte[] dataBytes = Encoding.UTF8.GetBytes(data);
             byte[] sigBytes = Convert.FromBase64String(signature);
-            return rsa.VerifyData(dataBytes, CryptoConfig.MapNameToOID("SHA256"), sigBytes);
+            return rsa.VerifyData(dataBytes, CryptoConfig.MapNameToOID("SHA256")!, sigBytes);
         }
 
         static string GetPublicKey()
