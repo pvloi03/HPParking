@@ -17,7 +17,6 @@ namespace HPParking.Forms
 {
     public partial class FrmMain : Form
     {
-        private readonly Dictionary<string, ControllerService> _controllerServices = [];
         private readonly ILaneRepository _laneRepository;
         private readonly ICompanyRepository _companyRepository;
         private readonly IClientRepository _clientRepository;
@@ -56,7 +55,7 @@ namespace HPParking.Forms
             _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
         }
 
-        private void FrmMain_KeyDown(object sender, KeyEventArgs e)
+        private void FrmMain_KeyDown(object? sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.F1)
             {
@@ -79,40 +78,54 @@ namespace HPParking.Forms
                 _company = await _companyRepository.GetFirstCompanyAsync();
                 if (_company == null || string.IsNullOrEmpty(_company.Lisen))
                 {
-                    using FrmLogin login = new();
-                    login.Show();
                     Hide();
-                    return;
+                    using (FrmLogin login = new())
+                    {
+                        login.ShowDialog();
+                    }
+                    _company = await _companyRepository.GetFirstCompanyAsync();
+                    if (_company == null || string.IsNullOrEmpty(_company.Lisen))
+                    {
+                        Application.Exit();
+                        return;
+                    }
+                    Show();
                 }
 
                 // 3. KHÔI PHỤC: KIỂM TRA LICENSE KEY & BẬT ĐỒNG HỒ REALTIME
                 string licenseKey = _company.Lisen;
-                if (LicenseValidator.ValidateLicense(licenseKey, out string error, out int dayExpiryDate))
-                {
-                    lbdayExpiryDate.Text = $"THỜI HẠN: {dayExpiryDate + 1} ngày";
-
-                    int tickCount = 0;
-                    _clockTimer = new Timer { Interval = 1000 };
-                    _clockTimer.Tick += (s, args) =>
-                    {
-                        lbRealTime.Text = $"HÔM NAY: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
-                        tickCount++;
-                        // Mỗi 60 giây tự động cập nhật mốc thời gian chạy mới nhất
-                        if (tickCount % 60 == 0)
-                        {
-                            LicenseValidator.UpdateLastRunTime();
-                        }
-                    };
-                    _clockTimer.Start();
-                }
-                else
+                if (!LicenseValidator.ValidateLicense(licenseKey, out string error, out int dayExpiryDate))
                 {
                     MessageBox.Show(string.IsNullOrEmpty(error) ? "Hết hạn sử dụng phần mềm !" : error, "Thông báo License", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    using FrmLogin login = new();
-                    login.Show();
                     Hide();
-                    return;
+                    using (FrmLogin login = new())
+                    {
+                        login.ShowDialog();
+                    }
+                    _company = await _companyRepository.GetFirstCompanyAsync();
+                    if (_company == null || string.IsNullOrEmpty(_company.Lisen) || !LicenseValidator.ValidateLicense(_company.Lisen, out _, out dayExpiryDate))
+                    {
+                        Application.Exit();
+                        return;
+                    }
+                    Show();
                 }
+
+                lbdayExpiryDate.Text = $"THỜI HẠN: {dayExpiryDate + 1} ngày";
+
+                int tickCount = 0;
+                _clockTimer = new Timer { Interval = 1000 };
+                _clockTimer.Tick += (s, args) =>
+                {
+                    lbRealTime.Text = $"HÔM NAY: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
+                    tickCount++;
+                    // Mỗi 60 giây tự động cập nhật mốc thời gian chạy mới nhất
+                    if (tickCount % 60 == 0)
+                    {
+                        LicenseValidator.UpdateLastRunTime();
+                    }
+                };
+                _clockTimer.Start();
 
                 // 4. Lấy dữ liệu Làn & Cấu hình UI
                 _lanes = await _laneRepository.GetAllAsync() ?? [];
@@ -191,7 +204,7 @@ namespace HPParking.Forms
             }));
         }
 
-        private void UpdateUI(Lane lane, ProcessResult result)
+        private static void UpdateUI(Lane lane, ProcessResult result)
         {
             if (lane.UI == null) return;
 
@@ -270,7 +283,7 @@ namespace HPParking.Forms
             }
         }
 
-        private List<T> GetControls<T>(List<TableLayoutPanel> tlpPreview, string tag) where T : Control
+        private static List<T> GetControls<T>(List<TableLayoutPanel> tlpPreview, string tag) where T : Control
         {
             return [.. tlpPreview.SelectMany(tlp => tlp.Controls.OfType<T>()).Where(c => c.Tag?.ToString() == tag)];
         }

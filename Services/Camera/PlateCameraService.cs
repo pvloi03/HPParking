@@ -127,7 +127,7 @@ namespace HPParking.Services.Camera
             }
         }
 
-        public Bitmap Capture()
+        public virtual Bitmap Capture()
         {
             lock (_lockObj)
             {

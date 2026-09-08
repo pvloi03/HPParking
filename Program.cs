@@ -19,34 +19,52 @@ namespace HPParking
         [STAThread]
         static void Main()
         {
-            var services = new ServiceCollection();
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                var ex = e.ExceptionObject as Exception;
+                MessageBox.Show(ex?.ToString() ?? "Unhandled domain exception", "HPParking Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
+            Application.ThreadException += (s, e) =>
+            {
+                MessageBox.Show(e.Exception.ToString(), "HPParking Thread Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            };
 
-            services.AddSingleton<MongoContext>();
+            try
+            {
+                var services = new ServiceCollection();
 
-            services.AddScoped<ILaneRepository, LaneRepository>();
-            services.AddScoped<IEventParkingRepository, EventParkingRepository>();
-            services.AddScoped<IClientRepository, ClientRepository>();
-            services.AddScoped<ICompanyRepository, CompanyRepository>();
+                services.AddSingleton<MongoContext>();
 
-            services.AddSingleton<LprService>();
-            services.AddSingleton<IImageStorageService, ImageStorageService>();
-            services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
+                services.AddScoped<ILaneRepository, LaneRepository>();
+                services.AddScoped<IEventParkingRepository, EventParkingRepository>();
+                services.AddScoped<IClientRepository, ClientRepository>();
+                services.AddScoped<ICompanyRepository, CompanyRepository>();
 
-            services.AddTransient<FrmMain>();
-            services.AddTransient<FrmConfigManager>();
-            services.AddTransient<FrmLogin>();
-            services.AddTransient<UcCompanyManager>();
-            services.AddTransient<UcLanMotoManager>();
-            services.AddTransient<UcLanCarManager>();
+                services.AddSingleton<ILprService, LprService>();
+                services.AddSingleton<IImageStorageService, ImageStorageService>();
+                services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
 
-            ServiceProvider = services.BuildServiceProvider();
+                services.AddTransient<FrmMain>();
+                services.AddTransient<FrmConfigManager>();
+                services.AddTransient<FrmLogin>();
+                services.AddTransient<UcCompanyManager>();
+                services.AddTransient<UcLanMotoManager>();
+                services.AddTransient<UcLanCarManager>();
 
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
+                ServiceProvider = services.BuildServiceProvider();
 
-            // Lấy Form thông qua DI thay vì new MainForm()
-            var formMain = ServiceProvider.GetRequiredService<FrmMain>();
-            Application.Run(formMain);
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+
+                // Lấy Form thông qua DI thay vì new MainForm()
+                var formMain = ServiceProvider.GetRequiredService<FrmMain>();
+                Application.Run(formMain);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Lỗi khởi động HPParking", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }

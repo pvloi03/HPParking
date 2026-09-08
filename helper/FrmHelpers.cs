@@ -5,7 +5,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
-using Ookii.Dialogs.WinForms;
 
 namespace HPParking.Helper
 {
@@ -37,16 +36,16 @@ namespace HPParking.Helper
             }
         }
 
-        public static void ShowMessage(string message, string title = "Thông báo", TaskDialogIcon icon = TaskDialogIcon.Information)
+        public static void ShowMessage(string message, string title = "Thông báo", TaskDialogIcon? icon = null)
         {
-            using (var dialog = new TaskDialog())
+            var page = new TaskDialogPage
             {
-                dialog.WindowTitle = title;
-                dialog.MainInstruction = message;
-                dialog.MainIcon = icon;
-                dialog.Buttons.Add(new TaskDialogButton(ButtonType.Ok));
-                dialog.ShowDialog();
-            }
+                Caption = title,
+                Heading = message,
+                Icon = icon ?? TaskDialogIcon.Information,
+                Buttons = { TaskDialogButton.OK }
+            };
+            TaskDialog.ShowDialog(page);
         }
     }
 }
