@@ -134,18 +134,6 @@ namespace HPParking.Services.Devices
                     }
                 }
             }
-            else if (previews != null)
-            {
-                if (previewSlotStart < previews.Count)
-                {
-                    plateCam.StartPreview(previews[previewSlotStart].Handle);
-                }
-
-                if (previewSlotStart + 1 < previews.Count)
-                {
-                    overviewCam.StartPreview(previews[previewSlotStart + 1].Handle);
-                }
-            }
         }
 
         /// <summary>
