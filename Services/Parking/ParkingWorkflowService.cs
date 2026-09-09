@@ -22,7 +22,8 @@ namespace HPParking.Services.Parking
 
         private bool BarrierOpen(Lane lane)
         {
-            return lane.Ctrl != null && lane.Ctrl.OpenBarrier(lane.InputReader, 1);
+            int relayPort = lane.OutputRelay > 0 ? lane.OutputRelay : lane.InputReader;
+            return lane.Ctrl != null && lane.Ctrl.OpenBarrier(relayPort, 1);
         }
 
         private bool IsClientExpired(Client client)
@@ -33,7 +34,7 @@ namespace HPParking.Services.Parking
             return false;
         }
 
-        public async Task<ProcessResult> ProcessEntryAsync(Lane lane, RealtimeLog data, string imageBasePath)
+        public async Task<ProcessResult> ProcessEntryAsync(Lane lane, RealtimeLog data, string imageBasePath, Func<Lane, bool>? onBarrierOpenFailed = null)
         {
             EventParking? parking = null;
             var client = await _clientRepository.GetByCardCode($"0{data.CardNo}");
@@ -73,13 +74,17 @@ namespace HPParking.Services.Parking
             // Mở Barrier
             if (!BarrierOpen(lane))
             {
-                plateImage.Dispose();
-                overviewImage.Dispose();
-                return new ProcessResult
+                bool handledManually = onBarrierOpenFailed?.Invoke(lane) ?? false;
+                if (!handledManually)
                 {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier. Vui lòng kiểm tra kết nối thiết bị controller."
-                };
+                    plateImage.Dispose();
+                    overviewImage.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.BarrierFailed,
+                        Message = "Không thể mở barrier. Vui lòng kiểm tra kết nối thiết bị controller."
+                    };
+                }
             }
 
             // Lưu dữ liệu ngầm - clone để lưu trữ
@@ -129,7 +134,7 @@ namespace HPParking.Services.Parking
             };
         }
 
-        public async Task<ProcessResult> ProcessExitAsync(Lane lane, RealtimeLog data, string imageBasePath)
+        public async Task<ProcessResult> ProcessExitAsync(Lane lane, RealtimeLog data, string imageBasePath, Func<Lane, bool>? onBarrierOpenFailed = null)
         {
             var client = await _clientRepository.GetByCardCode($"0{data.CardNo}");
             if (client == null)
@@ -175,13 +180,17 @@ namespace HPParking.Services.Parking
 
             if (!BarrierOpen(lane))
             {
-                plateImage.Dispose();
-                overviewImage.Dispose();
-                return new ProcessResult
+                bool handledManually = onBarrierOpenFailed?.Invoke(lane) ?? false;
+                if (!handledManually)
                 {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier. Vui lòng kiểm tra kết nối thiết bị controller."
-                };
+                    plateImage.Dispose();
+                    overviewImage.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.BarrierFailed,
+                        Message = "Không thể mở barrier. Vui lòng kiểm tra kết nối thiết bị controller."
+                    };
+                }
             }
 
             Bitmap plateSave = (Bitmap)plateImage.Clone();

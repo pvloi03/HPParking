@@ -131,9 +131,8 @@ namespace HPParking.Forms
                 _lanes = await _laneRepository.GetAllAsync() ?? [];
                 BindLaneUI();
 
-                // 5. Khởi tạo Thiết bị & LiveView trên PictureBox
-                List<PictureBox> previews = GetControls<PictureBox>([tlpPreviewMoto, tlpPreviewCar], "pbPreview");
-                await _deviceOrchestrator.InitializeDevicesAsync(_lanes, previews);
+                // 5. Khởi tạo Thiết bị & LiveView trên PictureBox qua Explicit Semantic Mapping
+                await _deviceOrchestrator.InitializeDevicesAsync(_lanes, previewHandleResolver: ResolvePreviewHandles);
 
                 // 6. Lắng nghe tín hiệu quẹt thẻ Realtime
                 _deviceOrchestrator.OnCardSwiped += OnCardSwiped;
@@ -190,8 +189,8 @@ namespace HPParking.Forms
             BeginInvoke(new Action(async () =>
             {
                 ProcessResult result = (lane.Type % 2 != 0)
-                    ? await _workflowService.ProcessEntryAsync(lane, data, pathImage)
-                    : await _workflowService.ProcessExitAsync(lane, data, pathImage);
+                    ? await _workflowService.ProcessEntryAsync(lane, data, pathImage, HandleBarrierOpenFailed)
+                    : await _workflowService.ProcessExitAsync(lane, data, pathImage, HandleBarrierOpenFailed);
 
                 if (result.Status == ProcessStatus.Success)
                 {
@@ -283,9 +282,70 @@ namespace HPParking.Forms
             }
         }
 
-        private static List<T> GetControls<T>(List<TableLayoutPanel> tlpPreview, string tag) where T : Control
+        private LanePreviewHandles? ResolvePreviewHandles(Lane lane)
         {
-            return [.. tlpPreview.SelectMany(tlp => tlp.Controls.OfType<T>()).Where(c => c.Tag?.ToString() == tag)];
+            bool isMoto = (lane.InputReader % 2 != 0);
+            bool isEntry = (lane.Type % 2 != 0);
+
+            if (isMoto)
+            {
+                return isEntry
+                    ? new LanePreviewHandles { PlateHandle = pbMotoEntryPlate.Handle, OverviewHandle = pbMotoEntryOverview.Handle }
+                    : new LanePreviewHandles { PlateHandle = pbMotoExitPlate.Handle, OverviewHandle = pbMotoExitOverview.Handle };
+            }
+            else
+            {
+                return isEntry
+                    ? new LanePreviewHandles { PlateHandle = pbCarEntryPlate.Handle, OverviewHandle = pbCarEntryOverview.Handle }
+                    : new LanePreviewHandles { PlateHandle = pbCarExitPlate.Handle, OverviewHandle = pbCarExitOverview.Handle };
+            }
+        }
+
+        private bool HandleBarrierOpenFailed(Lane lane)
+        {
+            if (InvokeRequired)
+            {
+                return (bool)Invoke(new Func<bool>(() => HandleBarrierOpenFailed(lane)));
+            }
+
+            string laneDesc = $"{(lane.InputReader % 2 != 0 ? "Xe máy" : "Ô tô")} (Cổng {(lane.Type % 2 != 0 ? "VÀO" : "RA")} - Đầu đọc {lane.InputReader})";
+
+            while (true)
+            {
+                var dialog = new TaskDialogPage
+                {
+                    Caption = "Lỗi Thiết Bị Barrier",
+                    Heading = $"Không thể kích hoạt mở Barrier làn {laneDesc}!",
+                    Text = "Tín hiệu kích xung tới rơle điều khiển barrier thất bại hoặc mất kết nối thiết bị controller.",
+                    Icon = TaskDialogIcon.Error,
+                    Buttons =
+                    {
+                        TaskDialogButton.Retry,
+                        TaskDialogButton.Cancel
+                    }
+                };
+
+                var result = TaskDialog.ShowDialog(this, dialog);
+
+                if (result == TaskDialogButton.Retry)
+                {
+                    int relayPort = lane.OutputRelay > 0 ? lane.OutputRelay : lane.InputReader;
+                    if (lane.Ctrl != null && lane.Ctrl.OpenBarrier(relayPort, 1))
+                    {
+                        return true;
+                    }
+                    continue;
+                }
+
+                var confirmResult = MessageBox.Show(
+                    this,
+                    "Bảo vệ đã mở barrier thủ công và xe đã qua chưa?\n\n- Chọn YES nếu đã mở thủ công để hệ thống ghi nhận lượt xe.\n- Chọn NO để hủy bỏ lượt xe này.",
+                    "Xác nhận mở barrier thủ công",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                return confirmResult == DialogResult.Yes;
+            }
         }
 
         private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)

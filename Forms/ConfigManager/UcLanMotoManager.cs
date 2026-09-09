@@ -127,6 +127,14 @@ namespace HPParking.Forms.ConfigManager
                     return txt.Text.Trim();
                 }
 
+                // Kiểm tra trùng cổng đọc Vào và Ra
+                if (int.Parse(GetValue(txtInReader)) == int.Parse(GetValue(txtOutReader)))
+                {
+                    MessageBox.Show("Cổng đầu đọc Làn Vào và Làn Ra không được trùng nhau!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    txtOutReader.Focus();
+                    return;
+                }
+
                 // --- 1. XỬ LÝ LANE IN MOTO ---
                 var laneIn = _lanes?.FirstOrDefault(x => x.Type % 2 != 0 && x.InputReader % 2 != 0);
 

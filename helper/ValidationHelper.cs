@@ -100,6 +100,115 @@ namespace HPParking.Helper
                     return validationResult;
                 }
 
+                if (rule == "number_odd")
+                {
+                    if (!int.TryParse(value, out int num))
+                    {
+                        validationResult.IsValid = false;
+                        validationResult.InvalidControl = control;
+                        validationResult.ErrorMessage = $"{fieldName} phải là số.";
+                        validationResult.Values.Clear();
+
+                        if (showMessageBox)
+                        {
+                            MessageBox.Show(
+                                validationResult.ErrorMessage,
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+
+                        control.Focus();
+                        return validationResult;
+                    }
+
+                    if (num % 2 == 0)
+                    {
+                        validationResult.IsValid = false;
+                        validationResult.InvalidControl = control;
+                        validationResult.ErrorMessage = $"{fieldName} phải là số lẻ (1, 3, 5...).";
+                        validationResult.Values.Clear();
+
+                        if (showMessageBox)
+                        {
+                            MessageBox.Show(
+                                validationResult.ErrorMessage,
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+
+                        control.Focus();
+                        return validationResult;
+                    }
+                }
+
+                if (rule == "number_even")
+                {
+                    if (!int.TryParse(value, out int num))
+                    {
+                        validationResult.IsValid = false;
+                        validationResult.InvalidControl = control;
+                        validationResult.ErrorMessage = $"{fieldName} phải là số.";
+                        validationResult.Values.Clear();
+
+                        if (showMessageBox)
+                        {
+                            MessageBox.Show(
+                                validationResult.ErrorMessage,
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+
+                        control.Focus();
+                        return validationResult;
+                    }
+
+                    if (num % 2 != 0)
+                    {
+                        validationResult.IsValid = false;
+                        validationResult.InvalidControl = control;
+                        validationResult.ErrorMessage = $"{fieldName} phải là số chẵn (2, 4, 6...).";
+                        validationResult.Values.Clear();
+
+                        if (showMessageBox)
+                        {
+                            MessageBox.Show(
+                                validationResult.ErrorMessage,
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+
+                        control.Focus();
+                        return validationResult;
+                    }
+                }
+
+                if (rule == "number_1_to_4")
+                {
+                    if (!int.TryParse(value, out int num) || num < 1 || num > 4)
+                    {
+                        validationResult.IsValid = false;
+                        validationResult.InvalidControl = control;
+                        validationResult.ErrorMessage = $"{fieldName} phải là số từ 1 đến 4.";
+                        validationResult.Values.Clear();
+
+                        if (showMessageBox)
+                        {
+                            MessageBox.Show(
+                                validationResult.ErrorMessage,
+                                "Thông báo",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
+
+                        control.Focus();
+                        return validationResult;
+                    }
+                }
+
                 validationResult.Values[control.Name] = value;
             }
 

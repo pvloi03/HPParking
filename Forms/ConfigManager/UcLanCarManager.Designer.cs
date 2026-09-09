@@ -1,4 +1,4 @@
-﻿namespace HPParking.Forms.ConfigManager
+namespace HPParking.Forms.ConfigManager
 {
     partial class UcLanCarManager
     {
@@ -29,6 +29,9 @@
         private void InitializeComponent()
         {
             this.txtInPortCameraClient = new System.Windows.Forms.TextBox();
+            this.lblInStandardNote = new System.Windows.Forms.Label();
+            this.lblOutStandardNote = new System.Windows.Forms.Label();
+            this.lblGuideBanner = new System.Windows.Forms.Label();
             this.label12 = new System.Windows.Forms.Label();
             this.label19 = new System.Windows.Forms.Label();
             this.txtOutRelay = new System.Windows.Forms.TextBox();
@@ -143,7 +146,18 @@
             this.txtOutRelay.Name = "txtOutRelay";
             this.txtOutRelay.Size = new System.Drawing.Size(112, 26);
             this.txtOutRelay.TabIndex = 27;
-            this.txtOutRelay.Tag = "Chân relay làn ra|number";
+            this.txtOutRelay.Tag = "Chân relay làn ra|number_1_to_4";
+            // 
+            // lblOutStandardNote
+            // 
+            this.lblOutStandardNote.AutoSize = true;
+            this.lblOutStandardNote.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblOutStandardNote.ForeColor = System.Drawing.Color.DarkBlue;
+            this.lblOutStandardNote.Location = new System.Drawing.Point(575, 200);
+            this.lblOutStandardNote.Name = "lblOutStandardNote";
+            this.lblOutStandardNote.Size = new System.Drawing.Size(425, 20);
+            this.lblOutStandardNote.TabIndex = 28;
+            this.lblOutStandardNote.Text = "💡 Chuẩn khuyến nghị C3-400: Cổng 4 (Đầu đọc = 4 [Chẵn], Relay = 4)";
             // 
             // label20
             // 
@@ -162,7 +176,7 @@
             this.txtOutReader.Name = "txtOutReader";
             this.txtOutReader.Size = new System.Drawing.Size(112, 26);
             this.txtOutReader.TabIndex = 25;
-            this.txtOutReader.Tag = "Đầu đọc làn ra|number";
+            this.txtOutReader.Tag = "Đầu đọc làn ra|number_even";
             // 
             // label21
             // 
@@ -496,6 +510,17 @@
             this.label5.TabIndex = 0;
             this.label5.Text = "Camera biển số";
             // 
+            // lblGuideBanner
+            // 
+            this.lblGuideBanner.AutoSize = true;
+            this.lblGuideBanner.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblGuideBanner.ForeColor = System.Drawing.Color.DarkBlue;
+            this.lblGuideBanner.Location = new System.Drawing.Point(15, 555);
+            this.lblGuideBanner.Name = "lblGuideBanner";
+            this.lblGuideBanner.Size = new System.Drawing.Size(830, 20);
+            this.lblGuideBanner.TabIndex = 48;
+            this.lblGuideBanner.Text = "📌 Lưu ý ZKTeco C3-400 (Ô tô): Cổng đọc bắt buộc là số CHẴN. Chuẩn khuyến nghị: Cổng vào = 2, Cổng ra = 4.";
+            // 
             // button5
             // 
             this.button5.BackColor = System.Drawing.Color.Coral;
@@ -546,7 +571,7 @@
             this.txtInReader.Name = "txtInReader";
             this.txtInReader.Size = new System.Drawing.Size(112, 26);
             this.txtInReader.TabIndex = 25;
-            this.txtInReader.Tag = "Đầu đọc làn vào|number";
+            this.txtInReader.Tag = "Đầu đọc làn vào|number_even";
             // 
             // label13
             // 
@@ -635,6 +660,7 @@
             this.grbLaneIn.Controls.Add(this.lbFaceId);
             this.grbLaneIn.Controls.Add(this.txtInIpFaceId);
             this.grbLaneIn.Controls.Add(this.label18);
+            this.grbLaneIn.Controls.Add(this.lblInStandardNote);
             this.grbLaneIn.Controls.Add(this.txtInRelay);
             this.grbLaneIn.Controls.Add(this.label17);
             this.grbLaneIn.Controls.Add(this.txtInReader);
@@ -680,7 +706,18 @@
             this.txtInRelay.Name = "txtInRelay";
             this.txtInRelay.Size = new System.Drawing.Size(112, 26);
             this.txtInRelay.TabIndex = 27;
-            this.txtInRelay.Tag = "Chân relay làn vào|number";
+            this.txtInRelay.Tag = "Chân relay làn vào|number_1_to_4";
+            // 
+            // lblInStandardNote
+            // 
+            this.lblInStandardNote.AutoSize = true;
+            this.lblInStandardNote.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblInStandardNote.ForeColor = System.Drawing.Color.DarkBlue;
+            this.lblInStandardNote.Location = new System.Drawing.Point(575, 214);
+            this.lblInStandardNote.Name = "lblInStandardNote";
+            this.lblInStandardNote.Size = new System.Drawing.Size(425, 20);
+            this.lblInStandardNote.TabIndex = 28;
+            this.lblInStandardNote.Text = "💡 Chuẩn khuyến nghị C3-400: Cổng 2 (Đầu đọc = 2 [Chẵn], Relay = 2)";
             // 
             // label9
             // 
@@ -704,6 +741,7 @@
             // grbLaneOut
             // 
             this.grbLaneOut.Controls.Add(this.label4);
+            this.grbLaneOut.Controls.Add(this.lblOutStandardNote);
             this.grbLaneOut.Controls.Add(this.label19);
             this.grbLaneOut.Controls.Add(this.txtOutPassFaceId);
             this.grbLaneOut.Controls.Add(this.label33);
@@ -905,6 +943,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.lblGuideBanner);
             this.Controls.Add(this.button5);
             this.Controls.Add(this.grbLaneIn);
             this.Controls.Add(this.grbLaneOut);
@@ -996,5 +1035,8 @@
         private System.Windows.Forms.Label label34;
         private System.Windows.Forms.Label label35;
         private System.Windows.Forms.TextBox txtOutIpFaceId;
+        private System.Windows.Forms.Label lblInStandardNote;
+        private System.Windows.Forms.Label lblOutStandardNote;
+        private System.Windows.Forms.Label lblGuideBanner;
     }
 }

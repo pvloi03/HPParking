@@ -24,17 +24,24 @@ namespace HPParking.Services.Devices
 
         public event Action<RealtimeLog>? OnCardSwiped;
 
-        public async Task InitializeDevicesAsync(List<Lane> lanes, List<PictureBox> previews)
+        public async Task InitializeDevicesAsync(
+            List<Lane> lanes,
+            List<PictureBox>? previews = null,
+            Func<Lane, LanePreviewHandles?>? previewHandleResolver = null)
         {
             ThrowIfDisposed();
 
             var initTasks = lanes.Select((lane, index) =>
-                InitializeLaneAsync(lane, previews, previewSlotStart: index * 2));
+                InitializeLaneAsync(lane, previews, previewSlotStart: index * 2, previewHandleResolver));
 
             await Task.WhenAll(initTasks);
         }
 
-        private async Task InitializeLaneAsync(Lane lane, List<PictureBox> previews, int previewSlotStart)
+        private async Task InitializeLaneAsync(
+            Lane lane,
+            List<PictureBox>? previews,
+            int previewSlotStart,
+            Func<Lane, LanePreviewHandles?>? previewHandleResolver)
         {
             ThrowIfDisposed();
 
@@ -112,14 +119,32 @@ namespace HPParking.Services.Devices
 
             await Task.WhenAll(plateCam.LoginAsync(), overviewCam.LoginAsync());
 
-            if (previewSlotStart < previews.Count)
+            if (previewHandleResolver != null)
             {
-                plateCam.StartPreview(previews[previewSlotStart].Handle);
+                var handles = previewHandleResolver(lane);
+                if (handles != null)
+                {
+                    if (handles.PlateHandle != IntPtr.Zero)
+                    {
+                        plateCam.StartPreview(handles.PlateHandle);
+                    }
+                    if (handles.OverviewHandle != IntPtr.Zero)
+                    {
+                        overviewCam.StartPreview(handles.OverviewHandle);
+                    }
+                }
             }
-
-            if (previewSlotStart + 1 < previews.Count)
+            else if (previews != null)
             {
-                overviewCam.StartPreview(previews[previewSlotStart + 1].Handle);
+                if (previewSlotStart < previews.Count)
+                {
+                    plateCam.StartPreview(previews[previewSlotStart].Handle);
+                }
+
+                if (previewSlotStart + 1 < previews.Count)
+                {
+                    overviewCam.StartPreview(previews[previewSlotStart + 1].Handle);
+                }
             }
         }
 
