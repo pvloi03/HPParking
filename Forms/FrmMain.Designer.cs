@@ -30,955 +30,919 @@ namespace HPParking.Forms
         /// </summary>
         private void InitializeComponent()
         {
-            this.tlpMain = new System.Windows.Forms.TableLayoutPanel();
-            this.tlpTitleMoto = new System.Windows.Forms.TableLayoutPanel();
-            this.lblTitleMoto = new System.Windows.Forms.Label();
-            this.lblLaneInMoto = new System.Windows.Forms.Label();
-            this.lblLaneOutMoto = new System.Windows.Forms.Label();
-            this.tlpTitleCar = new System.Windows.Forms.TableLayoutPanel();
-            this.lblTitleCar = new System.Windows.Forms.Label();
-            this.lblLaneInCar = new System.Windows.Forms.Label();
-            this.lblLaneOutCar = new System.Windows.Forms.Label();
-            this.tlpPreviewCar = new System.Windows.Forms.TableLayoutPanel();
-            this.pbCarEntryOverview = new System.Windows.Forms.PictureBox();
-            this.pbCarEntryPlate = new System.Windows.Forms.PictureBox();
-            this.pbCarExitOverview = new System.Windows.Forms.PictureBox();
-            this.pbCarExitPlate = new System.Windows.Forms.PictureBox();
-            this.pnlInfoCar = new System.Windows.Forms.Panel();
-            this.tlpInfoCar = new System.Windows.Forms.TableLayoutPanel();
-            this.tlpImgsCar = new System.Windows.Forms.TableLayoutPanel();
-            this.pbCarPlateOutImg = new System.Windows.Forms.PictureBox();
-            this.pbCarPlateInImg = new System.Windows.Forms.PictureBox();
-            this.lblCarIdentityCard = new System.Windows.Forms.Label();
-            this.lblCarPlateDetected = new System.Windows.Forms.Label();
-            this.lblCarPlateRegistered = new System.Windows.Forms.Label();
-            this.lblCarTimeOut = new System.Windows.Forms.Label();
-            this.lblCarTimeIn = new System.Windows.Forms.Label();
-            this.lblCarCardId = new System.Windows.Forms.Label();
-            this.lblCarDepartment = new System.Windows.Forms.Label();
-            this.lblCarFullName = new System.Windows.Forms.Label();
-            this.tlpPreviewMoto = new System.Windows.Forms.TableLayoutPanel();
-            this.pbMotoEntryOverview = new System.Windows.Forms.PictureBox();
-            this.pbMotoExitOverview = new System.Windows.Forms.PictureBox();
-            this.pbMotoExitPlate = new System.Windows.Forms.PictureBox();
-            this.pnlInfoMoto = new System.Windows.Forms.Panel();
-            this.tlpInfoMoto = new System.Windows.Forms.TableLayoutPanel();
-            this.lblMotoIdentityCard = new System.Windows.Forms.Label();
-            this.lblMotoPlateDetected = new System.Windows.Forms.Label();
-            this.lblMotoPlateRegistered = new System.Windows.Forms.Label();
-            this.lblMotoTimeOut = new System.Windows.Forms.Label();
-            this.lblMotoTimeIn = new System.Windows.Forms.Label();
-            this.lblMotoCardId = new System.Windows.Forms.Label();
-            this.lblMotoDepartment = new System.Windows.Forms.Label();
-            this.lblMotoFullName = new System.Windows.Forms.Label();
-            this.tlpImgsMoto = new System.Windows.Forms.TableLayoutPanel();
-            this.pbMotoPlateOutImg = new System.Windows.Forms.PictureBox();
-            this.pbMotoPlateInImg = new System.Windows.Forms.PictureBox();
-            this.pbMotoEntryPlate = new System.Windows.Forms.PictureBox();
-            this.pnlFooter = new System.Windows.Forms.Panel();
-            this.lblServerStatus = new System.Windows.Forms.Label();
-            this.lbStatusCtrl = new System.Windows.Forms.Label();
-            this.lbdayExpiryDate = new System.Windows.Forms.Label();
-            this.lbRealTime = new System.Windows.Forms.Label();
-            this.label3 = new System.Windows.Forms.Label();
-            this.tlpMain.SuspendLayout();
-            this.tlpTitleMoto.SuspendLayout();
-            this.tlpTitleCar.SuspendLayout();
-            this.tlpPreviewCar.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarEntryOverview)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarEntryPlate)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarExitOverview)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarExitPlate)).BeginInit();
-            this.pnlInfoCar.SuspendLayout();
-            this.tlpInfoCar.SuspendLayout();
-            this.tlpImgsCar.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarPlateOutImg)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarPlateInImg)).BeginInit();
-            this.tlpPreviewMoto.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoEntryOverview)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoExitOverview)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoExitPlate)).BeginInit();
-            this.pnlInfoMoto.SuspendLayout();
-            this.tlpInfoMoto.SuspendLayout();
-            this.tlpImgsMoto.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoPlateOutImg)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoPlateInImg)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoEntryPlate)).BeginInit();
-            this.pnlFooter.SuspendLayout();
-            this.SuspendLayout();
+            tlpMain = new TableLayoutPanel();
+            tlpTitleMoto = new TableLayoutPanel();
+            lblTitleMoto = new Label();
+            lblLaneInMoto = new Label();
+            lblLaneOutMoto = new Label();
+            tlpTitleCar = new TableLayoutPanel();
+            lblTitleCar = new Label();
+            lblLaneInCar = new Label();
+            lblLaneOutCar = new Label();
+            tlpPreviewCar = new TableLayoutPanel();
+            pbCarEntryOverview = new PictureBox();
+            pbCarEntryPlate = new PictureBox();
+            pbCarExitOverview = new PictureBox();
+            pbCarExitPlate = new PictureBox();
+            pnlInfoCar = new Panel();
+            tlpInfoCar = new TableLayoutPanel();
+            tlpImgsCar = new TableLayoutPanel();
+            pbCarPlateOutImg = new PictureBox();
+            pbCarPlateInImg = new PictureBox();
+            lblCarIdentityCard = new Label();
+            lblCarPlateDetected = new Label();
+            lblCarPlateRegistered = new Label();
+            lblCarTimeOut = new Label();
+            lblCarTimeIn = new Label();
+            lblCarDepartment = new Label();
+            lblCarFullName = new Label();
+            tlpPreviewMoto = new TableLayoutPanel();
+            pbMotoEntryOverview = new PictureBox();
+            pbMotoEntryPlate = new PictureBox();
+            pbMotoExitOverview = new PictureBox();
+            pbMotoExitPlate = new PictureBox();
+            pnlInfoMoto = new Panel();
+            tlpInfoMoto = new TableLayoutPanel();
+            lblMotoIdentityCard = new Label();
+            lblMotoPlateDetected = new Label();
+            lblMotoPlateRegistered = new Label();
+            lblMotoTimeOut = new Label();
+            lblMotoTimeIn = new Label();
+            lblMotoDepartment = new Label();
+            lblMotoFullName = new Label();
+            tlpImgsMoto = new TableLayoutPanel();
+            pbMotoPlateOutImg = new PictureBox();
+            pbMotoPlateInImg = new PictureBox();
+            pnlFooter = new Panel();
+            lblServerStatus = new Label();
+            lbStatusCtrl = new Label();
+            lbdayExpiryDate = new Label();
+            lbRealTime = new Label();
+            label3 = new Label();
+            tlpMain.SuspendLayout();
+            tlpTitleMoto.SuspendLayout();
+            tlpTitleCar.SuspendLayout();
+            tlpPreviewCar.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pbCarEntryOverview).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarEntryPlate).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarExitOverview).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarExitPlate).BeginInit();
+            pnlInfoCar.SuspendLayout();
+            tlpInfoCar.SuspendLayout();
+            tlpImgsCar.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pbCarPlateOutImg).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarPlateInImg).BeginInit();
+            tlpPreviewMoto.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pbMotoEntryOverview).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoEntryPlate).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoExitOverview).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoExitPlate).BeginInit();
+            pnlInfoMoto.SuspendLayout();
+            tlpInfoMoto.SuspendLayout();
+            tlpImgsMoto.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pbMotoPlateOutImg).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoPlateInImg).BeginInit();
+            pnlFooter.SuspendLayout();
+            SuspendLayout();
             // 
             // tlpMain
             // 
-            this.tlpMain.AutoSize = true;
-            this.tlpMain.BackColor = System.Drawing.Color.White;
-            this.tlpMain.ColumnCount = 2;
-            this.tlpMain.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpMain.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpMain.Controls.Add(this.tlpTitleMoto, 0, 0);
-            this.tlpMain.Controls.Add(this.tlpTitleCar, 1, 0);
-            this.tlpMain.Controls.Add(this.tlpPreviewCar, 1, 1);
-            this.tlpMain.Controls.Add(this.tlpPreviewMoto, 0, 1);
-            this.tlpMain.Controls.Add(this.pnlFooter, 0, 2);
-            this.tlpMain.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpMain.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tlpMain.ForeColor = System.Drawing.Color.White;
-            this.tlpMain.Location = new System.Drawing.Point(0, 0);
-            this.tlpMain.Margin = new System.Windows.Forms.Padding(0);
-            this.tlpMain.Name = "tlpMain";
-            this.tlpMain.RowCount = 3;
-            this.tlpMain.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.tlpMain.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 85F));
-            this.tlpMain.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 5F));
-            this.tlpMain.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tlpMain.Size = new System.Drawing.Size(1898, 1024);
-            this.tlpMain.TabIndex = 0;
+            tlpMain.AutoSize = true;
+            tlpMain.BackColor = System.Drawing.Color.White;
+            tlpMain.ColumnCount = 2;
+            tlpMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpMain.Controls.Add(tlpTitleMoto, 0, 0);
+            tlpMain.Controls.Add(tlpTitleCar, 1, 0);
+            tlpMain.Controls.Add(tlpPreviewCar, 1, 1);
+            tlpMain.Controls.Add(tlpPreviewMoto, 0, 1);
+            tlpMain.Controls.Add(pnlFooter, 0, 2);
+            tlpMain.Dock = DockStyle.Fill;
+            tlpMain.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, 0);
+            tlpMain.ForeColor = System.Drawing.Color.White;
+            tlpMain.Location = new System.Drawing.Point(0, 0);
+            tlpMain.Margin = new Padding(0);
+            tlpMain.Name = "tlpMain";
+            tlpMain.RowCount = 3;
+            tlpMain.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
+            tlpMain.RowStyles.Add(new RowStyle(SizeType.Percent, 85F));
+            tlpMain.RowStyles.Add(new RowStyle(SizeType.Percent, 5F));
+            tlpMain.RowStyles.Add(new RowStyle(SizeType.Absolute, 25F));
+            tlpMain.Size = new System.Drawing.Size(1924, 1050);
+            tlpMain.TabIndex = 0;
             // 
             // tlpTitleMoto
             // 
-            this.tlpTitleMoto.ColumnCount = 2;
-            this.tlpTitleMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleMoto.Controls.Add(this.lblTitleMoto, 0, 0);
-            this.tlpTitleMoto.Controls.Add(this.lblLaneInMoto, 0, 1);
-            this.tlpTitleMoto.Controls.Add(this.lblLaneOutMoto, 1, 1);
-            this.tlpTitleMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpTitleMoto.Location = new System.Drawing.Point(10, 0);
-            this.tlpTitleMoto.Margin = new System.Windows.Forms.Padding(10, 0, 25, 0);
-            this.tlpTitleMoto.Name = "tlpTitleMoto";
-            this.tlpTitleMoto.RowCount = 2;
-            this.tlpTitleMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleMoto.Size = new System.Drawing.Size(914, 102);
-            this.tlpTitleMoto.TabIndex = 11;
+            tlpTitleMoto.ColumnCount = 2;
+            tlpTitleMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpTitleMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpTitleMoto.Controls.Add(lblTitleMoto, 0, 0);
+            tlpTitleMoto.Controls.Add(lblLaneInMoto, 0, 1);
+            tlpTitleMoto.Controls.Add(lblLaneOutMoto, 1, 1);
+            tlpTitleMoto.Dock = DockStyle.Fill;
+            tlpTitleMoto.Location = new System.Drawing.Point(11, 0);
+            tlpTitleMoto.Margin = new Padding(11, 0, 28, 0);
+            tlpTitleMoto.Name = "tlpTitleMoto";
+            tlpTitleMoto.RowCount = 2;
+            tlpTitleMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            tlpTitleMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            tlpTitleMoto.Size = new System.Drawing.Size(923, 105);
+            tlpTitleMoto.TabIndex = 11;
             // 
             // lblTitleMoto
             // 
-            this.lblTitleMoto.BackColor = System.Drawing.Color.SeaGreen;
-            this.tlpTitleMoto.SetColumnSpan(this.lblTitleMoto, 2);
-            this.lblTitleMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitleMoto.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblTitleMoto.ForeColor = System.Drawing.Color.White;
-            this.lblTitleMoto.Location = new System.Drawing.Point(0, 0);
-            this.lblTitleMoto.Margin = new System.Windows.Forms.Padding(0);
-            this.lblTitleMoto.Name = "lblTitleMoto";
-            this.lblTitleMoto.Size = new System.Drawing.Size(914, 51);
-            this.lblTitleMoto.TabIndex = 0;
-            this.lblTitleMoto.Text = "Xe máy";
-            this.lblTitleMoto.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            lblTitleMoto.BackColor = System.Drawing.Color.SeaGreen;
+            tlpTitleMoto.SetColumnSpan(lblTitleMoto, 2);
+            lblTitleMoto.Dock = DockStyle.Fill;
+            lblTitleMoto.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblTitleMoto.ForeColor = System.Drawing.Color.White;
+            lblTitleMoto.Location = new System.Drawing.Point(0, 0);
+            lblTitleMoto.Margin = new Padding(0);
+            lblTitleMoto.Name = "lblTitleMoto";
+            lblTitleMoto.Size = new System.Drawing.Size(923, 52);
+            lblTitleMoto.TabIndex = 0;
+            lblTitleMoto.Text = "Xe máy";
+            lblTitleMoto.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblLaneInMoto
             // 
-            this.lblLaneInMoto.BackColor = System.Drawing.Color.DarkCyan;
-            this.lblLaneInMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLaneInMoto.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblLaneInMoto.ForeColor = System.Drawing.Color.White;
-            this.lblLaneInMoto.Location = new System.Drawing.Point(0, 56);
-            this.lblLaneInMoto.Margin = new System.Windows.Forms.Padding(0, 5, 5, 0);
-            this.lblLaneInMoto.Name = "lblLaneInMoto";
-            this.lblLaneInMoto.Size = new System.Drawing.Size(452, 46);
-            this.lblLaneInMoto.TabIndex = 1;
-            this.lblLaneInMoto.Text = "Làn vào";
-            this.lblLaneInMoto.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            lblLaneInMoto.BackColor = System.Drawing.Color.DarkCyan;
+            lblLaneInMoto.Dock = DockStyle.Fill;
+            lblLaneInMoto.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblLaneInMoto.ForeColor = System.Drawing.Color.White;
+            lblLaneInMoto.Location = new System.Drawing.Point(0, 58);
+            lblLaneInMoto.Margin = new Padding(0, 6, 6, 0);
+            lblLaneInMoto.Name = "lblLaneInMoto";
+            lblLaneInMoto.Size = new System.Drawing.Size(455, 47);
+            lblLaneInMoto.TabIndex = 1;
+            lblLaneInMoto.Text = "Làn vào";
+            lblLaneInMoto.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblLaneOutMoto
             // 
-            this.lblLaneOutMoto.BackColor = System.Drawing.Color.DarkCyan;
-            this.lblLaneOutMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLaneOutMoto.Location = new System.Drawing.Point(462, 56);
-            this.lblLaneOutMoto.Margin = new System.Windows.Forms.Padding(5, 5, 0, 0);
-            this.lblLaneOutMoto.Name = "lblLaneOutMoto";
-            this.lblLaneOutMoto.Size = new System.Drawing.Size(452, 46);
-            this.lblLaneOutMoto.TabIndex = 2;
-            this.lblLaneOutMoto.Text = "Làn ra";
-            this.lblLaneOutMoto.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            lblLaneOutMoto.BackColor = System.Drawing.Color.DarkCyan;
+            lblLaneOutMoto.Dock = DockStyle.Fill;
+            lblLaneOutMoto.Location = new System.Drawing.Point(467, 58);
+            lblLaneOutMoto.Margin = new Padding(6, 6, 0, 0);
+            lblLaneOutMoto.Name = "lblLaneOutMoto";
+            lblLaneOutMoto.Size = new System.Drawing.Size(456, 47);
+            lblLaneOutMoto.TabIndex = 2;
+            lblLaneOutMoto.Text = "Làn ra";
+            lblLaneOutMoto.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // tlpTitleCar
             // 
-            this.tlpTitleCar.ColumnCount = 2;
-            this.tlpTitleCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleCar.Controls.Add(this.lblTitleCar, 0, 0);
-            this.tlpTitleCar.Controls.Add(this.lblLaneInCar, 0, 1);
-            this.tlpTitleCar.Controls.Add(this.lblLaneOutCar, 1, 1);
-            this.tlpTitleCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpTitleCar.Location = new System.Drawing.Point(974, 0);
-            this.tlpTitleCar.Margin = new System.Windows.Forms.Padding(25, 0, 10, 0);
-            this.tlpTitleCar.Name = "tlpTitleCar";
-            this.tlpTitleCar.RowCount = 2;
-            this.tlpTitleCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpTitleCar.Size = new System.Drawing.Size(914, 102);
-            this.tlpTitleCar.TabIndex = 12;
+            tlpTitleCar.ColumnCount = 2;
+            tlpTitleCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpTitleCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpTitleCar.Controls.Add(lblTitleCar, 0, 0);
+            tlpTitleCar.Controls.Add(lblLaneInCar, 0, 1);
+            tlpTitleCar.Controls.Add(lblLaneOutCar, 1, 1);
+            tlpTitleCar.Dock = DockStyle.Fill;
+            tlpTitleCar.Location = new System.Drawing.Point(990, 0);
+            tlpTitleCar.Margin = new Padding(28, 0, 11, 0);
+            tlpTitleCar.Name = "tlpTitleCar";
+            tlpTitleCar.RowCount = 2;
+            tlpTitleCar.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            tlpTitleCar.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            tlpTitleCar.Size = new System.Drawing.Size(923, 105);
+            tlpTitleCar.TabIndex = 12;
             // 
             // lblTitleCar
             // 
-            this.lblTitleCar.BackColor = System.Drawing.Color.SeaGreen;
-            this.tlpTitleCar.SetColumnSpan(this.lblTitleCar, 2);
-            this.lblTitleCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitleCar.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblTitleCar.ForeColor = System.Drawing.Color.White;
-            this.lblTitleCar.Location = new System.Drawing.Point(0, 0);
-            this.lblTitleCar.Margin = new System.Windows.Forms.Padding(0);
-            this.lblTitleCar.Name = "lblTitleCar";
-            this.lblTitleCar.Size = new System.Drawing.Size(914, 51);
-            this.lblTitleCar.TabIndex = 0;
-            this.lblTitleCar.Text = "Ô tô";
-            this.lblTitleCar.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            lblTitleCar.BackColor = System.Drawing.Color.SeaGreen;
+            tlpTitleCar.SetColumnSpan(lblTitleCar, 2);
+            lblTitleCar.Dock = DockStyle.Fill;
+            lblTitleCar.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblTitleCar.ForeColor = System.Drawing.Color.White;
+            lblTitleCar.Location = new System.Drawing.Point(0, 0);
+            lblTitleCar.Margin = new Padding(0);
+            lblTitleCar.Name = "lblTitleCar";
+            lblTitleCar.Size = new System.Drawing.Size(923, 52);
+            lblTitleCar.TabIndex = 0;
+            lblTitleCar.Text = "Ô tô";
+            lblTitleCar.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblLaneInCar
             // 
-            this.lblLaneInCar.BackColor = System.Drawing.Color.DarkCyan;
-            this.lblLaneInCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLaneInCar.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblLaneInCar.ForeColor = System.Drawing.Color.White;
-            this.lblLaneInCar.Location = new System.Drawing.Point(0, 56);
-            this.lblLaneInCar.Margin = new System.Windows.Forms.Padding(0, 5, 5, 0);
-            this.lblLaneInCar.Name = "lblLaneInCar";
-            this.lblLaneInCar.Size = new System.Drawing.Size(452, 46);
-            this.lblLaneInCar.TabIndex = 1;
-            this.lblLaneInCar.Text = "Làn vào";
-            this.lblLaneInCar.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            lblLaneInCar.BackColor = System.Drawing.Color.DarkCyan;
+            lblLaneInCar.Dock = DockStyle.Fill;
+            lblLaneInCar.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblLaneInCar.ForeColor = System.Drawing.Color.White;
+            lblLaneInCar.Location = new System.Drawing.Point(0, 58);
+            lblLaneInCar.Margin = new Padding(0, 6, 6, 0);
+            lblLaneInCar.Name = "lblLaneInCar";
+            lblLaneInCar.Size = new System.Drawing.Size(455, 47);
+            lblLaneInCar.TabIndex = 1;
+            lblLaneInCar.Text = "Làn vào";
+            lblLaneInCar.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblLaneOutCar
             // 
-            this.lblLaneOutCar.BackColor = System.Drawing.Color.DarkCyan;
-            this.lblLaneOutCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLaneOutCar.Location = new System.Drawing.Point(462, 56);
-            this.lblLaneOutCar.Margin = new System.Windows.Forms.Padding(5, 5, 0, 0);
-            this.lblLaneOutCar.Name = "lblLaneOutCar";
-            this.lblLaneOutCar.Size = new System.Drawing.Size(452, 46);
-            this.lblLaneOutCar.TabIndex = 2;
-            this.lblLaneOutCar.Text = "Làn ra";
-            this.lblLaneOutCar.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            lblLaneOutCar.BackColor = System.Drawing.Color.DarkCyan;
+            lblLaneOutCar.Dock = DockStyle.Fill;
+            lblLaneOutCar.Location = new System.Drawing.Point(467, 58);
+            lblLaneOutCar.Margin = new Padding(6, 6, 0, 0);
+            lblLaneOutCar.Name = "lblLaneOutCar";
+            lblLaneOutCar.Size = new System.Drawing.Size(456, 47);
+            lblLaneOutCar.TabIndex = 2;
+            lblLaneOutCar.Text = "Làn ra";
+            lblLaneOutCar.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // tlpPreviewCar
             // 
-            this.tlpPreviewCar.BackColor = System.Drawing.Color.Transparent;
-            this.tlpPreviewCar.ColumnCount = 2;
-            this.tlpPreviewCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpPreviewCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpPreviewCar.Controls.Add(this.pbCarEntryOverview, 0, 0);
-            this.tlpPreviewCar.Controls.Add(this.pbCarEntryPlate, 0, 1);
-            this.tlpPreviewCar.Controls.Add(this.pbCarExitOverview, 1, 0);
-            this.tlpPreviewCar.Controls.Add(this.pbCarExitPlate, 1, 1);
-            this.tlpPreviewCar.Controls.Add(this.pnlInfoCar, 0, 2);
-            this.tlpPreviewCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpPreviewCar.ForeColor = System.Drawing.Color.White;
-            this.tlpPreviewCar.Location = new System.Drawing.Point(969, 107);
-            this.tlpPreviewCar.Margin = new System.Windows.Forms.Padding(20, 5, 5, 5);
-            this.tlpPreviewCar.Name = "tlpPreviewCar";
-            this.tlpPreviewCar.RowCount = 3;
-            this.tlpPreviewCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 32F));
-            this.tlpPreviewCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 32F));
-            this.tlpPreviewCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 36F));
-            this.tlpPreviewCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tlpPreviewCar.Size = new System.Drawing.Size(924, 860);
-            this.tlpPreviewCar.TabIndex = 10;
+            tlpPreviewCar.BackColor = System.Drawing.Color.Transparent;
+            tlpPreviewCar.ColumnCount = 2;
+            tlpPreviewCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpPreviewCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpPreviewCar.Controls.Add(pbCarEntryOverview, 0, 0);
+            tlpPreviewCar.Controls.Add(pbCarEntryPlate, 0, 1);
+            tlpPreviewCar.Controls.Add(pbCarExitOverview, 1, 0);
+            tlpPreviewCar.Controls.Add(pbCarExitPlate, 1, 1);
+            tlpPreviewCar.Controls.Add(pnlInfoCar, 0, 2);
+            tlpPreviewCar.Dock = DockStyle.Fill;
+            tlpPreviewCar.ForeColor = System.Drawing.Color.White;
+            tlpPreviewCar.Location = new System.Drawing.Point(984, 111);
+            tlpPreviewCar.Margin = new Padding(22, 6, 6, 6);
+            tlpPreviewCar.Name = "tlpPreviewCar";
+            tlpPreviewCar.RowCount = 3;
+            tlpPreviewCar.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
+            tlpPreviewCar.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
+            tlpPreviewCar.RowStyles.Add(new RowStyle(SizeType.Percent, 36F));
+            tlpPreviewCar.RowStyles.Add(new RowStyle(SizeType.Absolute, 25F));
+            tlpPreviewCar.Size = new System.Drawing.Size(934, 880);
+            tlpPreviewCar.TabIndex = 10;
             // 
             // pbCarEntryOverview
             // 
-            this.pbCarEntryOverview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbCarEntryOverview.BackColor = System.Drawing.Color.Black;
-            this.pbCarEntryOverview.Location = new System.Drawing.Point(5, 6);
-            this.pbCarEntryOverview.Margin = new System.Windows.Forms.Padding(5);
-            this.pbCarEntryOverview.Name = "pbCarEntryOverview";
-            this.pbCarEntryOverview.Size = new System.Drawing.Size(452, 262);
-            this.pbCarEntryOverview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbCarEntryOverview.TabIndex = 6;
-            this.pbCarEntryOverview.TabStop = false;
-            this.pbCarEntryOverview.Tag = "pbPreview";
+            pbCarEntryOverview.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbCarEntryOverview.BackColor = System.Drawing.Color.Black;
+            pbCarEntryOverview.Location = new System.Drawing.Point(6, 6);
+            pbCarEntryOverview.Margin = new Padding(6, 6, 6, 6);
+            pbCarEntryOverview.Name = "pbCarEntryOverview";
+            pbCarEntryOverview.Size = new System.Drawing.Size(455, 269);
+            pbCarEntryOverview.SizeMode = PictureBoxSizeMode.Zoom;
+            pbCarEntryOverview.TabIndex = 6;
+            pbCarEntryOverview.TabStop = false;
+            pbCarEntryOverview.Tag = "pbPreview";
             // 
             // pbCarEntryPlate
             // 
-            this.pbCarEntryPlate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbCarEntryPlate.BackColor = System.Drawing.Color.Black;
-            this.pbCarEntryPlate.Location = new System.Drawing.Point(5, 281);
-            this.pbCarEntryPlate.Margin = new System.Windows.Forms.Padding(5);
-            this.pbCarEntryPlate.Name = "pbCarEntryPlate";
-            this.pbCarEntryPlate.Size = new System.Drawing.Size(452, 262);
-            this.pbCarEntryPlate.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbCarEntryPlate.TabIndex = 1;
-            this.pbCarEntryPlate.TabStop = false;
-            this.pbCarEntryPlate.Tag = "pbPreview";
+            pbCarEntryPlate.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbCarEntryPlate.BackColor = System.Drawing.Color.Black;
+            pbCarEntryPlate.Location = new System.Drawing.Point(6, 287);
+            pbCarEntryPlate.Margin = new Padding(6, 6, 6, 6);
+            pbCarEntryPlate.Name = "pbCarEntryPlate";
+            pbCarEntryPlate.Size = new System.Drawing.Size(455, 269);
+            pbCarEntryPlate.SizeMode = PictureBoxSizeMode.Zoom;
+            pbCarEntryPlate.TabIndex = 1;
+            pbCarEntryPlate.TabStop = false;
+            pbCarEntryPlate.Tag = "pbPreview";
             // 
             // pbCarExitOverview
             // 
-            this.pbCarExitOverview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbCarExitOverview.BackColor = System.Drawing.Color.Black;
-            this.pbCarExitOverview.Location = new System.Drawing.Point(467, 6);
-            this.pbCarExitOverview.Margin = new System.Windows.Forms.Padding(5);
-            this.pbCarExitOverview.Name = "pbCarExitOverview";
-            this.pbCarExitOverview.Size = new System.Drawing.Size(452, 262);
-            this.pbCarExitOverview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbCarExitOverview.TabIndex = 2;
-            this.pbCarExitOverview.TabStop = false;
-            this.pbCarExitOverview.Tag = "pbPreview";
+            pbCarExitOverview.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbCarExitOverview.BackColor = System.Drawing.Color.Black;
+            pbCarExitOverview.Location = new System.Drawing.Point(473, 6);
+            pbCarExitOverview.Margin = new Padding(6, 6, 6, 6);
+            pbCarExitOverview.Name = "pbCarExitOverview";
+            pbCarExitOverview.Size = new System.Drawing.Size(455, 269);
+            pbCarExitOverview.SizeMode = PictureBoxSizeMode.Zoom;
+            pbCarExitOverview.TabIndex = 2;
+            pbCarExitOverview.TabStop = false;
+            pbCarExitOverview.Tag = "pbPreview";
             // 
             // pbCarExitPlate
             // 
-            this.pbCarExitPlate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbCarExitPlate.BackColor = System.Drawing.Color.Black;
-            this.pbCarExitPlate.Location = new System.Drawing.Point(467, 281);
-            this.pbCarExitPlate.Margin = new System.Windows.Forms.Padding(5);
-            this.pbCarExitPlate.Name = "pbCarExitPlate";
-            this.pbCarExitPlate.Size = new System.Drawing.Size(452, 262);
-            this.pbCarExitPlate.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbCarExitPlate.TabIndex = 3;
-            this.pbCarExitPlate.TabStop = false;
-            this.pbCarExitPlate.Tag = "pbPreview";
+            pbCarExitPlate.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbCarExitPlate.BackColor = System.Drawing.Color.Black;
+            pbCarExitPlate.Location = new System.Drawing.Point(473, 287);
+            pbCarExitPlate.Margin = new Padding(6, 6, 6, 6);
+            pbCarExitPlate.Name = "pbCarExitPlate";
+            pbCarExitPlate.Size = new System.Drawing.Size(455, 269);
+            pbCarExitPlate.SizeMode = PictureBoxSizeMode.Zoom;
+            pbCarExitPlate.TabIndex = 3;
+            pbCarExitPlate.TabStop = false;
+            pbCarExitPlate.Tag = "pbPreview";
             // 
             // pnlInfoCar
             // 
-            this.pnlInfoCar.BackColor = System.Drawing.Color.Gainsboro;
-            this.tlpPreviewCar.SetColumnSpan(this.pnlInfoCar, 2);
-            this.pnlInfoCar.Controls.Add(this.tlpInfoCar);
-            this.pnlInfoCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlInfoCar.ForeColor = System.Drawing.Color.Black;
-            this.pnlInfoCar.Location = new System.Drawing.Point(5, 570);
-            this.pnlInfoCar.Margin = new System.Windows.Forms.Padding(5, 20, 5, 0);
-            this.pnlInfoCar.Name = "pnlInfoCar";
-            this.pnlInfoCar.Padding = new System.Windows.Forms.Padding(10);
-            this.pnlInfoCar.Size = new System.Drawing.Size(914, 290);
-            this.pnlInfoCar.TabIndex = 7;
+            pnlInfoCar.BackColor = System.Drawing.Color.Gainsboro;
+            tlpPreviewCar.SetColumnSpan(pnlInfoCar, 2);
+            pnlInfoCar.Controls.Add(tlpInfoCar);
+            pnlInfoCar.Dock = DockStyle.Fill;
+            pnlInfoCar.ForeColor = System.Drawing.Color.Black;
+            pnlInfoCar.Location = new System.Drawing.Point(6, 587);
+            pnlInfoCar.Margin = new Padding(6, 25, 6, 0);
+            pnlInfoCar.Name = "pnlInfoCar";
+            pnlInfoCar.Padding = new Padding(11, 12, 11, 12);
+            pnlInfoCar.Size = new System.Drawing.Size(922, 293);
+            pnlInfoCar.TabIndex = 7;
             // 
             // tlpInfoCar
             // 
-            this.tlpInfoCar.ColumnCount = 2;
-            this.tlpInfoCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpInfoCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpInfoCar.Controls.Add(this.tlpImgsCar, 1, 3);
-            this.tlpInfoCar.Controls.Add(this.lblCarIdentityCard, 1, 1);
-            this.tlpInfoCar.Controls.Add(this.lblCarPlateDetected, 0, 4);
-            this.tlpInfoCar.Controls.Add(this.lblCarPlateRegistered, 0, 3);
-            this.tlpInfoCar.Controls.Add(this.lblCarTimeOut, 1, 2);
-            this.tlpInfoCar.Controls.Add(this.lblCarTimeIn, 0, 2);
-            this.tlpInfoCar.Controls.Add(this.lblCarCardId, 0, 1);
-            this.tlpInfoCar.Controls.Add(this.lblCarDepartment, 1, 0);
-            this.tlpInfoCar.Controls.Add(this.lblCarFullName, 0, 0);
-            this.tlpInfoCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpInfoCar.Location = new System.Drawing.Point(10, 10);
-            this.tlpInfoCar.Margin = new System.Windows.Forms.Padding(0);
-            this.tlpInfoCar.Name = "tlpInfoCar";
-            this.tlpInfoCar.RowCount = 5;
-            this.tlpInfoCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tlpInfoCar.Size = new System.Drawing.Size(894, 270);
-            this.tlpInfoCar.TabIndex = 8;
+            tlpInfoCar.ColumnCount = 2;
+            tlpInfoCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpInfoCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpInfoCar.Controls.Add(lblCarFullName, 0, 0);
+            tlpInfoCar.Controls.Add(lblCarDepartment, 1, 0);
+            tlpInfoCar.Controls.Add(lblCarTimeIn, 0, 1);
+            tlpInfoCar.Controls.Add(lblCarTimeOut, 1, 1);
+            tlpInfoCar.Controls.Add(lblCarIdentityCard, 0, 2);
+            tlpInfoCar.Controls.Add(tlpImgsCar, 1, 2);
+            tlpInfoCar.Controls.Add(lblCarPlateRegistered, 0, 3);
+            tlpInfoCar.Controls.Add(lblCarPlateDetected, 0, 4);
+            tlpInfoCar.Dock = DockStyle.Fill;
+            tlpInfoCar.Location = new System.Drawing.Point(11, 12);
+            tlpInfoCar.Margin = new Padding(0);
+            tlpInfoCar.Name = "tlpInfoCar";
+            tlpInfoCar.RowCount = 5;
+            tlpInfoCar.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoCar.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoCar.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoCar.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoCar.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoCar.RowStyles.Add(new RowStyle(SizeType.Absolute, 25F));
+            tlpInfoCar.Size = new System.Drawing.Size(900, 269);
+            tlpInfoCar.TabIndex = 8;
             // 
             // tlpImgsCar
             // 
-            this.tlpImgsCar.ColumnCount = 2;
-            this.tlpImgsCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsCar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsCar.Controls.Add(this.pbCarPlateOutImg, 1, 0);
-            this.tlpImgsCar.Controls.Add(this.pbCarPlateInImg, 0, 0);
-            this.tlpImgsCar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpImgsCar.Location = new System.Drawing.Point(457, 167);
-            this.tlpImgsCar.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.tlpImgsCar.Name = "tlpImgsCar";
-            this.tlpImgsCar.RowCount = 1;
-            this.tlpInfoCar.SetRowSpan(this.tlpImgsCar, 2);
-            this.tlpImgsCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsCar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsCar.Size = new System.Drawing.Size(437, 98);
-            this.tlpImgsCar.TabIndex = 10;
+            tlpImgsCar.ColumnCount = 2;
+            tlpImgsCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpImgsCar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpImgsCar.Controls.Add(pbCarPlateOutImg, 1, 0);
+            tlpImgsCar.Controls.Add(pbCarPlateInImg, 0, 0);
+            tlpImgsCar.Dock = DockStyle.Fill;
+            tlpImgsCar.Location = new System.Drawing.Point(461, 112);
+            tlpImgsCar.Margin = new Padding(11, 6, 0, 6);
+            tlpImgsCar.Name = "tlpImgsCar";
+            tlpImgsCar.RowCount = 1;
+            tlpInfoCar.SetRowSpan(tlpImgsCar, 3);
+            tlpImgsCar.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpImgsCar.Size = new System.Drawing.Size(439, 151);
+            tlpImgsCar.TabIndex = 10;
             // 
             // pbCarPlateOutImg
             // 
-            this.pbCarPlateOutImg.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
-            this.pbCarPlateOutImg.BackColor = System.Drawing.Color.Black;
-            this.pbCarPlateOutImg.Location = new System.Drawing.Point(243, 0);
-            this.pbCarPlateOutImg.Margin = new System.Windows.Forms.Padding(5, 0, 0, 0);
-            this.pbCarPlateOutImg.Name = "pbCarPlateOutImg";
-            this.pbCarPlateOutImg.Size = new System.Drawing.Size(174, 98);
-            this.pbCarPlateOutImg.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbCarPlateOutImg.TabIndex = 1;
-            this.pbCarPlateOutImg.TabStop = false;
-            this.pbCarPlateOutImg.Tag = "captureImg";
+            pbCarPlateOutImg.BackColor = System.Drawing.Color.Black;
+            pbCarPlateOutImg.BorderStyle = BorderStyle.FixedSingle;
+            pbCarPlateOutImg.Dock = DockStyle.Fill;
+            pbCarPlateOutImg.Location = new System.Drawing.Point(225, 0);
+            pbCarPlateOutImg.Margin = new Padding(6, 0, 0, 0);
+            pbCarPlateOutImg.Name = "pbCarPlateOutImg";
+            pbCarPlateOutImg.Size = new System.Drawing.Size(214, 151);
+            pbCarPlateOutImg.SizeMode = PictureBoxSizeMode.Zoom;
+            pbCarPlateOutImg.TabIndex = 1;
+            pbCarPlateOutImg.TabStop = false;
+            pbCarPlateOutImg.Tag = "captureImg";
             // 
             // pbCarPlateInImg
             // 
-            this.pbCarPlateInImg.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
-            this.pbCarPlateInImg.BackColor = System.Drawing.Color.Black;
-            this.pbCarPlateInImg.Location = new System.Drawing.Point(19, 0);
-            this.pbCarPlateInImg.Margin = new System.Windows.Forms.Padding(0, 0, 5, 0);
-            this.pbCarPlateInImg.Name = "pbCarPlateInImg";
-            this.pbCarPlateInImg.Size = new System.Drawing.Size(174, 98);
-            this.pbCarPlateInImg.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbCarPlateInImg.TabIndex = 0;
-            this.pbCarPlateInImg.TabStop = false;
-            this.pbCarPlateInImg.Tag = "captureImg";
+            pbCarPlateInImg.BackColor = System.Drawing.Color.Black;
+            pbCarPlateInImg.BorderStyle = BorderStyle.FixedSingle;
+            pbCarPlateInImg.Dock = DockStyle.Fill;
+            pbCarPlateInImg.Location = new System.Drawing.Point(0, 0);
+            pbCarPlateInImg.Margin = new Padding(0, 0, 6, 0);
+            pbCarPlateInImg.Name = "pbCarPlateInImg";
+            pbCarPlateInImg.Size = new System.Drawing.Size(214, 151);
+            pbCarPlateInImg.SizeMode = PictureBoxSizeMode.Zoom;
+            pbCarPlateInImg.TabIndex = 0;
+            pbCarPlateInImg.TabStop = false;
+            pbCarPlateInImg.Tag = "captureImg";
             // 
             // lblCarIdentityCard
             // 
-            this.lblCarIdentityCard.AutoSize = true;
-            this.lblCarIdentityCard.BackColor = System.Drawing.Color.White;
-            this.lblCarIdentityCard.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarIdentityCard.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarIdentityCard.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarIdentityCard.ForeColor = System.Drawing.Color.Black;
-            this.lblCarIdentityCard.Location = new System.Drawing.Point(457, 59);
-            this.lblCarIdentityCard.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.lblCarIdentityCard.Name = "lblCarIdentityCard";
-            this.lblCarIdentityCard.Size = new System.Drawing.Size(437, 44);
-            this.lblCarIdentityCard.TabIndex = 8;
-            this.lblCarIdentityCard.Tag = "lblInfo";
-            this.lblCarIdentityCard.Text = "Số CCCD: ";
-            this.lblCarIdentityCard.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarIdentityCard.AutoSize = true;
+            lblCarIdentityCard.BackColor = System.Drawing.Color.White;
+            lblCarIdentityCard.BorderStyle = BorderStyle.FixedSingle;
+            lblCarIdentityCard.Dock = DockStyle.Fill;
+            lblCarIdentityCard.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarIdentityCard.ForeColor = System.Drawing.Color.Black;
+            lblCarIdentityCard.Location = new System.Drawing.Point(0, 112);
+            lblCarIdentityCard.Margin = new Padding(0, 6, 11, 6);
+            lblCarIdentityCard.Name = "lblCarIdentityCard";
+            lblCarIdentityCard.Size = new System.Drawing.Size(439, 41);
+            lblCarIdentityCard.TabIndex = 8;
+            lblCarIdentityCard.Tag = "lblInfo";
+            lblCarIdentityCard.Text = "Số CCCD: ";
+            lblCarIdentityCard.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblCarPlateDetected
             // 
-            this.lblCarPlateDetected.AutoSize = true;
-            this.lblCarPlateDetected.BackColor = System.Drawing.Color.White;
-            this.lblCarPlateDetected.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarPlateDetected.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarPlateDetected.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarPlateDetected.ForeColor = System.Drawing.Color.Black;
-            this.lblCarPlateDetected.Location = new System.Drawing.Point(0, 221);
-            this.lblCarPlateDetected.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblCarPlateDetected.Name = "lblCarPlateDetected";
-            this.lblCarPlateDetected.Size = new System.Drawing.Size(437, 44);
-            this.lblCarPlateDetected.TabIndex = 7;
-            this.lblCarPlateDetected.Tag = "lblInfo";
-            this.lblCarPlateDetected.Text = "Biển số nhận dạng:";
-            this.lblCarPlateDetected.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarPlateDetected.AutoSize = true;
+            lblCarPlateDetected.BackColor = System.Drawing.Color.White;
+            lblCarPlateDetected.BorderStyle = BorderStyle.FixedSingle;
+            lblCarPlateDetected.Dock = DockStyle.Fill;
+            lblCarPlateDetected.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarPlateDetected.ForeColor = System.Drawing.Color.Black;
+            lblCarPlateDetected.Location = new System.Drawing.Point(0, 218);
+            lblCarPlateDetected.Margin = new Padding(0, 6, 11, 6);
+            lblCarPlateDetected.Name = "lblCarPlateDetected";
+            lblCarPlateDetected.Size = new System.Drawing.Size(439, 45);
+            lblCarPlateDetected.TabIndex = 7;
+            lblCarPlateDetected.Tag = "lblInfo";
+            lblCarPlateDetected.Text = "Biển số nhận dạng:";
+            lblCarPlateDetected.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblCarPlateRegistered
             // 
-            this.lblCarPlateRegistered.AutoSize = true;
-            this.lblCarPlateRegistered.BackColor = System.Drawing.Color.White;
-            this.lblCarPlateRegistered.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarPlateRegistered.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarPlateRegistered.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarPlateRegistered.ForeColor = System.Drawing.Color.Black;
-            this.lblCarPlateRegistered.Location = new System.Drawing.Point(0, 167);
-            this.lblCarPlateRegistered.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblCarPlateRegistered.Name = "lblCarPlateRegistered";
-            this.lblCarPlateRegistered.Size = new System.Drawing.Size(437, 44);
-            this.lblCarPlateRegistered.TabIndex = 6;
-            this.lblCarPlateRegistered.Tag = "lblInfo";
-            this.lblCarPlateRegistered.Text = "Biển số đăng ký: ";
-            this.lblCarPlateRegistered.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarPlateRegistered.AutoSize = true;
+            lblCarPlateRegistered.BackColor = System.Drawing.Color.White;
+            lblCarPlateRegistered.BorderStyle = BorderStyle.FixedSingle;
+            lblCarPlateRegistered.Dock = DockStyle.Fill;
+            lblCarPlateRegistered.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarPlateRegistered.ForeColor = System.Drawing.Color.Black;
+            lblCarPlateRegistered.Location = new System.Drawing.Point(0, 165);
+            lblCarPlateRegistered.Margin = new Padding(0, 6, 11, 6);
+            lblCarPlateRegistered.Name = "lblCarPlateRegistered";
+            lblCarPlateRegistered.Size = new System.Drawing.Size(439, 41);
+            lblCarPlateRegistered.TabIndex = 6;
+            lblCarPlateRegistered.Tag = "lblInfo";
+            lblCarPlateRegistered.Text = "Biển số đăng ký: ";
+            lblCarPlateRegistered.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblCarTimeOut
             // 
-            this.lblCarTimeOut.AutoSize = true;
-            this.lblCarTimeOut.BackColor = System.Drawing.Color.White;
-            this.lblCarTimeOut.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarTimeOut.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarTimeOut.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarTimeOut.ForeColor = System.Drawing.Color.Black;
-            this.lblCarTimeOut.Location = new System.Drawing.Point(457, 113);
-            this.lblCarTimeOut.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.lblCarTimeOut.Name = "lblCarTimeOut";
-            this.lblCarTimeOut.Size = new System.Drawing.Size(437, 44);
-            this.lblCarTimeOut.TabIndex = 5;
-            this.lblCarTimeOut.Tag = "lblInfo";
-            this.lblCarTimeOut.Text = "Ngày ra: ";
-            this.lblCarTimeOut.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarTimeOut.AutoSize = true;
+            lblCarTimeOut.BackColor = System.Drawing.Color.White;
+            lblCarTimeOut.BorderStyle = BorderStyle.FixedSingle;
+            lblCarTimeOut.Dock = DockStyle.Fill;
+            lblCarTimeOut.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarTimeOut.ForeColor = System.Drawing.Color.Black;
+            lblCarTimeOut.Location = new System.Drawing.Point(461, 112);
+            lblCarTimeOut.Margin = new Padding(11, 6, 0, 6);
+            lblCarTimeOut.Name = "lblCarTimeOut";
+            lblCarTimeOut.Size = new System.Drawing.Size(439, 41);
+            lblCarTimeOut.TabIndex = 5;
+            lblCarTimeOut.Tag = "lblInfo";
+            lblCarTimeOut.Text = "Ngày ra: ";
+            lblCarTimeOut.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblCarTimeIn
             // 
-            this.lblCarTimeIn.AutoSize = true;
-            this.lblCarTimeIn.BackColor = System.Drawing.Color.White;
-            this.lblCarTimeIn.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarTimeIn.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarTimeIn.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarTimeIn.ForeColor = System.Drawing.Color.Black;
-            this.lblCarTimeIn.Location = new System.Drawing.Point(0, 113);
-            this.lblCarTimeIn.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblCarTimeIn.Name = "lblCarTimeIn";
-            this.lblCarTimeIn.Size = new System.Drawing.Size(437, 44);
-            this.lblCarTimeIn.TabIndex = 4;
-            this.lblCarTimeIn.Tag = "lblInfo";
-            this.lblCarTimeIn.Text = "Ngày vào:";
-            this.lblCarTimeIn.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblCarCardId
-            // 
-            this.lblCarCardId.AutoSize = true;
-            this.lblCarCardId.BackColor = System.Drawing.Color.White;
-            this.lblCarCardId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarCardId.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarCardId.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarCardId.ForeColor = System.Drawing.Color.Black;
-            this.lblCarCardId.Location = new System.Drawing.Point(0, 59);
-            this.lblCarCardId.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblCarCardId.Name = "lblCarCardId";
-            this.lblCarCardId.Size = new System.Drawing.Size(437, 44);
-            this.lblCarCardId.TabIndex = 2;
-            this.lblCarCardId.Tag = "lblInfo";
-            this.lblCarCardId.Text = "Mã thẻ: ";
-            this.lblCarCardId.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarTimeIn.AutoSize = true;
+            lblCarTimeIn.BackColor = System.Drawing.Color.White;
+            lblCarTimeIn.BorderStyle = BorderStyle.FixedSingle;
+            lblCarTimeIn.Dock = DockStyle.Fill;
+            lblCarTimeIn.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarTimeIn.ForeColor = System.Drawing.Color.Black;
+            lblCarTimeIn.Location = new System.Drawing.Point(0, 112);
+            lblCarTimeIn.Margin = new Padding(0, 6, 11, 6);
+            lblCarTimeIn.Name = "lblCarTimeIn";
+            lblCarTimeIn.Size = new System.Drawing.Size(439, 41);
+            lblCarTimeIn.TabIndex = 4;
+            lblCarTimeIn.Tag = "lblInfo";
+            lblCarTimeIn.Text = "Ngày vào:";
+            lblCarTimeIn.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblCarDepartment
             // 
-            this.lblCarDepartment.AutoSize = true;
-            this.lblCarDepartment.BackColor = System.Drawing.Color.White;
-            this.lblCarDepartment.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarDepartment.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarDepartment.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarDepartment.ForeColor = System.Drawing.Color.Black;
-            this.lblCarDepartment.Location = new System.Drawing.Point(457, 5);
-            this.lblCarDepartment.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.lblCarDepartment.Name = "lblCarDepartment";
-            this.lblCarDepartment.Size = new System.Drawing.Size(437, 44);
-            this.lblCarDepartment.TabIndex = 1;
-            this.lblCarDepartment.Tag = "lblInfo";
-            this.lblCarDepartment.Text = "Phòng ban: ";
-            this.lblCarDepartment.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarDepartment.AutoSize = true;
+            lblCarDepartment.BackColor = System.Drawing.Color.White;
+            lblCarDepartment.BorderStyle = BorderStyle.FixedSingle;
+            lblCarDepartment.Dock = DockStyle.Fill;
+            lblCarDepartment.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarDepartment.ForeColor = System.Drawing.Color.Black;
+            lblCarDepartment.Location = new System.Drawing.Point(461, 6);
+            lblCarDepartment.Margin = new Padding(11, 6, 0, 6);
+            lblCarDepartment.Name = "lblCarDepartment";
+            lblCarDepartment.Size = new System.Drawing.Size(439, 41);
+            lblCarDepartment.TabIndex = 1;
+            lblCarDepartment.Tag = "lblInfo";
+            lblCarDepartment.Text = "Phòng ban: ";
+            lblCarDepartment.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblCarFullName
             // 
-            this.lblCarFullName.AutoSize = true;
-            this.lblCarFullName.BackColor = System.Drawing.Color.White;
-            this.lblCarFullName.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblCarFullName.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCarFullName.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblCarFullName.ForeColor = System.Drawing.Color.Black;
-            this.lblCarFullName.Location = new System.Drawing.Point(0, 5);
-            this.lblCarFullName.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblCarFullName.Name = "lblCarFullName";
-            this.lblCarFullName.Size = new System.Drawing.Size(437, 44);
-            this.lblCarFullName.TabIndex = 0;
-            this.lblCarFullName.Tag = "lblInfo";
-            this.lblCarFullName.Text = "Họ và tên: ";
-            this.lblCarFullName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblCarFullName.AutoSize = true;
+            lblCarFullName.BackColor = System.Drawing.Color.White;
+            lblCarFullName.BorderStyle = BorderStyle.FixedSingle;
+            lblCarFullName.Dock = DockStyle.Fill;
+            lblCarFullName.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblCarFullName.ForeColor = System.Drawing.Color.Black;
+            lblCarFullName.Location = new System.Drawing.Point(0, 6);
+            lblCarFullName.Margin = new Padding(0, 6, 11, 6);
+            lblCarFullName.Name = "lblCarFullName";
+            lblCarFullName.Size = new System.Drawing.Size(439, 41);
+            lblCarFullName.TabIndex = 0;
+            lblCarFullName.Tag = "lblInfo";
+            lblCarFullName.Text = "Họ và tên: ";
+            lblCarFullName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // tlpPreviewMoto
             // 
-            this.tlpPreviewMoto.BackColor = System.Drawing.Color.Transparent;
-            this.tlpPreviewMoto.ColumnCount = 2;
-            this.tlpPreviewMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpPreviewMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpPreviewMoto.Controls.Add(this.pbMotoEntryOverview, 0, 0);
-            this.tlpPreviewMoto.Controls.Add(this.pbMotoEntryPlate, 0, 1);
-            this.tlpPreviewMoto.Controls.Add(this.pbMotoExitOverview, 1, 0);
-            this.tlpPreviewMoto.Controls.Add(this.pbMotoExitPlate, 1, 1);
-            this.tlpPreviewMoto.Controls.Add(this.pnlInfoMoto, 0, 2);
-            this.tlpPreviewMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpPreviewMoto.ForeColor = System.Drawing.Color.White;
-            this.tlpPreviewMoto.Location = new System.Drawing.Point(5, 107);
-            this.tlpPreviewMoto.Margin = new System.Windows.Forms.Padding(5, 5, 20, 5);
-            this.tlpPreviewMoto.Name = "tlpPreviewMoto";
-            this.tlpPreviewMoto.RowCount = 3;
-            this.tlpPreviewMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 32F));
-            this.tlpPreviewMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 32F));
-            this.tlpPreviewMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 36F));
-            this.tlpPreviewMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tlpPreviewMoto.Size = new System.Drawing.Size(924, 860);
-            this.tlpPreviewMoto.TabIndex = 6;
+            tlpPreviewMoto.BackColor = System.Drawing.Color.Transparent;
+            tlpPreviewMoto.ColumnCount = 2;
+            tlpPreviewMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpPreviewMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpPreviewMoto.Controls.Add(pbMotoEntryOverview, 0, 0);
+            tlpPreviewMoto.Controls.Add(pbMotoEntryPlate, 0, 1);
+            tlpPreviewMoto.Controls.Add(pbMotoExitOverview, 1, 0);
+            tlpPreviewMoto.Controls.Add(pbMotoExitPlate, 1, 1);
+            tlpPreviewMoto.Controls.Add(pnlInfoMoto, 0, 2);
+            tlpPreviewMoto.Dock = DockStyle.Fill;
+            tlpPreviewMoto.ForeColor = System.Drawing.Color.White;
+            tlpPreviewMoto.Location = new System.Drawing.Point(6, 111);
+            tlpPreviewMoto.Margin = new Padding(6, 6, 22, 6);
+            tlpPreviewMoto.Name = "tlpPreviewMoto";
+            tlpPreviewMoto.RowCount = 3;
+            tlpPreviewMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
+            tlpPreviewMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
+            tlpPreviewMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 36F));
+            tlpPreviewMoto.RowStyles.Add(new RowStyle(SizeType.Absolute, 25F));
+            tlpPreviewMoto.Size = new System.Drawing.Size(934, 880);
+            tlpPreviewMoto.TabIndex = 6;
             // 
             // pbMotoEntryOverview
             // 
-            this.pbMotoEntryOverview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbMotoEntryOverview.BackColor = System.Drawing.Color.Black;
-            this.pbMotoEntryOverview.Location = new System.Drawing.Point(5, 6);
-            this.pbMotoEntryOverview.Margin = new System.Windows.Forms.Padding(5);
-            this.pbMotoEntryOverview.Name = "pbMotoEntryOverview";
-            this.pbMotoEntryOverview.Size = new System.Drawing.Size(452, 262);
-            this.pbMotoEntryOverview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbMotoEntryOverview.TabIndex = 6;
-            this.pbMotoEntryOverview.TabStop = false;
-            this.pbMotoEntryOverview.Tag = "pbPreview";
-            // 
-            // pbMotoExitOverview
-            // 
-            this.pbMotoExitOverview.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbMotoExitOverview.BackColor = System.Drawing.Color.Black;
-            this.pbMotoExitOverview.Location = new System.Drawing.Point(467, 6);
-            this.pbMotoExitOverview.Margin = new System.Windows.Forms.Padding(5);
-            this.pbMotoExitOverview.Name = "pbMotoExitOverview";
-            this.pbMotoExitOverview.Size = new System.Drawing.Size(452, 262);
-            this.pbMotoExitOverview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbMotoExitOverview.TabIndex = 2;
-            this.pbMotoExitOverview.TabStop = false;
-            this.pbMotoExitOverview.Tag = "pbPreview";
-            // 
-            // pbMotoExitPlate
-            // 
-            this.pbMotoExitPlate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbMotoExitPlate.BackColor = System.Drawing.Color.Black;
-            this.pbMotoExitPlate.Location = new System.Drawing.Point(467, 281);
-            this.pbMotoExitPlate.Margin = new System.Windows.Forms.Padding(5);
-            this.pbMotoExitPlate.Name = "pbMotoExitPlate";
-            this.pbMotoExitPlate.Size = new System.Drawing.Size(452, 262);
-            this.pbMotoExitPlate.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbMotoExitPlate.TabIndex = 3;
-            this.pbMotoExitPlate.TabStop = false;
-            this.pbMotoExitPlate.Tag = "pbPreview";
-            // 
-            // pnlInfoMoto
-            // 
-            this.pnlInfoMoto.BackColor = System.Drawing.Color.Gainsboro;
-            this.tlpPreviewMoto.SetColumnSpan(this.pnlInfoMoto, 2);
-            this.pnlInfoMoto.Controls.Add(this.tlpInfoMoto);
-            this.pnlInfoMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlInfoMoto.ForeColor = System.Drawing.Color.Black;
-            this.pnlInfoMoto.Location = new System.Drawing.Point(5, 570);
-            this.pnlInfoMoto.Margin = new System.Windows.Forms.Padding(5, 20, 5, 0);
-            this.pnlInfoMoto.Name = "pnlInfoMoto";
-            this.pnlInfoMoto.Padding = new System.Windows.Forms.Padding(10);
-            this.pnlInfoMoto.Size = new System.Drawing.Size(914, 290);
-            this.pnlInfoMoto.TabIndex = 7;
-            // 
-            // tlpInfoMoto
-            // 
-            this.tlpInfoMoto.ColumnCount = 2;
-            this.tlpInfoMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpInfoMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpInfoMoto.Controls.Add(this.lblMotoIdentityCard, 1, 1);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoPlateDetected, 0, 4);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoPlateRegistered, 0, 3);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoTimeOut, 1, 2);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoTimeIn, 0, 2);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoCardId, 0, 1);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoDepartment, 1, 0);
-            this.tlpInfoMoto.Controls.Add(this.lblMotoFullName, 0, 0);
-            this.tlpInfoMoto.Controls.Add(this.tlpImgsMoto, 1, 3);
-            this.tlpInfoMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpInfoMoto.Location = new System.Drawing.Point(10, 10);
-            this.tlpInfoMoto.Margin = new System.Windows.Forms.Padding(0);
-            this.tlpInfoMoto.Name = "tlpInfoMoto";
-            this.tlpInfoMoto.RowCount = 5;
-            this.tlpInfoMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tlpInfoMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tlpInfoMoto.Size = new System.Drawing.Size(894, 270);
-            this.tlpInfoMoto.TabIndex = 8;
-            // 
-            // lblMotoIdentityCard
-            // 
-            this.lblMotoIdentityCard.AutoSize = true;
-            this.lblMotoIdentityCard.BackColor = System.Drawing.Color.White;
-            this.lblMotoIdentityCard.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoIdentityCard.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoIdentityCard.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoIdentityCard.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoIdentityCard.Location = new System.Drawing.Point(457, 59);
-            this.lblMotoIdentityCard.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.lblMotoIdentityCard.Name = "lblMotoIdentityCard";
-            this.lblMotoIdentityCard.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoIdentityCard.TabIndex = 8;
-            this.lblMotoIdentityCard.Tag = "lblInfo";
-            this.lblMotoIdentityCard.Text = "Số CCCD: ";
-            this.lblMotoIdentityCard.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoPlateDetected
-            // 
-            this.lblMotoPlateDetected.AutoSize = true;
-            this.lblMotoPlateDetected.BackColor = System.Drawing.Color.White;
-            this.lblMotoPlateDetected.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoPlateDetected.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoPlateDetected.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoPlateDetected.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoPlateDetected.Location = new System.Drawing.Point(0, 221);
-            this.lblMotoPlateDetected.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblMotoPlateDetected.Name = "lblMotoPlateDetected";
-            this.lblMotoPlateDetected.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoPlateDetected.TabIndex = 7;
-            this.lblMotoPlateDetected.Tag = "lblInfo";
-            this.lblMotoPlateDetected.Text = "Biển số nhận dạng:";
-            this.lblMotoPlateDetected.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoPlateRegistered
-            // 
-            this.lblMotoPlateRegistered.AutoSize = true;
-            this.lblMotoPlateRegistered.BackColor = System.Drawing.Color.White;
-            this.lblMotoPlateRegistered.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoPlateRegistered.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoPlateRegistered.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoPlateRegistered.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoPlateRegistered.Location = new System.Drawing.Point(0, 167);
-            this.lblMotoPlateRegistered.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblMotoPlateRegistered.Name = "lblMotoPlateRegistered";
-            this.lblMotoPlateRegistered.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoPlateRegistered.TabIndex = 6;
-            this.lblMotoPlateRegistered.Tag = "lblInfo";
-            this.lblMotoPlateRegistered.Text = "Biển số đăng ký: ";
-            this.lblMotoPlateRegistered.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoTimeOut
-            // 
-            this.lblMotoTimeOut.AutoSize = true;
-            this.lblMotoTimeOut.BackColor = System.Drawing.Color.White;
-            this.lblMotoTimeOut.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoTimeOut.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoTimeOut.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoTimeOut.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoTimeOut.Location = new System.Drawing.Point(457, 113);
-            this.lblMotoTimeOut.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.lblMotoTimeOut.Name = "lblMotoTimeOut";
-            this.lblMotoTimeOut.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoTimeOut.TabIndex = 5;
-            this.lblMotoTimeOut.Tag = "lblInfo";
-            this.lblMotoTimeOut.Text = "Ngày ra: ";
-            this.lblMotoTimeOut.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoTimeIn
-            // 
-            this.lblMotoTimeIn.AutoSize = true;
-            this.lblMotoTimeIn.BackColor = System.Drawing.Color.White;
-            this.lblMotoTimeIn.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoTimeIn.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoTimeIn.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoTimeIn.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoTimeIn.Location = new System.Drawing.Point(0, 113);
-            this.lblMotoTimeIn.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblMotoTimeIn.Name = "lblMotoTimeIn";
-            this.lblMotoTimeIn.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoTimeIn.TabIndex = 4;
-            this.lblMotoTimeIn.Tag = "lblInfo";
-            this.lblMotoTimeIn.Text = "Ngày vào:";
-            this.lblMotoTimeIn.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoCardId
-            // 
-            this.lblMotoCardId.AutoSize = true;
-            this.lblMotoCardId.BackColor = System.Drawing.Color.White;
-            this.lblMotoCardId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoCardId.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoCardId.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoCardId.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoCardId.Location = new System.Drawing.Point(0, 59);
-            this.lblMotoCardId.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblMotoCardId.Name = "lblMotoCardId";
-            this.lblMotoCardId.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoCardId.TabIndex = 2;
-            this.lblMotoCardId.Tag = "lblInfo";
-            this.lblMotoCardId.Text = "Mã thẻ: ";
-            this.lblMotoCardId.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoDepartment
-            // 
-            this.lblMotoDepartment.AutoSize = true;
-            this.lblMotoDepartment.BackColor = System.Drawing.Color.White;
-            this.lblMotoDepartment.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoDepartment.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoDepartment.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoDepartment.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoDepartment.Location = new System.Drawing.Point(457, 5);
-            this.lblMotoDepartment.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.lblMotoDepartment.Name = "lblMotoDepartment";
-            this.lblMotoDepartment.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoDepartment.TabIndex = 1;
-            this.lblMotoDepartment.Tag = "lblInfo";
-            this.lblMotoDepartment.Text = "Phòng ban: ";
-            this.lblMotoDepartment.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMotoFullName
-            // 
-            this.lblMotoFullName.AutoSize = true;
-            this.lblMotoFullName.BackColor = System.Drawing.Color.White;
-            this.lblMotoFullName.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMotoFullName.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMotoFullName.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblMotoFullName.ForeColor = System.Drawing.Color.Black;
-            this.lblMotoFullName.Location = new System.Drawing.Point(0, 5);
-            this.lblMotoFullName.Margin = new System.Windows.Forms.Padding(0, 5, 10, 5);
-            this.lblMotoFullName.Name = "lblMotoFullName";
-            this.lblMotoFullName.Size = new System.Drawing.Size(437, 44);
-            this.lblMotoFullName.TabIndex = 0;
-            this.lblMotoFullName.Tag = "lblInfo";
-            this.lblMotoFullName.Text = "Họ và tên: ";
-            this.lblMotoFullName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // tlpImgsMoto
-            // 
-            this.tlpImgsMoto.ColumnCount = 2;
-            this.tlpImgsMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsMoto.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsMoto.Controls.Add(this.pbMotoPlateOutImg, 1, 0);
-            this.tlpImgsMoto.Controls.Add(this.pbMotoPlateInImg, 0, 0);
-            this.tlpImgsMoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tlpImgsMoto.Location = new System.Drawing.Point(457, 167);
-            this.tlpImgsMoto.Margin = new System.Windows.Forms.Padding(10, 5, 0, 5);
-            this.tlpImgsMoto.Name = "tlpImgsMoto";
-            this.tlpImgsMoto.RowCount = 1;
-            this.tlpInfoMoto.SetRowSpan(this.tlpImgsMoto, 2);
-            this.tlpImgsMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsMoto.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tlpImgsMoto.Size = new System.Drawing.Size(437, 98);
-            this.tlpImgsMoto.TabIndex = 9;
-            // 
-            // pbMotoPlateOutImg
-            // 
-            this.pbMotoPlateOutImg.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
-            this.pbMotoPlateOutImg.BackColor = System.Drawing.Color.Black;
-            this.pbMotoPlateOutImg.Location = new System.Drawing.Point(243, 0);
-            this.pbMotoPlateOutImg.Margin = new System.Windows.Forms.Padding(5, 0, 0, 0);
-            this.pbMotoPlateOutImg.Name = "pbMotoPlateOutImg";
-            this.pbMotoPlateOutImg.Size = new System.Drawing.Size(174, 98);
-            this.pbMotoPlateOutImg.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbMotoPlateOutImg.TabIndex = 1;
-            this.pbMotoPlateOutImg.TabStop = false;
-            this.pbMotoPlateOutImg.Tag = "captureImg";
-            // 
-            // pbMotoPlateInImg
-            // 
-            this.pbMotoPlateInImg.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
-            this.pbMotoPlateInImg.BackColor = System.Drawing.Color.Black;
-            this.pbMotoPlateInImg.Location = new System.Drawing.Point(19, 0);
-            this.pbMotoPlateInImg.Margin = new System.Windows.Forms.Padding(0, 0, 5, 0);
-            this.pbMotoPlateInImg.Name = "pbMotoPlateInImg";
-            this.pbMotoPlateInImg.Size = new System.Drawing.Size(174, 98);
-            this.pbMotoPlateInImg.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbMotoPlateInImg.TabIndex = 0;
-            this.pbMotoPlateInImg.TabStop = false;
-            this.pbMotoPlateInImg.Tag = "captureImg";
+            pbMotoEntryOverview.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbMotoEntryOverview.BackColor = System.Drawing.Color.Black;
+            pbMotoEntryOverview.Location = new System.Drawing.Point(6, 6);
+            pbMotoEntryOverview.Margin = new Padding(6, 6, 6, 6);
+            pbMotoEntryOverview.Name = "pbMotoEntryOverview";
+            pbMotoEntryOverview.Size = new System.Drawing.Size(455, 269);
+            pbMotoEntryOverview.SizeMode = PictureBoxSizeMode.Zoom;
+            pbMotoEntryOverview.TabIndex = 6;
+            pbMotoEntryOverview.TabStop = false;
+            pbMotoEntryOverview.Tag = "pbPreview";
             // 
             // pbMotoEntryPlate
             // 
-            this.pbMotoEntryPlate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
-            this.pbMotoEntryPlate.BackColor = System.Drawing.Color.Black;
-            this.pbMotoEntryPlate.Location = new System.Drawing.Point(5, 281);
-            this.pbMotoEntryPlate.Margin = new System.Windows.Forms.Padding(5);
-            this.pbMotoEntryPlate.Name = "pbMotoEntryPlate";
-            this.pbMotoEntryPlate.Size = new System.Drawing.Size(452, 262);
-            this.pbMotoEntryPlate.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pbMotoEntryPlate.TabIndex = 1;
-            this.pbMotoEntryPlate.TabStop = false;
-            this.pbMotoEntryPlate.Tag = "pbPreview";
+            pbMotoEntryPlate.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbMotoEntryPlate.BackColor = System.Drawing.Color.Black;
+            pbMotoEntryPlate.Location = new System.Drawing.Point(6, 287);
+            pbMotoEntryPlate.Margin = new Padding(6, 6, 6, 6);
+            pbMotoEntryPlate.Name = "pbMotoEntryPlate";
+            pbMotoEntryPlate.Size = new System.Drawing.Size(455, 269);
+            pbMotoEntryPlate.SizeMode = PictureBoxSizeMode.Zoom;
+            pbMotoEntryPlate.TabIndex = 1;
+            pbMotoEntryPlate.TabStop = false;
+            pbMotoEntryPlate.Tag = "pbPreview";
+            // 
+            // pbMotoExitOverview
+            // 
+            pbMotoExitOverview.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbMotoExitOverview.BackColor = System.Drawing.Color.Black;
+            pbMotoExitOverview.Location = new System.Drawing.Point(473, 6);
+            pbMotoExitOverview.Margin = new Padding(6, 6, 6, 6);
+            pbMotoExitOverview.Name = "pbMotoExitOverview";
+            pbMotoExitOverview.Size = new System.Drawing.Size(455, 269);
+            pbMotoExitOverview.SizeMode = PictureBoxSizeMode.Zoom;
+            pbMotoExitOverview.TabIndex = 2;
+            pbMotoExitOverview.TabStop = false;
+            pbMotoExitOverview.Tag = "pbPreview";
+            // 
+            // pbMotoExitPlate
+            // 
+            pbMotoExitPlate.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            pbMotoExitPlate.BackColor = System.Drawing.Color.Black;
+            pbMotoExitPlate.Location = new System.Drawing.Point(473, 287);
+            pbMotoExitPlate.Margin = new Padding(6, 6, 6, 6);
+            pbMotoExitPlate.Name = "pbMotoExitPlate";
+            pbMotoExitPlate.Size = new System.Drawing.Size(455, 269);
+            pbMotoExitPlate.SizeMode = PictureBoxSizeMode.Zoom;
+            pbMotoExitPlate.TabIndex = 3;
+            pbMotoExitPlate.TabStop = false;
+            pbMotoExitPlate.Tag = "pbPreview";
+            // 
+            // pnlInfoMoto
+            // 
+            pnlInfoMoto.BackColor = System.Drawing.Color.Gainsboro;
+            tlpPreviewMoto.SetColumnSpan(pnlInfoMoto, 2);
+            pnlInfoMoto.Controls.Add(tlpInfoMoto);
+            pnlInfoMoto.Dock = DockStyle.Fill;
+            pnlInfoMoto.ForeColor = System.Drawing.Color.Black;
+            pnlInfoMoto.Location = new System.Drawing.Point(6, 587);
+            pnlInfoMoto.Margin = new Padding(6, 25, 6, 0);
+            pnlInfoMoto.Name = "pnlInfoMoto";
+            pnlInfoMoto.Padding = new Padding(11, 12, 11, 12);
+            pnlInfoMoto.Size = new System.Drawing.Size(922, 293);
+            pnlInfoMoto.TabIndex = 7;
+            // 
+            // tlpInfoMoto
+            // 
+            tlpInfoMoto.ColumnCount = 2;
+            tlpInfoMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpInfoMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpInfoMoto.Controls.Add(lblMotoFullName, 0, 0);
+            tlpInfoMoto.Controls.Add(lblMotoDepartment, 1, 0);
+            tlpInfoMoto.Controls.Add(lblMotoTimeIn, 0, 1);
+            tlpInfoMoto.Controls.Add(lblMotoTimeOut, 1, 1);
+            tlpInfoMoto.Controls.Add(lblMotoIdentityCard, 0, 2);
+            tlpInfoMoto.Controls.Add(tlpImgsMoto, 1, 2);
+            tlpInfoMoto.Controls.Add(lblMotoPlateRegistered, 0, 3);
+            tlpInfoMoto.Controls.Add(lblMotoPlateDetected, 0, 4);
+            tlpInfoMoto.Dock = DockStyle.Fill;
+            tlpInfoMoto.Location = new System.Drawing.Point(11, 12);
+            tlpInfoMoto.Margin = new Padding(0);
+            tlpInfoMoto.Name = "tlpInfoMoto";
+            tlpInfoMoto.RowCount = 5;
+            tlpInfoMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 20F));
+            tlpInfoMoto.RowStyles.Add(new RowStyle(SizeType.Absolute, 25F));
+            tlpInfoMoto.Size = new System.Drawing.Size(900, 269);
+            tlpInfoMoto.TabIndex = 8;
+            // 
+            // lblMotoIdentityCard
+            // 
+            lblMotoIdentityCard.AutoSize = true;
+            lblMotoIdentityCard.BackColor = System.Drawing.Color.White;
+            lblMotoIdentityCard.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoIdentityCard.Dock = DockStyle.Fill;
+            lblMotoIdentityCard.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoIdentityCard.ForeColor = System.Drawing.Color.Black;
+            lblMotoIdentityCard.Location = new System.Drawing.Point(0, 112);
+            lblMotoIdentityCard.Margin = new Padding(0, 6, 11, 6);
+            lblMotoIdentityCard.Name = "lblMotoIdentityCard";
+            lblMotoIdentityCard.Size = new System.Drawing.Size(439, 41);
+            lblMotoIdentityCard.TabIndex = 8;
+            lblMotoIdentityCard.Tag = "lblInfo";
+            lblMotoIdentityCard.Text = "Số CCCD: ";
+            lblMotoIdentityCard.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblMotoPlateDetected
+            // 
+            lblMotoPlateDetected.AutoSize = true;
+            lblMotoPlateDetected.BackColor = System.Drawing.Color.White;
+            lblMotoPlateDetected.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoPlateDetected.Dock = DockStyle.Fill;
+            lblMotoPlateDetected.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoPlateDetected.ForeColor = System.Drawing.Color.Black;
+            lblMotoPlateDetected.Location = new System.Drawing.Point(0, 218);
+            lblMotoPlateDetected.Margin = new Padding(0, 6, 11, 6);
+            lblMotoPlateDetected.Name = "lblMotoPlateDetected";
+            lblMotoPlateDetected.Size = new System.Drawing.Size(439, 45);
+            lblMotoPlateDetected.TabIndex = 7;
+            lblMotoPlateDetected.Tag = "lblInfo";
+            lblMotoPlateDetected.Text = "Biển số nhận dạng:";
+            lblMotoPlateDetected.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblMotoPlateRegistered
+            // 
+            lblMotoPlateRegistered.AutoSize = true;
+            lblMotoPlateRegistered.BackColor = System.Drawing.Color.White;
+            lblMotoPlateRegistered.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoPlateRegistered.Dock = DockStyle.Fill;
+            lblMotoPlateRegistered.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoPlateRegistered.ForeColor = System.Drawing.Color.Black;
+            lblMotoPlateRegistered.Location = new System.Drawing.Point(0, 165);
+            lblMotoPlateRegistered.Margin = new Padding(0, 6, 11, 6);
+            lblMotoPlateRegistered.Name = "lblMotoPlateRegistered";
+            lblMotoPlateRegistered.Size = new System.Drawing.Size(439, 41);
+            lblMotoPlateRegistered.TabIndex = 6;
+            lblMotoPlateRegistered.Tag = "lblInfo";
+            lblMotoPlateRegistered.Text = "Biển số đăng ký: ";
+            lblMotoPlateRegistered.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblMotoTimeOut
+            // 
+            lblMotoTimeOut.AutoSize = true;
+            lblMotoTimeOut.BackColor = System.Drawing.Color.White;
+            lblMotoTimeOut.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoTimeOut.Dock = DockStyle.Fill;
+            lblMotoTimeOut.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoTimeOut.ForeColor = System.Drawing.Color.Black;
+            lblMotoTimeOut.Location = new System.Drawing.Point(461, 112);
+            lblMotoTimeOut.Margin = new Padding(11, 6, 0, 6);
+            lblMotoTimeOut.Name = "lblMotoTimeOut";
+            lblMotoTimeOut.Size = new System.Drawing.Size(439, 41);
+            lblMotoTimeOut.TabIndex = 5;
+            lblMotoTimeOut.Tag = "lblInfo";
+            lblMotoTimeOut.Text = "Ngày ra: ";
+            lblMotoTimeOut.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblMotoTimeIn
+            // 
+            lblMotoTimeIn.AutoSize = true;
+            lblMotoTimeIn.BackColor = System.Drawing.Color.White;
+            lblMotoTimeIn.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoTimeIn.Dock = DockStyle.Fill;
+            lblMotoTimeIn.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoTimeIn.ForeColor = System.Drawing.Color.Black;
+            lblMotoTimeIn.Location = new System.Drawing.Point(0, 112);
+            lblMotoTimeIn.Margin = new Padding(0, 6, 11, 6);
+            lblMotoTimeIn.Name = "lblMotoTimeIn";
+            lblMotoTimeIn.Size = new System.Drawing.Size(439, 41);
+            lblMotoTimeIn.TabIndex = 4;
+            lblMotoTimeIn.Tag = "lblInfo";
+            lblMotoTimeIn.Text = "Ngày vào:";
+            lblMotoTimeIn.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblMotoDepartment
+            // 
+            lblMotoDepartment.AutoSize = true;
+            lblMotoDepartment.BackColor = System.Drawing.Color.White;
+            lblMotoDepartment.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoDepartment.Dock = DockStyle.Fill;
+            lblMotoDepartment.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoDepartment.ForeColor = System.Drawing.Color.Black;
+            lblMotoDepartment.Location = new System.Drawing.Point(461, 6);
+            lblMotoDepartment.Margin = new Padding(11, 6, 0, 6);
+            lblMotoDepartment.Name = "lblMotoDepartment";
+            lblMotoDepartment.Size = new System.Drawing.Size(439, 41);
+            lblMotoDepartment.TabIndex = 1;
+            lblMotoDepartment.Tag = "lblInfo";
+            lblMotoDepartment.Text = "Phòng ban: ";
+            lblMotoDepartment.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblMotoFullName
+            // 
+            lblMotoFullName.AutoSize = true;
+            lblMotoFullName.BackColor = System.Drawing.Color.White;
+            lblMotoFullName.BorderStyle = BorderStyle.FixedSingle;
+            lblMotoFullName.Dock = DockStyle.Fill;
+            lblMotoFullName.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblMotoFullName.ForeColor = System.Drawing.Color.Black;
+            lblMotoFullName.Location = new System.Drawing.Point(0, 6);
+            lblMotoFullName.Margin = new Padding(0, 6, 11, 6);
+            lblMotoFullName.Name = "lblMotoFullName";
+            lblMotoFullName.Size = new System.Drawing.Size(439, 41);
+            lblMotoFullName.TabIndex = 0;
+            lblMotoFullName.Tag = "lblInfo";
+            lblMotoFullName.Text = "Họ và tên: ";
+            lblMotoFullName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // tlpImgsMoto
+            // 
+            tlpImgsMoto.ColumnCount = 2;
+            tlpImgsMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpImgsMoto.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            tlpImgsMoto.Controls.Add(pbMotoPlateOutImg, 1, 0);
+            tlpImgsMoto.Controls.Add(pbMotoPlateInImg, 0, 0);
+            tlpImgsMoto.Dock = DockStyle.Fill;
+            tlpImgsMoto.Location = new System.Drawing.Point(461, 112);
+            tlpImgsMoto.Margin = new Padding(11, 6, 0, 6);
+            tlpImgsMoto.Name = "tlpImgsMoto";
+            tlpImgsMoto.RowCount = 1;
+            tlpInfoMoto.SetRowSpan(tlpImgsMoto, 3);
+            tlpImgsMoto.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpImgsMoto.Size = new System.Drawing.Size(439, 151);
+            tlpImgsMoto.TabIndex = 9;
+            // 
+            // pbMotoPlateOutImg
+            // 
+            pbMotoPlateOutImg.BackColor = System.Drawing.Color.Black;
+            pbMotoPlateOutImg.BorderStyle = BorderStyle.FixedSingle;
+            pbMotoPlateOutImg.Dock = DockStyle.Fill;
+            pbMotoPlateOutImg.Location = new System.Drawing.Point(225, 0);
+            pbMotoPlateOutImg.Margin = new Padding(6, 0, 0, 0);
+            pbMotoPlateOutImg.Name = "pbMotoPlateOutImg";
+            pbMotoPlateOutImg.Size = new System.Drawing.Size(214, 151);
+            pbMotoPlateOutImg.SizeMode = PictureBoxSizeMode.Zoom;
+            pbMotoPlateOutImg.TabIndex = 1;
+            pbMotoPlateOutImg.TabStop = false;
+            pbMotoPlateOutImg.Tag = "captureImg";
+            // 
+            // pbMotoPlateInImg
+            // 
+            pbMotoPlateInImg.BackColor = System.Drawing.Color.Black;
+            pbMotoPlateInImg.BorderStyle = BorderStyle.FixedSingle;
+            pbMotoPlateInImg.Dock = DockStyle.Fill;
+            pbMotoPlateInImg.Location = new System.Drawing.Point(0, 0);
+            pbMotoPlateInImg.Margin = new Padding(0, 0, 6, 0);
+            pbMotoPlateInImg.Name = "pbMotoPlateInImg";
+            pbMotoPlateInImg.Size = new System.Drawing.Size(214, 151);
+            pbMotoPlateInImg.SizeMode = PictureBoxSizeMode.Zoom;
+            pbMotoPlateInImg.TabIndex = 0;
+            pbMotoPlateInImg.TabStop = false;
+            pbMotoPlateInImg.Tag = "captureImg";
             // 
             // pnlFooter
             // 
-            this.pnlFooter.BackColor = System.Drawing.Color.Transparent;
-            this.tlpMain.SetColumnSpan(this.pnlFooter, 2);
-            this.pnlFooter.Controls.Add(this.lblServerStatus);
-            this.pnlFooter.Controls.Add(this.lbStatusCtrl);
-            this.pnlFooter.Controls.Add(this.lbdayExpiryDate);
-            this.pnlFooter.Controls.Add(this.lbRealTime);
-            this.pnlFooter.Controls.Add(this.label3);
-            this.pnlFooter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlFooter.Location = new System.Drawing.Point(10, 982);
-            this.pnlFooter.Margin = new System.Windows.Forms.Padding(10);
-            this.pnlFooter.Name = "pnlFooter";
-            this.pnlFooter.Size = new System.Drawing.Size(1878, 32);
-            this.pnlFooter.TabIndex = 9;
+            pnlFooter.BackColor = System.Drawing.Color.Transparent;
+            tlpMain.SetColumnSpan(pnlFooter, 2);
+            pnlFooter.Controls.Add(lblServerStatus);
+            pnlFooter.Controls.Add(lbStatusCtrl);
+            pnlFooter.Controls.Add(lbdayExpiryDate);
+            pnlFooter.Controls.Add(lbRealTime);
+            pnlFooter.Controls.Add(label3);
+            pnlFooter.Dock = DockStyle.Fill;
+            pnlFooter.Location = new System.Drawing.Point(11, 1009);
+            pnlFooter.Margin = new Padding(11, 12, 11, 12);
+            pnlFooter.Name = "pnlFooter";
+            pnlFooter.Size = new System.Drawing.Size(1902, 29);
+            pnlFooter.TabIndex = 9;
             // 
             // lblServerStatus
             // 
-            this.lblServerStatus.BackColor = System.Drawing.Color.LightGray;
-            this.lblServerStatus.Dock = System.Windows.Forms.DockStyle.Left;
-            this.lblServerStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblServerStatus.ForeColor = System.Drawing.Color.Green;
-            this.lblServerStatus.Location = new System.Drawing.Point(963, 0);
-            this.lblServerStatus.Margin = new System.Windows.Forms.Padding(0);
-            this.lblServerStatus.Name = "lblServerStatus";
-            this.lblServerStatus.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblServerStatus.Size = new System.Drawing.Size(680, 32);
-            this.lblServerStatus.TabIndex = 5;
-            this.lblServerStatus.Text = "SERVER ĐẦU ĐỌC CCCD: ONLINE";
-            this.lblServerStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblServerStatus.BackColor = System.Drawing.Color.LightGray;
+            lblServerStatus.Dock = DockStyle.Left;
+            lblServerStatus.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lblServerStatus.ForeColor = System.Drawing.Color.Green;
+            lblServerStatus.Location = new System.Drawing.Point(1059, 0);
+            lblServerStatus.Margin = new Padding(0);
+            lblServerStatus.Name = "lblServerStatus";
+            lblServerStatus.Padding = new Padding(11, 0, 0, 0);
+            lblServerStatus.Size = new System.Drawing.Size(756, 29);
+            lblServerStatus.TabIndex = 5;
+            lblServerStatus.Text = "SERVER ĐẦU ĐỌC CCCD: ONLINE";
+            lblServerStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lbStatusCtrl
             // 
-            this.lbStatusCtrl.BackColor = System.Drawing.Color.SeaGreen;
-            this.lbStatusCtrl.Dock = System.Windows.Forms.DockStyle.Left;
-            this.lbStatusCtrl.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbStatusCtrl.ForeColor = System.Drawing.Color.White;
-            this.lbStatusCtrl.Location = new System.Drawing.Point(736, 0);
-            this.lbStatusCtrl.Margin = new System.Windows.Forms.Padding(0);
-            this.lbStatusCtrl.Name = "lbStatusCtrl";
-            this.lbStatusCtrl.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lbStatusCtrl.Size = new System.Drawing.Size(227, 32);
-            this.lbStatusCtrl.TabIndex = 6;
-            this.lbStatusCtrl.Tag = "201";
-            this.lbStatusCtrl.Text = "BỘ ĐIỀU KHIỂN: ONLINE";
-            this.lbStatusCtrl.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lbStatusCtrl.BackColor = System.Drawing.Color.SeaGreen;
+            lbStatusCtrl.Dock = DockStyle.Left;
+            lbStatusCtrl.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lbStatusCtrl.ForeColor = System.Drawing.Color.White;
+            lbStatusCtrl.Location = new System.Drawing.Point(819, 0);
+            lbStatusCtrl.Margin = new Padding(0);
+            lbStatusCtrl.Name = "lbStatusCtrl";
+            lbStatusCtrl.Padding = new Padding(11, 0, 0, 0);
+            lbStatusCtrl.Size = new System.Drawing.Size(240, 29);
+            lbStatusCtrl.TabIndex = 6;
+            lbStatusCtrl.Tag = "201";
+            lbStatusCtrl.Text = "BỘ ĐIỀU KHIỂN: ONLINE";
+            lbStatusCtrl.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lbdayExpiryDate
             // 
-            this.lbdayExpiryDate.BackColor = System.Drawing.Color.Peru;
-            this.lbdayExpiryDate.Dock = System.Windows.Forms.DockStyle.Left;
-            this.lbdayExpiryDate.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbdayExpiryDate.Location = new System.Drawing.Point(533, 0);
-            this.lbdayExpiryDate.Margin = new System.Windows.Forms.Padding(0);
-            this.lbdayExpiryDate.Name = "lbdayExpiryDate";
-            this.lbdayExpiryDate.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lbdayExpiryDate.Size = new System.Drawing.Size(203, 32);
-            this.lbdayExpiryDate.TabIndex = 2;
-            this.lbdayExpiryDate.Text = "THỜI HẠN:";
-            this.lbdayExpiryDate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lbdayExpiryDate.BackColor = System.Drawing.Color.Peru;
+            lbdayExpiryDate.Dock = DockStyle.Left;
+            lbdayExpiryDate.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lbdayExpiryDate.Location = new System.Drawing.Point(593, 0);
+            lbdayExpiryDate.Margin = new Padding(0);
+            lbdayExpiryDate.Name = "lbdayExpiryDate";
+            lbdayExpiryDate.Padding = new Padding(11, 0, 0, 0);
+            lbdayExpiryDate.Size = new System.Drawing.Size(226, 29);
+            lbdayExpiryDate.TabIndex = 2;
+            lbdayExpiryDate.Text = "THỜI HẠN:";
+            lbdayExpiryDate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lbRealTime
             // 
-            this.lbRealTime.BackColor = System.Drawing.Color.SeaGreen;
-            this.lbRealTime.Dock = System.Windows.Forms.DockStyle.Left;
-            this.lbRealTime.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lbRealTime.Location = new System.Drawing.Point(266, 0);
-            this.lbRealTime.Margin = new System.Windows.Forms.Padding(0);
-            this.lbRealTime.Name = "lbRealTime";
-            this.lbRealTime.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lbRealTime.Size = new System.Drawing.Size(267, 32);
-            this.lbRealTime.TabIndex = 3;
-            this.lbRealTime.Text = "HÔM NAY:";
-            this.lbRealTime.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lbRealTime.BackColor = System.Drawing.Color.SeaGreen;
+            lbRealTime.Dock = DockStyle.Left;
+            lbRealTime.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            lbRealTime.Location = new System.Drawing.Point(296, 0);
+            lbRealTime.Margin = new Padding(0);
+            lbRealTime.Name = "lbRealTime";
+            lbRealTime.Padding = new Padding(11, 0, 0, 0);
+            lbRealTime.Size = new System.Drawing.Size(297, 29);
+            lbRealTime.TabIndex = 3;
+            lbRealTime.Text = "HÔM NAY:";
+            lbRealTime.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // label3
             // 
-            this.label3.BackColor = System.Drawing.Color.Teal;
-            this.label3.Dock = System.Windows.Forms.DockStyle.Left;
-            this.label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label3.Location = new System.Drawing.Point(0, 0);
-            this.label3.Margin = new System.Windows.Forms.Padding(0);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(266, 32);
-            this.label3.TabIndex = 4;
-            this.label3.Text = "F1 - VÀO CẤU HÌNH KỸ THUẬT";
-            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            label3.BackColor = System.Drawing.Color.Teal;
+            label3.Dock = DockStyle.Left;
+            label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            label3.Location = new System.Drawing.Point(0, 0);
+            label3.Margin = new Padding(0);
+            label3.Name = "label3";
+            label3.Size = new System.Drawing.Size(296, 29);
+            label3.TabIndex = 4;
+            label3.Text = "F1 - VÀO CẤU HÌNH KỸ THUẬT";
+            label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // FrmMain
             // 
-            this.AccessibleRole = System.Windows.Forms.AccessibleRole.None;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1898, 1024);
-            this.Controls.Add(this.tlpMain);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.Name = "FrmMain";
-            this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Show;
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "HPPARKING";
-            this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmMain_FormClosing);
-            this.Load += new System.EventHandler(this.FrmMain_Load);
-            this.tlpMain.ResumeLayout(false);
-            this.tlpTitleMoto.ResumeLayout(false);
-            this.tlpTitleCar.ResumeLayout(false);
-            this.tlpPreviewCar.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarEntryOverview)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarEntryPlate)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarExitOverview)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarExitPlate)).EndInit();
-            this.pnlInfoCar.ResumeLayout(false);
-            this.tlpInfoCar.ResumeLayout(false);
-            this.tlpInfoCar.PerformLayout();
-            this.tlpImgsCar.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarPlateOutImg)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbCarPlateInImg)).EndInit();
-            this.tlpPreviewMoto.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoEntryOverview)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoExitOverview)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoExitPlate)).EndInit();
-            this.pnlInfoMoto.ResumeLayout(false);
-            this.tlpInfoMoto.ResumeLayout(false);
-            this.tlpInfoMoto.PerformLayout();
-            this.tlpImgsMoto.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoPlateOutImg)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoPlateInImg)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.pbMotoEntryPlate)).EndInit();
-            this.pnlFooter.ResumeLayout(false);
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            AccessibleRole = AccessibleRole.None;
+            AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new System.Drawing.Size(1924, 1050);
+            Controls.Add(tlpMain);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            Margin = new Padding(4, 6, 4, 6);
+            Name = "FrmMain";
+            SizeGripStyle = SizeGripStyle.Show;
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "HPPARKING";
+            WindowState = FormWindowState.Maximized;
+            FormClosing += FrmMain_FormClosing;
+            Load += FrmMain_Load;
+            tlpMain.ResumeLayout(false);
+            tlpTitleMoto.ResumeLayout(false);
+            tlpTitleCar.ResumeLayout(false);
+            tlpPreviewCar.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)pbCarEntryOverview).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarEntryPlate).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarExitOverview).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarExitPlate).EndInit();
+            pnlInfoCar.ResumeLayout(false);
+            tlpInfoCar.ResumeLayout(false);
+            tlpInfoCar.PerformLayout();
+            tlpImgsCar.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)pbCarPlateOutImg).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbCarPlateInImg).EndInit();
+            tlpPreviewMoto.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)pbMotoEntryOverview).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoEntryPlate).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoExitOverview).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoExitPlate).EndInit();
+            pnlInfoMoto.ResumeLayout(false);
+            tlpInfoMoto.ResumeLayout(false);
+            tlpInfoMoto.PerformLayout();
+            tlpImgsMoto.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)pbMotoPlateOutImg).EndInit();
+            ((System.ComponentModel.ISupportInitialize)pbMotoPlateInImg).EndInit();
+            pnlFooter.ResumeLayout(false);
+            ResumeLayout(false);
+            PerformLayout();
 
         }
 
@@ -998,7 +962,6 @@ namespace HPParking.Forms
         private Label lblMotoPlateRegistered;
         private Label lblMotoTimeOut;
         private Label lblMotoTimeIn;
-        private Label lblMotoCardId;
         private Label lblMotoDepartment;
         private Label lblMotoFullName;
         private TableLayoutPanel tlpPreviewCar;
@@ -1013,7 +976,6 @@ namespace HPParking.Forms
         private Label lblCarPlateRegistered;
         private Label lblCarTimeOut;
         private Label lblCarTimeIn;
-        private Label lblCarCardId;
         private Label lblCarDepartment;
         private Label lblCarFullName;
         private TableLayoutPanel tlpTitleMoto;

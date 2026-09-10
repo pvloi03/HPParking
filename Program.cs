@@ -40,6 +40,7 @@ namespace HPParking
                 services.AddScoped<IEventParkingRepository, EventParkingRepository>();
                 services.AddScoped<IClientRepository, ClientRepository>();
                 services.AddScoped<ICompanyRepository, CompanyRepository>();
+                services.AddScoped<IDepartmentRepository, DepartmentRepository>();
 
                 services.AddSingleton<ILprService, LprService>();
                 services.AddSingleton<IImageStorageService, ImageStorageService>();

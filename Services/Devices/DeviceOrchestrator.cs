@@ -17,7 +17,6 @@ namespace HPParking.Services.Devices
         private readonly ConcurrentDictionary<string, ControllerService> _controllers = [];
         private readonly ConcurrentDictionary<string, Lazy<Task<ControllerService>>> _controllerConnectTasks = [];
         private readonly ConcurrentBag<IDisposable> _cameras = [];
-        private CancellationTokenSource? _ctsRealtime;
         private volatile bool _disposed;
 
         public event Action<string, bool, string>? OnControllerStatusChanged;
@@ -161,6 +160,11 @@ namespace HPParking.Services.Devices
                 OnControllerStatusChanged?.Invoke(ip, isConnected, message);
             };
 
+            ctrlService.OnCardSwiped += (data) =>
+            {
+                OnCardSwiped?.Invoke(data);
+            };
+
             await ctrlService.ConnectAsync(new ControllerConfig
             {
                 IP = config.IP,
@@ -176,67 +180,20 @@ namespace HPParking.Services.Devices
         {
             ThrowIfDisposed();
 
-            CancellationTokenSource? oldCts = _ctsRealtime;
-            _ctsRealtime = new CancellationTokenSource();
-            var token = _ctsRealtime.Token;
-
-            if (oldCts != null)
+            // Kích hoạt luồng đọc độc lập trên từng Controller (mỗi Controller chạy 1 task song song)
+            foreach (var ctrl in _controllers.Values)
             {
-                try { oldCts.Cancel(); } catch (ObjectDisposedException) { }
-                oldCts.Dispose();
+                if (!ctrl.IsStreaming && ctrl.IsConnected)
+                {
+                    ctrl.StartListening();
+                }
             }
-
-            Task.Run(async () =>
-            {
-                try
-                {
-                    while (!token.IsCancellationRequested && !_disposed)
-                    {
-                        foreach (var kvp in _controllers)
-                        {
-                            if (token.IsCancellationRequested || _disposed) break;
-
-                            string controllerIp = kvp.Key;
-                            ControllerService controller = kvp.Value;
-
-                            try
-                            {
-                                string? log = controller.ReadRealtimeLog();
-                                if (string.IsNullOrWhiteSpace(log)) continue;
-
-                                RealtimeLog? data = RealtimeLog.Parse(log, controllerIp);
-                                if (data == null || data.CardNo == "0") continue;
-                                Debug.WriteLine(data.CardNo);
-                                OnCardSwiped?.Invoke(data);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"[Lỗi Realtime]: {ex.Message}");
-                            }
-                        }
-
-                        await Task.Delay(500, token);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Dừng vòng lặp êm ái khi bị hủy hoặc Dispose
-                }
-            }, token);
         }
 
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-
-            var cts = _ctsRealtime;
-            _ctsRealtime = null;
-            if (cts != null)
-            {
-                try { cts.Cancel(); } catch (ObjectDisposedException) { }
-                cts.Dispose();
-            }
 
             foreach (var ctrl in _controllers.Values)
             {

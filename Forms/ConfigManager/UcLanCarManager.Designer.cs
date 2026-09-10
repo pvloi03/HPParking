@@ -28,933 +28,895 @@ namespace HPParking.Forms.ConfigManager
         /// </summary>
         private void InitializeComponent()
         {
-            this.txtInPortCameraClient = new System.Windows.Forms.TextBox();
-            this.lblInStandardNote = new System.Windows.Forms.Label();
-            this.lblOutStandardNote = new System.Windows.Forms.Label();
-            this.lblGuideBanner = new System.Windows.Forms.Label();
-            this.label12 = new System.Windows.Forms.Label();
-            this.label19 = new System.Windows.Forms.Label();
-            this.txtOutRelay = new System.Windows.Forms.TextBox();
-            this.label20 = new System.Windows.Forms.Label();
-            this.txtOutReader = new System.Windows.Forms.TextBox();
-            this.label21 = new System.Windows.Forms.Label();
-            this.txtOutPassController = new System.Windows.Forms.TextBox();
-            this.label22 = new System.Windows.Forms.Label();
-            this.txtInIpCameraClient = new System.Windows.Forms.TextBox();
-            this.label8 = new System.Windows.Forms.Label();
-            this.txtInPassCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.txtOutUserController = new System.Windows.Forms.TextBox();
-            this.txtOutPortController = new System.Windows.Forms.TextBox();
-            this.label23 = new System.Windows.Forms.Label();
-            this.txtOutIpController = new System.Windows.Forms.TextBox();
-            this.label11 = new System.Windows.Forms.Label();
-            this.label7 = new System.Windows.Forms.Label();
-            this.label24 = new System.Windows.Forms.Label();
-            this.txtInPortCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.label25 = new System.Windows.Forms.Label();
-            this.txtOutPassCameraClient = new System.Windows.Forms.TextBox();
-            this.label26 = new System.Windows.Forms.Label();
-            this.txtOutUserCameraClient = new System.Windows.Forms.TextBox();
-            this.txtOutPortCameraClient = new System.Windows.Forms.TextBox();
-            this.txtInUserCameraClient = new System.Windows.Forms.TextBox();
-            this.txtInUserCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.label27 = new System.Windows.Forms.Label();
-            this.txtInPassCameraClient = new System.Windows.Forms.TextBox();
-            this.label28 = new System.Windows.Forms.Label();
-            this.txtOutIpCameraClient = new System.Windows.Forms.TextBox();
-            this.label29 = new System.Windows.Forms.Label();
-            this.txtOutPassCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.label30 = new System.Windows.Forms.Label();
-            this.txtOutUserCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.txtOutPortCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.label31 = new System.Windows.Forms.Label();
-            this.label32 = new System.Windows.Forms.Label();
-            this.label10 = new System.Windows.Forms.Label();
-            this.label6 = new System.Windows.Forms.Label();
-            this.label5 = new System.Windows.Forms.Label();
-            this.button5 = new System.Windows.Forms.Button();
-            this.txtOutIpCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.label18 = new System.Windows.Forms.Label();
-            this.label17 = new System.Windows.Forms.Label();
-            this.txtInReader = new System.Windows.Forms.TextBox();
-            this.label13 = new System.Windows.Forms.Label();
-            this.txtInPassController = new System.Windows.Forms.TextBox();
-            this.label14 = new System.Windows.Forms.Label();
-            this.txtInUserController = new System.Windows.Forms.TextBox();
-            this.txtInPortController = new System.Windows.Forms.TextBox();
-            this.label15 = new System.Windows.Forms.Label();
-            this.label16 = new System.Windows.Forms.Label();
-            this.txtInIpController = new System.Windows.Forms.TextBox();
-            this.grbLaneIn = new System.Windows.Forms.GroupBox();
-            this.txtInRelay = new System.Windows.Forms.TextBox();
-            this.label9 = new System.Windows.Forms.Label();
-            this.txtInIpCameraLicenseplate = new System.Windows.Forms.TextBox();
-            this.grbLaneOut = new System.Windows.Forms.GroupBox();
-            this.label1 = new System.Windows.Forms.Label();
-            this.txtInPassFaceId = new System.Windows.Forms.TextBox();
-            this.label2 = new System.Windows.Forms.Label();
-            this.txtInUserFaceId = new System.Windows.Forms.TextBox();
-            this.txtInPortFaceId = new System.Windows.Forms.TextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.lbFaceId = new System.Windows.Forms.Label();
-            this.txtInIpFaceId = new System.Windows.Forms.TextBox();
-            this.label4 = new System.Windows.Forms.Label();
-            this.txtOutPassFaceId = new System.Windows.Forms.TextBox();
-            this.label33 = new System.Windows.Forms.Label();
-            this.txtOutUserFaceid = new System.Windows.Forms.TextBox();
-            this.txtOutPortFaceId = new System.Windows.Forms.TextBox();
-            this.label34 = new System.Windows.Forms.Label();
-            this.label35 = new System.Windows.Forms.Label();
-            this.txtOutIpFaceId = new System.Windows.Forms.TextBox();
-            this.grbLaneIn.SuspendLayout();
-            this.grbLaneOut.SuspendLayout();
-            this.SuspendLayout();
+            txtInPortCameraClient = new System.Windows.Forms.TextBox();
+            label12 = new System.Windows.Forms.Label();
+            label19 = new System.Windows.Forms.Label();
+            txtOutRelay = new System.Windows.Forms.TextBox();
+            label20 = new System.Windows.Forms.Label();
+            txtOutReader = new System.Windows.Forms.TextBox();
+            label21 = new System.Windows.Forms.Label();
+            txtOutPassController = new System.Windows.Forms.TextBox();
+            label22 = new System.Windows.Forms.Label();
+            txtInIpCameraClient = new System.Windows.Forms.TextBox();
+            label8 = new System.Windows.Forms.Label();
+            txtInPassCameraLicenseplate = new System.Windows.Forms.TextBox();
+            txtOutUserController = new System.Windows.Forms.TextBox();
+            txtOutPortController = new System.Windows.Forms.TextBox();
+            label23 = new System.Windows.Forms.Label();
+            txtOutIpController = new System.Windows.Forms.TextBox();
+            label11 = new System.Windows.Forms.Label();
+            label7 = new System.Windows.Forms.Label();
+            label24 = new System.Windows.Forms.Label();
+            txtInPortCameraLicenseplate = new System.Windows.Forms.TextBox();
+            label25 = new System.Windows.Forms.Label();
+            txtOutPassCameraClient = new System.Windows.Forms.TextBox();
+            label26 = new System.Windows.Forms.Label();
+            txtOutUserCameraClient = new System.Windows.Forms.TextBox();
+            txtOutPortCameraClient = new System.Windows.Forms.TextBox();
+            txtInUserCameraClient = new System.Windows.Forms.TextBox();
+            txtInUserCameraLicenseplate = new System.Windows.Forms.TextBox();
+            label27 = new System.Windows.Forms.Label();
+            txtInPassCameraClient = new System.Windows.Forms.TextBox();
+            label28 = new System.Windows.Forms.Label();
+            txtOutIpCameraClient = new System.Windows.Forms.TextBox();
+            label29 = new System.Windows.Forms.Label();
+            txtOutPassCameraLicenseplate = new System.Windows.Forms.TextBox();
+            label30 = new System.Windows.Forms.Label();
+            txtOutUserCameraLicenseplate = new System.Windows.Forms.TextBox();
+            txtOutPortCameraLicenseplate = new System.Windows.Forms.TextBox();
+            label31 = new System.Windows.Forms.Label();
+            label32 = new System.Windows.Forms.Label();
+            label10 = new System.Windows.Forms.Label();
+            label6 = new System.Windows.Forms.Label();
+            label5 = new System.Windows.Forms.Label();
+            button5 = new System.Windows.Forms.Button();
+            txtOutIpCameraLicenseplate = new System.Windows.Forms.TextBox();
+            label18 = new System.Windows.Forms.Label();
+            label17 = new System.Windows.Forms.Label();
+            txtInReader = new System.Windows.Forms.TextBox();
+            label13 = new System.Windows.Forms.Label();
+            txtInPassController = new System.Windows.Forms.TextBox();
+            label14 = new System.Windows.Forms.Label();
+            txtInUserController = new System.Windows.Forms.TextBox();
+            txtInPortController = new System.Windows.Forms.TextBox();
+            label15 = new System.Windows.Forms.Label();
+            label16 = new System.Windows.Forms.Label();
+            txtInIpController = new System.Windows.Forms.TextBox();
+            grbLaneIn = new System.Windows.Forms.GroupBox();
+            label1 = new System.Windows.Forms.Label();
+            txtInPassFaceId = new System.Windows.Forms.TextBox();
+            label2 = new System.Windows.Forms.Label();
+            txtInUserFaceId = new System.Windows.Forms.TextBox();
+            txtInPortFaceId = new System.Windows.Forms.TextBox();
+            label3 = new System.Windows.Forms.Label();
+            lbFaceId = new System.Windows.Forms.Label();
+            txtInIpFaceId = new System.Windows.Forms.TextBox();
+            txtInRelay = new System.Windows.Forms.TextBox();
+            label9 = new System.Windows.Forms.Label();
+            txtInIpCameraLicenseplate = new System.Windows.Forms.TextBox();
+            grbLaneOut = new System.Windows.Forms.GroupBox();
+            label4 = new System.Windows.Forms.Label();
+            txtOutPassFaceId = new System.Windows.Forms.TextBox();
+            label33 = new System.Windows.Forms.Label();
+            txtOutUserFaceid = new System.Windows.Forms.TextBox();
+            txtOutPortFaceId = new System.Windows.Forms.TextBox();
+            label34 = new System.Windows.Forms.Label();
+            label35 = new System.Windows.Forms.Label();
+            txtOutIpFaceId = new System.Windows.Forms.TextBox();
+            grbLaneIn.SuspendLayout();
+            grbLaneOut.SuspendLayout();
+            SuspendLayout();
             // 
             // txtInPortCameraClient
             // 
-            this.txtInPortCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPortCameraClient.Location = new System.Drawing.Point(407, 75);
-            this.txtInPortCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPortCameraClient.Name = "txtInPortCameraClient";
-            this.txtInPortCameraClient.Size = new System.Drawing.Size(79, 26);
-            this.txtInPortCameraClient.TabIndex = 11;
-            this.txtInPortCameraClient.Tag = "Port camera toàn cảnh làn vào|number";
+            txtInPortCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPortCameraClient.Location = new System.Drawing.Point(452, 94);
+            txtInPortCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPortCameraClient.Name = "txtInPortCameraClient";
+            txtInPortCameraClient.Size = new System.Drawing.Size(88, 26);
+            txtInPortCameraClient.TabIndex = 11;
+            txtInPortCameraClient.Tag = "Port camera toàn cảnh làn vào|number";
             // 
             // label12
             // 
-            this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(15, 78);
-            this.label12.Name = "label12";
-            this.label12.Size = new System.Drawing.Size(140, 20);
-            this.label12.TabIndex = 8;
-            this.label12.Text = "Camera toàn cảnh";
+            label12.AutoSize = true;
+            label12.Location = new System.Drawing.Point(17, 98);
+            label12.Name = "label12";
+            label12.Size = new System.Drawing.Size(140, 20);
+            label12.TabIndex = 8;
+            label12.Text = "Camera toàn cảnh";
             // 
             // label19
             // 
-            this.label19.AutoSize = true;
-            this.label19.Location = new System.Drawing.Point(305, 200);
-            this.label19.Name = "label19";
-            this.label19.Size = new System.Drawing.Size(123, 20);
-            this.label19.TabIndex = 26;
-            this.label19.Text = "Vị trí chân Relay";
+            label19.AutoSize = true;
+            label19.Location = new System.Drawing.Point(339, 250);
+            label19.Name = "label19";
+            label19.Size = new System.Drawing.Size(123, 20);
+            label19.TabIndex = 26;
+            label19.Text = "Vị trí chân Relay";
             // 
             // txtOutRelay
             // 
-            this.txtOutRelay.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutRelay.Location = new System.Drawing.Point(443, 198);
-            this.txtOutRelay.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutRelay.Name = "txtOutRelay";
-            this.txtOutRelay.Size = new System.Drawing.Size(112, 26);
-            this.txtOutRelay.TabIndex = 27;
-            this.txtOutRelay.Tag = "Chân relay làn ra|number_1_to_4";
-            // 
-            // lblOutStandardNote
-            // 
-            this.lblOutStandardNote.AutoSize = true;
-            this.lblOutStandardNote.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblOutStandardNote.ForeColor = System.Drawing.Color.DarkBlue;
-            this.lblOutStandardNote.Location = new System.Drawing.Point(575, 200);
-            this.lblOutStandardNote.Name = "lblOutStandardNote";
-            this.lblOutStandardNote.Size = new System.Drawing.Size(425, 20);
-            this.lblOutStandardNote.TabIndex = 28;
-            this.lblOutStandardNote.Text = "💡 Chuẩn khuyến nghị C3-400: Cổng 4 (Đầu đọc = 4 [Chẵn], Relay = 4)";
+            txtOutRelay.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutRelay.Location = new System.Drawing.Point(492, 248);
+            txtOutRelay.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutRelay.Name = "txtOutRelay";
+            txtOutRelay.Size = new System.Drawing.Size(124, 26);
+            txtOutRelay.TabIndex = 27;
+            txtOutRelay.Tag = "Chân relay làn ra|number_1_to_4";
             // 
             // label20
             // 
-            this.label20.AutoSize = true;
-            this.label20.Location = new System.Drawing.Point(15, 200);
-            this.label20.Name = "label20";
-            this.label20.Size = new System.Drawing.Size(101, 20);
-            this.label20.TabIndex = 24;
-            this.label20.Text = "Vị trí đầu đọc";
+            label20.AutoSize = true;
+            label20.Location = new System.Drawing.Point(17, 250);
+            label20.Name = "label20";
+            label20.Size = new System.Drawing.Size(101, 20);
+            label20.TabIndex = 24;
+            label20.Text = "Vị trí đầu đọc";
             // 
             // txtOutReader
             // 
-            this.txtOutReader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutReader.Location = new System.Drawing.Point(158, 198);
-            this.txtOutReader.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutReader.Name = "txtOutReader";
-            this.txtOutReader.Size = new System.Drawing.Size(112, 26);
-            this.txtOutReader.TabIndex = 25;
-            this.txtOutReader.Tag = "Đầu đọc làn ra|number_even";
+            txtOutReader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutReader.Location = new System.Drawing.Point(176, 248);
+            txtOutReader.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutReader.Name = "txtOutReader";
+            txtOutReader.Size = new System.Drawing.Size(124, 26);
+            txtOutReader.TabIndex = 25;
+            txtOutReader.Tag = "Đầu đọc làn ra|number_even";
             // 
             // label21
             // 
-            this.label21.AutoSize = true;
-            this.label21.Location = new System.Drawing.Point(753, 118);
-            this.label21.Name = "label21";
-            this.label21.Size = new System.Drawing.Size(44, 20);
-            this.label21.TabIndex = 22;
-            this.label21.Text = "Pass";
+            label21.AutoSize = true;
+            label21.Location = new System.Drawing.Point(837, 148);
+            label21.Name = "label21";
+            label21.Size = new System.Drawing.Size(44, 20);
+            label21.TabIndex = 22;
+            label21.Text = "Pass";
             // 
             // txtOutPassController
             // 
-            this.txtOutPassController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPassController.Location = new System.Drawing.Point(801, 114);
-            this.txtOutPassController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPassController.Name = "txtOutPassController";
-            this.txtOutPassController.Size = new System.Drawing.Size(190, 26);
-            this.txtOutPassController.TabIndex = 23;
-            this.txtOutPassController.Tag = "";
+            txtOutPassController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPassController.Location = new System.Drawing.Point(890, 142);
+            txtOutPassController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPassController.Name = "txtOutPassController";
+            txtOutPassController.Size = new System.Drawing.Size(211, 26);
+            txtOutPassController.TabIndex = 23;
+            txtOutPassController.Tag = "";
             // 
             // label22
             // 
-            this.label22.AutoSize = true;
-            this.label22.Location = new System.Drawing.Point(500, 118);
-            this.label22.Name = "label22";
-            this.label22.Size = new System.Drawing.Size(43, 20);
-            this.label22.TabIndex = 20;
-            this.label22.Text = "User";
+            label22.AutoSize = true;
+            label22.Location = new System.Drawing.Point(556, 148);
+            label22.Name = "label22";
+            label22.Size = new System.Drawing.Size(43, 20);
+            label22.TabIndex = 20;
+            label22.Text = "User";
             // 
             // txtInIpCameraClient
             // 
-            this.txtInIpCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInIpCameraClient.Location = new System.Drawing.Point(158, 75);
-            this.txtInIpCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInIpCameraClient.Name = "txtInIpCameraClient";
-            this.txtInIpCameraClient.Size = new System.Drawing.Size(201, 26);
-            this.txtInIpCameraClient.TabIndex = 9;
-            this.txtInIpCameraClient.Tag = "IP Camera toàn cảnh làn vào";
+            txtInIpCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInIpCameraClient.Location = new System.Drawing.Point(176, 94);
+            txtInIpCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInIpCameraClient.Name = "txtInIpCameraClient";
+            txtInIpCameraClient.Size = new System.Drawing.Size(223, 26);
+            txtInIpCameraClient.TabIndex = 9;
+            txtInIpCameraClient.Tag = "IP Camera toàn cảnh làn vào";
             // 
             // label8
             // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(753, 34);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(44, 20);
-            this.label8.TabIndex = 6;
-            this.label8.Text = "Pass";
+            label8.AutoSize = true;
+            label8.Location = new System.Drawing.Point(837, 42);
+            label8.Name = "label8";
+            label8.Size = new System.Drawing.Size(44, 20);
+            label8.TabIndex = 6;
+            label8.Text = "Pass";
             // 
             // txtInPassCameraLicenseplate
             // 
-            this.txtInPassCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPassCameraLicenseplate.Location = new System.Drawing.Point(801, 30);
-            this.txtInPassCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPassCameraLicenseplate.Name = "txtInPassCameraLicenseplate";
-            this.txtInPassCameraLicenseplate.Size = new System.Drawing.Size(190, 26);
-            this.txtInPassCameraLicenseplate.TabIndex = 7;
-            this.txtInPassCameraLicenseplate.Tag = "Passwork camera biển số làn vào";
+            txtInPassCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPassCameraLicenseplate.Location = new System.Drawing.Point(890, 38);
+            txtInPassCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPassCameraLicenseplate.Name = "txtInPassCameraLicenseplate";
+            txtInPassCameraLicenseplate.Size = new System.Drawing.Size(211, 26);
+            txtInPassCameraLicenseplate.TabIndex = 7;
+            txtInPassCameraLicenseplate.Tag = "Passwork camera biển số làn vào";
             // 
             // txtOutUserController
             // 
-            this.txtOutUserController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutUserController.Location = new System.Drawing.Point(544, 114);
-            this.txtOutUserController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutUserController.Name = "txtOutUserController";
-            this.txtOutUserController.Size = new System.Drawing.Size(200, 26);
-            this.txtOutUserController.TabIndex = 21;
-            this.txtOutUserController.Tag = "";
+            txtOutUserController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutUserController.Location = new System.Drawing.Point(604, 142);
+            txtOutUserController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutUserController.Name = "txtOutUserController";
+            txtOutUserController.Size = new System.Drawing.Size(222, 26);
+            txtOutUserController.TabIndex = 21;
+            txtOutUserController.Tag = "";
             // 
             // txtOutPortController
             // 
-            this.txtOutPortController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPortController.Location = new System.Drawing.Point(407, 114);
-            this.txtOutPortController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPortController.Name = "txtOutPortController";
-            this.txtOutPortController.Size = new System.Drawing.Size(79, 26);
-            this.txtOutPortController.TabIndex = 19;
-            this.txtOutPortController.Tag = "Port controller làn ra|number";
+            txtOutPortController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPortController.Location = new System.Drawing.Point(452, 142);
+            txtOutPortController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPortController.Name = "txtOutPortController";
+            txtOutPortController.Size = new System.Drawing.Size(88, 26);
+            txtOutPortController.TabIndex = 19;
+            txtOutPortController.Tag = "Port controller làn ra|number";
             // 
             // label23
             // 
-            this.label23.AutoSize = true;
-            this.label23.Location = new System.Drawing.Point(370, 118);
-            this.label23.Name = "label23";
-            this.label23.Size = new System.Drawing.Size(38, 20);
-            this.label23.TabIndex = 18;
-            this.label23.Text = "Port";
+            label23.AutoSize = true;
+            label23.Location = new System.Drawing.Point(411, 148);
+            label23.Name = "label23";
+            label23.Size = new System.Drawing.Size(38, 20);
+            label23.TabIndex = 18;
+            label23.Text = "Port";
             // 
             // txtOutIpController
             // 
-            this.txtOutIpController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutIpController.Location = new System.Drawing.Point(158, 114);
-            this.txtOutIpController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutIpController.Name = "txtOutIpController";
-            this.txtOutIpController.Size = new System.Drawing.Size(201, 26);
-            this.txtOutIpController.TabIndex = 17;
-            this.txtOutIpController.Tag = "IP controller làn ra";
+            txtOutIpController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutIpController.Location = new System.Drawing.Point(176, 142);
+            txtOutIpController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutIpController.Name = "txtOutIpController";
+            txtOutIpController.Size = new System.Drawing.Size(223, 26);
+            txtOutIpController.TabIndex = 17;
+            txtOutIpController.Tag = "IP controller làn ra";
             // 
             // label11
             // 
-            this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(370, 78);
-            this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(38, 20);
-            this.label11.TabIndex = 10;
-            this.label11.Text = "Port";
+            label11.AutoSize = true;
+            label11.Location = new System.Drawing.Point(411, 98);
+            label11.Name = "label11";
+            label11.Size = new System.Drawing.Size(38, 20);
+            label11.TabIndex = 10;
+            label11.Text = "Port";
             // 
             // label7
             // 
-            this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(500, 34);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(43, 20);
-            this.label7.TabIndex = 4;
-            this.label7.Text = "User";
+            label7.AutoSize = true;
+            label7.Location = new System.Drawing.Point(556, 42);
+            label7.Name = "label7";
+            label7.Size = new System.Drawing.Size(43, 20);
+            label7.TabIndex = 4;
+            label7.Text = "User";
             // 
             // label24
             // 
-            this.label24.AutoSize = true;
-            this.label24.Location = new System.Drawing.Point(15, 118);
-            this.label24.Name = "label24";
-            this.label24.Size = new System.Drawing.Size(77, 20);
-            this.label24.TabIndex = 16;
-            this.label24.Text = "Controller";
+            label24.AutoSize = true;
+            label24.Location = new System.Drawing.Point(17, 148);
+            label24.Name = "label24";
+            label24.Size = new System.Drawing.Size(77, 20);
+            label24.TabIndex = 16;
+            label24.Text = "Controller";
             // 
             // txtInPortCameraLicenseplate
             // 
-            this.txtInPortCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPortCameraLicenseplate.Location = new System.Drawing.Point(407, 30);
-            this.txtInPortCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPortCameraLicenseplate.Name = "txtInPortCameraLicenseplate";
-            this.txtInPortCameraLicenseplate.Size = new System.Drawing.Size(79, 26);
-            this.txtInPortCameraLicenseplate.TabIndex = 3;
-            this.txtInPortCameraLicenseplate.Tag = "Port camera biển số làn vào|number";
+            txtInPortCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPortCameraLicenseplate.Location = new System.Drawing.Point(452, 38);
+            txtInPortCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPortCameraLicenseplate.Name = "txtInPortCameraLicenseplate";
+            txtInPortCameraLicenseplate.Size = new System.Drawing.Size(88, 26);
+            txtInPortCameraLicenseplate.TabIndex = 3;
+            txtInPortCameraLicenseplate.Tag = "Port camera biển số làn vào|number";
             // 
             // label25
             // 
-            this.label25.AutoSize = true;
-            this.label25.Location = new System.Drawing.Point(753, 76);
-            this.label25.Name = "label25";
-            this.label25.Size = new System.Drawing.Size(44, 20);
-            this.label25.TabIndex = 14;
-            this.label25.Text = "Pass";
+            label25.AutoSize = true;
+            label25.Location = new System.Drawing.Point(837, 95);
+            label25.Name = "label25";
+            label25.Size = new System.Drawing.Size(44, 20);
+            label25.TabIndex = 14;
+            label25.Text = "Pass";
             // 
             // txtOutPassCameraClient
             // 
-            this.txtOutPassCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPassCameraClient.Location = new System.Drawing.Point(801, 72);
-            this.txtOutPassCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPassCameraClient.Name = "txtOutPassCameraClient";
-            this.txtOutPassCameraClient.Size = new System.Drawing.Size(190, 26);
-            this.txtOutPassCameraClient.TabIndex = 15;
-            this.txtOutPassCameraClient.Tag = "Passwork camera toàn cảnh làn ra";
+            txtOutPassCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPassCameraClient.Location = new System.Drawing.Point(890, 90);
+            txtOutPassCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPassCameraClient.Name = "txtOutPassCameraClient";
+            txtOutPassCameraClient.Size = new System.Drawing.Size(211, 26);
+            txtOutPassCameraClient.TabIndex = 15;
+            txtOutPassCameraClient.Tag = "Passwork camera toàn cảnh làn ra";
             // 
             // label26
             // 
-            this.label26.AutoSize = true;
-            this.label26.Location = new System.Drawing.Point(500, 76);
-            this.label26.Name = "label26";
-            this.label26.Size = new System.Drawing.Size(43, 20);
-            this.label26.TabIndex = 12;
-            this.label26.Text = "User";
+            label26.AutoSize = true;
+            label26.Location = new System.Drawing.Point(556, 95);
+            label26.Name = "label26";
+            label26.Size = new System.Drawing.Size(43, 20);
+            label26.TabIndex = 12;
+            label26.Text = "User";
             // 
             // txtOutUserCameraClient
             // 
-            this.txtOutUserCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutUserCameraClient.Location = new System.Drawing.Point(544, 72);
-            this.txtOutUserCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutUserCameraClient.Name = "txtOutUserCameraClient";
-            this.txtOutUserCameraClient.Size = new System.Drawing.Size(200, 26);
-            this.txtOutUserCameraClient.TabIndex = 13;
-            this.txtOutUserCameraClient.Tag = "UserName camera toàn cảnh làn ra";
+            txtOutUserCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutUserCameraClient.Location = new System.Drawing.Point(604, 90);
+            txtOutUserCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutUserCameraClient.Name = "txtOutUserCameraClient";
+            txtOutUserCameraClient.Size = new System.Drawing.Size(222, 26);
+            txtOutUserCameraClient.TabIndex = 13;
+            txtOutUserCameraClient.Tag = "UserName camera toàn cảnh làn ra";
             // 
             // txtOutPortCameraClient
             // 
-            this.txtOutPortCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPortCameraClient.Location = new System.Drawing.Point(407, 72);
-            this.txtOutPortCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPortCameraClient.Name = "txtOutPortCameraClient";
-            this.txtOutPortCameraClient.Size = new System.Drawing.Size(79, 26);
-            this.txtOutPortCameraClient.TabIndex = 11;
-            this.txtOutPortCameraClient.Tag = "Port camera toàn cảnh làn ra|number";
+            txtOutPortCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPortCameraClient.Location = new System.Drawing.Point(452, 90);
+            txtOutPortCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPortCameraClient.Name = "txtOutPortCameraClient";
+            txtOutPortCameraClient.Size = new System.Drawing.Size(88, 26);
+            txtOutPortCameraClient.TabIndex = 11;
+            txtOutPortCameraClient.Tag = "Port camera toàn cảnh làn ra|number";
             // 
             // txtInUserCameraClient
             // 
-            this.txtInUserCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInUserCameraClient.Location = new System.Drawing.Point(544, 75);
-            this.txtInUserCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInUserCameraClient.Name = "txtInUserCameraClient";
-            this.txtInUserCameraClient.Size = new System.Drawing.Size(200, 26);
-            this.txtInUserCameraClient.TabIndex = 13;
-            this.txtInUserCameraClient.Tag = "UserName camera toàn cảnh làn vào";
+            txtInUserCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInUserCameraClient.Location = new System.Drawing.Point(604, 94);
+            txtInUserCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInUserCameraClient.Name = "txtInUserCameraClient";
+            txtInUserCameraClient.Size = new System.Drawing.Size(222, 26);
+            txtInUserCameraClient.TabIndex = 13;
+            txtInUserCameraClient.Tag = "UserName camera toàn cảnh làn vào";
             // 
             // txtInUserCameraLicenseplate
             // 
-            this.txtInUserCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInUserCameraLicenseplate.Location = new System.Drawing.Point(544, 30);
-            this.txtInUserCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInUserCameraLicenseplate.Name = "txtInUserCameraLicenseplate";
-            this.txtInUserCameraLicenseplate.Size = new System.Drawing.Size(200, 26);
-            this.txtInUserCameraLicenseplate.TabIndex = 5;
-            this.txtInUserCameraLicenseplate.Tag = "UserName camera biển số làn vào";
+            txtInUserCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInUserCameraLicenseplate.Location = new System.Drawing.Point(604, 38);
+            txtInUserCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInUserCameraLicenseplate.Name = "txtInUserCameraLicenseplate";
+            txtInUserCameraLicenseplate.Size = new System.Drawing.Size(222, 26);
+            txtInUserCameraLicenseplate.TabIndex = 5;
+            txtInUserCameraLicenseplate.Tag = "UserName camera biển số làn vào";
             // 
             // label27
             // 
-            this.label27.AutoSize = true;
-            this.label27.Location = new System.Drawing.Point(370, 76);
-            this.label27.Name = "label27";
-            this.label27.Size = new System.Drawing.Size(38, 20);
-            this.label27.TabIndex = 10;
-            this.label27.Text = "Port";
+            label27.AutoSize = true;
+            label27.Location = new System.Drawing.Point(411, 95);
+            label27.Name = "label27";
+            label27.Size = new System.Drawing.Size(38, 20);
+            label27.TabIndex = 10;
+            label27.Text = "Port";
             // 
             // txtInPassCameraClient
             // 
-            this.txtInPassCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPassCameraClient.Location = new System.Drawing.Point(801, 75);
-            this.txtInPassCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPassCameraClient.Name = "txtInPassCameraClient";
-            this.txtInPassCameraClient.Size = new System.Drawing.Size(190, 26);
-            this.txtInPassCameraClient.TabIndex = 15;
-            this.txtInPassCameraClient.Tag = "Passwork camera toàn cảnh làn vào";
+            txtInPassCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPassCameraClient.Location = new System.Drawing.Point(890, 94);
+            txtInPassCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPassCameraClient.Name = "txtInPassCameraClient";
+            txtInPassCameraClient.Size = new System.Drawing.Size(211, 26);
+            txtInPassCameraClient.TabIndex = 15;
+            txtInPassCameraClient.Tag = "Passwork camera toàn cảnh làn vào";
             // 
             // label28
             // 
-            this.label28.AutoSize = true;
-            this.label28.Location = new System.Drawing.Point(15, 76);
-            this.label28.Name = "label28";
-            this.label28.Size = new System.Drawing.Size(140, 20);
-            this.label28.TabIndex = 8;
-            this.label28.Text = "Camera toàn cảnh";
+            label28.AutoSize = true;
+            label28.Location = new System.Drawing.Point(17, 95);
+            label28.Name = "label28";
+            label28.Size = new System.Drawing.Size(140, 20);
+            label28.TabIndex = 8;
+            label28.Text = "Camera toàn cảnh";
             // 
             // txtOutIpCameraClient
             // 
-            this.txtOutIpCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutIpCameraClient.Location = new System.Drawing.Point(158, 72);
-            this.txtOutIpCameraClient.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutIpCameraClient.Name = "txtOutIpCameraClient";
-            this.txtOutIpCameraClient.Size = new System.Drawing.Size(201, 26);
-            this.txtOutIpCameraClient.TabIndex = 9;
-            this.txtOutIpCameraClient.Tag = "IP Camera toàn cảnh làn ra";
+            txtOutIpCameraClient.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutIpCameraClient.Location = new System.Drawing.Point(176, 90);
+            txtOutIpCameraClient.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutIpCameraClient.Name = "txtOutIpCameraClient";
+            txtOutIpCameraClient.Size = new System.Drawing.Size(223, 26);
+            txtOutIpCameraClient.TabIndex = 9;
+            txtOutIpCameraClient.Tag = "IP Camera toàn cảnh làn ra";
             // 
             // label29
             // 
-            this.label29.AutoSize = true;
-            this.label29.Location = new System.Drawing.Point(753, 31);
-            this.label29.Name = "label29";
-            this.label29.Size = new System.Drawing.Size(44, 20);
-            this.label29.TabIndex = 6;
-            this.label29.Text = "Pass";
+            label29.AutoSize = true;
+            label29.Location = new System.Drawing.Point(837, 39);
+            label29.Name = "label29";
+            label29.Size = new System.Drawing.Size(44, 20);
+            label29.TabIndex = 6;
+            label29.Text = "Pass";
             // 
             // txtOutPassCameraLicenseplate
             // 
-            this.txtOutPassCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPassCameraLicenseplate.Location = new System.Drawing.Point(801, 28);
-            this.txtOutPassCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPassCameraLicenseplate.Name = "txtOutPassCameraLicenseplate";
-            this.txtOutPassCameraLicenseplate.Size = new System.Drawing.Size(190, 26);
-            this.txtOutPassCameraLicenseplate.TabIndex = 7;
-            this.txtOutPassCameraLicenseplate.Tag = "Passwork camera biển số làn ra";
+            txtOutPassCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPassCameraLicenseplate.Location = new System.Drawing.Point(890, 35);
+            txtOutPassCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPassCameraLicenseplate.Name = "txtOutPassCameraLicenseplate";
+            txtOutPassCameraLicenseplate.Size = new System.Drawing.Size(211, 26);
+            txtOutPassCameraLicenseplate.TabIndex = 7;
+            txtOutPassCameraLicenseplate.Tag = "Passwork camera biển số làn ra";
             // 
             // label30
             // 
-            this.label30.AutoSize = true;
-            this.label30.Location = new System.Drawing.Point(500, 31);
-            this.label30.Name = "label30";
-            this.label30.Size = new System.Drawing.Size(43, 20);
-            this.label30.TabIndex = 4;
-            this.label30.Text = "User";
+            label30.AutoSize = true;
+            label30.Location = new System.Drawing.Point(556, 39);
+            label30.Name = "label30";
+            label30.Size = new System.Drawing.Size(43, 20);
+            label30.TabIndex = 4;
+            label30.Text = "User";
             // 
             // txtOutUserCameraLicenseplate
             // 
-            this.txtOutUserCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutUserCameraLicenseplate.Location = new System.Drawing.Point(544, 28);
-            this.txtOutUserCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutUserCameraLicenseplate.Name = "txtOutUserCameraLicenseplate";
-            this.txtOutUserCameraLicenseplate.Size = new System.Drawing.Size(200, 26);
-            this.txtOutUserCameraLicenseplate.TabIndex = 5;
-            this.txtOutUserCameraLicenseplate.Tag = "UserName camera biển số làn ra";
+            txtOutUserCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutUserCameraLicenseplate.Location = new System.Drawing.Point(604, 35);
+            txtOutUserCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutUserCameraLicenseplate.Name = "txtOutUserCameraLicenseplate";
+            txtOutUserCameraLicenseplate.Size = new System.Drawing.Size(222, 26);
+            txtOutUserCameraLicenseplate.TabIndex = 5;
+            txtOutUserCameraLicenseplate.Tag = "UserName camera biển số làn ra";
             // 
             // txtOutPortCameraLicenseplate
             // 
-            this.txtOutPortCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPortCameraLicenseplate.Location = new System.Drawing.Point(407, 28);
-            this.txtOutPortCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPortCameraLicenseplate.Name = "txtOutPortCameraLicenseplate";
-            this.txtOutPortCameraLicenseplate.Size = new System.Drawing.Size(79, 26);
-            this.txtOutPortCameraLicenseplate.TabIndex = 3;
-            this.txtOutPortCameraLicenseplate.Tag = "Port camera biển số làn ra|number";
+            txtOutPortCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPortCameraLicenseplate.Location = new System.Drawing.Point(452, 35);
+            txtOutPortCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPortCameraLicenseplate.Name = "txtOutPortCameraLicenseplate";
+            txtOutPortCameraLicenseplate.Size = new System.Drawing.Size(88, 26);
+            txtOutPortCameraLicenseplate.TabIndex = 3;
+            txtOutPortCameraLicenseplate.Tag = "Port camera biển số làn ra|number";
             // 
             // label31
             // 
-            this.label31.AutoSize = true;
-            this.label31.Location = new System.Drawing.Point(370, 31);
-            this.label31.Name = "label31";
-            this.label31.Size = new System.Drawing.Size(38, 20);
-            this.label31.TabIndex = 2;
-            this.label31.Text = "Port";
+            label31.AutoSize = true;
+            label31.Location = new System.Drawing.Point(411, 39);
+            label31.Name = "label31";
+            label31.Size = new System.Drawing.Size(38, 20);
+            label31.TabIndex = 2;
+            label31.Text = "Port";
             // 
             // label32
             // 
-            this.label32.AutoSize = true;
-            this.label32.Location = new System.Drawing.Point(15, 31);
-            this.label32.Name = "label32";
-            this.label32.Size = new System.Drawing.Size(120, 20);
-            this.label32.TabIndex = 0;
-            this.label32.Text = "Camera biển số";
+            label32.AutoSize = true;
+            label32.Location = new System.Drawing.Point(17, 39);
+            label32.Name = "label32";
+            label32.Size = new System.Drawing.Size(120, 20);
+            label32.TabIndex = 0;
+            label32.Text = "Camera biển số";
             // 
             // label10
             // 
-            this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(500, 78);
-            this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(43, 20);
-            this.label10.TabIndex = 12;
-            this.label10.Text = "User";
+            label10.AutoSize = true;
+            label10.Location = new System.Drawing.Point(556, 98);
+            label10.Name = "label10";
+            label10.Size = new System.Drawing.Size(43, 20);
+            label10.TabIndex = 12;
+            label10.Text = "User";
             // 
             // label6
             // 
-            this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(370, 34);
-            this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(38, 20);
-            this.label6.TabIndex = 2;
-            this.label6.Text = "Port";
+            label6.AutoSize = true;
+            label6.Location = new System.Drawing.Point(411, 42);
+            label6.Name = "label6";
+            label6.Size = new System.Drawing.Size(38, 20);
+            label6.TabIndex = 2;
+            label6.Text = "Port";
             // 
             // label5
             // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(15, 34);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(120, 20);
-            this.label5.TabIndex = 0;
-            this.label5.Text = "Camera biển số";
-            // 
-            // lblGuideBanner
-            // 
-            this.lblGuideBanner.AutoSize = true;
-            this.lblGuideBanner.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblGuideBanner.ForeColor = System.Drawing.Color.DarkBlue;
-            this.lblGuideBanner.Location = new System.Drawing.Point(15, 555);
-            this.lblGuideBanner.Name = "lblGuideBanner";
-            this.lblGuideBanner.Size = new System.Drawing.Size(830, 20);
-            this.lblGuideBanner.TabIndex = 48;
-            this.lblGuideBanner.Text = "📌 Lưu ý ZKTeco C3-400 (Ô tô): Cổng đọc bắt buộc là số CHẴN. Chuẩn khuyến nghị: Cổng vào = 2, Cổng ra = 4.";
+            label5.AutoSize = true;
+            label5.Location = new System.Drawing.Point(17, 42);
+            label5.Name = "label5";
+            label5.Size = new System.Drawing.Size(120, 20);
+            label5.TabIndex = 0;
+            label5.Text = "Camera biển số";
             // 
             // button5
             // 
-            this.button5.BackColor = System.Drawing.Color.Coral;
-            this.button5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button5.ForeColor = System.Drawing.Color.White;
-            this.button5.Location = new System.Drawing.Point(906, 549);
-            this.button5.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.button5.Name = "button5";
-            this.button5.Size = new System.Drawing.Size(136, 37);
-            this.button5.TabIndex = 5;
-            this.button5.Text = "Lưu tất cả";
-            this.button5.UseVisualStyleBackColor = false;
-            this.button5.Click += new System.EventHandler(this.button5_Click);
+            button5.BackColor = System.Drawing.Color.Coral;
+            button5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            button5.ForeColor = System.Drawing.Color.White;
+            button5.Location = new System.Drawing.Point(1007, 686);
+            button5.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            button5.Name = "button5";
+            button5.Size = new System.Drawing.Size(151, 46);
+            button5.TabIndex = 5;
+            button5.Text = "Lưu tất cả";
+            button5.UseVisualStyleBackColor = false;
+            button5.Click += button5_Click;
             // 
             // txtOutIpCameraLicenseplate
             // 
-            this.txtOutIpCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutIpCameraLicenseplate.Location = new System.Drawing.Point(158, 28);
-            this.txtOutIpCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutIpCameraLicenseplate.Name = "txtOutIpCameraLicenseplate";
-            this.txtOutIpCameraLicenseplate.Size = new System.Drawing.Size(201, 26);
-            this.txtOutIpCameraLicenseplate.TabIndex = 1;
-            this.txtOutIpCameraLicenseplate.Tag = "IP Camera biển số làn ra";
+            txtOutIpCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutIpCameraLicenseplate.Location = new System.Drawing.Point(176, 35);
+            txtOutIpCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutIpCameraLicenseplate.Name = "txtOutIpCameraLicenseplate";
+            txtOutIpCameraLicenseplate.Size = new System.Drawing.Size(223, 26);
+            txtOutIpCameraLicenseplate.TabIndex = 1;
+            txtOutIpCameraLicenseplate.Tag = "IP Camera biển số làn ra";
             // 
             // label18
             // 
-            this.label18.AutoSize = true;
-            this.label18.Location = new System.Drawing.Point(305, 214);
-            this.label18.Name = "label18";
-            this.label18.Size = new System.Drawing.Size(123, 20);
-            this.label18.TabIndex = 26;
-            this.label18.Text = "Vị trí chân Relay";
+            label18.AutoSize = true;
+            label18.Location = new System.Drawing.Point(339, 268);
+            label18.Name = "label18";
+            label18.Size = new System.Drawing.Size(123, 20);
+            label18.TabIndex = 26;
+            label18.Text = "Vị trí chân Relay";
             // 
             // label17
             // 
-            this.label17.AutoSize = true;
-            this.label17.Location = new System.Drawing.Point(15, 214);
-            this.label17.Name = "label17";
-            this.label17.Size = new System.Drawing.Size(101, 20);
-            this.label17.TabIndex = 24;
-            this.label17.Text = "Vị trí đầu đọc";
+            label17.AutoSize = true;
+            label17.Location = new System.Drawing.Point(17, 268);
+            label17.Name = "label17";
+            label17.Size = new System.Drawing.Size(101, 20);
+            label17.TabIndex = 24;
+            label17.Text = "Vị trí đầu đọc";
             // 
             // txtInReader
             // 
-            this.txtInReader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInReader.Location = new System.Drawing.Point(158, 210);
-            this.txtInReader.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInReader.Name = "txtInReader";
-            this.txtInReader.Size = new System.Drawing.Size(112, 26);
-            this.txtInReader.TabIndex = 25;
-            this.txtInReader.Tag = "Đầu đọc làn vào|number_even";
+            txtInReader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInReader.Location = new System.Drawing.Point(176, 262);
+            txtInReader.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInReader.Name = "txtInReader";
+            txtInReader.Size = new System.Drawing.Size(124, 26);
+            txtInReader.TabIndex = 25;
+            txtInReader.Tag = "Đầu đọc làn vào|number_even";
             // 
             // label13
             // 
-            this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(753, 124);
-            this.label13.Name = "label13";
-            this.label13.Size = new System.Drawing.Size(44, 20);
-            this.label13.TabIndex = 22;
-            this.label13.Text = "Pass";
+            label13.AutoSize = true;
+            label13.Location = new System.Drawing.Point(837, 155);
+            label13.Name = "label13";
+            label13.Size = new System.Drawing.Size(44, 20);
+            label13.TabIndex = 22;
+            label13.Text = "Pass";
             // 
             // txtInPassController
             // 
-            this.txtInPassController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPassController.Location = new System.Drawing.Point(801, 120);
-            this.txtInPassController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPassController.Name = "txtInPassController";
-            this.txtInPassController.Size = new System.Drawing.Size(190, 26);
-            this.txtInPassController.TabIndex = 23;
-            this.txtInPassController.Tag = "";
+            txtInPassController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPassController.Location = new System.Drawing.Point(890, 150);
+            txtInPassController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPassController.Name = "txtInPassController";
+            txtInPassController.Size = new System.Drawing.Size(211, 26);
+            txtInPassController.TabIndex = 23;
+            txtInPassController.Tag = "";
             // 
             // label14
             // 
-            this.label14.AutoSize = true;
-            this.label14.Location = new System.Drawing.Point(500, 124);
-            this.label14.Name = "label14";
-            this.label14.Size = new System.Drawing.Size(43, 20);
-            this.label14.TabIndex = 20;
-            this.label14.Text = "User";
+            label14.AutoSize = true;
+            label14.Location = new System.Drawing.Point(556, 155);
+            label14.Name = "label14";
+            label14.Size = new System.Drawing.Size(43, 20);
+            label14.TabIndex = 20;
+            label14.Text = "User";
             // 
             // txtInUserController
             // 
-            this.txtInUserController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInUserController.Location = new System.Drawing.Point(544, 120);
-            this.txtInUserController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInUserController.Name = "txtInUserController";
-            this.txtInUserController.Size = new System.Drawing.Size(200, 26);
-            this.txtInUserController.TabIndex = 21;
-            this.txtInUserController.Tag = "";
+            txtInUserController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInUserController.Location = new System.Drawing.Point(604, 150);
+            txtInUserController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInUserController.Name = "txtInUserController";
+            txtInUserController.Size = new System.Drawing.Size(222, 26);
+            txtInUserController.TabIndex = 21;
+            txtInUserController.Tag = "";
             // 
             // txtInPortController
             // 
-            this.txtInPortController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPortController.Location = new System.Drawing.Point(407, 120);
-            this.txtInPortController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPortController.Name = "txtInPortController";
-            this.txtInPortController.Size = new System.Drawing.Size(79, 26);
-            this.txtInPortController.TabIndex = 19;
-            this.txtInPortController.Tag = "Port controller làn vào|number";
+            txtInPortController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPortController.Location = new System.Drawing.Point(452, 150);
+            txtInPortController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPortController.Name = "txtInPortController";
+            txtInPortController.Size = new System.Drawing.Size(88, 26);
+            txtInPortController.TabIndex = 19;
+            txtInPortController.Tag = "Port controller làn vào|number";
             // 
             // label15
             // 
-            this.label15.AutoSize = true;
-            this.label15.Location = new System.Drawing.Point(370, 124);
-            this.label15.Name = "label15";
-            this.label15.Size = new System.Drawing.Size(38, 20);
-            this.label15.TabIndex = 18;
-            this.label15.Text = "Port";
+            label15.AutoSize = true;
+            label15.Location = new System.Drawing.Point(411, 155);
+            label15.Name = "label15";
+            label15.Size = new System.Drawing.Size(38, 20);
+            label15.TabIndex = 18;
+            label15.Text = "Port";
             // 
             // label16
             // 
-            this.label16.AutoSize = true;
-            this.label16.Location = new System.Drawing.Point(15, 122);
-            this.label16.Name = "label16";
-            this.label16.Size = new System.Drawing.Size(77, 20);
-            this.label16.TabIndex = 16;
-            this.label16.Text = "Controller";
+            label16.AutoSize = true;
+            label16.Location = new System.Drawing.Point(17, 152);
+            label16.Name = "label16";
+            label16.Size = new System.Drawing.Size(77, 20);
+            label16.TabIndex = 16;
+            label16.Text = "Controller";
             // 
             // txtInIpController
             // 
-            this.txtInIpController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInIpController.Location = new System.Drawing.Point(158, 120);
-            this.txtInIpController.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInIpController.Name = "txtInIpController";
-            this.txtInIpController.Size = new System.Drawing.Size(201, 26);
-            this.txtInIpController.TabIndex = 17;
-            this.txtInIpController.Tag = "IP controller làn vào";
+            txtInIpController.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInIpController.Location = new System.Drawing.Point(176, 150);
+            txtInIpController.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInIpController.Name = "txtInIpController";
+            txtInIpController.Size = new System.Drawing.Size(223, 26);
+            txtInIpController.TabIndex = 17;
+            txtInIpController.Tag = "IP controller làn vào";
             // 
             // grbLaneIn
             // 
-            this.grbLaneIn.Controls.Add(this.label1);
-            this.grbLaneIn.Controls.Add(this.txtInPassFaceId);
-            this.grbLaneIn.Controls.Add(this.label2);
-            this.grbLaneIn.Controls.Add(this.txtInUserFaceId);
-            this.grbLaneIn.Controls.Add(this.txtInPortFaceId);
-            this.grbLaneIn.Controls.Add(this.label3);
-            this.grbLaneIn.Controls.Add(this.lbFaceId);
-            this.grbLaneIn.Controls.Add(this.txtInIpFaceId);
-            this.grbLaneIn.Controls.Add(this.label18);
-            this.grbLaneIn.Controls.Add(this.lblInStandardNote);
-            this.grbLaneIn.Controls.Add(this.txtInRelay);
-            this.grbLaneIn.Controls.Add(this.label17);
-            this.grbLaneIn.Controls.Add(this.txtInReader);
-            this.grbLaneIn.Controls.Add(this.label13);
-            this.grbLaneIn.Controls.Add(this.txtInPassController);
-            this.grbLaneIn.Controls.Add(this.label14);
-            this.grbLaneIn.Controls.Add(this.txtInUserController);
-            this.grbLaneIn.Controls.Add(this.txtInPortController);
-            this.grbLaneIn.Controls.Add(this.label15);
-            this.grbLaneIn.Controls.Add(this.label16);
-            this.grbLaneIn.Controls.Add(this.txtInIpController);
-            this.grbLaneIn.Controls.Add(this.label9);
-            this.grbLaneIn.Controls.Add(this.txtInPassCameraClient);
-            this.grbLaneIn.Controls.Add(this.label10);
-            this.grbLaneIn.Controls.Add(this.txtInUserCameraClient);
-            this.grbLaneIn.Controls.Add(this.txtInPortCameraClient);
-            this.grbLaneIn.Controls.Add(this.label11);
-            this.grbLaneIn.Controls.Add(this.label12);
-            this.grbLaneIn.Controls.Add(this.txtInIpCameraClient);
-            this.grbLaneIn.Controls.Add(this.label8);
-            this.grbLaneIn.Controls.Add(this.txtInPassCameraLicenseplate);
-            this.grbLaneIn.Controls.Add(this.label7);
-            this.grbLaneIn.Controls.Add(this.txtInUserCameraLicenseplate);
-            this.grbLaneIn.Controls.Add(this.txtInPortCameraLicenseplate);
-            this.grbLaneIn.Controls.Add(this.label6);
-            this.grbLaneIn.Controls.Add(this.label5);
-            this.grbLaneIn.Controls.Add(this.txtInIpCameraLicenseplate);
-            this.grbLaneIn.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.grbLaneIn.Location = new System.Drawing.Point(15, 11);
-            this.grbLaneIn.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.grbLaneIn.Name = "grbLaneIn";
-            this.grbLaneIn.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.grbLaneIn.Size = new System.Drawing.Size(1027, 261);
-            this.grbLaneIn.TabIndex = 3;
-            this.grbLaneIn.TabStop = false;
-            this.grbLaneIn.Text = "Thiết bị làn vào ô tô";
-            // 
-            // txtInRelay
-            // 
-            this.txtInRelay.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInRelay.Location = new System.Drawing.Point(443, 210);
-            this.txtInRelay.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInRelay.Name = "txtInRelay";
-            this.txtInRelay.Size = new System.Drawing.Size(112, 26);
-            this.txtInRelay.TabIndex = 27;
-            this.txtInRelay.Tag = "Chân relay làn vào|number_1_to_4";
-            // 
-            // lblInStandardNote
-            // 
-            this.lblInStandardNote.AutoSize = true;
-            this.lblInStandardNote.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Italic, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lblInStandardNote.ForeColor = System.Drawing.Color.DarkBlue;
-            this.lblInStandardNote.Location = new System.Drawing.Point(575, 214);
-            this.lblInStandardNote.Name = "lblInStandardNote";
-            this.lblInStandardNote.Size = new System.Drawing.Size(425, 20);
-            this.lblInStandardNote.TabIndex = 28;
-            this.lblInStandardNote.Text = "💡 Chuẩn khuyến nghị C3-400: Cổng 2 (Đầu đọc = 2 [Chẵn], Relay = 2)";
-            // 
-            // label9
-            // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(753, 78);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(44, 20);
-            this.label9.TabIndex = 14;
-            this.label9.Text = "Pass";
-            // 
-            // txtInIpCameraLicenseplate
-            // 
-            this.txtInIpCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInIpCameraLicenseplate.Location = new System.Drawing.Point(158, 30);
-            this.txtInIpCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInIpCameraLicenseplate.Name = "txtInIpCameraLicenseplate";
-            this.txtInIpCameraLicenseplate.Size = new System.Drawing.Size(201, 26);
-            this.txtInIpCameraLicenseplate.TabIndex = 1;
-            this.txtInIpCameraLicenseplate.Tag = "IP Camera biển số làn vào";
-            // 
-            // grbLaneOut
-            // 
-            this.grbLaneOut.Controls.Add(this.label4);
-            this.grbLaneOut.Controls.Add(this.lblOutStandardNote);
-            this.grbLaneOut.Controls.Add(this.label19);
-            this.grbLaneOut.Controls.Add(this.txtOutPassFaceId);
-            this.grbLaneOut.Controls.Add(this.label33);
-            this.grbLaneOut.Controls.Add(this.txtOutUserFaceid);
-            this.grbLaneOut.Controls.Add(this.txtOutRelay);
-            this.grbLaneOut.Controls.Add(this.txtOutPortFaceId);
-            this.grbLaneOut.Controls.Add(this.label20);
-            this.grbLaneOut.Controls.Add(this.txtOutReader);
-            this.grbLaneOut.Controls.Add(this.label21);
-            this.grbLaneOut.Controls.Add(this.label34);
-            this.grbLaneOut.Controls.Add(this.txtOutPassController);
-            this.grbLaneOut.Controls.Add(this.label35);
-            this.grbLaneOut.Controls.Add(this.txtOutIpFaceId);
-            this.grbLaneOut.Controls.Add(this.label22);
-            this.grbLaneOut.Controls.Add(this.txtOutUserController);
-            this.grbLaneOut.Controls.Add(this.txtOutPortController);
-            this.grbLaneOut.Controls.Add(this.label23);
-            this.grbLaneOut.Controls.Add(this.label24);
-            this.grbLaneOut.Controls.Add(this.txtOutIpController);
-            this.grbLaneOut.Controls.Add(this.label25);
-            this.grbLaneOut.Controls.Add(this.txtOutPassCameraClient);
-            this.grbLaneOut.Controls.Add(this.label26);
-            this.grbLaneOut.Controls.Add(this.txtOutUserCameraClient);
-            this.grbLaneOut.Controls.Add(this.txtOutPortCameraClient);
-            this.grbLaneOut.Controls.Add(this.label27);
-            this.grbLaneOut.Controls.Add(this.label28);
-            this.grbLaneOut.Controls.Add(this.txtOutIpCameraClient);
-            this.grbLaneOut.Controls.Add(this.label29);
-            this.grbLaneOut.Controls.Add(this.txtOutPassCameraLicenseplate);
-            this.grbLaneOut.Controls.Add(this.label30);
-            this.grbLaneOut.Controls.Add(this.txtOutUserCameraLicenseplate);
-            this.grbLaneOut.Controls.Add(this.txtOutPortCameraLicenseplate);
-            this.grbLaneOut.Controls.Add(this.label31);
-            this.grbLaneOut.Controls.Add(this.label32);
-            this.grbLaneOut.Controls.Add(this.txtOutIpCameraLicenseplate);
-            this.grbLaneOut.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.grbLaneOut.Location = new System.Drawing.Point(15, 280);
-            this.grbLaneOut.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.grbLaneOut.Name = "grbLaneOut";
-            this.grbLaneOut.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.grbLaneOut.Size = new System.Drawing.Size(1027, 249);
-            this.grbLaneOut.TabIndex = 4;
-            this.grbLaneOut.TabStop = false;
-            this.grbLaneOut.Text = "Thiết bị làn ra ô tô";
+            grbLaneIn.Controls.Add(label1);
+            grbLaneIn.Controls.Add(txtInPassFaceId);
+            grbLaneIn.Controls.Add(label2);
+            grbLaneIn.Controls.Add(txtInUserFaceId);
+            grbLaneIn.Controls.Add(txtInPortFaceId);
+            grbLaneIn.Controls.Add(label3);
+            grbLaneIn.Controls.Add(lbFaceId);
+            grbLaneIn.Controls.Add(txtInIpFaceId);
+            grbLaneIn.Controls.Add(label18);
+            grbLaneIn.Controls.Add(txtInRelay);
+            grbLaneIn.Controls.Add(label17);
+            grbLaneIn.Controls.Add(txtInReader);
+            grbLaneIn.Controls.Add(label13);
+            grbLaneIn.Controls.Add(txtInPassController);
+            grbLaneIn.Controls.Add(label14);
+            grbLaneIn.Controls.Add(txtInUserController);
+            grbLaneIn.Controls.Add(txtInPortController);
+            grbLaneIn.Controls.Add(label15);
+            grbLaneIn.Controls.Add(label16);
+            grbLaneIn.Controls.Add(txtInIpController);
+            grbLaneIn.Controls.Add(label9);
+            grbLaneIn.Controls.Add(txtInPassCameraClient);
+            grbLaneIn.Controls.Add(label10);
+            grbLaneIn.Controls.Add(txtInUserCameraClient);
+            grbLaneIn.Controls.Add(txtInPortCameraClient);
+            grbLaneIn.Controls.Add(label11);
+            grbLaneIn.Controls.Add(label12);
+            grbLaneIn.Controls.Add(txtInIpCameraClient);
+            grbLaneIn.Controls.Add(label8);
+            grbLaneIn.Controls.Add(txtInPassCameraLicenseplate);
+            grbLaneIn.Controls.Add(label7);
+            grbLaneIn.Controls.Add(txtInUserCameraLicenseplate);
+            grbLaneIn.Controls.Add(txtInPortCameraLicenseplate);
+            grbLaneIn.Controls.Add(label6);
+            grbLaneIn.Controls.Add(label5);
+            grbLaneIn.Controls.Add(txtInIpCameraLicenseplate);
+            grbLaneIn.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            grbLaneIn.Location = new System.Drawing.Point(17, 14);
+            grbLaneIn.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            grbLaneIn.Name = "grbLaneIn";
+            grbLaneIn.Padding = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            grbLaneIn.Size = new System.Drawing.Size(1141, 326);
+            grbLaneIn.TabIndex = 3;
+            grbLaneIn.TabStop = false;
+            grbLaneIn.Text = "Thiết bị làn vào ô tô";
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(753, 169);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(44, 20);
-            this.label1.TabIndex = 34;
-            this.label1.Text = "Pass";
+            label1.AutoSize = true;
+            label1.Location = new System.Drawing.Point(837, 211);
+            label1.Name = "label1";
+            label1.Size = new System.Drawing.Size(44, 20);
+            label1.TabIndex = 34;
+            label1.Text = "Pass";
             // 
             // txtInPassFaceId
             // 
-            this.txtInPassFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPassFaceId.Location = new System.Drawing.Point(801, 165);
-            this.txtInPassFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPassFaceId.Name = "txtInPassFaceId";
-            this.txtInPassFaceId.Size = new System.Drawing.Size(190, 26);
-            this.txtInPassFaceId.TabIndex = 35;
-            this.txtInPassFaceId.Tag = "Passwork FaceId làn vào";
+            txtInPassFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPassFaceId.Location = new System.Drawing.Point(890, 206);
+            txtInPassFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPassFaceId.Name = "txtInPassFaceId";
+            txtInPassFaceId.Size = new System.Drawing.Size(211, 26);
+            txtInPassFaceId.TabIndex = 35;
+            txtInPassFaceId.Tag = "Passwork FaceId làn vào";
             // 
             // label2
             // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(500, 169);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(43, 20);
-            this.label2.TabIndex = 32;
-            this.label2.Text = "User";
+            label2.AutoSize = true;
+            label2.Location = new System.Drawing.Point(556, 211);
+            label2.Name = "label2";
+            label2.Size = new System.Drawing.Size(43, 20);
+            label2.TabIndex = 32;
+            label2.Text = "User";
             // 
             // txtInUserFaceId
             // 
-            this.txtInUserFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInUserFaceId.Location = new System.Drawing.Point(544, 165);
-            this.txtInUserFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInUserFaceId.Name = "txtInUserFaceId";
-            this.txtInUserFaceId.Size = new System.Drawing.Size(200, 26);
-            this.txtInUserFaceId.TabIndex = 33;
-            this.txtInUserFaceId.Tag = "UserName FaceID làn vào";
+            txtInUserFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInUserFaceId.Location = new System.Drawing.Point(604, 206);
+            txtInUserFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInUserFaceId.Name = "txtInUserFaceId";
+            txtInUserFaceId.Size = new System.Drawing.Size(222, 26);
+            txtInUserFaceId.TabIndex = 33;
+            txtInUserFaceId.Tag = "UserName FaceID làn vào";
             // 
             // txtInPortFaceId
             // 
-            this.txtInPortFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInPortFaceId.Location = new System.Drawing.Point(407, 165);
-            this.txtInPortFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInPortFaceId.Name = "txtInPortFaceId";
-            this.txtInPortFaceId.Size = new System.Drawing.Size(79, 26);
-            this.txtInPortFaceId.TabIndex = 31;
-            this.txtInPortFaceId.Tag = "|number";
+            txtInPortFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInPortFaceId.Location = new System.Drawing.Point(452, 206);
+            txtInPortFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInPortFaceId.Name = "txtInPortFaceId";
+            txtInPortFaceId.Size = new System.Drawing.Size(88, 26);
+            txtInPortFaceId.TabIndex = 31;
+            txtInPortFaceId.Tag = "|number";
             // 
             // label3
             // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(370, 169);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(38, 20);
-            this.label3.TabIndex = 30;
-            this.label3.Text = "Port";
+            label3.AutoSize = true;
+            label3.Location = new System.Drawing.Point(411, 211);
+            label3.Name = "label3";
+            label3.Size = new System.Drawing.Size(38, 20);
+            label3.TabIndex = 30;
+            label3.Text = "Port";
             // 
             // lbFaceId
             // 
-            this.lbFaceId.AutoSize = true;
-            this.lbFaceId.Location = new System.Drawing.Point(15, 169);
-            this.lbFaceId.Name = "lbFaceId";
-            this.lbFaceId.Size = new System.Drawing.Size(59, 20);
-            this.lbFaceId.TabIndex = 28;
-            this.lbFaceId.Text = "FaceId";
+            lbFaceId.AutoSize = true;
+            lbFaceId.Location = new System.Drawing.Point(17, 211);
+            lbFaceId.Name = "lbFaceId";
+            lbFaceId.Size = new System.Drawing.Size(59, 20);
+            lbFaceId.TabIndex = 28;
+            lbFaceId.Text = "FaceId";
             // 
             // txtInIpFaceId
             // 
-            this.txtInIpFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtInIpFaceId.Location = new System.Drawing.Point(158, 165);
-            this.txtInIpFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtInIpFaceId.Name = "txtInIpFaceId";
-            this.txtInIpFaceId.Size = new System.Drawing.Size(201, 26);
-            this.txtInIpFaceId.TabIndex = 29;
-            this.txtInIpFaceId.Tag = "IP faceid làn vào";
+            txtInIpFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInIpFaceId.Location = new System.Drawing.Point(176, 206);
+            txtInIpFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInIpFaceId.Name = "txtInIpFaceId";
+            txtInIpFaceId.Size = new System.Drawing.Size(223, 26);
+            txtInIpFaceId.TabIndex = 29;
+            txtInIpFaceId.Tag = "IP faceid làn vào";
+            // 
+            // txtInRelay
+            // 
+            txtInRelay.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInRelay.Location = new System.Drawing.Point(492, 262);
+            txtInRelay.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInRelay.Name = "txtInRelay";
+            txtInRelay.Size = new System.Drawing.Size(124, 26);
+            txtInRelay.TabIndex = 27;
+            txtInRelay.Tag = "Chân relay làn vào|number_1_to_4";
+            // 
+            // label9
+            // 
+            label9.AutoSize = true;
+            label9.Location = new System.Drawing.Point(837, 98);
+            label9.Name = "label9";
+            label9.Size = new System.Drawing.Size(44, 20);
+            label9.TabIndex = 14;
+            label9.Text = "Pass";
+            // 
+            // txtInIpCameraLicenseplate
+            // 
+            txtInIpCameraLicenseplate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtInIpCameraLicenseplate.Location = new System.Drawing.Point(176, 38);
+            txtInIpCameraLicenseplate.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtInIpCameraLicenseplate.Name = "txtInIpCameraLicenseplate";
+            txtInIpCameraLicenseplate.Size = new System.Drawing.Size(223, 26);
+            txtInIpCameraLicenseplate.TabIndex = 1;
+            txtInIpCameraLicenseplate.Tag = "IP Camera biển số làn vào";
+            // 
+            // grbLaneOut
+            // 
+            grbLaneOut.Controls.Add(label4);
+            grbLaneOut.Controls.Add(label19);
+            grbLaneOut.Controls.Add(txtOutPassFaceId);
+            grbLaneOut.Controls.Add(label33);
+            grbLaneOut.Controls.Add(txtOutUserFaceid);
+            grbLaneOut.Controls.Add(txtOutRelay);
+            grbLaneOut.Controls.Add(txtOutPortFaceId);
+            grbLaneOut.Controls.Add(label20);
+            grbLaneOut.Controls.Add(txtOutReader);
+            grbLaneOut.Controls.Add(label21);
+            grbLaneOut.Controls.Add(label34);
+            grbLaneOut.Controls.Add(txtOutPassController);
+            grbLaneOut.Controls.Add(label35);
+            grbLaneOut.Controls.Add(txtOutIpFaceId);
+            grbLaneOut.Controls.Add(label22);
+            grbLaneOut.Controls.Add(txtOutUserController);
+            grbLaneOut.Controls.Add(txtOutPortController);
+            grbLaneOut.Controls.Add(label23);
+            grbLaneOut.Controls.Add(label24);
+            grbLaneOut.Controls.Add(txtOutIpController);
+            grbLaneOut.Controls.Add(label25);
+            grbLaneOut.Controls.Add(txtOutPassCameraClient);
+            grbLaneOut.Controls.Add(label26);
+            grbLaneOut.Controls.Add(txtOutUserCameraClient);
+            grbLaneOut.Controls.Add(txtOutPortCameraClient);
+            grbLaneOut.Controls.Add(label27);
+            grbLaneOut.Controls.Add(label28);
+            grbLaneOut.Controls.Add(txtOutIpCameraClient);
+            grbLaneOut.Controls.Add(label29);
+            grbLaneOut.Controls.Add(txtOutPassCameraLicenseplate);
+            grbLaneOut.Controls.Add(label30);
+            grbLaneOut.Controls.Add(txtOutUserCameraLicenseplate);
+            grbLaneOut.Controls.Add(txtOutPortCameraLicenseplate);
+            grbLaneOut.Controls.Add(label31);
+            grbLaneOut.Controls.Add(label32);
+            grbLaneOut.Controls.Add(txtOutIpCameraLicenseplate);
+            grbLaneOut.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
+            grbLaneOut.Location = new System.Drawing.Point(17, 350);
+            grbLaneOut.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            grbLaneOut.Name = "grbLaneOut";
+            grbLaneOut.Padding = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            grbLaneOut.Size = new System.Drawing.Size(1141, 311);
+            grbLaneOut.TabIndex = 4;
+            grbLaneOut.TabStop = false;
+            grbLaneOut.Text = "Thiết bị làn ra ô tô";
             // 
             // label4
             // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(753, 158);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(44, 20);
-            this.label4.TabIndex = 42;
-            this.label4.Text = "Pass";
+            label4.AutoSize = true;
+            label4.Location = new System.Drawing.Point(837, 198);
+            label4.Name = "label4";
+            label4.Size = new System.Drawing.Size(44, 20);
+            label4.TabIndex = 42;
+            label4.Text = "Pass";
             // 
             // txtOutPassFaceId
             // 
-            this.txtOutPassFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPassFaceId.Location = new System.Drawing.Point(801, 156);
-            this.txtOutPassFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPassFaceId.Name = "txtOutPassFaceId";
-            this.txtOutPassFaceId.Size = new System.Drawing.Size(190, 26);
-            this.txtOutPassFaceId.TabIndex = 43;
-            this.txtOutPassFaceId.Tag = "Passwork FaceId làn ra";
+            txtOutPassFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPassFaceId.Location = new System.Drawing.Point(890, 195);
+            txtOutPassFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPassFaceId.Name = "txtOutPassFaceId";
+            txtOutPassFaceId.Size = new System.Drawing.Size(211, 26);
+            txtOutPassFaceId.TabIndex = 43;
+            txtOutPassFaceId.Tag = "Passwork FaceId làn ra";
             // 
             // label33
             // 
-            this.label33.AutoSize = true;
-            this.label33.Location = new System.Drawing.Point(500, 158);
-            this.label33.Name = "label33";
-            this.label33.Size = new System.Drawing.Size(43, 20);
-            this.label33.TabIndex = 40;
-            this.label33.Text = "User";
+            label33.AutoSize = true;
+            label33.Location = new System.Drawing.Point(556, 198);
+            label33.Name = "label33";
+            label33.Size = new System.Drawing.Size(43, 20);
+            label33.TabIndex = 40;
+            label33.Text = "User";
             // 
             // txtOutUserFaceid
             // 
-            this.txtOutUserFaceid.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutUserFaceid.Location = new System.Drawing.Point(544, 156);
-            this.txtOutUserFaceid.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutUserFaceid.Name = "txtOutUserFaceid";
-            this.txtOutUserFaceid.Size = new System.Drawing.Size(200, 26);
-            this.txtOutUserFaceid.TabIndex = 41;
-            this.txtOutUserFaceid.Tag = "UserName FaceId làn ra";
+            txtOutUserFaceid.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutUserFaceid.Location = new System.Drawing.Point(604, 195);
+            txtOutUserFaceid.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutUserFaceid.Name = "txtOutUserFaceid";
+            txtOutUserFaceid.Size = new System.Drawing.Size(222, 26);
+            txtOutUserFaceid.TabIndex = 41;
+            txtOutUserFaceid.Tag = "UserName FaceId làn ra";
             // 
             // txtOutPortFaceId
             // 
-            this.txtOutPortFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutPortFaceId.Location = new System.Drawing.Point(407, 156);
-            this.txtOutPortFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutPortFaceId.Name = "txtOutPortFaceId";
-            this.txtOutPortFaceId.Size = new System.Drawing.Size(79, 26);
-            this.txtOutPortFaceId.TabIndex = 39;
-            this.txtOutPortFaceId.Tag = "|number";
+            txtOutPortFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutPortFaceId.Location = new System.Drawing.Point(452, 195);
+            txtOutPortFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutPortFaceId.Name = "txtOutPortFaceId";
+            txtOutPortFaceId.Size = new System.Drawing.Size(88, 26);
+            txtOutPortFaceId.TabIndex = 39;
+            txtOutPortFaceId.Tag = "|number";
             // 
             // label34
             // 
-            this.label34.AutoSize = true;
-            this.label34.Location = new System.Drawing.Point(370, 158);
-            this.label34.Name = "label34";
-            this.label34.Size = new System.Drawing.Size(38, 20);
-            this.label34.TabIndex = 38;
-            this.label34.Text = "Port";
+            label34.AutoSize = true;
+            label34.Location = new System.Drawing.Point(411, 198);
+            label34.Name = "label34";
+            label34.Size = new System.Drawing.Size(38, 20);
+            label34.TabIndex = 38;
+            label34.Text = "Port";
             // 
             // label35
             // 
-            this.label35.AutoSize = true;
-            this.label35.Location = new System.Drawing.Point(15, 158);
-            this.label35.Name = "label35";
-            this.label35.Size = new System.Drawing.Size(59, 20);
-            this.label35.TabIndex = 36;
-            this.label35.Text = "FaceId";
+            label35.AutoSize = true;
+            label35.Location = new System.Drawing.Point(17, 198);
+            label35.Name = "label35";
+            label35.Size = new System.Drawing.Size(59, 20);
+            label35.TabIndex = 36;
+            label35.Text = "FaceId";
             // 
             // txtOutIpFaceId
             // 
-            this.txtOutIpFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtOutIpFaceId.Location = new System.Drawing.Point(158, 156);
-            this.txtOutIpFaceId.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
-            this.txtOutIpFaceId.Name = "txtOutIpFaceId";
-            this.txtOutIpFaceId.Size = new System.Drawing.Size(201, 26);
-            this.txtOutIpFaceId.TabIndex = 37;
-            this.txtOutIpFaceId.Tag = "IP faceid làn ra";
+            txtOutIpFaceId.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            txtOutIpFaceId.Location = new System.Drawing.Point(176, 195);
+            txtOutIpFaceId.Margin = new System.Windows.Forms.Padding(3, 5, 3, 5);
+            txtOutIpFaceId.Name = "txtOutIpFaceId";
+            txtOutIpFaceId.Size = new System.Drawing.Size(223, 26);
+            txtOutIpFaceId.TabIndex = 37;
+            txtOutIpFaceId.Tag = "IP faceid làn ra";
             // 
             // UcLanCarManager
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.Controls.Add(this.lblGuideBanner);
-            this.Controls.Add(this.button5);
-            this.Controls.Add(this.grbLaneIn);
-            this.Controls.Add(this.grbLaneOut);
-            this.Name = "UcLanCarManager";
-            this.Size = new System.Drawing.Size(1056, 601);
-            this.Load += new System.EventHandler(this.UcLanCarManager_Load);
-            this.grbLaneIn.ResumeLayout(false);
-            this.grbLaneIn.PerformLayout();
-            this.grbLaneOut.ResumeLayout(false);
-            this.grbLaneOut.PerformLayout();
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            Controls.Add(button5);
+            Controls.Add(grbLaneIn);
+            Controls.Add(grbLaneOut);
+            Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            Name = "UcLanCarManager";
+            Size = new System.Drawing.Size(1173, 751);
+            Load += UcLanCarManager_Load;
+            grbLaneIn.ResumeLayout(false);
+            grbLaneIn.PerformLayout();
+            grbLaneOut.ResumeLayout(false);
+            grbLaneOut.PerformLayout();
+            ResumeLayout(false);
 
         }
 
@@ -1035,8 +997,5 @@ namespace HPParking.Forms.ConfigManager
         private System.Windows.Forms.Label label34;
         private System.Windows.Forms.Label label35;
         private System.Windows.Forms.TextBox txtOutIpFaceId;
-        private System.Windows.Forms.Label lblInStandardNote;
-        private System.Windows.Forms.Label lblOutStandardNote;
-        private System.Windows.Forms.Label lblGuideBanner;
     }
 }

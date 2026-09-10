@@ -23,6 +23,7 @@ namespace HPParking.Services.Parking
         public ProcessStatus Status { get; set; }
         public string Message { get; set; } = "";
         public Client? Client { get; set; }
+        public string DepartmentName { get; set; } = "";
         public EventParking? EventParking { get; set; }
         public LprResult? LprResult { get; set; }
         public Bitmap? OverviewImage { get; set; }
