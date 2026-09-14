@@ -17,24 +17,30 @@ namespace HPParking.Services.Devices
         private readonly ConcurrentDictionary<string, ControllerService> _controllers = [];
         private readonly ConcurrentDictionary<string, Lazy<Task<ControllerService>>> _controllerConnectTasks = [];
         private readonly ConcurrentBag<IDisposable> _cameras = [];
-        private CancellationTokenSource? _ctsRealtime;
         private volatile bool _disposed;
 
         public event Action<string, bool, string>? OnControllerStatusChanged;
 
         public event Action<RealtimeLog>? OnCardSwiped;
 
-        public async Task InitializeDevicesAsync(List<Lane> lanes, List<PictureBox> previews)
+        public async Task InitializeDevicesAsync(
+            List<Lane> lanes,
+            List<PictureBox>? previews = null,
+            Func<Lane, LanePreviewHandles?>? previewHandleResolver = null)
         {
             ThrowIfDisposed();
 
             var initTasks = lanes.Select((lane, index) =>
-                InitializeLaneAsync(lane, previews, previewSlotStart: index * 2));
+                InitializeLaneAsync(lane, previews, previewSlotStart: index * 2, previewHandleResolver));
 
             await Task.WhenAll(initTasks);
         }
 
-        private async Task InitializeLaneAsync(Lane lane, List<PictureBox> previews, int previewSlotStart)
+        private async Task InitializeLaneAsync(
+            Lane lane,
+            List<PictureBox>? previews,
+            int previewSlotStart,
+            Func<Lane, LanePreviewHandles?>? previewHandleResolver)
         {
             ThrowIfDisposed();
 
@@ -112,14 +118,20 @@ namespace HPParking.Services.Devices
 
             await Task.WhenAll(plateCam.LoginAsync(), overviewCam.LoginAsync());
 
-            if (previewSlotStart < previews.Count)
+            if (previewHandleResolver != null)
             {
-                plateCam.StartPreview(previews[previewSlotStart].Handle);
-            }
-
-            if (previewSlotStart + 1 < previews.Count)
-            {
-                overviewCam.StartPreview(previews[previewSlotStart + 1].Handle);
+                var handles = previewHandleResolver(lane);
+                if (handles != null)
+                {
+                    if (handles.PlateHandle != IntPtr.Zero)
+                    {
+                        plateCam.StartPreview(handles.PlateHandle);
+                    }
+                    if (handles.OverviewHandle != IntPtr.Zero)
+                    {
+                        overviewCam.StartPreview(handles.OverviewHandle);
+                    }
+                }
             }
         }
 
@@ -148,6 +160,11 @@ namespace HPParking.Services.Devices
                 OnControllerStatusChanged?.Invoke(ip, isConnected, message);
             };
 
+            ctrlService.OnCardSwiped += (data) =>
+            {
+                OnCardSwiped?.Invoke(data);
+            };
+
             await ctrlService.ConnectAsync(new ControllerConfig
             {
                 IP = config.IP,
@@ -163,67 +180,20 @@ namespace HPParking.Services.Devices
         {
             ThrowIfDisposed();
 
-            CancellationTokenSource? oldCts = _ctsRealtime;
-            _ctsRealtime = new CancellationTokenSource();
-            var token = _ctsRealtime.Token;
-
-            if (oldCts != null)
+            // Kích hoạt luồng đọc độc lập trên từng Controller (mỗi Controller chạy 1 task song song)
+            foreach (var ctrl in _controllers.Values)
             {
-                try { oldCts.Cancel(); } catch (ObjectDisposedException) { }
-                oldCts.Dispose();
+                if (!ctrl.IsStreaming && ctrl.IsConnected)
+                {
+                    ctrl.StartListening();
+                }
             }
-
-            Task.Run(async () =>
-            {
-                try
-                {
-                    while (!token.IsCancellationRequested && !_disposed)
-                    {
-                        foreach (var kvp in _controllers)
-                        {
-                            if (token.IsCancellationRequested || _disposed) break;
-
-                            string controllerIp = kvp.Key;
-                            ControllerService controller = kvp.Value;
-
-                            try
-                            {
-                                string? log = controller.ReadRealtimeLog();
-                                if (string.IsNullOrWhiteSpace(log)) continue;
-
-                                RealtimeLog? data = RealtimeLog.Parse(log, controllerIp);
-                                if (data == null || data.CardNo == "0") continue;
-                                Debug.WriteLine(data.CardNo);
-                                OnCardSwiped?.Invoke(data);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.WriteLine($"[Lỗi Realtime]: {ex.Message}");
-                            }
-                        }
-
-                        await Task.Delay(500, token);
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Dừng vòng lặp êm ái khi bị hủy hoặc Dispose
-                }
-            }, token);
         }
 
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-
-            var cts = _ctsRealtime;
-            _ctsRealtime = null;
-            if (cts != null)
-            {
-                try { cts.Cancel(); } catch (ObjectDisposedException) { }
-                cts.Dispose();
-            }
 
             foreach (var ctrl in _controllers.Values)
             {

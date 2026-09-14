@@ -30,6 +30,7 @@ namespace HPParking.Forms.ConfigManager
         /// </summary>
         private async Task LoadAndBindDataAsync()
         {
+            using var waitScope = new WaitCursorScope(this);
             _lanes = await _laneRepository.GetAllAsync();
             BindDataToUI();
         }
@@ -117,6 +118,8 @@ namespace HPParking.Forms.ConfigManager
                     return;
                 }
 
+                using var waitScope = new WaitCursorScope(this);
+
                 // Hàm hỗ trợ đọc giá trị an toàn tránh KeyNotFoundException
                 string GetValue(TextBox txt)
                 {
@@ -125,6 +128,14 @@ namespace HPParking.Forms.ConfigManager
                         return val!;
                     }
                     return txt.Text.Trim();
+                }
+
+                // Kiểm tra trùng cổng đọc Vào và Ra
+                if (int.Parse(GetValue(txtInReader)) == int.Parse(GetValue(txtOutReader)))
+                {
+                    MessageBox.Show("Cổng đầu đọc Làn Vào và Làn Ra không được trùng nhau!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    txtOutReader.Focus();
+                    return;
                 }
 
                 // --- 1. XỬ LÝ LANE IN MOTO ---

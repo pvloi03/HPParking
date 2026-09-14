@@ -1,12 +1,16 @@
-﻿using System.Windows.Forms;
+using System.Windows.Forms;
 
 namespace HPParking.UI
 {
     public class VehicleUI
     {
-        // Label
         public Label LblFullName { get; set; } = new();
-        public Label LblCardId { get; set; } = new();
+        public Label LblIdentityCard { get; set; } = new();
+        public Label LblCardId
+        {
+            get => LblIdentityCard;
+            set => LblIdentityCard = value;
+        }
         public Label LblTimeIn { get; set; } = new();
         public Label LblTimeOut { get; set; } = new();
         public Label LblPlateRegistered { get; set; } = new();
@@ -14,8 +18,20 @@ namespace HPParking.UI
         public Label LblDepartment { get; set; } = new();
 
         // PictureBox
-        public PictureBox PicPlateIn { get; set; } = new();
-        public PictureBox PicPlateOut { get; set; } = new();
+        public PictureBox PicPlate { get; set; } = new();
+        public PictureBox PicAvatar { get; set; } = new();
+
+        public PictureBox PicPlateIn
+        {
+            get => PicPlate;
+            set => PicPlate = value;
+        }
+
+        public PictureBox PicPlateOut
+        {
+            get => PicAvatar;
+            set => PicAvatar = value;
+        }
     }
 
     public class InfoUI

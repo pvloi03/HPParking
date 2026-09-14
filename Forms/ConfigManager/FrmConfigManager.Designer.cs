@@ -28,71 +28,75 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.tcConfigManager = new System.Windows.Forms.TabControl();
-            this.tpCompany = new System.Windows.Forms.TabPage();
-            this.tpLaneMoto = new System.Windows.Forms.TabPage();
-            this.tpLaneCar = new System.Windows.Forms.TabPage();
-            this.tcConfigManager.SuspendLayout();
-            this.SuspendLayout();
+            tcConfigManager = new System.Windows.Forms.TabControl();
+            tpCompany = new System.Windows.Forms.TabPage();
+            tpLaneMoto = new System.Windows.Forms.TabPage();
+            tpLaneCar = new System.Windows.Forms.TabPage();
+            tcConfigManager.SuspendLayout();
+            SuspendLayout();
             // 
             // tcConfigManager
             // 
-            this.tcConfigManager.Controls.Add(this.tpCompany);
-            this.tcConfigManager.Controls.Add(this.tpLaneMoto);
-            this.tcConfigManager.Controls.Add(this.tpLaneCar);
-            this.tcConfigManager.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.tcConfigManager.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tcConfigManager.Location = new System.Drawing.Point(0, 0);
-            this.tcConfigManager.Name = "tcConfigManager";
-            this.tcConfigManager.SelectedIndex = 0;
-            this.tcConfigManager.Size = new System.Drawing.Size(1034, 545);
-            this.tcConfigManager.TabIndex = 0;
+            tcConfigManager.Controls.Add(tpCompany);
+            tcConfigManager.Controls.Add(tpLaneMoto);
+            tcConfigManager.Controls.Add(tpLaneCar);
+            tcConfigManager.Cursor = System.Windows.Forms.Cursors.Hand;
+            tcConfigManager.Dock = System.Windows.Forms.DockStyle.Fill;
+            tcConfigManager.Location = new System.Drawing.Point(0, 0);
+            tcConfigManager.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tcConfigManager.Name = "tcConfigManager";
+            tcConfigManager.SelectedIndex = 0;
+            tcConfigManager.Size = new System.Drawing.Size(1188, 794);
+            tcConfigManager.TabIndex = 0;
             // 
             // tpCompany
             // 
-            this.tpCompany.Cursor = System.Windows.Forms.Cursors.Default;
-            this.tpCompany.Location = new System.Drawing.Point(4, 29);
-            this.tpCompany.Name = "tpCompany";
-            this.tpCompany.Padding = new System.Windows.Forms.Padding(3);
-            this.tpCompany.Size = new System.Drawing.Size(1026, 512);
-            this.tpCompany.TabIndex = 0;
-            this.tpCompany.Text = "Phân Mềm";
-            this.tpCompany.UseVisualStyleBackColor = true;
+            tpCompany.Location = new System.Drawing.Point(4, 34);
+            tpCompany.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tpCompany.Name = "tpCompany";
+            tpCompany.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tpCompany.Size = new System.Drawing.Size(1180, 756);
+            tpCompany.TabIndex = 0;
+            tpCompany.Text = "Phân Mềm";
+            tpCompany.UseVisualStyleBackColor = true;
             // 
             // tpLaneMoto
             // 
-            this.tpLaneMoto.Location = new System.Drawing.Point(4, 29);
-            this.tpLaneMoto.Name = "tpLaneMoto";
-            this.tpLaneMoto.Padding = new System.Windows.Forms.Padding(3);
-            this.tpLaneMoto.Size = new System.Drawing.Size(1056, 480);
-            this.tpLaneMoto.TabIndex = 1;
-            this.tpLaneMoto.Text = "Làn Xe Máy";
-            this.tpLaneMoto.UseVisualStyleBackColor = true;
+            tpLaneMoto.Location = new System.Drawing.Point(4, 34);
+            tpLaneMoto.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tpLaneMoto.Name = "tpLaneMoto";
+            tpLaneMoto.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tpLaneMoto.Size = new System.Drawing.Size(1190, 756);
+            tpLaneMoto.TabIndex = 1;
+            tpLaneMoto.Text = "Làn Xe Máy";
+            tpLaneMoto.UseVisualStyleBackColor = true;
             // 
             // tpLaneCar
             // 
-            this.tpLaneCar.Location = new System.Drawing.Point(4, 29);
-            this.tpLaneCar.Name = "tpLaneCar";
-            this.tpLaneCar.Padding = new System.Windows.Forms.Padding(3);
-            this.tpLaneCar.Size = new System.Drawing.Size(1056, 480);
-            this.tpLaneCar.TabIndex = 2;
-            this.tpLaneCar.Text = "Làn Ô tô";
-            this.tpLaneCar.UseVisualStyleBackColor = true;
+            tpLaneCar.Location = new System.Drawing.Point(4, 34);
+            tpLaneCar.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tpLaneCar.Name = "tpLaneCar";
+            tpLaneCar.Padding = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            tpLaneCar.Size = new System.Drawing.Size(1190, 756);
+            tpLaneCar.TabIndex = 2;
+            tpLaneCar.Text = "Làn Ô tô";
+            tpLaneCar.UseVisualStyleBackColor = true;
             // 
             // FrmConfigManager
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1034, 545);
-            this.Controls.Add(this.tcConfigManager);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            this.Name = "FrmConfigManager";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "FrmConfigManager";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FrmConfigManager_FormClosing);
-            this.tcConfigManager.ResumeLayout(false);
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new System.Drawing.SizeF(10F, 25F);
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            ClientSize = new System.Drawing.Size(1188, 794);
+            Controls.Add(tcConfigManager);
+            FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            MaximizeBox = false;
+            Name = "FrmConfigManager";
+            StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            Text = "FrmConfigManager";
+            FormClosing += FrmConfigManager_FormClosing;
+            tcConfigManager.ResumeLayout(false);
+            ResumeLayout(false);
 
         }
 

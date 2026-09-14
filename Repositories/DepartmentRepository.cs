@@ -8,7 +8,7 @@ namespace HPParking.Repositories
 {
     public class DepartmentRepository(MongoContext context) : IDepartmentRepository
     {
-        private readonly IMongoCollection<Department> _collection = context.GetCollection<Department>("Client");
+        private readonly IMongoCollection<Department> _collection = context.GetCollection<Department>("Department");
 
         public async Task<Department?> GetByDepartmentCode(string departmentCode)
         {

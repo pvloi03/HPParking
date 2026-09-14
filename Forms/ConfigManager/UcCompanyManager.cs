@@ -38,6 +38,7 @@ namespace HPParking.Forms.ConfigManager
         /// </summary>
         private async Task LoadAndBindDataAsync()
         {
+            using var waitScope = new WaitCursorScope(this);
             _company = await _companyRepository.GetFirstCompanyAsync();
             BindDataToUI();
         }
@@ -89,6 +90,8 @@ namespace HPParking.Forms.ConfigManager
                 {
                     return;
                 }
+
+                using var waitScope = new WaitCursorScope(this);
 
                 // Hàm hỗ trợ đọc giá trị an toàn từ validation hoặc trực tiếp từ TextBox
                 string GetValue(TextBox txt)

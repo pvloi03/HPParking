@@ -1,9 +1,9 @@
 using HPParking.Interfaces;
 using HPParking.LicenseKey;
 using HPParking.Models.Entities;
-using HPParking.Services.CCCDReader;
 using HPParking.Services.Controller;
 using HPParking.Services.Devices;
+using HPParking.Services.HN212;
 using HPParking.Services.Parking;
 using HPParking.UI;
 using System;
@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace HPParking.Forms
@@ -21,7 +22,7 @@ namespace HPParking.Forms
         private readonly ICompanyRepository _companyRepository;
         private readonly IClientRepository _clientRepository;
 
-        private readonly CccdReaderManager _readerManager;
+        private readonly IHn212Client _hn212Client;
         private FrmRegisterClient? _activeFrmRegisterClient;
         private readonly DeviceOrchestrator _deviceOrchestrator = new();
         private readonly IParkingWorkflowService _workflowService;
@@ -34,7 +35,8 @@ namespace HPParking.Forms
             ILaneRepository laneRepository,
             ICompanyRepository companyRepository,
             IClientRepository clientRepository,
-            IParkingWorkflowService workflowService)
+            IParkingWorkflowService workflowService,
+            IHn212Client hn212Client)
         {
             InitializeComponent();
 
@@ -46,12 +48,11 @@ namespace HPParking.Forms
             _companyRepository = companyRepository;
             _clientRepository = clientRepository;
             _workflowService = workflowService;
+            _hn212Client = hn212Client;
 
-            // Khởi tạo Manager kết nối Service piper
-            _readerManager = new CccdReaderManager("http://localhost:5000/cardhub");
-
-            // Đăng ký nhận sự kiện
-            _readerManager.StatusUpdated += OnStatusUpdated;
+            // Đăng ký nhận sự kiện thẻ CCCD HN212
+            _hn212Client.CardStatusChanged += OnCardStatusChanged;
+            _hn212Client.CardScanned += OnCardScanned;
             _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
         }
 
@@ -69,10 +70,10 @@ namespace HPParking.Forms
         {
             try
             {
-                Cursor.Current = Cursors.WaitCursor;
+                using var waitScope = new HPParking.Helper.WaitCursorScope(this);
 
-                // Chạy kết nối ngầm khi mở App
-                await _readerManager.StartAsync();
+                // Chạy kết nối ngầm tới HN212Reader khi mở App
+                await _hn212Client.StartAsync();
 
                 // 2. Lấy dữ liệu Công ty (Company)
                 _company = await _companyRepository.GetFirstCompanyAsync();
@@ -131,15 +132,12 @@ namespace HPParking.Forms
                 _lanes = await _laneRepository.GetAllAsync() ?? [];
                 BindLaneUI();
 
-                // 5. Khởi tạo Thiết bị & LiveView trên PictureBox
-                List<PictureBox> previews = GetControls<PictureBox>([tlpPreviewMoto, tlpPreviewCar], "pbPreview");
-                await _deviceOrchestrator.InitializeDevicesAsync(_lanes, previews);
+                // 5. Khởi tạo Thiết bị & LiveView trên PictureBox qua Explicit Semantic Mapping
+                await _deviceOrchestrator.InitializeDevicesAsync(_lanes, previewHandleResolver: ResolvePreviewHandles);
 
                 // 6. Lắng nghe tín hiệu quẹt thẻ Realtime
                 _deviceOrchestrator.OnCardSwiped += OnCardSwiped;
                 _deviceOrchestrator.StartRealtimeLoop();
-
-                Cursor.Current = Cursors.Default;
             }
             catch (Exception ex)
             {
@@ -147,32 +145,60 @@ namespace HPParking.Forms
             }
         }
 
-        private void OnStatusUpdated(DeviceStatusDto status)
+        private void OnCardStatusChanged(string status, string message)
         {
-            if (status == null || IsDisposed) return;
-            BeginInvoke(new Action(async () =>
+            if (IsDisposed) return;
+            if (status == "Present" || status == "Reading")
             {
-                string readerStatus = status.IsReaderConnected
-                    ? $"DẦU ĐỌC CCCD: ĐÃ CẮM ({status.ReaderSerialNumber})"
-                    : "DẦU ĐỌC CCCD: CHƯA CẮM";
+                BeginInvoke(new Action(EnsureRegisterClientFormOpen));
+            }
+        }
 
-                lblServerStatus.Text = status.IsServerReady ? $"SERVER ĐẦU ĐỌC CCCD: ONLINE - {readerStatus}" : $"SERVER ĐẦU ĐỌC CCCD: OFFLINE{readerStatus}";
-                lblServerStatus.ForeColor = status.IsServerReady && status.IsReaderConnected ? Color.Green : Color.Red;
+        private void OnCardScanned(CardDataDto card)
+        {
+            if (IsDisposed) return;
+            BeginInvoke(new Action(EnsureRegisterClientFormOpen));
+        }
 
-
-                if (status.IsCardPresent && (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed))
+        private void EnsureRegisterClientFormOpen()
+        {
+            if (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed)
+            {
+                _activeFrmRegisterClient = new FrmRegisterClient(_hn212Client, _clientRepository, _companyRepository, _laneRepository);
+                _activeFrmRegisterClient.Show(this);
+            }
+            else
+            {
+                if (!_activeFrmRegisterClient.Visible)
                 {
-                    _activeFrmRegisterClient = new FrmRegisterClient(_readerManager, _clientRepository, _companyRepository, _laneRepository);
-
-                    _activeFrmRegisterClient.UpdateStatus("Đọc thẻ CCCD thất bại, vui lòng thử lại!", Color.Red);
                     _activeFrmRegisterClient.Show(this);
                 }
-            }));
+                _activeFrmRegisterClient.BringToFront();
+            }
         }
 
         private void Controller_OnStatusChanged(string controllerIp, bool isConnected, string message)
         {
-            Debug.WriteLine($"{controllerIp}: {isConnected}");
+            if (IsDisposed || Disposing) return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => Controller_OnStatusChanged(controllerIp, isConnected, message)));
+                return;
+            }
+
+            if (isConnected)
+            {
+                lbStatusCtrl.Text = $"BỘ ĐIỀU KHIỂN: ONLINE";
+                lbStatusCtrl.BackColor = Color.SeaGreen;
+                lbStatusCtrl.ForeColor = Color.White;
+            }
+            else
+            {
+                lbStatusCtrl.Text = $"BỘ ĐIỀU KHIỂN: OFFLINE";
+                lbStatusCtrl.BackColor = Color.Crimson;
+                lbStatusCtrl.ForeColor = Color.White;
+            }
         }
 
         private void OnCardSwiped(RealtimeLog data)
@@ -190,16 +216,25 @@ namespace HPParking.Forms
             BeginInvoke(new Action(async () =>
             {
                 ProcessResult result = (lane.Type % 2 != 0)
-                    ? await _workflowService.ProcessEntryAsync(lane, data, pathImage)
-                    : await _workflowService.ProcessExitAsync(lane, data, pathImage);
+                    ? await _workflowService.ProcessEntryAsync(lane, data, pathImage, HandleBarrierOpenFailed, HandleManualPlateInputAsync)
+                    : await _workflowService.ProcessExitAsync(lane, data, pathImage, HandleBarrierOpenFailed, HandleManualPlateInputAsync);
 
                 if (result.Status == ProcessStatus.Success)
                 {
                     UpdateUI(lane, result);
                 }
+                else if (result.Status == ProcessStatus.PlateMismatch)
+                {
+                    UpdateUI(lane, result);
+                    MessageBox.Show(
+                        this, result.Message,
+                        "Thông báo",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
                 else if (!string.IsNullOrEmpty(result.Message))
                 {
-                    MessageBox.Show(result.Message, "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, result.Message, "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }));
         }
@@ -211,40 +246,86 @@ namespace HPParking.Forms
             if (result.Client != null)
             {
                 lane.UI.LblFullName.Text = $"Họ và tên: {result.Client.Name}";
-                lane.UI.LblDepartment.Text = $"Phòng ban: {result.Client.Department_Code}";
+                string departmentText = !string.IsNullOrWhiteSpace(result.DepartmentName)
+                    ? result.DepartmentName
+                    : result.Client.Department_Code;
+                lane.UI.LblDepartment.Text = $"Phòng ban: {departmentText}";
                 lane.UI.LblPlateRegistered.Text = $"Biển số đăng ký: {result.Client.LicensePlate}";
-                lane.UI.LblCardId.Text = $"Số CCCD: {result.Client.ID_Code}";
+                lane.UI.LblIdentityCard.Text = $"Số CCCD: {result.Client.ID_Code}";
             }
 
             if (result.LprResult != null)
             {
                 lane.UI.LblPlateDetected.Text = $"Biển số phát hiện: {result.LprResult.Plate}";
+                lane.UI.LblPlateDetected.ForeColor = (result.Status == ProcessStatus.PlateMismatch)
+                    ? Color.Crimson
+                    : Color.Black;
             }
 
             if (result.EventParking != null)
             {
-                lane.UI.LblTimeIn.Text = $"Thời gian vào: {result.EventParking.TimeIn:HH:mm:ss dd/MM/yyyy}";
+                lane.UI.LblTimeIn.Text = $"Ngày vào: {result.EventParking.TimeIn:HH:mm:ss dd/MM/yyyy}";
                 if (lane.Type % 2 == 0)
                 {
-                    lane.UI.LblTimeOut.Text = $"Thời gian ra: {result.EventParking.TimeOut:HH:mm:ss dd/MM/yyyy}";
+                    DateTime outTime = result.EventParking.TimeOut ?? DateTime.Now;
+                    lane.UI.LblTimeOut.Text = $"Ngày ra: {outTime:HH:mm:ss dd/MM/yyyy}";
+                }
+                else
+                {
+                    lane.UI.LblTimeOut.Text = "Ngày ra:";
                 }
             }
-
-            if (result.LprResult?.PlateImage != null)
+            else if (lane.Type % 2 != 0)
             {
-                lane.UI.PicPlateIn.Image?.Dispose();
-                lane.UI.PicPlateIn.Image = new Bitmap(result.LprResult.PlateImage);
+                lane.UI.LblTimeIn.Text = $"Ngày vào: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
+                lane.UI.LblTimeOut.Text = "Ngày ra:";
+            }
 
-                if (lane.Type % 2 == 0)
+            try
+            {
+                // Cập nhật ảnh biển số: Vào hay Ra đều cập nhật ảnh biển số mới nhất vào ô PicPlate
+                if (result.LprResult?.PlateImage != null)
                 {
-                    lane.UI.PicPlateOut.Image?.Dispose();
-                    lane.UI.PicPlateOut.Image = new Bitmap(result.LprResult.PlateImage);
+                    var oldPlate = lane.UI.PicPlate.Image;
+                    lane.UI.PicPlate.Image = (Bitmap)result.LprResult.PlateImage.Clone();
+                    oldPlate?.Dispose();
                 }
+
+                // Cập nhật ảnh Avatar: hiển thị ảnh avatar của Client nếu có, ngược lại xóa trắng để tránh dính ảnh lượt trước
+                var oldAvatar = lane.UI.PicAvatar.Image;
+                if (result.Client != null && !string.IsNullOrWhiteSpace(result.Client.Avatar) && System.IO.File.Exists(result.Client.Avatar))
+                {
+                    lane.UI.PicAvatar.Image = LoadBitmapWithoutLock(result.Client.Avatar);
+                }
+                else
+                {
+                    lane.UI.PicAvatar.Image = null;
+                }
+                oldAvatar?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[FrmMain UpdateUI] Lỗi hiển thị ảnh biển số/avatar: {ex.Message}");
             }
 
             // Giải phóng các Bitmap tạm thời trong LprResult và ProcessResult sau khi UI đã copy/hiển thị
             result.LprResult?.Dispose();
             result.OverviewImage?.Dispose();
+        }
+
+        private static Bitmap? LoadBitmapWithoutLock(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath)) return null;
+            try
+            {
+                using var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
+                using var original = Image.FromStream(stream);
+                return new Bitmap(original);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void BindLaneUI()
@@ -254,26 +335,26 @@ namespace HPParking.Forms
                 Car = new VehicleUI
                 {
                     LblFullName = lblCarFullName,
-                    LblCardId = lblCarCardId,
+                    LblIdentityCard = lblCarIdentityCard,
                     LblTimeIn = lblCarTimeIn,
                     LblTimeOut = lblCarTimeOut,
                     LblPlateRegistered = lblCarPlateRegistered,
                     LblPlateDetected = lblCarPlateDetected,
                     LblDepartment = lblCarDepartment,
-                    PicPlateIn = pbCarPlateInImg,
-                    PicPlateOut = pbCarPlateOutImg,
+                    PicPlate = pbCarPlateImg,
+                    PicAvatar = pbCarAvatarImg,
                 },
                 Moto = new VehicleUI
                 {
                     LblFullName = lblMotoFullName,
-                    LblCardId = lblMotoCardId,
+                    LblIdentityCard = lblMotoIdentityCard,
                     LblTimeIn = lblMotoTimeIn,
                     LblTimeOut = lblMotoTimeOut,
                     LblPlateRegistered = lblMotoPlateRegistered,
                     LblPlateDetected = lblMotoPlateDetected,
                     LblDepartment = lblMotoDepartment,
-                    PicPlateIn = pbMotoPlateInImg,
-                    PicPlateOut = pbMotoPlateOutImg
+                    PicPlate = pbMotoPlateImg,
+                    PicAvatar = pbMotoAvatarImg
                 }
             };
 
@@ -283,20 +364,117 @@ namespace HPParking.Forms
             }
         }
 
-        private static List<T> GetControls<T>(List<TableLayoutPanel> tlpPreview, string tag) where T : Control
+        private LanePreviewHandles? ResolvePreviewHandles(Lane lane)
         {
-            return [.. tlpPreview.SelectMany(tlp => tlp.Controls.OfType<T>()).Where(c => c.Tag?.ToString() == tag)];
+            bool isMoto = (lane.InputReader % 2 != 0);
+            bool isEntry = (lane.Type % 2 != 0);
+
+            if (isMoto)
+            {
+                return isEntry
+                    ? new LanePreviewHandles { PlateHandle = pbMotoEntryPlate.Handle, OverviewHandle = pbMotoEntryOverview.Handle }
+                    : new LanePreviewHandles { PlateHandle = pbMotoExitPlate.Handle, OverviewHandle = pbMotoExitOverview.Handle };
+            }
+            else
+            {
+                return isEntry
+                    ? new LanePreviewHandles { PlateHandle = pbCarEntryPlate.Handle, OverviewHandle = pbCarEntryOverview.Handle }
+                    : new LanePreviewHandles { PlateHandle = pbCarExitPlate.Handle, OverviewHandle = pbCarExitOverview.Handle };
+            }
+        }
+
+        private bool HandleBarrierOpenFailed(Lane lane)
+        {
+            if (InvokeRequired)
+            {
+                return (bool)Invoke(new Func<bool>(() => HandleBarrierOpenFailed(lane)));
+            }
+
+            string laneDesc = $"{(lane.InputReader % 2 != 0 ? "Xe máy" : "Ô tô")} (Cổng {(lane.Type % 2 != 0 ? "VÀO" : "RA")} - Đầu đọc {lane.InputReader})";
+
+            while (true)
+            {
+                var dialog = new TaskDialogPage
+                {
+                    Caption = "Lỗi Thiết Bị Barrier",
+                    Heading = $"Không thể kích hoạt mở Barrier làn {laneDesc}!",
+                    Text = "Rơle điều khiển barrier thất bại hoặc mất kết nối thiết bị controller.",
+                    Icon = TaskDialogIcon.Error,
+                    Buttons =
+                    {
+                        TaskDialogButton.Retry,
+                        TaskDialogButton.Cancel
+                    }
+                };
+
+                var result = TaskDialog.ShowDialog(this, dialog);
+
+                if (result == TaskDialogButton.Retry)
+                {
+                    int relayPort = lane.OutputRelay > 0 ? lane.OutputRelay : lane.InputReader;
+                    if (lane.Ctrl != null && lane.Ctrl.OpenBarrier(relayPort, 1))
+                    {
+                        return true;
+                    }
+                    continue;
+                }
+
+                var confirmResult = MessageBox.Show(
+                    this,
+                    "Mở barrier thủ công cho xe đã qua?\n\n- Chọn YES nếu đã mở thủ công.\n- Chọn NO để hủy bỏ lượt xe này.",
+                    "Xác nhận mở barrier thủ công",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                return confirmResult == DialogResult.Yes;
+            }
+        }
+
+        private Task<string?> HandleManualPlateInputAsync(Lane lane, string? expectedPlate)
+        {
+            if (IsDisposed || Disposing) return Task.FromResult<string?>(null);
+
+            if (InvokeRequired)
+            {
+                return (Task<string?>)Invoke(new Func<Task<string?>>(() => HandleManualPlateInputAsync(lane, expectedPlate)));
+            }
+
+            string mismatchMessage = (lane.Type % 2 != 0)
+                ? "Biển số xe không đúng với biển số đăng ký."
+                : "Biển số không khớp với biển số xe đã gửi.";
+
+            string? plate = FrmManualPlateInput.Prompt(
+                this,
+                lane,
+                expectedPlate: expectedPlate,
+                mismatchMessage: mismatchMessage);
+
+            return Task.FromResult(plate);
+        }
+
+        private Task<bool> HandlePlateMismatchConfirmAsync(Lane lane, Client client, string detectedPlate)
+        {
+            if (IsDisposed || Disposing) return Task.FromResult(false);
+
+            if (InvokeRequired)
+            {
+                return (Task<bool>)Invoke(new Func<Task<bool>>(() => HandlePlateMismatchConfirmAsync(lane, client, detectedPlate)));
+            }
+
+            bool approved = FrmConfirmEntryMismatch.Prompt(this, lane, client, detectedPlate);
+            return Task.FromResult(approved);
         }
 
         private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             KeyDown -= FrmMain_KeyDown;
-            _readerManager.StatusUpdated -= OnStatusUpdated;
+            _hn212Client.CardStatusChanged -= OnCardStatusChanged;
+            _hn212Client.CardScanned -= OnCardScanned;
             _deviceOrchestrator.OnControllerStatusChanged -= Controller_OnStatusChanged;
             _deviceOrchestrator.OnCardSwiped -= OnCardSwiped;
             _clockTimer?.Stop();
             _clockTimer?.Dispose();
-            await _readerManager.StopAsync();
+            await _hn212Client.StopAsync();
             _deviceOrchestrator.Dispose();
         }
     }

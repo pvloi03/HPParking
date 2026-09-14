@@ -210,7 +210,7 @@ namespace HPParking.Services.LPR
             }
 
             // Thu nhỏ ảnh để tối ưu hóa performance (1960 là chiều rộng tiêu chuẩn)
-            using Bitmap resized = ResizeBitmap(bitmap, 960);
+            using Bitmap resized = ResizeBitmap(bitmap, 720);
 
             // Phân tích ảnh để phát hiện biển số
             List<Candidate> candidates = _processor.analyze(resized);

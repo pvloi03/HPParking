@@ -3,7 +3,6 @@ using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Threading.Tasks;
 
 namespace HPParking.Services.FaceId
@@ -13,13 +12,22 @@ namespace HPParking.Services.FaceId
         private readonly HttpClient _httpClient;
         public string Ip { get; set; }
 
-        public FaceIdApiService(FaceIdConfig config)
+        public FaceIdApiService(FaceIdConfig config) : this(config, CreateDefaultHttpClient(config))
+        {
+        }
+
+        public FaceIdApiService(FaceIdConfig config, HttpClient httpClient)
+        {
+            Ip = config.Ip;
+            _httpClient = httpClient;
+        }
+
+        private static HttpClient CreateDefaultHttpClient(FaceIdConfig config)
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
             ServicePointManager.Expect100Continue = false;
 
-            Ip = config.Ip;
-            string baseUrl = $"https://{Ip}";
+            string baseUrl = $"https://{config.Ip}";
             Uri baseUri = new(baseUrl);
 
             var credentialCache = new CredentialCache
@@ -46,20 +54,31 @@ namespace HPParking.Services.FaceId
                 }
             };
 
-            _httpClient = new HttpClient(handler)
+            var client = new HttpClient(handler)
             {
                 BaseAddress = baseUri,
-                Timeout = TimeSpan.FromSeconds(5)
+                Timeout = TimeSpan.FromSeconds(15)
             };
 
-            _httpClient.DefaultRequestHeaders.ConnectionClose = true;
+            client.DefaultRequestHeaders.ConnectionClose = true;
+            return client;
+        }
+
+        private static ByteArrayContent CreateJsonContent(object payload)
+        {
+            string json = System.Text.Json.JsonSerializer.Serialize(payload);
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(json);
+            var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            content.Headers.ContentLength = bytes.Length;
+            return content;
         }
 
         private async Task EnsureAuthChallengeAsync()
         {
             try
             {
-                await _httpClient.GetAsync("System/status");
+                await _httpClient.GetAsync("/ISAPI/System/deviceInfo");
             }
             catch (Exception ex)
             {
@@ -97,7 +116,13 @@ namespace HPParking.Services.FaceId
                     }
                 };
 
-                HttpResponseMessage response = await _httpClient.PostAsJsonAsync("/ISAPI/AccessControl/UserInfo/Record?format=json", newClient);
+                using var content = CreateJsonContent(newClient);
+                using var req = new HttpRequestMessage(HttpMethod.Post, "/ISAPI/AccessControl/UserInfo/Record?format=json")
+                {
+                    Content = content
+                };
+
+                HttpResponseMessage response = await _httpClient.SendAsync(req);
                 if (response.IsSuccessStatusCode)
                 {
                     return (true, string.Empty);
@@ -116,6 +141,8 @@ namespace HPParking.Services.FaceId
         {
             try
             {
+                await EnsureAuthChallengeAsync();
+
                 var newCard = new
                 {
                     CardInfo = new
@@ -126,7 +153,13 @@ namespace HPParking.Services.FaceId
                     }
                 };
 
-                HttpResponseMessage response = await _httpClient.PostAsJsonAsync("/ISAPI/AccessControl/CardInfo/Record?format=json", newCard);
+                using var content = CreateJsonContent(newCard);
+                using var req = new HttpRequestMessage(HttpMethod.Post, "/ISAPI/AccessControl/CardInfo/Record?format=json")
+                {
+                    Content = content
+                };
+
+                HttpResponseMessage response = await _httpClient.SendAsync(req);
                 if (response.IsSuccessStatusCode)
                 {
                     return (true, string.Empty);
@@ -161,10 +194,6 @@ namespace HPParking.Services.FaceId
                 string jsonPayload =
                     System.Text.Json.JsonSerializer.Serialize(faceData);
 
-                Debug.WriteLine(
-                    "[FaceID] FaceDataRecord = " + jsonPayload
-                );
-
                 // ============================================
                 // 4. Tạo multipart với boundary cố định
                 // ============================================
@@ -173,93 +202,83 @@ namespace HPParking.Services.FaceId
                     "---------------------------" +
                     DateTime.Now.Ticks.ToString("x");
 
-                using (var content = new MultipartFormDataContent(boundary))
+                using var content = new MultipartFormDataContent(boundary);
+                // Quan trọng:
+                // Ép Content-Type chính xác giống format Hikvision
+                content.Headers.Remove("Content-Type");
+
+                content.Headers.TryAddWithoutValidation(
+                    "Content-Type",
+                    "multipart/form-data; boundary=" + boundary
+                );
+
+                // ========================================
+                // 5. FaceDataRecord
+                // ========================================
+
+                byte[] jsonBytes =
+                    System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+
+                var jsonContent =
+                    new ByteArrayContent(jsonBytes);
+
+                jsonContent.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue(
+                        "application/json"
+                    );
+
+                // Một số firmware Hikvision khá khó tính
+                // với Content-Length của từng multipart part
+                jsonContent.Headers.ContentLength =
+                    jsonBytes.Length;
+
+                content.Add(
+                    jsonContent,
+                    "FaceDataRecord"
+                );
+
+                // ========================================
+                // 6. FaceImage
+                // ========================================
+
+                var imageContent =
+                    new ByteArrayContent(faceImg);
+
+                imageContent.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+
+                imageContent.Headers.ContentLength =
+                    faceImg.Length;
+
+                content.Add(imageContent, "FaceImage", employeeNo + ".jpg");
+
+                // ========================================
+                // 8. POST
+                // ========================================
+
+                HttpResponseMessage response =
+                    await _httpClient.PostAsync(
+                        "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json",
+                        content
+                    );
+
+                string responseBody =
+                    await response.Content.ReadAsStringAsync();
+
+                // ========================================
+                // 9. Thành công
+                // ========================================
+
+                if (response.IsSuccessStatusCode)
                 {
-                    // Quan trọng:
-                    // Ép Content-Type chính xác giống format Hikvision
-                    content.Headers.Remove("Content-Type");
-
-                    content.Headers.TryAddWithoutValidation(
-                        "Content-Type",
-                        "multipart/form-data; boundary=" + boundary
-                    );
-
-                    // ========================================
-                    // 5. FaceDataRecord
-                    // ========================================
-
-                    byte[] jsonBytes =
-                        System.Text.Encoding.UTF8.GetBytes(jsonPayload);
-
-                    var jsonContent =
-                        new ByteArrayContent(jsonBytes);
-
-                    jsonContent.Headers.ContentType =
-                        new System.Net.Http.Headers.MediaTypeHeaderValue(
-                            "application/json"
-                        );
-
-                    // Một số firmware Hikvision khá khó tính
-                    // với Content-Length của từng multipart part
-                    jsonContent.Headers.ContentLength =
-                        jsonBytes.Length;
-
-                    content.Add(
-                        jsonContent,
-                        "FaceDataRecord"
-                    );
-
-                    // ========================================
-                    // 6. FaceImage
-                    // ========================================
-
-                    var imageContent =
-                        new ByteArrayContent(faceImg);
-
-                    imageContent.Headers.ContentType =
-                        new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
-
-                    imageContent.Headers.ContentLength =
-                        faceImg.Length;
-
-                    content.Add(imageContent, "FaceImage", employeeNo + ".jpg");
-
-                    // ========================================
-                    // 8. POST
-                    // ========================================
-
-                    HttpResponseMessage response =
-                        await _httpClient.PostAsync(
-                            "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json",
-                            content
-                        );
-
-                    string responseBody =
-                        await response.Content.ReadAsStringAsync();
-
-                    Debug.WriteLine(
-                        $"[FaceID] HTTP = {(int)response.StatusCode} {response.StatusCode}");
-
-                    Debug.WriteLine(
-                        "[FaceID] Response = " +
-                        responseBody
-                    );
-
-                    // ========================================
-                    // 9. Thành công
-                    // ========================================
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        return (true, string.Empty);
-                    }
-
-                    return (
-                        false,
-                        $"FaceID trả về HTTP {(int)response.StatusCode} " +
-                        $"{response.StatusCode}: {responseBody}"
-                    );
+                    return (true, string.Empty);
                 }
+
+                return (
+                    false,
+                    $"FaceID trả về HTTP {(int)response.StatusCode} " +
+                    $"{response.StatusCode}: {responseBody}"
+                );
             }
             catch (Exception ex)
             {
@@ -267,10 +286,100 @@ namespace HPParking.Services.FaceId
             }
         }
 
+        public async Task<(bool IsSuccess, string ErrorMessage)> UpdateFaceImageAsync(string employeeNo, byte[] faceImg)
+        {
+            try
+            {
+                await EnsureAuthChallengeAsync();
+
+                var faceData = new
+                {
+                    faceLibType = "blackFD",
+                    FDID = "1",
+                    FPID = employeeNo
+                };
+
+                string jsonPayload = System.Text.Json.JsonSerializer.Serialize(faceData);
+
+                string boundary = "---------------------------" + DateTime.Now.Ticks.ToString("x");
+                using var content = new MultipartFormDataContent(boundary);
+                content.Headers.Remove("Content-Type");
+                content.Headers.TryAddWithoutValidation("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+                byte[] jsonBytes = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
+                var jsonContent = new ByteArrayContent(jsonBytes);
+                jsonContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+                jsonContent.Headers.ContentLength = jsonBytes.Length;
+                content.Add(jsonContent, "FaceDataRecord");
+
+                var imageContent = new ByteArrayContent(faceImg);
+                imageContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+                imageContent.Headers.ContentLength = faceImg.Length;
+                content.Add(imageContent, "FaceImage", employeeNo + ".jpg");
+
+                HttpResponseMessage response = await _httpClient.PutAsync(
+                    "/ISAPI/Intelligent/FDLib/FDSetUp?format=json",
+                    content
+                );
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, string.Empty);
+                }
+
+                return (false, $"FaceID trả về HTTP {(int)response.StatusCode} {response.StatusCode}: {responseBody}");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Lỗi cập nhật khuôn mặt lên thiết bị FaceID: {ex.Message}");
+            }
+        }
+
+        public async Task<(bool IsSuccess, string ErrorMessage)> DeleteCardAsync(string cardNumber)
+        {
+            try
+            {
+                await EnsureAuthChallengeAsync();
+
+                var delCardPayload = new
+                {
+                    CardInfoDelCond = new
+                    {
+                        CardNoList = new[]
+                        {
+                            new { cardNo = cardNumber }
+                        }
+                    }
+                };
+
+                using var content = CreateJsonContent(delCardPayload);
+                using var req = new HttpRequestMessage(HttpMethod.Put, "/ISAPI/AccessControl/CardInfo/Delete?format=json")
+                {
+                    Content = content
+                };
+
+                HttpResponseMessage response = await _httpClient.SendAsync(req);
+                if (response.IsSuccessStatusCode)
+                {
+                    return (true, string.Empty);
+                }
+
+                string err = await response.Content.ReadAsStringAsync();
+                return (false, err);
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
+        }
+
         public async Task<bool> RollbackUserAsync(string employeeNo)
         {
             try
             {
+                await EnsureAuthChallengeAsync();
+
                 var delPayload = new
                 {
                     UserInfoDelCond = new
@@ -282,7 +391,13 @@ namespace HPParking.Services.FaceId
                     }
                 };
 
-                HttpResponseMessage response = await _httpClient.PutAsJsonAsync("/ISAPI/AccessControl/UserInfo/Delete?format=json", delPayload);
+                using var content = CreateJsonContent(delPayload);
+                using var req = new HttpRequestMessage(HttpMethod.Put, "/ISAPI/AccessControl/UserInfo/Delete?format=json")
+                {
+                    Content = content
+                };
+
+                HttpResponseMessage response = await _httpClient.SendAsync(req);
                 return response.IsSuccessStatusCode;
             }
             catch (Exception ex)

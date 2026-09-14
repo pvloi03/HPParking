@@ -1,3 +1,4 @@
+using HPParking.Services.HN212;
 using HPParking.Data;
 using HPParking.Forms;
 using HPParking.Forms.ConfigManager;
@@ -19,6 +20,7 @@ namespace HPParking
         [STAThread]
         static void Main()
         {
+            Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
@@ -40,10 +42,14 @@ namespace HPParking
                 services.AddScoped<IEventParkingRepository, EventParkingRepository>();
                 services.AddScoped<IClientRepository, ClientRepository>();
                 services.AddScoped<ICompanyRepository, CompanyRepository>();
+                services.AddScoped<IDepartmentRepository, DepartmentRepository>();
 
                 services.AddSingleton<ILprService, LprService>();
                 services.AddSingleton<IImageStorageService, ImageStorageService>();
                 services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
+
+                services.AddSingleton<IHn212Client, Hn212Client>();
+                services.AddTransient<FrmRegisterClient>();
 
                 services.AddTransient<FrmMain>();
                 services.AddTransient<FrmConfigManager>();
