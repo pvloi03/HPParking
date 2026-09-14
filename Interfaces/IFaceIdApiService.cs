@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 
 namespace HPParking.Interfaces
 {
@@ -10,6 +10,10 @@ namespace HPParking.Interfaces
         Task<(bool IsSuccess, string ErrorMessage)> AddCardAsync(string employeeNo, string cardNumber);
 
         Task<(bool IsSuccess, string ErrorMessage)> AddFaceImageAsync(string employeeNo, byte[] faceImg);
+
+        Task<(bool IsSuccess, string ErrorMessage)> UpdateFaceImageAsync(string employeeNo, byte[] faceImg);
+
+        Task<(bool IsSuccess, string ErrorMessage)> DeleteCardAsync(string cardNumber);
 
         Task<bool> RollbackUserAsync(string employeeNo);
     }

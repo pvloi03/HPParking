@@ -114,8 +114,12 @@ namespace HPParking.Services.Parking
         private bool IsClientExpired(Client client)
         {
             DateTime now = DateTime.Now;
-            if (client.Expired.StartDay > now) return true;
-            if (client.Expired.EndDay < now) return true;
+            // Chưa đến ngày bắt đầu (chỉ chặn nếu sang trước ngày StartDay)
+            if (client.Expired.StartDay.Date > now.Date) return true;
+
+            // Đã quá ngày kết thúc (chỉ chặn khi đã sang ngày hôm sau của EndDay)
+            if (client.Expired.EndDay.Date < now.Date) return true;
+
             return false;
         }
 
@@ -232,7 +236,8 @@ namespace HPParking.Services.Parking
                     Status = ProcessStatus.PlateMismatch,
                     Message = "Biển số xe không đúng với biển số đăng ký.",
                     Client = client,
-                    DepartmentName = departmentName
+                    DepartmentName = departmentName,
+                    LprResult = lprResult
                 };
             }
 
@@ -260,8 +265,8 @@ namespace HPParking.Services.Parking
                 ClientName = client.Name,
                 Card_Code = client.PhoneNumber,
                 Card_Category = client.CardCategory,
-                LicensePlate = client.LicensePlate != recognizedPlate ? "" : client.LicensePlate,
-                LicensePlateIn = recognizedPlate,
+                LicensePlate = (client.LicensePlate != recognizedPlate ? "" : client.LicensePlate) ?? "",
+                LicensePlateIn = recognizedPlate ?? "",
                 TimeIn = timeIn,
                 Status = "IN"
             };
@@ -419,7 +424,9 @@ namespace HPParking.Services.Parking
                     Status = ProcessStatus.PlateMismatch,
                     Message = "Biển số không khớp với biển số xe đã gửi.",
                     Client = client,
-                    DepartmentName = departmentName
+                    DepartmentName = departmentName,
+                    EventParking = parking,
+                    LprResult = lprResult
                 };
             }
 
@@ -444,7 +451,7 @@ namespace HPParking.Services.Parking
             overviewImage?.Dispose();
 
             DateTime timeOut = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now;
-            parking.LicensePlateOut = exitPlate;
+            parking.LicensePlateOut = exitPlate ?? "";
             parking.Status = "OUT";
             parking.StatusInOut = true;
             parking.TimeOut = timeOut;

@@ -101,11 +101,11 @@ namespace HPParking.Forms
             Controls.Add(txtPlate);
             Controls.Add(lblInfo);
             Font = new System.Drawing.Font("Segoe UI", 10F);
-            FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             MaximizeBox = false;
             MinimizeBox = false;
             Name = "FrmManualPlateInput";
-            StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+            StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             Text = "Nhập Biển Số Thủ Công";
             Shown += FrmManualPlateInput_Shown;
             ResumeLayout(false);

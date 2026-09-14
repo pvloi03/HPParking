@@ -1,9 +1,9 @@
 using HPParking.Interfaces;
 using HPParking.LicenseKey;
 using HPParking.Models.Entities;
-using HPParking.Services.CCCDReader;
 using HPParking.Services.Controller;
 using HPParking.Services.Devices;
+using HPParking.Services.HN212;
 using HPParking.Services.Parking;
 using HPParking.UI;
 using System;
@@ -22,7 +22,7 @@ namespace HPParking.Forms
         private readonly ICompanyRepository _companyRepository;
         private readonly IClientRepository _clientRepository;
 
-        private readonly CccdReaderManager _readerManager;
+        private readonly IHn212Client _hn212Client;
         private FrmRegisterClient? _activeFrmRegisterClient;
         private readonly DeviceOrchestrator _deviceOrchestrator = new();
         private readonly IParkingWorkflowService _workflowService;
@@ -35,7 +35,8 @@ namespace HPParking.Forms
             ILaneRepository laneRepository,
             ICompanyRepository companyRepository,
             IClientRepository clientRepository,
-            IParkingWorkflowService workflowService)
+            IParkingWorkflowService workflowService,
+            IHn212Client hn212Client)
         {
             InitializeComponent();
 
@@ -47,12 +48,11 @@ namespace HPParking.Forms
             _companyRepository = companyRepository;
             _clientRepository = clientRepository;
             _workflowService = workflowService;
+            _hn212Client = hn212Client;
 
-            // Khởi tạo Manager kết nối Service piper
-            _readerManager = new CccdReaderManager("http://localhost:5000/cardhub");
-
-            // Đăng ký nhận sự kiện
-            _readerManager.StatusUpdated += OnStatusUpdated;
+            // Đăng ký nhận sự kiện thẻ CCCD HN212
+            _hn212Client.CardStatusChanged += OnCardStatusChanged;
+            _hn212Client.CardScanned += OnCardScanned;
             _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
         }
 
@@ -70,10 +70,10 @@ namespace HPParking.Forms
         {
             try
             {
-                Cursor.Current = Cursors.WaitCursor;
+                using var waitScope = new HPParking.Helper.WaitCursorScope(this);
 
-                // Chạy kết nối ngầm khi mở App
-                await _readerManager.StartAsync();
+                // Chạy kết nối ngầm tới HN212Reader khi mở App
+                await _hn212Client.StartAsync();
 
                 // 2. Lấy dữ liệu Công ty (Company)
                 _company = await _companyRepository.GetFirstCompanyAsync();
@@ -138,8 +138,6 @@ namespace HPParking.Forms
                 // 6. Lắng nghe tín hiệu quẹt thẻ Realtime
                 _deviceOrchestrator.OnCardSwiped += OnCardSwiped;
                 _deviceOrchestrator.StartRealtimeLoop();
-
-                Cursor.Current = Cursors.Default;
             }
             catch (Exception ex)
             {
@@ -147,33 +145,40 @@ namespace HPParking.Forms
             }
         }
 
-        private void OnStatusUpdated(DeviceStatusDto status)
+        private void OnCardStatusChanged(string status, string message)
         {
-            if (status == null || IsDisposed) return;
-            BeginInvoke(new Action(async () =>
+            if (IsDisposed) return;
+            if (status == "Present" || status == "Reading")
             {
-                string readerStatus = status.IsReaderConnected
-                    ? $"DẦU ĐỌC CCCD: ĐÃ CẮM ({status.ReaderSerialNumber})"
-                    : "DẦU ĐỌC CCCD: CHƯA CẮM";
+                BeginInvoke(new Action(EnsureRegisterClientFormOpen));
+            }
+        }
 
-                lblServerStatus.Text = status.IsServerReady ? $"ĐẦU ĐỌC CCCD: ONLINE - {readerStatus}" : $"ĐẦU ĐỌC CCCD: OFFLINE{readerStatus}";
-                lblServerStatus.ForeColor = status.IsServerReady && status.IsReaderConnected ? Color.Green : Color.Red;
+        private void OnCardScanned(CardDataDto card)
+        {
+            if (IsDisposed) return;
+            BeginInvoke(new Action(EnsureRegisterClientFormOpen));
+        }
 
-
-                if (status.IsCardPresent && (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed))
+        private void EnsureRegisterClientFormOpen()
+        {
+            if (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed)
+            {
+                _activeFrmRegisterClient = new FrmRegisterClient(_hn212Client, _clientRepository, _companyRepository, _laneRepository);
+                _activeFrmRegisterClient.Show(this);
+            }
+            else
+            {
+                if (!_activeFrmRegisterClient.Visible)
                 {
-                    _activeFrmRegisterClient = new FrmRegisterClient(_readerManager, _clientRepository, _companyRepository, _laneRepository);
-
-                    _activeFrmRegisterClient.UpdateStatus("Đọc thẻ CCCD thất bại, vui lòng thử lại!", Color.Red);
                     _activeFrmRegisterClient.Show(this);
                 }
-            }));
+                _activeFrmRegisterClient.BringToFront();
+            }
         }
 
         private void Controller_OnStatusChanged(string controllerIp, bool isConnected, string message)
         {
-            Debug.WriteLine($"[Controller Status] {controllerIp}: {isConnected} - {message}");
-
             if (IsDisposed || Disposing) return;
 
             if (InvokeRequired)
@@ -198,8 +203,6 @@ namespace HPParking.Forms
 
         private void OnCardSwiped(RealtimeLog data)
         {
-            Debug.WriteLine($"[FrmMain OnCardSwiped] Nhận sự kiện Controller {data.ControllerIp}: CardNo={data.CardNo}, DoorId={data.DoorId}, Time={data.Time:HH:mm:ss}");
-
             if (_lanes == null || _company == null) return;
 
             Lane? lane = _lanes.FirstOrDefault(x =>
@@ -222,6 +225,7 @@ namespace HPParking.Forms
                 }
                 else if (result.Status == ProcessStatus.PlateMismatch)
                 {
+                    UpdateUI(lane, result);
                     MessageBox.Show(
                         this, result.Message,
                         "Thông báo",
@@ -253,6 +257,9 @@ namespace HPParking.Forms
             if (result.LprResult != null)
             {
                 lane.UI.LblPlateDetected.Text = $"Biển số phát hiện: {result.LprResult.Plate}";
+                lane.UI.LblPlateDetected.ForeColor = (result.Status == ProcessStatus.PlateMismatch)
+                    ? Color.Crimson
+                    : Color.Black;
             }
 
             if (result.EventParking != null)
@@ -268,48 +275,37 @@ namespace HPParking.Forms
                     lane.UI.LblTimeOut.Text = "Ngày ra:";
                 }
             }
+            else if (lane.Type % 2 != 0)
+            {
+                lane.UI.LblTimeIn.Text = $"Ngày vào: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
+                lane.UI.LblTimeOut.Text = "Ngày ra:";
+            }
 
             try
             {
-                if (lane.Type % 2 != 0)
+                // Cập nhật ảnh biển số: Vào hay Ra đều cập nhật ảnh biển số mới nhất vào ô PicPlate
+                if (result.LprResult?.PlateImage != null)
                 {
-                    // Làn VÀO: Cập nhật ảnh biển số vào, dọn dẹp ảnh ra cũ
-                    if (result.LprResult?.PlateImage != null)
-                    {
-                        var oldIn = lane.UI.PicPlateIn.Image;
-                        lane.UI.PicPlateIn.Image = (Bitmap)result.LprResult.PlateImage.Clone();
-                        oldIn?.Dispose();
-                    }
-                    var oldOut = lane.UI.PicPlateOut.Image;
-                    lane.UI.PicPlateOut.Image = null;
-                    oldOut?.Dispose();
+                    var oldPlate = lane.UI.PicPlate.Image;
+                    lane.UI.PicPlate.Image = (Bitmap)result.LprResult.PlateImage.Clone();
+                    oldPlate?.Dispose();
+                }
+
+                // Cập nhật ảnh Avatar: hiển thị ảnh avatar của Client nếu có, ngược lại xóa trắng để tránh dính ảnh lượt trước
+                var oldAvatar = lane.UI.PicAvatar.Image;
+                if (result.Client != null && !string.IsNullOrWhiteSpace(result.Client.Avatar) && System.IO.File.Exists(result.Client.Avatar))
+                {
+                    lane.UI.PicAvatar.Image = LoadBitmapWithoutLock(result.Client.Avatar);
                 }
                 else
                 {
-                    // Làn RA: PicPlateOut hiển thị ảnh biển số lúc ra
-                    if (result.LprResult?.PlateImage != null)
-                    {
-                        var oldOut = lane.UI.PicPlateOut.Image;
-                        lane.UI.PicPlateOut.Image = (Bitmap)result.LprResult.PlateImage.Clone();
-                        oldOut?.Dispose();
-                    }
-
-                    // PicPlateIn tải lại ảnh biển số lúc vào từ file để nhân viên đối soát vào - ra
-                    if (!string.IsNullOrEmpty(result.EventParking?.UrlImageLicensePlateIn))
-                    {
-                        var inImg = LoadBitmapWithoutLock(result.EventParking.UrlImageLicensePlateIn);
-                        if (inImg != null)
-                        {
-                            var oldIn = lane.UI.PicPlateIn.Image;
-                            lane.UI.PicPlateIn.Image = inImg;
-                            oldIn?.Dispose();
-                        }
-                    }
+                    lane.UI.PicAvatar.Image = null;
                 }
+                oldAvatar?.Dispose();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[FrmMain UpdateUI] Lỗi hiển thị ảnh biển số: {ex.Message}");
+                Debug.WriteLine($"[FrmMain UpdateUI] Lỗi hiển thị ảnh biển số/avatar: {ex.Message}");
             }
 
             // Giải phóng các Bitmap tạm thời trong LprResult và ProcessResult sau khi UI đã copy/hiển thị
@@ -345,8 +341,8 @@ namespace HPParking.Forms
                     LblPlateRegistered = lblCarPlateRegistered,
                     LblPlateDetected = lblCarPlateDetected,
                     LblDepartment = lblCarDepartment,
-                    PicPlateIn = pbCarPlateInImg,
-                    PicPlateOut = pbCarPlateOutImg,
+                    PicPlate = pbCarPlateImg,
+                    PicAvatar = pbCarAvatarImg,
                 },
                 Moto = new VehicleUI
                 {
@@ -357,8 +353,8 @@ namespace HPParking.Forms
                     LblPlateRegistered = lblMotoPlateRegistered,
                     LblPlateDetected = lblMotoPlateDetected,
                     LblDepartment = lblMotoDepartment,
-                    PicPlateIn = pbMotoPlateInImg,
-                    PicPlateOut = pbMotoPlateOutImg
+                    PicPlate = pbMotoPlateImg,
+                    PicAvatar = pbMotoAvatarImg
                 }
             };
 
@@ -448,9 +444,9 @@ namespace HPParking.Forms
                 : "Biển số không khớp với biển số xe đã gửi.";
 
             string? plate = FrmManualPlateInput.Prompt(
-                this, 
-                lane, 
-                expectedPlate: expectedPlate, 
+                this,
+                lane,
+                expectedPlate: expectedPlate,
                 mismatchMessage: mismatchMessage);
 
             return Task.FromResult(plate);
@@ -472,12 +468,13 @@ namespace HPParking.Forms
         private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             KeyDown -= FrmMain_KeyDown;
-            _readerManager.StatusUpdated -= OnStatusUpdated;
+            _hn212Client.CardStatusChanged -= OnCardStatusChanged;
+            _hn212Client.CardScanned -= OnCardScanned;
             _deviceOrchestrator.OnControllerStatusChanged -= Controller_OnStatusChanged;
             _deviceOrchestrator.OnCardSwiped -= OnCardSwiped;
             _clockTimer?.Stop();
             _clockTimer?.Dispose();
-            await _readerManager.StopAsync();
+            await _hn212Client.StopAsync();
             _deviceOrchestrator.Dispose();
         }
     }

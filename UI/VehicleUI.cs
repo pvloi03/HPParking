@@ -18,8 +18,20 @@ namespace HPParking.UI
         public Label LblDepartment { get; set; } = new();
 
         // PictureBox
-        public PictureBox PicPlateIn { get; set; } = new();
-        public PictureBox PicPlateOut { get; set; } = new();
+        public PictureBox PicPlate { get; set; } = new();
+        public PictureBox PicAvatar { get; set; } = new();
+
+        public PictureBox PicPlateIn
+        {
+            get => PicPlate;
+            set => PicPlate = value;
+        }
+
+        public PictureBox PicPlateOut
+        {
+            get => PicAvatar;
+            set => PicAvatar = value;
+        }
     }
 
     public class InfoUI

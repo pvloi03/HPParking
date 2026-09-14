@@ -30,6 +30,7 @@ namespace HPParking.Forms.ConfigManager
         /// </summary>
         private async Task LoadAndBindDataAsync()
         {
+            using var waitScope = new WaitCursorScope(this);
             _lanes = await _laneRepository.GetAllAsync();
             BindDataToUI();
         }
@@ -116,6 +117,8 @@ namespace HPParking.Forms.ConfigManager
                 {
                     return;
                 }
+
+                using var waitScope = new WaitCursorScope(this);
 
                 // Hàm hỗ trợ đọc giá trị an toàn tránh KeyNotFoundException
                 string GetValue(TextBox txt)

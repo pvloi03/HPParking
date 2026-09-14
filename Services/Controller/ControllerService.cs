@@ -105,16 +105,14 @@ namespace HPParking.Services.Controller
                         string param = $"protocol=TCP,ipaddress={config.IP},port={config.Port},timeout=3000,passwd={config.Password}";
                         _handle = _sdk.Connect(param);
                     }
-                    catch (DllNotFoundException ex)
+                    catch (DllNotFoundException)
                     {
-                        Debug.WriteLine($"[ControllerService Error] Không tìm thấy file thư viện '{ZKTecoSDK.DllName}': {ex.Message}");
                         _handle = IntPtr.Zero;
                         UpdateStatus(DeviceStatus.Error, $"Thiếu thư viện {ZKTecoSDK.DllName}");
                         return false;
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"[ControllerService Error] Lỗi kết nối Controller: {ex.Message}");
                         _handle = IntPtr.Zero;
                         UpdateStatus(DeviceStatus.Error, $"Lỗi kết nối Controller {config.IP}: {ex.Message}");
                         return false;
@@ -186,8 +184,6 @@ namespace HPParking.Services.Controller
             const int BUFFER_SIZE = 256;
             byte[] buffer = new byte[BUFFER_SIZE];
 
-            UpdateStatus(DeviceStatus.Streaming, $"Controller {Config?.IP} đang nhận tín hiệu thời gian thực");
-
             while (!token.IsCancellationRequested && !_disposed)
             {
                 if (!IsConnected) break;
@@ -238,7 +234,6 @@ namespace HPParking.Services.Controller
         /// <summary>
         /// Xử lý chuỗi log nhận được từ thiết bị theo chuẩn ZKTeco Pull SDK (PLDemo.cs):
         /// tmp[0] = time, tmp[1] = pin, tmp[2] = cardno, tmp[3] = doorid, tmp[4] = eventtype, tmp[5] = inoutstate, tmp[6] = verifymode
-        /// 1. In chuỗi log mặc định của controller ra Debug
         /// 2. Bỏ qua gói tin trạng thái Door/Alarm định kỳ (Bit 4 = 255)
         /// 3. Phân tích và phát tán sự kiện OnCardSwiped
         /// </summary>
@@ -252,8 +247,6 @@ namespace HPParking.Services.Controller
                 var trimmed = line.Trim('\0', '\r', '\n', ' ');
                 if (string.IsNullOrEmpty(trimmed)) continue;
 
-                // In chuỗi log mặc định của controller
-                Debug.WriteLine(trimmed);
 
                 // Xả các bản ghi cũ tồn đọng nếu cấu hình bật StartupDrain
                 if (EnableStartupDrain && _drainUntil != DateTime.MinValue && DateTime.Now < _drainUntil)
@@ -274,7 +267,7 @@ namespace HPParking.Services.Controller
                 RealtimeLog? data = RealtimeLog.Parse(trimmed, Config?.IP ?? "");
                 if (data != null && data.CardNo != "0")
                 {
-                    Debug.WriteLine($"[ControllerService CardSwiped] Thẻ: {data.CardNo} | Cổng: {data.DoorId} | IP: {data.ControllerIp}");
+                    Debug.WriteLine($"[ControllerService CardSwiped] Thẻ: {data.CardNo} | Cổng: {data.DoorId} | IP: {data.ControllerIp} | InOutState: {data.InOutState}");
                     OnCardSwiped?.Invoke(data);
                 }
             }
@@ -372,7 +365,7 @@ namespace HPParking.Services.Controller
                 try { oldCts.Cancel(); } catch (ObjectDisposedException) { }
                 oldCts.Dispose();
             }
-
+            Debug.WriteLine($"Mất kết nối Controller {ip}! Đang kết nối lại...");
             UpdateStatus(DeviceStatus.Reconnecting, $"Mất kết nối Controller {ip}! Đang kết nối lại...");
 
             Task.Run(async () =>
