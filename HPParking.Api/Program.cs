@@ -1,0 +1,260 @@
+using System;
+using System.IO;
+using System.Reflection;
+using System.Text;
+using Asp.Versioning;
+using FluentValidation.AspNetCore;
+using HPParking.Api.Configuration;
+using HPParking.Api.Middlewares;
+using HPParking.Core.Data;
+using HPParking.Core.Interfaces;
+using HPParking.Core.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// =============================================================================
+// 1. CẤU HÌNH SERILOG (Lazy on-demand, cuộn theo ngày, tối đa 50MB, giữ 30 ngày)
+// =============================================================================
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "HPParking.Api");
+
+    if (context.HostingEnvironment.IsDevelopment())
+    {
+        configuration.WriteTo.Console(
+            outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{TraceId}] {Message:lj}{NewLine}{Exception}");
+    }
+
+    var logPath = context.Configuration["SerilogSettings:LogDirectory"] ?? "logs";
+    var logFilePath = Path.Combine(logPath, "hpparking-api-.log");
+
+    configuration.WriteTo.File(
+        path: logFilePath,
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30,
+        fileSizeLimitBytes: 52428800, // 50MB
+        rollOnFileSizeLimit: true,
+        shared: true,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] [{TraceId}] [{SourceContext}] {Message:lj}{NewLine}{Exception}");
+});
+
+// =============================================================================
+// 2. ĐĂNG KÝ CẤU HÌNH STRONGLY-TYPED (Options Pattern)
+// =============================================================================
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+builder.Services.Configure<ApiKeySettings>(builder.Configuration.GetSection("ApiKeySettings"));
+builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("StorageSettings"));
+builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDb"));
+
+// =============================================================================
+// 3. TẦNG DỮ LIỆU & REPOSITORIES (MongoDB)
+// =============================================================================
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var connStr = config["MongoDb:ConnectionString"] ?? "mongodb://localhost:27017";
+    var dbName = config["MongoDb:DatabaseName"] ?? "hpparking";
+    return new MongoDbContext(connStr, dbName);
+});
+builder.Services.AddScoped(typeof(IRepository<>), typeof(MongoRepository<>));
+
+// =============================================================================
+// 4. CONTROLLERS & VALIDATION
+// =============================================================================
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    });
+
+builder.Services.AddFluentValidationAutoValidation();
+
+// =============================================================================
+// 5. API VERSIONING (v1.0)
+// =============================================================================
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+})
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
+// =============================================================================
+// 6. CORS POLICY
+// =============================================================================
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DefaultCorsPolicy", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// =============================================================================
+// 7. XÁC THỰC & ỦY QUYỀN (JWT Bearer & Authorization)
+// =============================================================================
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ?? "HPParking_Secret_Key_For_Jwt_Authentication_Must_Be_Long_Enough_2026";
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ValidateIssuer = true,
+        ValidIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "HPParking.Api",
+        ValidateAudience = true,
+        ValidAudience = builder.Configuration["JwtSettings:Audience"] ?? "HPParking.Clients",
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(_ => { });
+
+// =============================================================================
+// 8. TÀI LIỆU HÓA SWAGGER (Dual Authentication: Bearer + X-API-KEY)
+// =============================================================================
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "HPParking API",
+        Version = "v1",
+        Description = "Hệ thống REST API kiểm soát khách hàng, phương tiện và FaceID HPParking"
+    });
+
+    // 1. JWT Bearer Scheme
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Nhập Access Token lấy từ endpoint POST /api/v1/auth/login (không cần gõ từ khóa 'Bearer ')."
+    });
+
+    // 2. API Key Scheme
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Name = "X-API-KEY",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Description = "Nhập API Key được cấp cho hệ thống bên thứ ba tích hợp."
+    });
+
+    // 3. Security Requirements
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        },
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "ApiKey"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+
+    // 4. XML Documentation
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+});
+
+// =============================================================================
+// 9. THIẾT LẬP CHUỖI MIDDLEWARE PIPELINE (10 BƯỚC ĐỊNH SẴN)
+// =============================================================================
+var app = builder.Build();
+
+// 1. Exception Handling (Bắt ngoại lệ toàn cục ở tầng cao nhất)
+app.UseMiddleware<ExceptionMiddleware>();
+
+// 2. Trace Context (Gắn W3C traceparent sớm)
+app.UseMiddleware<TraceIdMiddleware>();
+
+// 3. Security Headers (Gắn header bảo mật tầng biên)
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
+// 4. Serilog Request Logging (Ghi log thời gian phản hồi)
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} phản hồi {StatusCode} trong {Elapsed:0.0000} ms";
+});
+
+// 5. Phục vụ Static Files (Ảnh avatar trả ngay từ đĩa)
+app.UseStaticFiles();
+
+// 6. Routing (Phân tích endpoint)
+app.UseRouting();
+
+// 7. CORS (Đặt trước Auth & RateLimiter để luôn có header CORS)
+app.UseCors("DefaultCorsPolicy");
+
+// 8. Authentication (Giải mã JWT lấy UserId hoặc đọc X-API-KEY)
+app.UseAuthentication();
+
+// 9. Rate Limiter
+app.UseRateLimiter();
+
+// 10. Authorization (Kiểm tra vai trò Admin/Manager/Viewer)
+app.UseAuthorization();
+
+// Swagger UI
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "HPParking.Api v1.0");
+    options.RoutePrefix = "swagger";
+});
+
+app.MapControllers();
+
+app.Run();
