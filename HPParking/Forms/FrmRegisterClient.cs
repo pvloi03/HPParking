@@ -767,6 +767,7 @@ namespace HPParking.Forms
 
                     _clientExist.PhoneNumber = newPhone;
                     _clientExist.Note = txtDescription.Text;
+                    _clientExist.IsActive = true;
                     _clientExist.Expired = new Expired
                     {
                         Enable = chkEnable.Checked,
@@ -980,6 +981,7 @@ namespace HPParking.Forms
                     PhoneNumber = newPhone,
                     Type = ClientType.VIP,
                     Note = txtDescription.Text,
+                    IsActive = true,
                     Expired = new Expired
                     {
                         Enable = chkEnable.Checked,

@@ -8,7 +8,6 @@ namespace HPParking.Core.Models.Entities
 {
     /// <summary>
     /// Thực thể đại diện cho một phiên đỗ xe (Check-in / Check-out)
-    /// Chuẩn hóa theo kiến trúc PhuXuanParkingSystem
     /// </summary>
     [BsonIgnoreExtraElements]
     public class ParkingSession : BaseEntity

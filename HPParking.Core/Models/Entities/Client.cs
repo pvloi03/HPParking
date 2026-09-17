@@ -38,6 +38,8 @@ namespace HPParking.Core.Models.Entities
 
         public string PhoneNumber { get; set; } = "";
 
+        public bool IsActive { get; set; } = true;
+
         private Expired _expired = new();
 
         public Expired Expired

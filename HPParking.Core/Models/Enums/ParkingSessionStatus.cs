@@ -2,7 +2,6 @@ namespace HPParking.Core.Models.Enums
 {
     /// <summary>
     /// Trạng thái của một phiên đỗ xe (ParkingSession)
-    /// Chuẩn hóa theo kiến trúc PhuXuanParkingSystem
     /// </summary>
     public enum ParkingSessionStatus
     {

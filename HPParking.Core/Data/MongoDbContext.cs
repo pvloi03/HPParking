@@ -9,7 +9,6 @@ namespace HPParking.Core.Data
 {
     /// <summary>
     /// Database Context quản lý kết nối MongoDB và các Collection đối tượng trong hệ thống
-    /// Học tập và áp dụng trực tiếp theo kiến trúc PhuXuanParkingSystem
     /// </summary>
     public class MongoDbContext
     {
