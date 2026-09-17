@@ -5,6 +5,7 @@ dist/
 scripts/
 *.md
 .codegraph/
+appsettings.json
 bin/
 obj/
 *app.config
