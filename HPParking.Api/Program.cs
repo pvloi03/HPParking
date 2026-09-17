@@ -109,15 +109,19 @@ builder.Services.AddApiVersioning(options =>
 });
 
 // =============================================================================
-// 6. CORS POLICY
+// 6. CORS POLICY (Hỗ trợ Credentials theo ADR 0026)
 // =============================================================================
+var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:3000", "http://localhost:5173" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCorsPolicy", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -156,13 +160,26 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            // Nếu header Authorization chưa có token, thử đọc từ HttpOnly Cookie theo ADR 0026
+            if (string.IsNullOrEmpty(context.Token) &&
+                context.Request.Cookies.TryGetValue("hpparking_access_token", out var cookieToken))
+            {
+                context.Token = cookieToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 })
 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, _ => { });
 
 builder.Services.AddAuthorization();
 
 // =============================================================================
-// 8. RATE LIMITING (Chống Brute-force endpoint đăng nhập)
+// 8. RATE LIMITING (Chống Brute-force endpoint đăng nhập & làm mới token)
 // =============================================================================
 builder.Services.AddRateLimiter(options =>
 {
@@ -170,6 +187,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddFixedWindowLimiter("LoginRateLimitPolicy", opt =>
     {
         opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("RefreshTokenRateLimitPolicy", opt =>
+    {
+        opt.PermitLimit = 20;
         opt.Window = TimeSpan.FromMinutes(1);
         opt.QueueLimit = 0;
     });

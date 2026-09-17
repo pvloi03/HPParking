@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Asp.Versioning;
@@ -5,6 +7,7 @@ using HPParking.Api.DTOs.Auth;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging;
@@ -24,7 +27,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Đăng nhập hệ thống lấy JWT Bearer Token theo ca làm việc (8-12 tiếng)
+        /// Đăng nhập hệ thống lấy Access Token (15 phút) và Refresh Token (7 ngày), tự động thiết lập HttpOnly Cookie
         /// </summary>
         [HttpPost("login")]
         [AllowAnonymous]
@@ -36,7 +39,93 @@ namespace HPParking.Api.Controllers.V1
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var response = await _authService.LoginAsync(request);
+
+            // Thiết lập HttpOnly Cookie cho Web Admin theo ADR 0026 & ADR 0027
+            SetAuthCookies(response.AccessToken, response.RefreshToken, response.ExpiresIn);
+
             return OkApiResponse(response, "Đăng nhập thành công.");
+        }
+
+        /// <summary>
+        /// Làm mới phiên đăng nhập (Token Rotation) bằng Refresh Token qua Header hoặc Cookie
+        /// </summary>
+        [HttpPost("refresh-token")]
+        [AllowAnonymous]
+        [EnableRateLimiting("RefreshTokenRateLimitPolicy")]
+        [ProducesResponseType(typeof(ApiResponse<RefreshTokenResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 429)]
+        public async Task<IActionResult> RefreshToken()
+        {
+            var refreshTokenFromHeader = Request.Headers["X-Refresh-Token"].FirstOrDefault();
+            var refreshTokenFromCookie = Request.Cookies["hpparking_refresh_token"];
+
+            var response = await _authService.RefreshTokenAsync(refreshTokenFromHeader, refreshTokenFromCookie);
+
+            // Cập nhật lại cả 2 Cookie sau khi luân chuyển (Token Rotation)
+            SetAuthCookies(response.AccessToken, response.RefreshToken, response.ExpiresIn);
+
+            return OkApiResponse(response, "Làm mới token thành công.");
+        }
+
+        /// <summary>
+        /// Đăng xuất khỏi hệ thống, xóa sạch Cookie và vô hiệu hóa phiên làm việc
+        /// </summary>
+        [HttpPost("logout")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<string>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        public async Task<IActionResult> Logout()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (!string.IsNullOrEmpty(userId))
+            {
+                await _authService.LogoutAsync(userId);
+            }
+
+            // Xóa Cookie trên trình duyệt
+            Response.Cookies.Delete("hpparking_access_token", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Path = "/"
+            });
+
+            Response.Cookies.Delete("hpparking_refresh_token", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Path = "/api/v1/auth/refresh-token"
+            });
+
+            return OkApiResponse("Đăng xuất thành công.", "Đăng xuất thành công.");
+        }
+
+        private void SetAuthCookies(string accessToken, string? refreshToken, int expiresInSeconds)
+        {
+            Response.Cookies.Append("hpparking_access_token", accessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddSeconds(expiresInSeconds),
+                Path = "/"
+            });
+
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                Response.Cookies.Append("hpparking_refresh_token", refreshToken, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = Request.IsHttps,
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddDays(7),
+                    Path = "/api/v1/auth/refresh-token"
+                });
+            }
         }
 
         /// <summary>
