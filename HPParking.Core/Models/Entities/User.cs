@@ -26,6 +26,8 @@ namespace HPParking.Core.Models.Entities
         public bool IsActive { get; set; } = true;
         [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
         public DateTime? LastLoginAt { get; set; }
+        [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
+        public DateTime? LastLogoutAt { get; set; }
 
         public User() { }
 

@@ -18,6 +18,8 @@ namespace HPParking.Api.Common.Exceptions
         public const string AUTH_INVALID_TOKEN = "AUTH_INVALID_TOKEN";
         public const string AUTH_TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED";
         public const string AUTH_INVALID_API_KEY = "AUTH_INVALID_API_KEY";
+        public const string AUTH_REFRESH_TOKEN_REQUIRED = "AUTH_REFRESH_TOKEN_REQUIRED";
+        public const string AUTH_REFRESH_TOKEN_INVALID = "AUTH_REFRESH_TOKEN_INVALID";
 
         // Client
         public const string CLIENT_NOT_FOUND = "CLIENT_NOT_FOUND";

@@ -84,13 +84,15 @@ namespace HPParking.Api.Services.Implementations
 
             await _auditLogRepository.AddAsync(successLog, cancellationToken);
 
-            // Sinh Access Token JWT theo ca
+            // Sinh Access Token JWT và Refresh Token
             var tokenString = GenerateJwtToken(user);
+            var refreshTokenString = GenerateRefreshToken(user);
             var expiresInSeconds = _jwtOptions.Value.ExpiryMinutes * 60;
 
             return new LoginResponse
             {
                 AccessToken = tokenString,
+                RefreshToken = refreshTokenString,
                 TokenType = "Bearer",
                 ExpiresIn = expiresInSeconds,
                 User = MapToUserInfoDto(user)
@@ -120,33 +122,33 @@ namespace HPParking.Api.Services.Implementations
                 throw new NotFoundException($"Không tìm thấy tài khoản người dùng với mã định danh '{userId}'.", ErrorCodes.NOT_FOUND);
             }
 
-            // Theo ADR 0025: Nếu là Admin thì bỏ qua kiểm tra mật khẩu cũ.
-            // Nếu là vai trò khác (Manager, Viewer) thì bắt buộc phải kiểm tra khớp mật khẩu cũ.
-            var isAdmin = string.Equals(userRole, "Admin", StringComparison.OrdinalIgnoreCase);
+            // Theo ADR 0025: Role Admin được phép đổi mật khẩu mà không cần mật khẩu cũ
+            var isAdmin = string.Equals(userRole, UserRole.Admin.ToString(), StringComparison.OrdinalIgnoreCase);
+
             if (!isAdmin)
             {
-                if (string.IsNullOrWhiteSpace(request.OldPassword) ||
-                    !BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+                if (string.IsNullOrWhiteSpace(request.OldPassword))
+                {
+                    throw new BadRequestException("Mật khẩu hiện tại không được để trống đối với người dùng không phải Quản trị viên.", ErrorCodes.VALIDATION_FAILED);
+                }
+
+                if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
                 {
                     throw new BadRequestException("Mật khẩu hiện tại không đúng.", ErrorCodes.AUTH_INVALID_CREDENTIALS);
                 }
             }
 
-            // Băm mật khẩu mới bằng BCrypt và lưu vào CSDL
+            // Băm mật khẩu mới bằng BCrypt
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             await _userRepository.UpdateAsync(user, cancellationToken);
 
-            // Ghi nhật ký kiểm toán
+            // Ghi nhật ký đổi mật khẩu vào AuditLog
             var auditLog = AuditLog.CreateAuthLog(
                 username: user.Username,
-                actionType: AuditActionType.Update,
+                actionType: AuditActionType.ChangePassword,
                 isSuccess: true,
                 actorId: user.Id,
-                actorRole: user.Role.ToString());
-
-            auditLog.TargetEntity = "User";
-            auditLog.TargetId = user.Id;
-            auditLog.TargetDisplay = user.Username;
+                actorRole: userRole);
 
             await _auditLogRepository.AddAsync(auditLog, cancellationToken);
 
@@ -154,8 +156,146 @@ namespace HPParking.Api.Services.Implementations
             return true;
         }
 
+        public async Task<RefreshTokenResponse> RefreshTokenAsync(
+            string? refreshTokenFromHeader,
+            string? refreshTokenFromCookie,
+            CancellationToken cancellationToken = default)
+        {
+            var rawToken = !string.IsNullOrWhiteSpace(refreshTokenFromCookie)
+                ? refreshTokenFromCookie
+                : refreshTokenFromHeader;
+
+            if (string.IsNullOrWhiteSpace(rawToken))
+            {
+                throw new UnauthorizedException("Refresh Token không được để trống.", ErrorCodes.AUTH_REFRESH_TOKEN_REQUIRED);
+            }
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var refreshKey = !string.IsNullOrEmpty(_jwtOptions.Value.RefreshTokenSecretKey)
+                ? _jwtOptions.Value.RefreshTokenSecretKey
+                : _jwtOptions.Value.SecretKey + "_refresh_secret_fallback";
+
+            var validationParams = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(refreshKey)),
+                ValidateIssuer = true,
+                ValidIssuer = _jwtOptions.Value.Issuer,
+                ValidateAudience = true,
+                ValidAudience = _jwtOptions.Value.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            ClaimsPrincipal principal;
+            JwtSecurityToken jwtToken;
+            try
+            {
+                principal = tokenHandler.ValidateToken(rawToken, validationParams, out var validatedToken);
+                if (validatedToken is not JwtSecurityToken parsedToken ||
+                    !parsedToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    throw new UnauthorizedException("Refresh Token không hợp lệ.", ErrorCodes.AUTH_REFRESH_TOKEN_INVALID);
+                }
+                jwtToken = parsedToken;
+            }
+            catch (SecurityTokenExpiredException)
+            {
+                throw new UnauthorizedException("Refresh Token đã hết hạn.", ErrorCodes.AUTH_TOKEN_EXPIRED);
+            }
+            catch (Exception ex) when (ex is not UnauthorizedException)
+            {
+                throw new UnauthorizedException("Refresh Token không hợp lệ.", ErrorCodes.AUTH_REFRESH_TOKEN_INVALID);
+            }
+
+            var tokenUse = principal.FindFirst("token_use")?.Value;
+            if (tokenUse != "refresh")
+            {
+                throw new UnauthorizedException("Token không phải là Refresh Token hợp lệ.", ErrorCodes.AUTH_REFRESH_TOKEN_INVALID);
+            }
+
+            var userId = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                         ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                throw new UnauthorizedException("Refresh Token không chứa thông tin người dùng hợp lệ.", ErrorCodes.AUTH_REFRESH_TOKEN_INVALID);
+            }
+
+            var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+            if (user == null)
+            {
+                throw new UnauthorizedException("Tài khoản người dùng không tồn tại.", ErrorCodes.AUTH_INVALID_TOKEN);
+            }
+
+            if (!user.IsActive)
+            {
+                throw new ForbiddenException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ Quản trị viên.", ErrorCodes.AUTH_ACCOUNT_LOCKED);
+            }
+
+            // Kiểm tra mốc thời gian đăng xuất (ADR 0027)
+            if (user.LastLogoutAt.HasValue)
+            {
+                var iatClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == "iat" || c.Type == JwtRegisteredClaimNames.Iat)?.Value;
+                DateTime issuedAt;
+                if (long.TryParse(iatClaim, out var iatSeconds))
+                {
+                    issuedAt = DateTimeOffset.FromUnixTimeSeconds(iatSeconds).UtcDateTime;
+                }
+                else
+                {
+                    issuedAt = jwtToken.ValidFrom;
+                }
+
+                var logoutUtc = user.LastLogoutAt.Value.Kind == DateTimeKind.Utc
+                    ? user.LastLogoutAt.Value
+                    : user.LastLogoutAt.Value.ToUniversalTime();
+
+                if (issuedAt <= logoutUtc)
+                {
+                    throw new UnauthorizedException("Phiên làm việc đã bị hủy bỏ do đăng xuất.", ErrorCodes.AUTH_INVALID_TOKEN);
+                }
+            }
+
+            // Sinh cặp token mới (Token Rotation & Live Role Sync)
+            var newAccessToken = GenerateJwtToken(user);
+            var newRefreshToken = GenerateRefreshToken(user);
+            var expiresInSeconds = _jwtOptions.Value.ExpiryMinutes * 60;
+
+            _logger.LogInformation("Người dùng '{Username}' (Role: {Role}) đã làm mới token thành công.", user.Username, user.Role);
+
+            return new RefreshTokenResponse
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken,
+                TokenType = "Bearer",
+                ExpiresIn = expiresInSeconds
+            };
+        }
+
+        public async Task LogoutAsync(string userId, CancellationToken cancellationToken = default)
+        {
+            var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+            if (user != null)
+            {
+                user.LastLogoutAt = DateTime.UtcNow;
+                await _userRepository.UpdateAsync(user, cancellationToken);
+
+                var logoutLog = AuditLog.CreateAuthLog(
+                    username: user.Username,
+                    actionType: AuditActionType.Logout,
+                    isSuccess: true,
+                    actorId: user.Id,
+                    actorRole: user.Role.ToString());
+
+                await _auditLogRepository.AddAsync(logoutLog, cancellationToken);
+                _logger.LogInformation("Người dùng '{Username}' (Role: {Role}) đã đăng xuất thành công.", user.Username, user.Role);
+            }
+        }
+
         private string GenerateJwtToken(User user)
         {
+            var now = DateTimeOffset.UtcNow;
             var claims = new List<Claim>
             {
                 new(JwtRegisteredClaimNames.Sub, user.Id),
@@ -164,12 +304,43 @@ namespace HPParking.Api.Services.Implementations
                 new(ClaimTypes.Role, user.Role.ToString()),
                 new("fullName", user.FullName),
                 new("email", user.Email ?? string.Empty),
+                new("iat", now.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Value.SecretKey));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var expires = DateTime.UtcNow.AddMinutes(_jwtOptions.Value.ExpiryMinutes);
+
+            var token = new JwtSecurityToken(
+                issuer: _jwtOptions.Value.Issuer,
+                audience: _jwtOptions.Value.Audience,
+                claims: claims,
+                expires: expires,
+                signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateRefreshToken(User user)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var claims = new List<Claim>
+            {
+                new(JwtRegisteredClaimNames.Sub, user.Id),
+                new(ClaimTypes.NameIdentifier, user.Id),
+                new("token_use", "refresh"),
+                new("iat", now.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var refreshKey = !string.IsNullOrEmpty(_jwtOptions.Value.RefreshTokenSecretKey)
+                ? _jwtOptions.Value.RefreshTokenSecretKey
+                : _jwtOptions.Value.SecretKey + "_refresh_secret_fallback";
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(refreshKey));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddDays(_jwtOptions.Value.RefreshTokenExpiryDays);
 
             var token = new JwtSecurityToken(
                 issuer: _jwtOptions.Value.Issuer,
