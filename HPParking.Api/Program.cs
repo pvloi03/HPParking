@@ -4,14 +4,21 @@ using System.Reflection;
 using System.Text;
 using Asp.Versioning;
 using FluentValidation.AspNetCore;
+using HPParking.Api.Authentication;
 using HPParking.Api.Configuration;
+using HPParking.Api.Data;
 using HPParking.Api.Middlewares;
+using HPParking.Api.Services.Implementations;
+using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Repositories;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -59,7 +66,7 @@ builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("St
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDb"));
 
 // =============================================================================
-// 3. TẦNG DỮ LIỆU & REPOSITORIES (MongoDB)
+// 3. TẦNG DỮ LIỆU & REPOSITORIES (MongoDB) & SERVICES
 // =============================================================================
 builder.Services.AddSingleton(sp =>
 {
@@ -69,6 +76,9 @@ builder.Services.AddSingleton(sp =>
     return new MongoDbContext(connStr, dbName);
 });
 builder.Services.AddScoped(typeof(IRepository<>), typeof(MongoRepository<>));
+
+// Đăng ký tầng dịch vụ nghiệp vụ (Services)
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 // =============================================================================
 // 4. CONTROLLERS & VALIDATION
@@ -112,15 +122,26 @@ builder.Services.AddCors(options =>
 });
 
 // =============================================================================
-// 7. XÁC THỰC & ỦY QUYỀN (JWT Bearer & Authorization)
+// 7. XÁC THỰC KÉP HYBRID AUTH (PolicyScheme: JWT hoặc X-API-KEY) & PHÂN QUYỀN
 // =============================================================================
 var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ?? "HPParking_Secret_Key_For_Jwt_Authentication_Must_Be_Long_Enough_2026";
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = "JWT_OR_APIKEY";
+    options.DefaultChallengeScheme = "JWT_OR_APIKEY";
 })
-.AddJwtBearer(options =>
+.AddPolicyScheme("JWT_OR_APIKEY", "JWT or API Key", options =>
+{
+    options.ForwardDefaultSelector = context =>
+    {
+        if (context.Request.Headers.ContainsKey("X-API-KEY"))
+        {
+            return ApiKeyAuthenticationHandler.SchemeName;
+        }
+        return JwtBearerDefaults.AuthenticationScheme;
+    };
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
 {
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
@@ -135,13 +156,27 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
-});
+})
+.AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, _ => { });
 
 builder.Services.AddAuthorization();
-builder.Services.AddRateLimiter(_ => { });
 
 // =============================================================================
-// 8. TÀI LIỆU HÓA SWAGGER (Dual Authentication: Bearer + X-API-KEY)
+// 8. RATE LIMITING (Chống Brute-force endpoint đăng nhập)
+// =============================================================================
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("LoginRateLimitPolicy", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+});
+
+// =============================================================================
+// 9. TÀI LIỆU HÓA SWAGGER (Dual Authentication: Bearer + X-API-KEY)
 // =============================================================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -210,9 +245,12 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // =============================================================================
-// 9. THIẾT LẬP CHUỖI MIDDLEWARE PIPELINE (10 BƯỚC ĐỊNH SẴN)
+// 10. THIẾT LẬP CHUỖI MIDDLEWARE PIPELINE (10 BƯỚC ĐỊNH SẴN)
 // =============================================================================
 var app = builder.Build();
+
+// Khởi tạo tài khoản Quản trị viên mặc định (nếu CSDL chưa có Admin)
+await DbSeeder.SeedAdminUserAsync(app.Services);
 
 // 1. Exception Handling (Bắt ngoại lệ toàn cục ở tầng cao nhất)
 app.UseMiddleware<ExceptionMiddleware>();
@@ -241,7 +279,7 @@ app.UseCors("DefaultCorsPolicy");
 // 8. Authentication (Giải mã JWT lấy UserId hoặc đọc X-API-KEY)
 app.UseAuthentication();
 
-// 9. Rate Limiter
+// 9. Rate Limiter (Áp dụng chính sách giới hạn tốc độ gọi)
 app.UseRateLimiter();
 
 // 10. Authorization (Kiểm tra vai trò Admin/Manager/Viewer)
