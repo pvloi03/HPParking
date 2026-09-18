@@ -1,8 +1,5 @@
-using System;
-using System.IO;
-using System.Reflection;
-using System.Text;
 using Asp.Versioning;
+using FluentValidation;
 using FluentValidation.AspNetCore;
 using HPParking.Api.Authentication;
 using HPParking.Api.Configuration;
@@ -15,16 +12,13 @@ using HPParking.Core.Interfaces;
 using HPParking.Core.Repositories;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using Serilog.Events;
+using System.Reflection;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +43,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 
     configuration.WriteTo.File(
         path: logFilePath,
+        restrictedToMinimumLevel: LogEventLevel.Warning, // Chỉ ghi nhận từ mức Warning và Error trở lên
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 30,
         fileSizeLimitBytes: 52428800, // 50MB
@@ -77,8 +72,18 @@ builder.Services.AddSingleton(sp =>
 });
 builder.Services.AddScoped(typeof(IRepository<>), typeof(MongoRepository<>));
 
+// Đăng ký HttpClient cho giao tiếp thiết bị bên ngoài (FaceID ISAPI)
+builder.Services.AddHttpClient();
+
 // Đăng ký tầng dịch vụ nghiệp vụ (Services)
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddSingleton<IFaceIdService, HikvisionFaceIdService>();
+builder.Services.AddScoped<IVehicleService, VehicleService>();
+builder.Services.AddScoped<IClientService, ClientService>();
+
+// Cấu hình Mapster Object Mapping
+builder.Services.RegisterMapsterConfiguration();
 
 // =============================================================================
 // 4. CONTROLLERS & VALIDATION
@@ -91,6 +96,7 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<HPParking.Api.Validators.Clients.CreateClientRequestValidator>();
 
 // =============================================================================
 // 5. API VERSIONING (v1.0)
@@ -112,7 +118,7 @@ builder.Services.AddApiVersioning(options =>
 // 6. CORS POLICY (Hỗ trợ Credentials theo ADR 0026)
 // =============================================================================
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:3000", "http://localhost:5173" };
+    ?? ["http://localhost:3000", "http://localhost:5173"];
 
 builder.Services.AddCors(options =>
 {
@@ -284,13 +290,45 @@ app.UseMiddleware<TraceIdMiddleware>();
 // 3. Security Headers (Gắn header bảo mật tầng biên)
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
-// 4. Serilog Request Logging (Ghi log thời gian phản hồi)
+// 4. Serilog Request Logging (Chỉ ghi log khi xảy ra lỗi >= 400 hoặc có ngoại lệ, bỏ qua request thành công)
 app.UseSerilogRequestLogging(options =>
 {
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} phản hồi {StatusCode} trong {Elapsed:0.0000} ms";
+    options.GetLevel = (httpContext, elapsed, ex) =>
+    {
+        if (ex != null || httpContext.Response.StatusCode >= 500)
+        {
+            return LogEventLevel.Error;
+        }
+
+        if (httpContext.Response.StatusCode >= 400)
+        {
+            return LogEventLevel.Warning;
+        }
+
+        // Bỏ qua toàn bộ request thành công (< 400) để không ghi vào file log
+        return LogEventLevel.Verbose;
+    };
 });
 
-// 5. Phục vụ Static Files (Ảnh avatar trả ngay từ đĩa)
+// 5. Phục vụ Static Files (Ảnh avatar trả ngay từ đĩa theo cấu hình appsettings.json)
+var uploadPathConfig = builder.Configuration["StorageSettings:UploadPath"] ?? "Uploads/Avatar";
+var requestPathConfig = builder.Configuration["StorageSettings:RequestPath"] ?? "/uploads/avatar";
+
+var fullUploadPath = Path.IsPathRooted(uploadPathConfig)
+    ? uploadPathConfig
+    : Path.Combine(builder.Environment.ContentRootPath, uploadPathConfig);
+
+if (!Directory.Exists(fullUploadPath))
+{
+    Directory.CreateDirectory(fullUploadPath);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullUploadPath),
+    RequestPath = requestPathConfig.TrimEnd('/')
+});
 app.UseStaticFiles();
 
 // 6. Routing (Phân tích endpoint)
