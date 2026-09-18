@@ -30,6 +30,17 @@ namespace HPParking.Api.Common.Exceptions
         public const string VEHICLE_NOT_FOUND = "VEHICLE_NOT_FOUND";
         public const string VEHICLE_PLATE_DUPLICATE = "VEHICLE_PLATE_DUPLICATE";
 
+        // Company
+        public const string COMPANY_NOT_FOUND = "COMPANY_NOT_FOUND";
+        public const string COMPANY_CODE_DUPLICATE = "COMPANY_CODE_DUPLICATE";
+        public const string COMPANY_HAS_DEPARTMENTS = "COMPANY_HAS_DEPARTMENTS";
+        public const string COMPANY_HAS_GATES = "COMPANY_HAS_GATES";
+
+        // Department
+        public const string DEPARTMENT_NOT_FOUND = "DEPARTMENT_NOT_FOUND";
+        public const string DEPARTMENT_CODE_DUPLICATE = "DEPARTMENT_CODE_DUPLICATE";
+        public const string DEPARTMENT_HAS_CLIENTS = "DEPARTMENT_HAS_CLIENTS";
+
         // File & Import
         public const string FILE_INVALID_FORMAT = "FILE_INVALID_FORMAT";
         public const string FILE_SIZE_EXCEEDED = "FILE_SIZE_EXCEEDED";
