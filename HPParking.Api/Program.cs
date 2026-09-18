@@ -81,6 +81,8 @@ builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddSingleton<IFaceIdService, HikvisionFaceIdService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
 builder.Services.AddScoped<IClientService, ClientService>();
+builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 
 // Cấu hình Mapster Object Mapping
 builder.Services.RegisterMapsterConfiguration();

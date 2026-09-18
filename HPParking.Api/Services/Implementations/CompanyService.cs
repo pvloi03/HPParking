@@ -1,0 +1,218 @@
+using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using HPParking.Api.Common.Exceptions;
+using HPParking.Api.DTOs.Common;
+using HPParking.Api.DTOs.Companies;
+using HPParking.Api.Services.Interfaces;
+using HPParking.Core.Interfaces;
+using HPParking.Core.Models.Entities;
+using Mapster;
+using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using MongoDB.Driver;
+
+namespace HPParking.Api.Services.Implementations
+{
+    public class CompanyService : ICompanyService
+    {
+        private readonly IRepository<Company> _companyRepo;
+        private readonly IRepository<Department> _departmentRepo;
+        private readonly IRepository<Gate> _gateRepo;
+        private readonly ILogger<CompanyService> _logger;
+
+        public CompanyService(
+            IRepository<Company> companyRepo,
+            IRepository<Department> departmentRepo,
+            IRepository<Gate> gateRepo,
+            ILogger<CompanyService> logger)
+        {
+            _companyRepo = companyRepo;
+            _departmentRepo = departmentRepo;
+            _gateRepo = gateRepo;
+            _logger = logger;
+        }
+
+        public async Task<PagedResult<CompanyDto>> GetCompaniesPagedAsync(CompanyFilterQuery query, CancellationToken cancellationToken = default)
+        {
+            var builder = Builders<Company>.Filter;
+            var filters = new List<FilterDefinition<Company>>
+            {
+                builder.Eq(c => c.IsDeleted, false)
+            };
+
+            if (query.IsActive.HasValue)
+            {
+                filters.Add(builder.Eq(c => c.IsActive, query.IsActive.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.Keyword))
+            {
+                var cleanKw = Regex.Escape(query.Keyword.Trim());
+                var regex = new BsonRegularExpression(cleanKw, "i");
+                filters.Add(builder.Or(
+                    builder.Regex(c => c.Code, regex),
+                    builder.Regex(c => c.Name, regex),
+                    builder.Regex(c => c.PhoneNumber, regex)
+                ));
+            }
+
+            var filter = builder.And(filters);
+            var sort = query.SortOrder?.ToLower() == "asc"
+                ? Builders<Company>.Sort.Ascending(c => c.CreatedAt)
+                : Builders<Company>.Sort.Descending(c => c.CreatedAt);
+
+            var totalCount = await _companyRepo.CountAsync(filter, cancellationToken);
+            var companies = await _companyRepo.FindAsync(filter, sort, query.Skip, query.PageSize, cancellationToken);
+
+            var dtos = companies.Adapt<List<CompanyDto>>();
+            return new PagedResult<CompanyDto>(dtos, query.PageIndex, query.PageSize, totalCount);
+        }
+
+        public async Task<CompanyDto> GetCompanyByIdAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var company = await _companyRepo.GetByIdAsync(id, cancellationToken);
+            if (company == null || company.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin công ty với Id đã chỉ định.", ErrorCodes.COMPANY_NOT_FOUND);
+            }
+
+            return company.Adapt<CompanyDto>();
+        }
+
+        public async Task<CompanyDto> CreateCompanyAsync(CreateCompanyRequest request, CancellationToken cancellationToken = default)
+        {
+            var cleanCode = request.Code.Trim().ToUpperInvariant();
+            var cleanName = request.Name.Trim();
+
+            // Kiểm tra trùng mã Code trong các công ty chưa bị xóa
+            var existing = await _companyRepo.FindOneAsync(
+                c => c.Code == cleanCode && !c.IsDeleted,
+                cancellationToken);
+
+            if (existing != null)
+            {
+                throw new ConflictException(
+                    $"Mã công ty '{cleanCode}' đã tồn tại trong hệ thống ({existing.Name}).",
+                    ErrorCodes.COMPANY_CODE_DUPLICATE);
+            }
+
+            var company = new Company
+            {
+                Code = cleanCode,
+                Name = cleanName,
+                PhoneNumber = request.PhoneNumber?.Trim(),
+                Email = request.Email?.Trim(),
+                IsActive = request.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _companyRepo.AddAsync(company, cancellationToken);
+            _logger.LogInformation("Đã tạo mới công ty: {Name} (Code: {Code}) - ID: {Id}", company.Name, company.Code, company.Id);
+
+            return company.Adapt<CompanyDto>();
+        }
+
+        public async Task<CompanyDto> UpdateCompanyAsync(string id, UpdateCompanyRequest request, CancellationToken cancellationToken = default)
+        {
+            var company = await _companyRepo.GetByIdAsync(id, cancellationToken);
+            if (company == null || company.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin công ty cần cập nhật.", ErrorCodes.COMPANY_NOT_FOUND);
+            }
+
+            var cleanCode = request.Code.Trim().ToUpperInvariant();
+            var cleanName = request.Name.Trim();
+
+            // Nếu thay đổi Code, kiểm tra trùng lặp
+            if (!string.Equals(company.Code, cleanCode, StringComparison.OrdinalIgnoreCase))
+            {
+                var existing = await _companyRepo.FindOneAsync(
+                    c => c.Code == cleanCode && c.Id != id && !c.IsDeleted,
+                    cancellationToken);
+
+                if (existing != null)
+                {
+                    throw new ConflictException(
+                        $"Mã công ty '{cleanCode}' đã tồn tại trong hệ thống ({existing.Name}).",
+                        ErrorCodes.COMPANY_CODE_DUPLICATE);
+                }
+            }
+
+            // Active State Protection (ADR 0030): Không cho tắt Công ty nếu còn phòng ban đang active
+            if (company.IsActive && !request.IsActive)
+            {
+                var activeDepCount = await _departmentRepo.CountAsync(
+                    d => d.CompanyId == id && d.IsActive && !d.IsDeleted,
+                    cancellationToken);
+
+                if (activeDepCount > 0)
+                {
+                    throw new BadRequestException(
+                        $"Không thể vô hiệu hóa Công ty '{company.Name}' vì vẫn còn {activeDepCount} phòng ban đang hoạt động. Vui lòng tắt các phòng ban trước.",
+                        ErrorCodes.BAD_REQUEST);
+                }
+            }
+
+            company.Code = cleanCode;
+            company.Name = cleanName;
+            company.PhoneNumber = request.PhoneNumber?.Trim();
+            company.Email = request.Email?.Trim();
+            company.IsActive = request.IsActive;
+            company.UpdatedAt = DateTime.UtcNow;
+
+            await _companyRepo.UpdateAsync(company, cancellationToken);
+            _logger.LogInformation("Đã cập nhật công ty {Id}: {Name} (Code: {Code})", company.Id, company.Name, company.Code);
+
+            return company.Adapt<CompanyDto>();
+        }
+
+        public async Task<bool> DeleteCompanyAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
+        {
+            var company = await _companyRepo.GetByIdAsync(id, cancellationToken);
+            if (company == null || company.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin công ty cần xóa.", ErrorCodes.COMPANY_NOT_FOUND);
+            }
+
+            // Restrict Deletion Policy (ADR 0030): Chặn xóa nếu còn phòng ban trực thuộc
+            var depCount = await _departmentRepo.CountAsync(
+                d => d.CompanyId == id && !d.IsDeleted,
+                cancellationToken);
+
+            if (depCount > 0)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa Công ty '{company.Name}' vì vẫn còn {depCount} phòng ban trực thuộc. Vui lòng xóa hoặc di chuyển các phòng ban trước.",
+                    ErrorCodes.COMPANY_HAS_DEPARTMENTS);
+            }
+
+            // Restrict Deletion Policy (ADR 0030): Chặn xóa nếu còn Cổng trực thuộc
+            var gateCount = await _gateRepo.CountAsync(
+                g => g.CompanyId == id && !g.IsDeleted,
+                cancellationToken);
+
+            if (gateCount > 0)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa Công ty '{company.Name}' vì vẫn còn {gateCount} cổng trực thuộc. Vui lòng xóa hoặc di chuyển các cổng trước.",
+                    ErrorCodes.COMPANY_HAS_GATES);
+            }
+
+            if (!hardDelete)
+            {
+                await _companyRepo.DeleteAsync(id, softDelete: true, cancellationToken);
+                _logger.LogInformation("Đã XÓA MỀM công ty {Id}: {Name}", id, company.Name);
+            }
+            else
+            {
+                await _companyRepo.DeleteAsync(id, softDelete: false, cancellationToken);
+                _logger.LogInformation("Đã XÓA CỨNG công ty {Id}: {Name}", id, company.Name);
+            }
+
+            return true;
+        }
+    }
+}
