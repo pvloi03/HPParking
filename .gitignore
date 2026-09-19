@@ -4,6 +4,8 @@
 *.Tests
 *dist/
 *scripts/
+AGENTS.md
+CONTEXT.md
 *.md
 .codegraph/
 appsettings.json
