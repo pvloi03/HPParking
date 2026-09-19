@@ -28,7 +28,6 @@ namespace HPParking.Api.Services.Implementations
     public class ClientExcelService : IClientExcelService
     {
         private const int MaxExportLimit = 10000;
-        private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
 
         private readonly IExcelService _excelService;
         private readonly IRepository<Client> _clientRepo;
@@ -78,7 +77,7 @@ namespace HPParking.Api.Services.Implementations
             DuplicateMode duplicateMode = DuplicateMode.Skip,
             CancellationToken cancellationToken = default)
         {
-            await ValidateFileAsync(file);
+            ExcelFileValidator.Validate(file);
 
             using var memoryStream = new MemoryStream();
             await file.CopyToAsync(memoryStream, cancellationToken);
@@ -362,33 +361,6 @@ namespace HPParking.Api.Services.Implementations
             _logger.LogInformation("Xuất Excel Khách hàng: {Count} dòng (Truncated: {IsTruncated}).", exportList.Count, isTruncated);
 
             return (fileBytes, fileName, isTruncated);
-        }
-
-        private static async Task ValidateFileAsync(IFormFile file)
-        {
-            if (file == null || file.Length == 0)
-            {
-                throw new BadRequestException("Tệp tin tải lên bị rỗng.", ErrorCodes.EXCEL_EMPTY_FILE);
-            }
-
-            if (file.Length > MaxFileSize)
-            {
-                throw new BadRequestException("Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB).", ErrorCodes.EXCEL_FILE_SIZE_EXCEEDED);
-            }
-
-            var ext = Path.GetExtension(file.FileName);
-            if (!string.Equals(ext, ".xlsx", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new BadRequestException("Định dạng tệp không hợp lệ. Chỉ chấp nhận tệp Excel .xlsx", ErrorCodes.EXCEL_INVALID_FILE_FORMAT);
-            }
-
-            using var stream = file.OpenReadStream();
-            var header = new byte[4];
-            var read = await stream.ReadAsync(header.AsMemory(0, 4));
-            if (read < 4 || header[0] != 0x50 || header[1] != 0x4B || header[2] != 0x03 || header[3] != 0x04)
-            {
-                throw new BadRequestException("Nội dung tệp không phải là định dạng bảng tính OpenXML chuẩn.", ErrorCodes.EXCEL_INVALID_FILE_FORMAT);
-            }
         }
 
         private static void ResolveCompanyAndDepartment(

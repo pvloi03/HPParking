@@ -12,6 +12,7 @@ namespace HPParking.Api.Controllers.V1
 {
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/excel/master-data")]
+    [Route("api/v{version:apiVersion}/excel")]
     public class MasterDataExcelController : BaseApiController
     {
         private const string ExcelContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -79,6 +80,7 @@ namespace HPParking.Api.Controllers.V1
         /// </summary>
         /// <param name="entity">companies, departments, contractors, gates, lanes, devices</param>
         [HttpGet("{entity}/export")]
+        [HttpPost("{entity}/export")]
         [Authorize(Roles = "Viewer,Manager,Admin")]
         [ProducesResponseType(typeof(FileContentResult), 200)]
         [ProducesResponseType(typeof(ApiResponse<object>), 400)]

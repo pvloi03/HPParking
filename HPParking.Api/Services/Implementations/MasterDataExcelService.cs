@@ -21,7 +21,6 @@ namespace HPParking.Api.Services.Implementations
     /// </summary>
     public class MasterDataExcelService : IMasterDataExcelService
     {
-        private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5MB
         private const int MaxExportLimit = 10000;
 
         private readonly IExcelService _excelService;
@@ -99,7 +98,7 @@ namespace HPParking.Api.Services.Implementations
             bool dryRun = false,
             CancellationToken cancellationToken = default)
         {
-            ValidateExcelFile(fileStream);
+            ExcelFileValidator.Validate(fileStream);
 
             var normalized = NormalizeEntity(entity);
             return normalized switch
@@ -708,33 +707,6 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return result;
-        }
-
-        private static void ValidateExcelFile(Stream stream)
-        {
-            if (stream == null || stream.Length == 0)
-            {
-                throw new BadRequestException("File Excel tải lên rỗng hoặc không có dữ liệu.", ErrorCodes.EXCEL_EMPTY_FILE);
-            }
-
-            if (stream.Length > MaxFileSizeBytes)
-            {
-                throw new BadRequestException("Kích thước file Excel vượt quá giới hạn cho phép (tối đa 5MB).", ErrorCodes.EXCEL_FILE_SIZE_EXCEEDED);
-            }
-
-            var position = stream.CanSeek ? stream.Position : 0;
-            var header = new byte[4];
-            var bytesRead = stream.Read(header, 0, 4);
-
-            if (stream.CanSeek)
-            {
-                stream.Position = position;
-            }
-
-            if (bytesRead < 4 || header[0] != 0x50 || header[1] != 0x4B || header[2] != 0x03 || header[3] != 0x04)
-            {
-                throw new BadRequestException("Định dạng file không hợp lệ. Chỉ chấp nhận định dạng Excel (.xlsx).", ErrorCodes.EXCEL_INVALID_FILE_FORMAT);
-            }
         }
 
         #endregion

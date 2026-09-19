@@ -14,6 +14,7 @@ namespace HPParking.Api.Controllers.V1
 {
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/excel/reports")]
+    [Route("api/v{version:apiVersion}/excel")]
     public class ReportsExcelController : BaseApiController
     {
         private const string ExcelContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -113,6 +114,7 @@ namespace HPParking.Api.Controllers.V1
         /// Xuất báo cáo Ma trận phân bổ khách hàng &amp; phương tiện theo đơn vị tổ chức ra Excel
         /// </summary>
         [HttpGet("distribution/export")]
+        [HttpGet("statistics/distribution/export")]
         [Authorize(Roles = "Viewer,Manager,Admin")]
         [ProducesResponseType(typeof(FileContentResult), 200)]
         [ProducesResponseType(typeof(ApiResponse<object>), 401)]
