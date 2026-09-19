@@ -1,8 +1,9 @@
 # .NET
-docs/
+*docs/
+*adr
 *.Tests
-dist/
-scripts/
+*dist/
+*scripts/
 *.md
 .codegraph/
 appsettings.json
