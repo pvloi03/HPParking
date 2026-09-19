@@ -35,7 +35,7 @@ namespace HPParking.Api.Controllers.V1
                 Timestamp = DateTime.UtcNow
             };
 
-            return OkApiResponse(healthInfo, "Dịch vụ HPParking.Api đang hoạt động bình thường.");
+            return OkApiResponse<object>(healthInfo, "Dịch vụ HPParking.Api đang hoạt động bình thường.");
         }
     }
 }
