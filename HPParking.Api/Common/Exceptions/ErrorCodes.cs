@@ -82,5 +82,8 @@ namespace HPParking.Api.Common.Exceptions
         public const string FILE_INVALID_FORMAT = "FILE_INVALID_FORMAT";
         public const string FILE_SIZE_EXCEEDED = "FILE_SIZE_EXCEEDED";
         public const string EXCEL_PARSE_ERROR = "EXCEL_PARSE_ERROR";
+        public const string EXCEL_INVALID_FILE_FORMAT = "EXCEL_INVALID_FILE_FORMAT";
+        public const string EXCEL_FILE_SIZE_EXCEEDED = "EXCEL_FILE_SIZE_EXCEEDED";
+        public const string EXCEL_EMPTY_FILE = "EXCEL_EMPTY_FILE";
     }
 }
