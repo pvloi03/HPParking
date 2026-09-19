@@ -38,6 +38,10 @@ _Avoid_: Client, Customer, Account, Driver
 Thiết bị phần cứng ngoại vi (Camera chụp ảnh, Bộ điều khiển Barie, Máy nhận diện FaceID hoặc thiết bị phụ trợ) kết nối mạng LAN phục vụ kiểm soát bãi xe, được định danh qua mã duy nhất và địa chỉ mạng.
 _Avoid_: Hardware, Peripheral, Machine, Equipment
 
+**Contractor**:
+Đơn vị nhà thầu, đối tác thi công hoặc nhà cung cấp dịch vụ bên ngoài hoạt động trong khuôn viên bãi xe, có nhân sự (`Client`) đăng ký phương tiện và quyền ra vào.
+_Avoid_: Vendor, Partner, Supplier, Subcontractor, ConstructionUnit
+
 ### Domain Concepts & Identifiers (Mô hình Không Thẻ Từ)
 
 **Cardless Access Control (Kiểm soát không dùng thẻ)**:
