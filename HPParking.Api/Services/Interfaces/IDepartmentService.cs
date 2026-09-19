@@ -12,5 +12,6 @@ namespace HPParking.Api.Services.Interfaces
         Task<DepartmentDto> CreateDepartmentAsync(CreateDepartmentRequest request, CancellationToken cancellationToken = default);
         Task<DepartmentDto> UpdateDepartmentAsync(string id, UpdateDepartmentRequest request, CancellationToken cancellationToken = default);
         Task<bool> DeleteDepartmentAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default);
+        Task<DepartmentDto> RestoreDepartmentAsync(string id, CancellationToken cancellationToken = default);
     }
 }

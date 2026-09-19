@@ -91,7 +91,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Xóa khách hàng: Mặc định xóa mềm (không xóa FaceID); nếu ?hardDelete=true sẽ xóa vĩnh viễn khỏi CSDL và phát lệnh xóa FaceID
+        /// Xóa khách hàng (Mặc định xóa mềm, chặn xóa nếu còn phương tiện theo ADR 0030/0031); nếu ?hardDelete=true sẽ xóa vĩnh viễn khỏi CSDL và phát lệnh xóa FaceID
         /// </summary>
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
@@ -99,14 +99,32 @@ namespace HPParking.Api.Controllers.V1
         [ProducesResponseType(typeof(ApiResponse<object>), 401)]
         [ProducesResponseType(typeof(ApiResponse<object>), 403)]
         [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 409)]
         public async Task<IActionResult> DeleteClient(string id, [FromQuery] bool hardDelete = false)
         {
             await _clientService.DeleteClientAsync(id, hardDelete);
             var message = hardDelete
                 ? "Đã xóa vĩnh viễn khách hàng và gửi lệnh thu hồi quyền FaceID."
-                : "Đã xóa mềm khách hàng và phương tiện thành công (bảo lưu FaceID).";
+                : "Đã xóa mềm khách hàng thành công (bảo lưu FaceID).";
 
             return OkApiResponse(true, message);
+        }
+
+        /// <summary>
+        /// Khôi phục khách hàng từ thùng rác (ADR 0031 Recycle Bin &amp; Restore)
+        /// </summary>
+        [HttpPost("{id}/restore")]
+        [Authorize(Roles = "Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<ClientDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+        public async Task<IActionResult> RestoreClient(string id)
+        {
+            var restored = await _clientService.RestoreClientAsync(id);
+            return OkApiResponse(restored, "Khôi phục khách hàng thành công.");
         }
 
         /// <summary>

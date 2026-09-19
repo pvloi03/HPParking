@@ -86,5 +86,22 @@ namespace HPParking.Api.Controllers.V1
 
             return OkApiResponse(true, msg);
         }
+
+        /// <summary>
+        /// Khôi phục phương tiện từ thùng rác (ADR 0031 Recycle Bin &amp; Restore)
+        /// </summary>
+        [HttpPost("{id}/restore")]
+        [Authorize(Roles = "Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<VehicleDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+        public async Task<IActionResult> RestoreVehicle(string id)
+        {
+            var restored = await _vehicleService.RestoreVehicleAsync(id);
+            return OkApiResponse(restored, "Khôi phục phương tiện thành công.");
+        }
     }
 }

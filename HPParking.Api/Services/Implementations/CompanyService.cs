@@ -38,10 +38,7 @@ namespace HPParking.Api.Services.Implementations
         public async Task<PagedResult<CompanyDto>> GetCompaniesPagedAsync(CompanyFilterQuery query, CancellationToken cancellationToken = default)
         {
             var builder = Builders<Company>.Filter;
-            var filters = new List<FilterDefinition<Company>>
-            {
-                builder.Eq(c => c.IsDeleted, false)
-            };
+            var filters = new List<FilterDefinition<Company>>();
 
             if (query.IsActive.HasValue)
             {
@@ -59,13 +56,13 @@ namespace HPParking.Api.Services.Implementations
                 ));
             }
 
-            var filter = builder.And(filters);
+            var filter = filters.Count > 0 ? builder.And(filters) : builder.Empty;
             var sort = query.SortOrder?.ToLower() == "asc"
                 ? Builders<Company>.Sort.Ascending(c => c.CreatedAt)
                 : Builders<Company>.Sort.Descending(c => c.CreatedAt);
 
-            var totalCount = await _companyRepo.CountAsync(filter, cancellationToken);
-            var companies = await _companyRepo.FindAsync(filter, sort, query.Skip, query.PageSize, cancellationToken);
+            var totalCount = await _companyRepo.CountAsync(filter, onlyDeleted: query.OnlyDeleted, cancellationToken);
+            var companies = await _companyRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: query.OnlyDeleted, cancellationToken);
 
             var dtos = companies.Adapt<List<CompanyDto>>();
             return new PagedResult<CompanyDto>(dtos, query.PageIndex, query.PageSize, totalCount);
@@ -213,6 +210,40 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return true;
+        }
+
+        public async Task<CompanyDto> RestoreCompanyAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var company = await _companyRepo.GetDeletedByIdAsync(id, cancellationToken);
+            if (company == null)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin công ty trong thùng rác.", ErrorCodes.COMPANY_NOT_FOUND);
+            }
+
+            // Re-validation: Kiểm tra mã Code xem có bị trùng với Công ty đang hoạt động khác không
+            var existing = await _companyRepo.FindOneAsync(
+                c => c.Code == company.Code && c.Id != id && !c.IsDeleted,
+                cancellationToken);
+
+            if (existing != null)
+            {
+                throw new ConflictException(
+                    $"Không thể khôi phục vì mã công ty '{company.Code}' đã được sử dụng bởi công ty đang hoạt động '{existing.Name}'.",
+                    ErrorCodes.COMPANY_CODE_DUPLICATE);
+            }
+
+            var success = await _companyRepo.RestoreAsync(id, cancellationToken);
+            if (!success)
+            {
+                throw new AppException("Khôi phục công ty thất bại.", 500, ErrorCodes.RESTORE_FAILED);
+            }
+
+            company.IsDeleted = false;
+            company.DeletedAt = null;
+            company.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Đã KHÔI PHỤC công ty {Id}: {Name} ({Code}) từ thùng rác.", company.Id, company.Name, company.Code);
+            return company.Adapt<CompanyDto>();
         }
     }
 }

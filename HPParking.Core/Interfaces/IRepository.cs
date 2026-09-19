@@ -33,9 +33,24 @@ namespace HPParking.Core.Interfaces
         Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Lấy một bản ghi đã bị xóa mềm theo Id (chỉ tìm trong các bản ghi IsDeleted == true)
+        /// </summary>
+        Task<T?> GetDeletedByIdAsync(string id, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Khôi phục bản ghi đã xóa mềm về trạng thái hoạt động bình thường (IsDeleted = false, DeletedAt = null)
+        /// </summary>
+        Task<bool> RestoreAsync(string id, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Tìm kiếm danh sách bản ghi theo FilterDefinition với sắp xếp và phân trang
         /// </summary>
         Task<IReadOnlyList<T>> FindAsync(MongoDB.Driver.FilterDefinition<T> filter, MongoDB.Driver.SortDefinition<T>? sort = null, int skip = 0, int limit = 0, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Tìm kiếm danh sách bản ghi theo FilterDefinition với sắp xếp, phân trang và tùy chọn thùng rác (onlyDeleted)
+        /// </summary>
+        Task<IReadOnlyList<T>> FindAsync(MongoDB.Driver.FilterDefinition<T> filter, MongoDB.Driver.SortDefinition<T>? sort, int skip, int limit, bool onlyDeleted, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Tìm bản ghi đầu tiên khớp điều kiện
@@ -56,6 +71,11 @@ namespace HPParking.Core.Interfaces
         /// Đếm số lượng bản ghi theo FilterDefinition
         /// </summary>
         Task<long> CountAsync(MongoDB.Driver.FilterDefinition<T> filter, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Đếm số lượng bản ghi theo FilterDefinition với tùy chọn thùng rác (onlyDeleted)
+        /// </summary>
+        Task<long> CountAsync(MongoDB.Driver.FilterDefinition<T> filter, bool onlyDeleted, CancellationToken cancellationToken = default);
 
         // =========================================================================
         // --- 2. THAO TÁC GHI (WRITE) ---

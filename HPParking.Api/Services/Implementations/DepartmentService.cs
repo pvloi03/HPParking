@@ -39,10 +39,7 @@ namespace HPParking.Api.Services.Implementations
         public async Task<PagedResult<DepartmentDto>> GetDepartmentsPagedAsync(DepartmentFilterQuery query, CancellationToken cancellationToken = default)
         {
             var builder = Builders<Department>.Filter;
-            var filters = new List<FilterDefinition<Department>>
-            {
-                builder.Eq(d => d.IsDeleted, false)
-            };
+            var filters = new List<FilterDefinition<Department>>();
 
             if (!string.IsNullOrWhiteSpace(query.CompanyId))
             {
@@ -66,13 +63,13 @@ namespace HPParking.Api.Services.Implementations
                 ));
             }
 
-            var filter = builder.And(filters);
+            var filter = filters.Count > 0 ? builder.And(filters) : builder.Empty;
             var sort = query.SortOrder?.ToLower() == "asc"
                 ? Builders<Department>.Sort.Ascending(d => d.CreatedAt)
                 : Builders<Department>.Sort.Descending(d => d.CreatedAt);
 
-            var totalCount = await _departmentRepo.CountAsync(filter, cancellationToken);
-            var departments = await _departmentRepo.FindAsync(filter, sort, query.Skip, query.PageSize, cancellationToken);
+            var totalCount = await _departmentRepo.CountAsync(filter, onlyDeleted: query.OnlyDeleted, cancellationToken);
+            var departments = await _departmentRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: query.OnlyDeleted, cancellationToken);
 
             // Bổ sung CompanyName phẳng vào DepartmentDto (ADR 0030 Enriched Detail DTO Pattern)
             var companyIds = departments
@@ -267,6 +264,59 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return true;
+        }
+
+        public async Task<DepartmentDto> RestoreDepartmentAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var department = await _departmentRepo.GetDeletedByIdAsync(id, cancellationToken);
+            if (department == null)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin phòng ban trong thùng rác.", ErrorCodes.DEPARTMENT_NOT_FOUND);
+            }
+
+            // Strict Parent-First Restore (ADR 0031): Bắt buộc Công ty cha phải đang hoạt động
+            if (string.IsNullOrWhiteSpace(department.CompanyId))
+            {
+                throw new BadRequestException(
+                    "Phòng ban không có thông tin công ty trực thuộc.",
+                    ErrorCodes.PARENT_IS_DELETED);
+            }
+
+            var company = await _companyRepo.GetByIdAsync(department.CompanyId, cancellationToken);
+            if (company == null || company.IsDeleted)
+            {
+                throw new BadRequestException(
+                    "Không thể khôi phục phòng ban vì công ty trực thuộc đang nằm trong thùng rác hoặc không tồn tại. Vui lòng khôi phục công ty trước.",
+                    ErrorCodes.PARENT_IS_DELETED);
+            }
+
+            // Re-validation: Kiểm tra mã Code xem có bị trùng với Phòng ban đang hoạt động khác không
+            var existing = await _departmentRepo.FindOneAsync(
+                d => d.Code == department.Code && d.Id != id && !d.IsDeleted,
+                cancellationToken);
+
+            if (existing != null)
+            {
+                throw new ConflictException(
+                    $"Không thể khôi phục vì mã phòng ban '{department.Code}' đã được sử dụng bởi phòng ban đang hoạt động '{existing.Name}'.",
+                    ErrorCodes.DEPARTMENT_CODE_DUPLICATE);
+            }
+
+            var success = await _departmentRepo.RestoreAsync(id, cancellationToken);
+            if (!success)
+            {
+                throw new AppException("Khôi phục phòng ban thất bại.", 500, ErrorCodes.RESTORE_FAILED);
+            }
+
+            department.IsDeleted = false;
+            department.DeletedAt = null;
+            department.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Đã KHÔI PHỤC phòng ban {Id}: {Name} ({Code}) thuộc công ty {CompanyId} từ thùng rác.", department.Id, department.Name, department.Code, company.Id);
+
+            var dto = department.Adapt<DepartmentDto>();
+            dto.CompanyName = company.Name;
+            return dto;
         }
     }
 }

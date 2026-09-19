@@ -13,6 +13,7 @@ namespace HPParking.Api.Services.Interfaces
         Task<ClientDetailDto> CreateClientAsync(CreateClientRequest request, CancellationToken cancellationToken = default);
         Task<ClientDto> UpdateClientAsync(string id, UpdateClientRequest request, CancellationToken cancellationToken = default);
         Task<bool> DeleteClientAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default);
+        Task<ClientDto> RestoreClientAsync(string id, CancellationToken cancellationToken = default);
         Task<string> UploadAvatarAsync(string id, IFormFile file, CancellationToken cancellationToken = default);
         Task<SyncFaceIdResponse> SyncFaceIdAsync(string id, CancellationToken cancellationToken = default);
     }

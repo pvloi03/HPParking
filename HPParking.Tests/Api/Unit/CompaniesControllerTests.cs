@@ -113,5 +113,20 @@ namespace HPParking.Tests.Api.Unit
             response.Success.Should().BeTrue();
             response.Data.Should().BeTrue();
         }
+
+        [Fact]
+        public async Task RestoreCompany_ReturnsOkWithRestoredCompany()
+        {
+            var restored = new CompanyDto { Id = "c1", Code = "CP01", Name = "Công ty A" };
+            _companyService.RestoreCompanyAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(restored));
+
+            var result = await _controller.RestoreCompany("c1");
+
+            var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+            var response = ok.Value.Should().BeOfType<ApiResponse<CompanyDto>>().Subject;
+            response.Success.Should().BeTrue();
+            response.Data!.Code.Should().Be("CP01");
+        }
     }
 }

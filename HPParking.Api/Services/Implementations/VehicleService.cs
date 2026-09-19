@@ -65,8 +65,8 @@ namespace HPParking.Api.Services.Implementations
                 ? Builders<Vehicle>.Sort.Ascending(x => x.CreatedAt)
                 : Builders<Vehicle>.Sort.Descending(x => x.CreatedAt);
 
-            var totalCount = await _vehicleRepo.CountAsync(filter, cancellationToken);
-            var vehicles = await _vehicleRepo.FindAsync(filter, sort, query.Skip, query.PageSize, cancellationToken);
+            var totalCount = await _vehicleRepo.CountAsync(filter, onlyDeleted: query.OnlyDeleted, cancellationToken);
+            var vehicles = await _vehicleRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: query.OnlyDeleted, cancellationToken);
 
             var dtos = vehicles.Adapt<List<VehicleDto>>();
             return new PagedResult<VehicleDto>(dtos, query.PageIndex, query.PageSize, totalCount);
@@ -190,6 +190,58 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return true;
+        }
+
+        public async Task<VehicleDto> RestoreVehicleAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var vehicle = await _vehicleRepo.GetDeletedByIdAsync(id, cancellationToken);
+            if (vehicle == null)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin phương tiện trong thùng rác.", ErrorCodes.VEHICLE_NOT_FOUND);
+            }
+
+            // Strict Parent-First Restore (ADR 0031):
+            // Khách hàng chủ sở hữu xe bắt buộc phải đang hoạt động (!IsDeleted)
+            if (string.IsNullOrWhiteSpace(vehicle.OwnerClientId))
+            {
+                throw new BadRequestException(
+                    "Phương tiện không có thông tin khách hàng chủ sở hữu.",
+                    ErrorCodes.PARENT_IS_DELETED);
+            }
+
+            var owner = await _clientRepo.GetByIdAsync(vehicle.OwnerClientId, cancellationToken);
+            if (owner == null || owner.IsDeleted)
+            {
+                throw new BadRequestException(
+                    "Không thể khôi phục phương tiện vì khách hàng chủ sở hữu đang nằm trong thùng rác hoặc không tồn tại. Vui lòng khôi phục khách hàng trước.",
+                    ErrorCodes.PARENT_IS_DELETED);
+            }
+
+            // Re-validation: Biển số xe phải duy nhất trong số các xe đang hoạt động
+            var normalizedPlate = PlateHelper.Normalize(vehicle.PlateNumber);
+            var existing = await _vehicleRepo.FindOneAsync(
+                v => v.PlateNumber == normalizedPlate && v.Id != id && !v.IsDeleted,
+                cancellationToken);
+
+            if (existing != null)
+            {
+                throw new ConflictException(
+                    $"Không thể khôi phục vì biển số xe '{normalizedPlate}' đã được sử dụng bởi một phương tiện đang hoạt động khác.",
+                    ErrorCodes.VEHICLE_PLATE_DUPLICATE);
+            }
+
+            var success = await _vehicleRepo.RestoreAsync(id, cancellationToken);
+            if (!success)
+            {
+                throw new AppException("Khôi phục phương tiện thất bại.", 500, ErrorCodes.RESTORE_FAILED);
+            }
+
+            vehicle.IsDeleted = false;
+            vehicle.DeletedAt = null;
+            vehicle.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Đã KHÔI PHỤC phương tiện {Id}: {PlateNumber} cho khách hàng {OwnerClientId} từ thùng rác.", vehicle.Id, vehicle.PlateNumber, vehicle.OwnerClientId);
+            return vehicle.Adapt<VehicleDto>();
         }
     }
 }
