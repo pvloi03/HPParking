@@ -25,6 +25,8 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IRepository<Lane> _laneRepo;
         private readonly IRepository<Device> _deviceRepo;
+        private readonly IRepository<Company>? _companyRepo;
+        private readonly IRepository<Department>? _departmentRepo;
         private readonly IFileStorageService _fileStorage;
         private readonly IFaceIdService _faceIdService;
         private readonly ILogger<ClientService> _logger;
@@ -36,7 +38,9 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Device> deviceRepo,
             IFileStorageService fileStorage,
             IFaceIdService faceIdService,
-            ILogger<ClientService> logger)
+            ILogger<ClientService> logger,
+            IRepository<Company>? companyRepo = null,
+            IRepository<Department>? departmentRepo = null)
         {
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
@@ -45,6 +49,8 @@ namespace HPParking.Api.Services.Implementations
             _fileStorage = fileStorage;
             _faceIdService = faceIdService;
             _logger = logger;
+            _companyRepo = companyRepo;
+            _departmentRepo = departmentRepo;
         }
 
         public async Task<PagedResult<ClientDto>> GetClientsPagedAsync(ClientFilterQuery query, CancellationToken cancellationToken = default)
@@ -94,8 +100,8 @@ namespace HPParking.Api.Services.Implementations
                 ? Builders<Client>.Sort.Ascending(x => x.CreatedAt)
                 : Builders<Client>.Sort.Descending(x => x.CreatedAt);
 
-            var totalCount = await _clientRepo.CountAsync(filter, cancellationToken);
-            var clients = await _clientRepo.FindAsync(filter, sort, query.Skip, query.PageSize, cancellationToken);
+            var totalCount = await _clientRepo.CountAsync(filter, onlyDeleted: query.OnlyDeleted, cancellationToken);
+            var clients = await _clientRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: query.OnlyDeleted, cancellationToken);
 
             var dtos = clients.Adapt<List<ClientDto>>();
             return new PagedResult<ClientDto>(dtos, query.PageIndex, query.PageSize, totalCount);
@@ -290,38 +296,45 @@ namespace HPParking.Api.Services.Implementations
                 throw new NotFoundException("Không tìm thấy khách hàng cần xóa.", ErrorCodes.CLIENT_NOT_FOUND);
             }
 
-            var vehicles = await _vehicleRepo.FindAsync(
-                v => v.OwnerClientId == id && (!hardDelete ? !v.IsDeleted : true),
+            // Universal Restrict Deletion Policy (ADR 0030 & ADR 0031):
+            // Chặn xóa (409 Conflict) nếu còn bất kỳ phương tiện nào ĐANG HOẠT ĐỘNG (!IsDeleted)
+            var activeVehicles = await _vehicleRepo.FindAsync(
+                v => v.OwnerClientId == id && !v.IsDeleted,
                 cancellationToken);
+
+            if (activeVehicles.Count > 0)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa Khách hàng '{client.Name}' vì vẫn còn {activeVehicles.Count} phương tiện đang hoạt động liên kết. Vui lòng xóa hoặc chuyển quyền sở hữu phương tiện trước.",
+                    ErrorCodes.CLIENT_HAS_VEHICLES);
+            }
 
             if (!hardDelete)
             {
                 // =========================================================================
                 // XÓA MỀM (Soft Delete - Mặc định):
                 // 1. Đánh dấu xóa mềm Client
-                // 2. Đánh dấu xóa mềm toàn bộ xe thuộc Client
-                // 3. BẢO LƯU 100% DỮ LIỆU FACEID: Tuyệt đối không xóa trên thiết bị FaceID
+                // 2. BẢO LƯU 100% DỮ LIỆU FACEID: Tuyệt đối không xóa trên thiết bị FaceID
                 // =========================================================================
                 await _clientRepo.DeleteAsync(id, softDelete: true, cancellationToken);
-
-                foreach (var v in vehicles)
-                {
-                    await _vehicleRepo.DeleteAsync(v.Id, softDelete: true, cancellationToken);
-                }
-
-                _logger.LogInformation("Đã XÓA MỀM khách hàng {Id} và {VehicleCount} xe liên kết (bảo lưu FaceID).", id, vehicles.Count);
+                _logger.LogInformation("Đã XÓA MỀM khách hàng {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
                 return true;
             }
 
             // =========================================================================
             // XÓA CỨNG (Hard Delete):
-            // 1. Xóa vĩnh viễn Client và xe khỏi CSDL MongoDB
-            // 2. Xóa tệp Avatar vật lý trên đĩa
-            // 3. Phát lệnh thu hồi (Delete Card & Delete User) trên toàn bộ FaceID active
+            // 1. Xóa vĩnh viễn Client khỏi CSDL MongoDB
+            // 2. Dọn dẹp các phương tiện đã xóa mềm trước đó của Client (nếu có)
+            // 3. Xóa tệp Avatar vật lý trên đĩa
+            // 4. Phát lệnh thu hồi (Delete Card & Delete User) trên toàn bộ FaceID active
             // =========================================================================
+            var deletedVehicles = await _vehicleRepo.FindAsync(
+                v => v.OwnerClientId == id,
+                cancellationToken);
+
             await _clientRepo.DeleteAsync(id, softDelete: false, cancellationToken);
 
-            foreach (var v in vehicles)
+            foreach (var v in deletedVehicles)
             {
                 await _vehicleRepo.DeleteAsync(v.Id, softDelete: false, cancellationToken);
             }
@@ -347,6 +360,80 @@ namespace HPParking.Api.Services.Implementations
 
             _logger.LogInformation("Đã XÓA CỨNG khách hàng {Id} và gửi lệnh thu hồi quyền FaceID.", id);
             return true;
+        }
+
+        public async Task<ClientDto> RestoreClientAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var client = await _clientRepo.GetDeletedByIdAsync(id, cancellationToken);
+            if (client == null)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin khách hàng trong thùng rác.", ErrorCodes.CLIENT_NOT_FOUND);
+            }
+
+            // Strict Parent-First Restore (ADR 0031):
+            // Nếu khách hàng thuộc Công ty -> Công ty cha phải đang hoạt động
+            if (!string.IsNullOrWhiteSpace(client.CompanyId) && _companyRepo != null)
+            {
+                var company = await _companyRepo.GetByIdAsync(client.CompanyId, cancellationToken);
+                if (company == null || company.IsDeleted)
+                {
+                    throw new BadRequestException(
+                        "Không thể khôi phục khách hàng vì công ty trực thuộc đang nằm trong thùng rác hoặc không tồn tại. Vui lòng khôi phục công ty trước.",
+                        ErrorCodes.PARENT_IS_DELETED);
+                }
+            }
+
+            // Nếu khách hàng thuộc Phòng ban -> Phòng ban cha phải đang hoạt động
+            if (!string.IsNullOrWhiteSpace(client.DepartmentId) && _departmentRepo != null)
+            {
+                var department = await _departmentRepo.GetByIdAsync(client.DepartmentId, cancellationToken);
+                if (department == null || department.IsDeleted)
+                {
+                    throw new BadRequestException(
+                        "Không thể khôi phục khách hàng vì phòng ban trực thuộc đang nằm trong thùng rác hoặc không tồn tại. Vui lòng khôi phục phòng ban trước.",
+                        ErrorCodes.PARENT_IS_DELETED);
+                }
+            }
+
+            // Re-validation: Kiểm tra PhoneNumber với các khách hàng đang hoạt động
+            var existingPhone = await _clientRepo.FindOneAsync(
+                c => c.PhoneNumber == client.PhoneNumber && c.Id != id && !c.IsDeleted,
+                cancellationToken);
+
+            if (existingPhone != null)
+            {
+                throw new ConflictException(
+                    $"Không thể khôi phục vì số điện thoại '{client.PhoneNumber}' đã được sử dụng bởi khách hàng đang hoạt động '{existingPhone.Name}'.",
+                    ErrorCodes.CLIENT_PHONE_DUPLICATE);
+            }
+
+            // Re-validation: Kiểm tra Code (nếu có) với các khách hàng đang hoạt động
+            if (!string.IsNullOrWhiteSpace(client.Code))
+            {
+                var existingCode = await _clientRepo.FindOneAsync(
+                    c => c.Code == client.Code && c.Id != id && !c.IsDeleted,
+                    cancellationToken);
+
+                if (existingCode != null)
+                {
+                    throw new ConflictException(
+                        $"Không thể khôi phục vì mã khách hàng '{client.Code}' đã được sử dụng bởi khách hàng đang hoạt động '{existingCode.Name}'.",
+                        ErrorCodes.CLIENT_CODE_DUPLICATE);
+                }
+            }
+
+            var success = await _clientRepo.RestoreAsync(id, cancellationToken);
+            if (!success)
+            {
+                throw new AppException("Khôi phục khách hàng thất bại.", 500, ErrorCodes.RESTORE_FAILED);
+            }
+
+            client.IsDeleted = false;
+            client.DeletedAt = null;
+            client.UpdatedAt = DateTime.UtcNow;
+
+            _logger.LogInformation("Đã KHÔI PHỤC khách hàng {Id}: {Name} ({Phone}) từ thùng rác.", client.Id, client.Name, client.PhoneNumber);
+            return client.Adapt<ClientDto>();
         }
 
         public async Task<string> UploadAvatarAsync(string id, IFormFile file, CancellationToken cancellationToken = default)

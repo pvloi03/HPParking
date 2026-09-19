@@ -40,13 +40,14 @@ namespace HPParking.Tests.Api.Unit
                 new() { Id = "c2", Code = "CP02", Name = "Công ty B", IsActive = true, IsDeleted = false }
             };
 
-            _companyRepo.CountAsync(Arg.Any<FilterDefinition<Company>>(), Arg.Any<CancellationToken>())
+            _companyRepo.CountAsync(Arg.Any<FilterDefinition<Company>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(2L));
 
             _companyRepo.FindAsync(
                 Arg.Any<FilterDefinition<Company>>(),
                 Arg.Any<SortDefinition<Company>>(),
                 0, 10,
+                Arg.Any<bool>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<IReadOnlyList<Company>>(companies));
 
@@ -260,6 +261,87 @@ namespace HPParking.Tests.Api.Unit
             // Assert
             result.Should().BeTrue();
             await _companyRepo.Received(1).DeleteAsync("c1", softDelete: false, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RestoreCompanyAsync_WhenValid_RestoresAndReturnsCompanyDto()
+        {
+            // Arrange
+            var company = new Company
+            {
+                Id = "c1",
+                Code = "CP01",
+                Name = "Công ty A",
+                IsDeleted = true,
+                DeletedAt = DateTime.UtcNow.AddDays(-1)
+            };
+
+            _companyRepo.GetDeletedByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(company));
+
+            _companyRepo.FindOneAsync(Arg.Any<Expression<Func<Company, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(null)); // Không bị trùng code
+
+            _companyRepo.RestoreAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+
+            // Act
+            var result = await _service.RestoreCompanyAsync("c1");
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Id.Should().Be("c1");
+            result.Code.Should().Be("CP01");
+            await _companyRepo.Received(1).RestoreAsync("c1", Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RestoreCompanyAsync_WhenNotFoundInTrash_ThrowsNotFoundException()
+        {
+            // Arrange
+            _companyRepo.GetDeletedByIdAsync("nonexistent", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(null));
+
+            // Act
+            var act = () => _service.RestoreCompanyAsync("nonexistent");
+
+            // Assert
+            var ex = await act.Should().ThrowAsync<NotFoundException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.COMPANY_NOT_FOUND);
+        }
+
+        [Fact]
+        public async Task RestoreCompanyAsync_WhenCodeDuplicateWithActiveCompany_ThrowsConflictException()
+        {
+            // Arrange
+            var company = new Company
+            {
+                Id = "c1",
+                Code = "CP01",
+                Name = "Công ty A",
+                IsDeleted = true
+            };
+            var activeDuplicate = new Company
+            {
+                Id = "c2",
+                Code = "CP01",
+                Name = "Công ty B",
+                IsDeleted = false
+            };
+
+            _companyRepo.GetDeletedByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(company));
+
+            _companyRepo.FindOneAsync(Arg.Any<Expression<Func<Company, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(activeDuplicate));
+
+            // Act
+            var act = () => _service.RestoreCompanyAsync("c1");
+
+            // Assert - Re-validation on restore 409 Conflict
+            var ex = await act.Should().ThrowAsync<ConflictException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.COMPANY_CODE_DUPLICATE);
+            await _companyRepo.DidNotReceive().RestoreAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
     }
 }

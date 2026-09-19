@@ -45,5 +45,11 @@ namespace HPParking.Api.DTOs.Common
         /// Số bản ghi cần bỏ qua khi truy vấn MongoDB (Skip = (PageIndex - 1) * PageSize)
         /// </summary>
         public int Skip => (PageIndex - 1) * PageSize;
+
+        /// <summary>
+        /// Chỉ truy vấn các bản ghi nằm trong thùng rác (đã bị xóa mềm IsDeleted = true)
+        /// Mặc định: false (chỉ lấy các bản ghi đang hoạt động IsDeleted = false)
+        /// </summary>
+        public bool OnlyDeleted { get; set; } = false;
     }
 }

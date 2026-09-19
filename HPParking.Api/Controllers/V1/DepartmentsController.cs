@@ -104,5 +104,22 @@ namespace HPParking.Api.Controllers.V1
 
             return OkApiResponse(true, msg);
         }
+
+        /// <summary>
+        /// Khôi phục phòng ban từ thùng rác (ADR 0031 Recycle Bin &amp; Restore)
+        /// </summary>
+        [HttpPost("{id}/restore")]
+        [Authorize(Roles = "Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<DepartmentDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+        public async Task<IActionResult> RestoreDepartment(string id)
+        {
+            var restored = await _departmentService.RestoreDepartmentAsync(id);
+            return OkApiResponse(restored, "Khôi phục phòng ban thành công.");
+        }
     }
 }

@@ -34,12 +34,14 @@ namespace HPParking.Core.Repositories
         public IMongoCollection<T> Collection => _collection;
 
         /// <summary>
-        /// Tạo bộ lọc tự động kết hợp điều kiện chưa bị xóa mềm (IsDeleted == false)
+        /// Tạo bộ lọc tự động kết hợp điều kiện xóa mềm:
+        /// - onlyDeleted = false: IsDeleted == false (mặc định)
+        /// - onlyDeleted = true: IsDeleted == true (chỉ lấy bản ghi trong thùng rác)
         /// </summary>
-        protected FilterDefinition<T> CombineSoftDeleteFilter(FilterDefinition<T>? filter = null)
+        protected FilterDefinition<T> CombineSoftDeleteFilter(FilterDefinition<T>? filter = null, bool onlyDeleted = false)
         {
-            var notDeleted = Builders<T>.Filter.Eq(x => x.IsDeleted, false);
-            return filter != null ? Builders<T>.Filter.And(notDeleted, filter) : notDeleted;
+            var softDeleteFilter = Builders<T>.Filter.Eq(x => x.IsDeleted, onlyDeleted);
+            return filter != null ? Builders<T>.Filter.And(softDeleteFilter, filter) : softDeleteFilter;
         }
 
         /// <summary>
@@ -70,6 +72,30 @@ namespace HPParking.Core.Repositories
             return await _collection.Find(filter).FirstOrDefaultAsync(cancellationToken);
         }
 
+        public virtual async Task<T?> GetDeletedByIdAsync(string id, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return null;
+
+            var idFilter = BuildIdFilter(id);
+            var filter = CombineSoftDeleteFilter(idFilter, onlyDeleted: true);
+            return await _collection.Find(filter).FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public virtual async Task<bool> RestoreAsync(string id, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return false;
+
+            var idFilter = BuildIdFilter(id);
+            var filter = CombineSoftDeleteFilter(idFilter, onlyDeleted: true);
+            var update = Builders<T>.Update
+                .Set(x => x.IsDeleted, false)
+                .Set(x => x.DeletedAt, null)
+                .Set(x => x.UpdatedAt, DateTime.UtcNow);
+
+            var result = await _collection.UpdateOneAsync(filter, update, null, cancellationToken);
+            return result.MatchedCount > 0;
+        }
+
         public virtual async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             var filter = CombineSoftDeleteFilter();
@@ -87,7 +113,12 @@ namespace HPParking.Core.Repositories
 
         public virtual async Task<IReadOnlyList<T>> FindAsync(FilterDefinition<T> filter, SortDefinition<T>? sort = null, int skip = 0, int limit = 0, CancellationToken cancellationToken = default)
         {
-            var combinedFilter = CombineSoftDeleteFilter(filter);
+            return await FindAsync(filter, sort, skip, limit, onlyDeleted: false, cancellationToken);
+        }
+
+        public virtual async Task<IReadOnlyList<T>> FindAsync(FilterDefinition<T> filter, SortDefinition<T>? sort, int skip, int limit, bool onlyDeleted, CancellationToken cancellationToken = default)
+        {
+            var combinedFilter = CombineSoftDeleteFilter(filter, onlyDeleted);
             var query = _collection.Find(combinedFilter);
             if (sort != null) query = query.Sort(sort);
             if (skip > 0) query = query.Skip(skip);
@@ -128,7 +159,12 @@ namespace HPParking.Core.Repositories
 
         public virtual async Task<long> CountAsync(FilterDefinition<T> filter, CancellationToken cancellationToken = default)
         {
-            var combinedFilter = CombineSoftDeleteFilter(filter);
+            return await CountAsync(filter, onlyDeleted: false, cancellationToken);
+        }
+
+        public virtual async Task<long> CountAsync(FilterDefinition<T> filter, bool onlyDeleted, CancellationToken cancellationToken = default)
+        {
+            var combinedFilter = CombineSoftDeleteFilter(filter, onlyDeleted);
             return await _collection.CountDocumentsAsync(combinedFilter, null, cancellationToken);
         }
 

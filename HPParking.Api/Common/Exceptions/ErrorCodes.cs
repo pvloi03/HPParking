@@ -25,6 +25,7 @@ namespace HPParking.Api.Common.Exceptions
         public const string CLIENT_NOT_FOUND = "CLIENT_NOT_FOUND";
         public const string CLIENT_PHONE_DUPLICATE = "CLIENT_PHONE_DUPLICATE";
         public const string CLIENT_CODE_DUPLICATE = "CLIENT_CODE_DUPLICATE";
+        public const string CLIENT_HAS_VEHICLES = "CLIENT_HAS_VEHICLES";
 
         // Vehicle
         public const string VEHICLE_NOT_FOUND = "VEHICLE_NOT_FOUND";
@@ -40,6 +41,10 @@ namespace HPParking.Api.Common.Exceptions
         public const string DEPARTMENT_NOT_FOUND = "DEPARTMENT_NOT_FOUND";
         public const string DEPARTMENT_CODE_DUPLICATE = "DEPARTMENT_CODE_DUPLICATE";
         public const string DEPARTMENT_HAS_CLIENTS = "DEPARTMENT_HAS_CLIENTS";
+
+        // Restore & Referential Integrity
+        public const string PARENT_IS_DELETED = "PARENT_IS_DELETED";
+        public const string RESTORE_FAILED = "RESTORE_FAILED";
 
         // File & Import
         public const string FILE_INVALID_FORMAT = "FILE_INVALID_FORMAT";

@@ -44,13 +44,14 @@ namespace HPParking.Tests.Api.Unit
                 new() { Id = "c1", Name = "Công ty Hải Phòng" }
             };
 
-            _departmentRepo.CountAsync(Arg.Any<FilterDefinition<Department>>(), Arg.Any<CancellationToken>())
+            _departmentRepo.CountAsync(Arg.Any<FilterDefinition<Department>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(2L));
 
             _departmentRepo.FindAsync(
                 Arg.Any<FilterDefinition<Department>>(),
                 Arg.Any<SortDefinition<Department>>(),
                 0, 10,
+                Arg.Any<bool>(),
                 Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<IReadOnlyList<Department>>(departments));
 
@@ -263,6 +264,137 @@ namespace HPParking.Tests.Api.Unit
             // Assert
             result.Should().BeTrue();
             await _departmentRepo.Received(1).DeleteAsync("d1", softDelete: false, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RestoreDepartmentAsync_WhenValid_RestoresAndReturnsDepartmentDto_WithCompanyName()
+        {
+            // Arrange
+            var dept = new Department
+            {
+                Id = "d1",
+                CompanyId = "c1",
+                Code = "PB01",
+                Name = "Phòng Kỹ Thuật",
+                IsDeleted = true,
+                DeletedAt = DateTime.UtcNow.AddDays(-1)
+            };
+            var company = new Company
+            {
+                Id = "c1",
+                Name = "Công ty Hải Phòng",
+                IsDeleted = false
+            };
+
+            _departmentRepo.GetDeletedByIdAsync("d1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(dept));
+
+            _companyRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(company));
+
+            _departmentRepo.FindOneAsync(Arg.Any<Expression<Func<Department, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(null)); // Không bị trùng code
+
+            _departmentRepo.RestoreAsync("d1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(true));
+
+            // Act
+            var result = await _service.RestoreDepartmentAsync("d1");
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Id.Should().Be("d1");
+            result.Code.Should().Be("PB01");
+            result.CompanyName.Should().Be("Công ty Hải Phòng");
+            await _departmentRepo.Received(1).RestoreAsync("d1", Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RestoreDepartmentAsync_WhenNotFoundInTrash_ThrowsNotFoundException()
+        {
+            // Arrange
+            _departmentRepo.GetDeletedByIdAsync("nonexistent", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(null));
+
+            // Act
+            var act = () => _service.RestoreDepartmentAsync("nonexistent");
+
+            // Assert
+            var ex = await act.Should().ThrowAsync<NotFoundException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.DEPARTMENT_NOT_FOUND);
+        }
+
+        [Fact]
+        public async Task RestoreDepartmentAsync_WhenParentCompanyInTrash_ThrowsBadRequestException()
+        {
+            // Arrange
+            var dept = new Department
+            {
+                Id = "d1",
+                CompanyId = "c1",
+                Code = "PB01",
+                Name = "Phòng Kỹ Thuật",
+                IsDeleted = true
+            };
+
+            _departmentRepo.GetDeletedByIdAsync("d1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(dept));
+
+            _companyRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(null)); // Công ty cha không tồn tại hoặc trong thùng rác
+
+            // Act
+            var act = () => _service.RestoreDepartmentAsync("d1");
+
+            // Assert - Strict Parent-First Restore ADR 0031
+            var ex = await act.Should().ThrowAsync<BadRequestException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.PARENT_IS_DELETED);
+            await _departmentRepo.DidNotReceive().RestoreAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RestoreDepartmentAsync_WhenCodeDuplicateWithActiveDepartment_ThrowsConflictException()
+        {
+            // Arrange
+            var dept = new Department
+            {
+                Id = "d1",
+                CompanyId = "c1",
+                Code = "PB01",
+                Name = "Phòng Kỹ Thuật",
+                IsDeleted = true
+            };
+            var company = new Company
+            {
+                Id = "c1",
+                Name = "Công ty Hải Phòng",
+                IsDeleted = false
+            };
+            var activeDuplicate = new Department
+            {
+                Id = "d2",
+                CompanyId = "c1",
+                Code = "PB01",
+                Name = "Phòng Kỹ Thuật 2",
+                IsDeleted = false
+            };
+
+            _departmentRepo.GetDeletedByIdAsync("d1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(dept));
+
+            _companyRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(company));
+
+            _departmentRepo.FindOneAsync(Arg.Any<Expression<Func<Department, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(activeDuplicate));
+
+            // Act
+            var act = () => _service.RestoreDepartmentAsync("d1");
+
+            // Assert - Re-validation on restore 409 Conflict
+            var ex = await act.Should().ThrowAsync<ConflictException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.DEPARTMENT_CODE_DUPLICATE);
+            await _departmentRepo.DidNotReceive().RestoreAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
     }
 }
