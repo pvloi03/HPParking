@@ -9,6 +9,8 @@ namespace HPParking.Api.DTOs.Statistics
     {
         public long TotalFilteredClients { get; set; }
         public long TotalFilteredVehicles { get; set; }
+        public long TotalFilteredGates { get; set; }
+        public long TotalFilteredLanes { get; set; }
         public List<UnitDistributionItemDto> Items { get; set; } = new();
     }
 
@@ -23,5 +25,7 @@ namespace HPParking.Api.DTOs.Statistics
         public string DepartmentName { get; set; } = string.Empty;
         public long ClientCount { get; set; }
         public long VehicleCount { get; set; }
+        public long GateCount { get; set; }
+        public long LaneCount { get; set; }
     }
 }

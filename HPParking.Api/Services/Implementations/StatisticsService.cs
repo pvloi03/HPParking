@@ -25,6 +25,8 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Department> _departmentRepo;
+        private readonly IRepository<Gate> _gateRepo;
+        private readonly IRepository<Lane> _laneRepo;
         private readonly MongoDbContext? _mongoContext;
         private readonly ILogger<StatisticsService> _logger;
 
@@ -34,6 +36,8 @@ namespace HPParking.Api.Services.Implementations
             IRepository<ParkingSession> sessionRepo,
             IRepository<Company> companyRepo,
             IRepository<Department> departmentRepo,
+            IRepository<Gate> gateRepo,
+            IRepository<Lane> laneRepo,
             ILogger<StatisticsService> logger,
             MongoDbContext? mongoContext = null)
         {
@@ -42,6 +46,8 @@ namespace HPParking.Api.Services.Implementations
             _sessionRepo = sessionRepo;
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
+            _gateRepo = gateRepo;
+            _laneRepo = laneRepo;
             _logger = logger;
             _mongoContext = mongoContext;
         }
@@ -118,12 +124,31 @@ namespace HPParking.Api.Services.Implementations
             );
             var sessionTask = sessionCollection.CountDocumentsAsync(sessionFilter, cancellationToken: cancellationToken);
 
+            // 4. Đếm số Cổng và Làn xe hạ tầng
+            var gateCollection = _mongoContext.GetCollection<Gate>();
+            var laneCollection = _mongoContext.GetCollection<Lane>();
+
+            var gateFilter = Builders<Gate>.Filter.Eq(x => x.IsDeleted, false);
+            var gateTask = gateCollection.CountDocumentsAsync(gateFilter, cancellationToken: cancellationToken);
+
+            var laneTotalFilter = Builders<Lane>.Filter.Eq(x => x.IsDeleted, false);
+            var laneTotalTask = laneCollection.CountDocumentsAsync(laneTotalFilter, cancellationToken: cancellationToken);
+
+            var laneActiveFilter = Builders<Lane>.Filter.And(
+                Builders<Lane>.Filter.Eq(x => x.IsDeleted, false),
+                Builders<Lane>.Filter.Eq(x => x.IsActive, true)
+            );
+            var laneActiveTask = laneCollection.CountDocumentsAsync(laneActiveFilter, cancellationToken: cancellationToken);
+
             // Thực thi song song trong 1 round-trip mạng
-            await Task.WhenAll(clientTask, vehicleTask, sessionTask);
+            await Task.WhenAll(clientTask, vehicleTask, sessionTask, gateTask, laneTotalTask, laneActiveTask);
 
             var clientResult = await clientTask;
             var vehicleResult = await vehicleTask;
             var activeSessions = await sessionTask;
+            var totalGates = await gateTask;
+            var totalLanes = await laneTotalTask;
+            var activeLanes = await laneActiveTask;
 
             // Xử lý kết quả Client
             long totalClients = clientResult?.Facets.FirstOrDefault(x => x.Name == "total")?.Output<AggregateCountResult>()?.FirstOrDefault()?.Count ?? 0;
@@ -174,7 +199,10 @@ namespace HPParking.Api.Services.Implementations
                 TotalVehicles = totalVehicles,
                 ActiveVehicles = activeVehicles,
                 VehiclesByType = vehiclesByType,
-                ActiveParkingSessions = activeSessions
+                ActiveParkingSessions = activeSessions,
+                TotalGates = totalGates,
+                TotalLanes = totalLanes,
+                ActiveLanes = activeLanes
             };
         }
 
@@ -183,6 +211,9 @@ namespace HPParking.Api.Services.Implementations
             var clients = await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var vehicles = await _vehicleRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var activeSessions = await _sessionRepo.CountAsync(x => !x.IsDeleted && x.Status == ParkingSessionStatus.Active, cancellationToken);
+            var totalGates = await _gateRepo.CountAsync(x => !x.IsDeleted, cancellationToken);
+            var totalLanes = await _laneRepo.CountAsync(x => !x.IsDeleted, cancellationToken);
+            var activeLanes = await _laneRepo.CountAsync(x => !x.IsDeleted && x.IsActive, cancellationToken);
 
             long totalClients = clients.Count;
             long activeClients = clients.Count(x => x.IsActive);
@@ -212,7 +243,10 @@ namespace HPParking.Api.Services.Implementations
                 TotalVehicles = totalVehicles,
                 ActiveVehicles = activeVehicles,
                 VehiclesByType = vehiclesByType,
-                ActiveParkingSessions = activeSessions
+                ActiveParkingSessions = activeSessions,
+                TotalGates = totalGates,
+                TotalLanes = totalLanes,
+                ActiveLanes = activeLanes
             };
         }
 
@@ -224,7 +258,33 @@ namespace HPParking.Api.Services.Implementations
             var companies = (await _companyRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
             var departments = (await _departmentRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(d => d.Id, d => d);
 
-            // 2. Lấy danh sách Clients thỏa mãn bộ lọc
+            // 2. Tải danh sách Gates và Lanes để thống kê hạ tầng
+            var gates = await _gateRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
+            var lanes = await _laneRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
+
+            var filteredGates = gates.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(query.CompanyId))
+            {
+                filteredGates = filteredGates.Where(g => g.CompanyId == query.CompanyId);
+            }
+            var gateList = filteredGates.ToList();
+            var gateIds = gateList.Select(g => g.Id).ToHashSet();
+            var filteredLanes = lanes.Where(l => !string.IsNullOrEmpty(l.GateId) && gateIds.Contains(l.GateId)).ToList();
+
+            var lanesByGate = filteredLanes
+                .Where(l => !string.IsNullOrEmpty(l.GateId))
+                .GroupBy(l => l.GateId!)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var gatesByCompany = gateList
+                .Where(g => !string.IsNullOrEmpty(g.CompanyId))
+                .GroupBy(g => g.CompanyId!)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            result.TotalFilteredGates = gateList.Count;
+            result.TotalFilteredLanes = filteredLanes.Count;
+
+            // 3. Lấy danh sách Clients thỏa mãn bộ lọc
             var clients = await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var filteredClients = clients.AsEnumerable();
 
@@ -251,7 +311,7 @@ namespace HPParking.Api.Services.Implementations
             var clientList = filteredClients.ToList();
             var clientIds = clientList.Select(c => c.Id).ToHashSet();
 
-            // 3. Lấy danh sách Vehicles liên kết với các Clients đã lọc
+            // 4. Lấy danh sách Vehicles liên kết với các Clients đã lọc
             var vehicles = await _vehicleRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var filteredVehicles = vehicles.Where(v => !string.IsNullOrEmpty(v.OwnerClientId) && clientIds.Contains(v.OwnerClientId!)).ToList();
 
@@ -262,10 +322,12 @@ namespace HPParking.Api.Services.Implementations
             result.TotalFilteredClients = clientList.Count;
             result.TotalFilteredVehicles = filteredVehicles.Count;
 
-            // 4. Gom nhóm theo Company & Department
+            // 5. Gom nhóm theo Company & Department
             var grouped = clientList
                 .GroupBy(c => new { c.CompanyId, c.DepartmentId })
                 .ToList();
+
+            var processedCompanyIds = new HashSet<string>();
 
             foreach (var group in grouped)
             {
@@ -287,6 +349,15 @@ namespace HPParking.Api.Services.Implementations
 
                 long vehicleCount = group.Sum(c => vehiclesByClient.TryGetValue(c.Id, out var count) ? count : 0);
 
+                long gateCount = 0;
+                long laneCount = 0;
+                if (!string.IsNullOrEmpty(group.Key.CompanyId) && gatesByCompany.TryGetValue(group.Key.CompanyId, out var compGates))
+                {
+                    gateCount = compGates.Count;
+                    laneCount = compGates.Sum(g => lanesByGate.TryGetValue(g.Id, out var count) ? count : 0);
+                    processedCompanyIds.Add(group.Key.CompanyId);
+                }
+
                 result.Items.Add(new UnitDistributionItemDto
                 {
                     CompanyId = group.Key.CompanyId,
@@ -294,12 +365,39 @@ namespace HPParking.Api.Services.Implementations
                     DepartmentId = group.Key.DepartmentId,
                     DepartmentName = departmentName,
                     ClientCount = group.Count(),
-                    VehicleCount = vehicleCount
+                    VehicleCount = vehicleCount,
+                    GateCount = gateCount,
+                    LaneCount = laneCount
                 });
             }
 
-            _logger.LogInformation("Đã trích xuất báo cáo phân bổ: {ClientCount} khách hàng, {VehicleCount} phương tiện trong {GroupCount} nhóm.",
-                result.TotalFilteredClients, result.TotalFilteredVehicles, result.Items.Count);
+            // 6. Bổ sung các công ty có Cổng/Làn nhưng chưa có Client nào (nếu không lọc Department cụ thể)
+            if (string.IsNullOrWhiteSpace(query.DepartmentId))
+            {
+                foreach (var kvp in gatesByCompany)
+                {
+                    if (!string.IsNullOrEmpty(kvp.Key) && !processedCompanyIds.Contains(kvp.Key))
+                    {
+                        string cName = companies.TryGetValue(kvp.Key, out var name) ? name : "Công ty không xác định";
+                        long laneCount = kvp.Value.Sum(g => lanesByGate.TryGetValue(g.Id, out var count) ? count : 0);
+
+                        result.Items.Add(new UnitDistributionItemDto
+                        {
+                            CompanyId = kvp.Key,
+                            CompanyName = cName,
+                            DepartmentId = null,
+                            DepartmentName = "Chưa phân phòng ban",
+                            ClientCount = 0,
+                            VehicleCount = 0,
+                            GateCount = kvp.Value.Count,
+                            LaneCount = laneCount
+                        });
+                    }
+                }
+            }
+
+            _logger.LogInformation("Đã trích xuất báo cáo phân bổ: {ClientCount} khách hàng, {VehicleCount} phương tiện, {GateCount} cổng, {LaneCount} làn trong {GroupCount} nhóm.",
+                result.TotalFilteredClients, result.TotalFilteredVehicles, result.TotalFilteredGates, result.TotalFilteredLanes, result.Items.Count);
 
             return result;
         }
