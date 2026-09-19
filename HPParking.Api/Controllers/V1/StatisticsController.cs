@@ -24,7 +24,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Tổng hợp toàn bộ các chỉ số KPIs vận hành thời gian thực cho trang Dashboard
+        /// Tổng hợp toàn bộ các chỉ số KPIs vận hành mới nhất cho trang Dashboard
         /// </summary>
         [HttpGet("dashboard")]
         [Authorize(Roles = "Viewer,Manager,Admin")]

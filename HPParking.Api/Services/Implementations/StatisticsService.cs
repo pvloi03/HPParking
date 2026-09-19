@@ -16,7 +16,7 @@ using MongoDB.Driver;
 namespace HPParking.Api.Services.Implementations
 {
     /// <summary>
-    /// Triển khai dịch vụ báo cáo thống kê đa chiều thời gian thực sử dụng MongoDB $facet aggregation (ADR 0024)
+    /// Triển khai dịch vụ báo cáo thống kê đa chiều mới nhất sử dụng MongoDB $facet aggregation (ADR 0024)
     /// </summary>
     public class StatisticsService : IStatisticsService
     {

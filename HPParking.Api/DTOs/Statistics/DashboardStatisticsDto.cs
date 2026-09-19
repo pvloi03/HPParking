@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace HPParking.Api.DTOs.Statistics
 {
     /// <summary>
-    /// DTO tổng hợp các chỉ số KPIs vận hành thời gian thực trên Dashboard
+    /// DTO tổng hợp các chỉ số KPIs vận hành mới nhất trên Dashboard
     /// </summary>
     public class DashboardStatisticsDto
     {

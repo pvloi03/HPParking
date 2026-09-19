@@ -5,12 +5,12 @@ using HPParking.Api.DTOs.Statistics;
 namespace HPParking.Api.Services.Interfaces
 {
     /// <summary>
-    /// Giao diện dịch vụ báo cáo thống kê đa chiều và KPIs thời gian thực
+    /// Giao diện dịch vụ báo cáo thống kê đa chiều và KPIs mới nhất
     /// </summary>
     public interface IStatisticsService
     {
         /// <summary>
-        /// Tổng hợp toàn bộ các chỉ số KPIs vận hành thời gian thực cho trang Dashboard
+        /// Tổng hợp toàn bộ các chỉ số KPIs vận hành mới nhất cho trang Dashboard
         /// </summary>
         Task<DashboardStatisticsDto> GetDashboardStatisticsAsync(CancellationToken cancellationToken = default);
 
