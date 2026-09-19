@@ -59,6 +59,15 @@ namespace HPParking.Api.Common.Exceptions
         public const string DEVICE_IN_USE_BY_LANE = "DEVICE_IN_USE_BY_LANE";
         public const string INFRA_ACTIVE_DEPENDENCY_EXISTS = "INFRA_ACTIVE_DEPENDENCY_EXISTS";
 
+        // Gate
+        public const string GATE_NOT_FOUND = "GATE_NOT_FOUND";
+        public const string GATE_CODE_DUPLICATE = "GATE_CODE_DUPLICATE";
+        public const string GATE_HAS_LANES = "GATE_HAS_LANES";
+
+        // Lane
+        public const string LANE_NOT_FOUND = "LANE_NOT_FOUND";
+        public const string LANE_CODE_DUPLICATE = "LANE_CODE_DUPLICATE";
+
         // Restore & Referential Integrity
         public const string PARENT_IS_DELETED = "PARENT_IS_DELETED";
         public const string RESTORE_FAILED = "RESTORE_FAILED";
