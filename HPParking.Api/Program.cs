@@ -87,6 +87,9 @@ builder.Services.AddScoped<IContractorService, ContractorService>();
 builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IGateService, GateService>();
 builder.Services.AddScoped<ILaneService, LaneService>();
+builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<IParkingSessionService, ParkingSessionService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 // Cấu hình Mapster Object Mapping
 builder.Services.RegisterMapsterConfiguration();

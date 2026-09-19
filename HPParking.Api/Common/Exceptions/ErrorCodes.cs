@@ -72,6 +72,12 @@ namespace HPParking.Api.Common.Exceptions
         public const string PARENT_IS_DELETED = "PARENT_IS_DELETED";
         public const string RESTORE_FAILED = "RESTORE_FAILED";
 
+        // ParkingSession
+        public const string PARKING_SESSION_NOT_FOUND = "PARKING_SESSION_NOT_FOUND";
+
+        // AuditLog
+        public const string AUDIT_LOG_NOT_FOUND = "AUDIT_LOG_NOT_FOUND";
+
         // File & Import
         public const string FILE_INVALID_FORMAT = "FILE_INVALID_FORMAT";
         public const string FILE_SIZE_EXCEEDED = "FILE_SIZE_EXCEEDED";
