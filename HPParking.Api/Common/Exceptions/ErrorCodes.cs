@@ -42,6 +42,13 @@ namespace HPParking.Api.Common.Exceptions
         public const string DEPARTMENT_CODE_DUPLICATE = "DEPARTMENT_CODE_DUPLICATE";
         public const string DEPARTMENT_HAS_CLIENTS = "DEPARTMENT_HAS_CLIENTS";
 
+        // Device
+        public const string DEVICE_NOT_FOUND = "DEVICE_NOT_FOUND";
+        public const string DEVICE_CODE_DUPLICATE = "DEVICE_CODE_DUPLICATE";
+        public const string DEVICE_ENDPOINT_DUPLICATE = "DEVICE_ENDPOINT_DUPLICATE";
+        public const string DEVICE_IN_USE_BY_LANE = "DEVICE_IN_USE_BY_LANE";
+        public const string INFRA_ACTIVE_DEPENDENCY_EXISTS = "INFRA_ACTIVE_DEPENDENCY_EXISTS";
+
         // Restore & Referential Integrity
         public const string PARENT_IS_DELETED = "PARENT_IS_DELETED";
         public const string RESTORE_FAILED = "RESTORE_FAILED";
