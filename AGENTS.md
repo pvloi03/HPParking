@@ -18,3 +18,7 @@ Single-context documentation layout. See `docs/agents/domain.md`.
 
 Universal restrict deletion and referential integrity matrix. See `docs/standards/referential-integrity-matrix.md`.
 
+### Planning and TDD
+
+Vertical-slice planning, strict TDD red-green loop, and skill fidelity. See `docs/standards/planning-and-implementation.md`.
+
