@@ -27,6 +27,7 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<Device> _deviceRepo = Substitute.For<IRepository<Device>>();
         private readonly IRepository<Company> _companyRepo = Substitute.For<IRepository<Company>>();
         private readonly IRepository<Department> _departmentRepo = Substitute.For<IRepository<Department>>();
+        private readonly IRepository<Contractor> _contractorRepo = Substitute.For<IRepository<Contractor>>();
         private readonly IFileStorageService _fileStorage = Substitute.For<IFileStorageService>();
         private readonly IFaceIdService _faceIdService = Substitute.For<IFaceIdService>();
         private readonly ILogger<ClientService> _logger = Substitute.For<ILogger<ClientService>>();
@@ -43,7 +44,8 @@ namespace HPParking.Tests.Api.Unit
                 _faceIdService,
                 _logger,
                 _companyRepo,
-                _departmentRepo);
+                _departmentRepo,
+                _contractorRepo);
         }
 
         [Fact]
@@ -503,6 +505,108 @@ namespace HPParking.Tests.Api.Unit
 
             await _fileStorage.Received(1).SaveAvatarAsync(formFile, "0912345678", Arg.Any<CancellationToken>());
             await _clientRepo.Received(1).UpdateAsync(client, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CreateClientAsync_WithContractorNotFound_ThrowsNotFoundException()
+        {
+            // Arrange
+            var request = new CreateClientRequest
+            {
+                Name = "Công nhân A",
+                PhoneNumber = "0901234567",
+                ContractorId = "contractor_missing"
+            };
+
+            _clientRepo.FindOneAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Client?>(null));
+
+            _contractorRepo.GetByIdAsync("contractor_missing", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Contractor?>(null));
+
+            // Act & Assert
+            var act = () => _clientService.CreateClientAsync(request);
+            await act.Should().ThrowAsync<NotFoundException>()
+                .Where(e => e.ErrorCode == ErrorCodes.CONTRACTOR_NOT_FOUND);
+        }
+
+        [Fact]
+        public async Task CreateClientAsync_WithInactiveContractor_ThrowsBadRequestException()
+        {
+            // Arrange
+            var request = new CreateClientRequest
+            {
+                Name = "Công nhân A",
+                PhoneNumber = "0901234567",
+                ContractorId = "contractor_inactive"
+            };
+
+            var contractor = new Contractor { Id = "contractor_inactive", Name = "Nhà thầu Xây Dựng", IsActive = false, IsDeleted = false };
+
+            _clientRepo.FindOneAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Client?>(null));
+
+            _contractorRepo.GetByIdAsync("contractor_inactive", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Contractor?>(contractor));
+
+            // Act & Assert
+            var act = () => _clientService.CreateClientAsync(request);
+            await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.CONTRACTOR_INACTIVE);
+        }
+
+        [Fact]
+        public async Task UpdateClientAsync_WithInactiveContractor_ThrowsBadRequestException()
+        {
+            // Arrange
+            var currentClient = new Client { Id = "c1", Name = "Công nhân A", PhoneNumber = "0901234567", IsDeleted = false };
+            _clientRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Client?>(currentClient));
+
+            var contractor = new Contractor { Id = "contractor_inactive", Name = "Nhà thầu Xây Dựng", IsActive = false, IsDeleted = false };
+            _contractorRepo.GetByIdAsync("contractor_inactive", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Contractor?>(contractor));
+
+            var request = new UpdateClientRequest
+            {
+                Name = "Công nhân A",
+                PhoneNumber = "0901234567",
+                ContractorId = "contractor_inactive"
+            };
+
+            // Act & Assert
+            var act = () => _clientService.UpdateClientAsync("c1", request);
+            await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.CONTRACTOR_INACTIVE);
+        }
+
+        [Fact]
+        public async Task RestoreClientAsync_WithDeletedContractorParent_ThrowsBadRequestException()
+        {
+            // Arrange
+            var deletedClient = new Client
+            {
+                Id = "c1",
+                Name = "Công nhân A",
+                PhoneNumber = "0901234567",
+                ContractorId = "contractor_deleted",
+                IsDeleted = true
+            };
+
+            _clientRepo.GetDeletedByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Client?>(deletedClient));
+
+            // Contractor nằm trong thùng rác
+            var deletedContractor = new Contractor { Id = "contractor_deleted", Name = "Nhà thầu Cũ", IsDeleted = true };
+            _contractorRepo.GetByIdAsync("contractor_deleted", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Contractor?>(deletedContractor));
+
+            // Act & Assert (ADR 0031 & ADR 0033 Parent-First Restore)
+            var act = () => _clientService.RestoreClientAsync("c1");
+            await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.PARENT_IS_DELETED);
+
+            await _clientRepo.DidNotReceive().RestoreAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
     }
 }

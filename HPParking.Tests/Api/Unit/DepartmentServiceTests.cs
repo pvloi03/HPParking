@@ -210,6 +210,26 @@ namespace HPParking.Tests.Api.Unit
         }
 
         [Fact]
+        public async Task UpdateDepartmentAsync_ActiveDepartmentToInactive_HasActiveClients_ThrowsBadRequestException()
+        {
+            // Arrange
+            var current = new Department { Id = "d1", CompanyId = "c1", Code = "PB01", Name = "Phòng Kỹ Thuật", IsActive = true };
+            _departmentRepo.GetByIdAsync("d1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Department?>(current));
+
+            _clientRepo.CountAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(3L)); // 3 active clients
+
+            var request = new UpdateDepartmentRequest { Code = "PB01", Name = "Phòng Kỹ Thuật", IsActive = false };
+
+            // Act & Assert
+            var act = () => _service.UpdateDepartmentAsync("d1", request);
+            await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.DEPARTMENT_ACTIVE_CLIENTS_EXIST)
+                .WithMessage("*vẫn còn 3 khách hàng/nhân sự đang hoạt động*");
+        }
+
+        [Fact]
         public async Task DeleteDepartmentAsync_HasClients_ThrowsConflictException()
         {
             // Arrange

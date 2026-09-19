@@ -27,6 +27,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Device> _deviceRepo;
         private readonly IRepository<Company>? _companyRepo;
         private readonly IRepository<Department>? _departmentRepo;
+        private readonly IRepository<Contractor>? _contractorRepo;
         private readonly IFileStorageService _fileStorage;
         private readonly IFaceIdService _faceIdService;
         private readonly ILogger<ClientService> _logger;
@@ -40,7 +41,8 @@ namespace HPParking.Api.Services.Implementations
             IFaceIdService faceIdService,
             ILogger<ClientService> logger,
             IRepository<Company>? companyRepo = null,
-            IRepository<Department>? departmentRepo = null)
+            IRepository<Department>? departmentRepo = null,
+            IRepository<Contractor>? contractorRepo = null)
         {
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
@@ -51,6 +53,7 @@ namespace HPParking.Api.Services.Implementations
             _logger = logger;
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
+            _contractorRepo = contractorRepo;
         }
 
         public async Task<PagedResult<ClientDto>> GetClientsPagedAsync(ClientFilterQuery query, CancellationToken cancellationToken = default)
@@ -183,7 +186,21 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            // 4. Tạo thực thể Client
+            // 4. Kiểm tra tính hợp lệ nếu gắn trực thuộc Nhà thầu (ADR 0033)
+            if (!string.IsNullOrWhiteSpace(request.ContractorId) && _contractorRepo != null)
+            {
+                var contractor = await _contractorRepo.GetByIdAsync(request.ContractorId, cancellationToken);
+                if (contractor == null || contractor.IsDeleted)
+                {
+                    throw new NotFoundException($"Không tìm thấy nhà thầu với Id '{request.ContractorId}'.", ErrorCodes.CONTRACTOR_NOT_FOUND);
+                }
+                if (!contractor.IsActive)
+                {
+                    throw new BadRequestException($"Nhà thầu '{contractor.Name}' đang bị vô hiệu hóa, không thể gán nhân sự trực thuộc.", ErrorCodes.CONTRACTOR_INACTIVE);
+                }
+            }
+
+            // 5. Tạo thực thể Client
             var client = new Client
             {
                 Code = cleanCode ?? string.Empty,
@@ -263,6 +280,20 @@ namespace HPParking.Api.Services.Implementations
                     throw new ConflictException(
                         $"Mã CCCD/Định danh '{cleanCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
                         ErrorCodes.CLIENT_CODE_DUPLICATE);
+                }
+            }
+
+            // Kiểm tra tính hợp lệ nếu cập nhật Nhà thầu trực thuộc (ADR 0033)
+            if (!string.IsNullOrWhiteSpace(request.ContractorId) && _contractorRepo != null)
+            {
+                var contractor = await _contractorRepo.GetByIdAsync(request.ContractorId, cancellationToken);
+                if (contractor == null || contractor.IsDeleted)
+                {
+                    throw new NotFoundException($"Không tìm thấy nhà thầu với Id '{request.ContractorId}'.", ErrorCodes.CONTRACTOR_NOT_FOUND);
+                }
+                if (!contractor.IsActive)
+                {
+                    throw new BadRequestException($"Nhà thầu '{contractor.Name}' đang bị vô hiệu hóa, không thể gán nhân sự trực thuộc.", ErrorCodes.CONTRACTOR_INACTIVE);
                 }
             }
 
@@ -391,6 +422,18 @@ namespace HPParking.Api.Services.Implementations
                 {
                     throw new BadRequestException(
                         "Không thể khôi phục khách hàng vì phòng ban trực thuộc đang nằm trong thùng rác hoặc không tồn tại. Vui lòng khôi phục phòng ban trước.",
+                        ErrorCodes.PARENT_IS_DELETED);
+                }
+            }
+
+            // Nếu khách hàng thuộc Nhà thầu -> Nhà thầu cha phải đang hoạt động (ADR 0031 & ADR 0033)
+            if (!string.IsNullOrWhiteSpace(client.ContractorId) && _contractorRepo != null)
+            {
+                var contractor = await _contractorRepo.GetByIdAsync(client.ContractorId, cancellationToken);
+                if (contractor == null || contractor.IsDeleted)
+                {
+                    throw new BadRequestException(
+                        "Không thể khôi phục khách hàng vì nhà thầu trực thuộc đang nằm trong thùng rác hoặc không tồn tại. Vui lòng khôi phục nhà thầu trước.",
                         ErrorCodes.PARENT_IS_DELETED);
                 }
             }

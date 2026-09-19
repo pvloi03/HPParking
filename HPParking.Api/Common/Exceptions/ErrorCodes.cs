@@ -36,11 +36,21 @@ namespace HPParking.Api.Common.Exceptions
         public const string COMPANY_CODE_DUPLICATE = "COMPANY_CODE_DUPLICATE";
         public const string COMPANY_HAS_DEPARTMENTS = "COMPANY_HAS_DEPARTMENTS";
         public const string COMPANY_HAS_GATES = "COMPANY_HAS_GATES";
+        public const string COMPANY_HAS_CLIENTS = "COMPANY_HAS_CLIENTS";
+        public const string COMPANY_ACTIVE_DEPENDENCY_EXISTS = "COMPANY_ACTIVE_DEPENDENCY_EXISTS";
 
         // Department
         public const string DEPARTMENT_NOT_FOUND = "DEPARTMENT_NOT_FOUND";
         public const string DEPARTMENT_CODE_DUPLICATE = "DEPARTMENT_CODE_DUPLICATE";
         public const string DEPARTMENT_HAS_CLIENTS = "DEPARTMENT_HAS_CLIENTS";
+        public const string DEPARTMENT_ACTIVE_CLIENTS_EXIST = "DEPARTMENT_ACTIVE_CLIENTS_EXIST";
+
+        // Contractor
+        public const string CONTRACTOR_NOT_FOUND = "CONTRACTOR_NOT_FOUND";
+        public const string CONTRACTOR_CODE_DUPLICATE = "CONTRACTOR_CODE_DUPLICATE";
+        public const string CONTRACTOR_HAS_CLIENTS = "CONTRACTOR_HAS_CLIENTS";
+        public const string CONTRACTOR_ACTIVE_CLIENTS_EXIST = "CONTRACTOR_ACTIVE_CLIENTS_EXIST";
+        public const string CONTRACTOR_INACTIVE = "CONTRACTOR_INACTIVE";
 
         // Device
         public const string DEVICE_NOT_FOUND = "DEVICE_NOT_FOUND";

@@ -21,12 +21,13 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<Company> _companyRepo = Substitute.For<IRepository<Company>>();
         private readonly IRepository<Department> _departmentRepo = Substitute.For<IRepository<Department>>();
         private readonly IRepository<Gate> _gateRepo = Substitute.For<IRepository<Gate>>();
+        private readonly IRepository<Client> _clientRepo = Substitute.For<IRepository<Client>>();
         private readonly ILogger<CompanyService> _logger = Substitute.For<ILogger<CompanyService>>();
         private readonly CompanyService _service;
 
         public CompanyServiceTests()
         {
-            _service = new CompanyService(_companyRepo, _departmentRepo, _gateRepo, _logger);
+            _service = new CompanyService(_companyRepo, _departmentRepo, _gateRepo, _clientRepo, _logger);
         }
 
         [Fact]
@@ -175,7 +176,54 @@ namespace HPParking.Tests.Api.Unit
             // Act & Assert
             var act = () => _service.UpdateCompanyAsync("c1", request);
             await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.COMPANY_ACTIVE_DEPENDENCY_EXISTS)
                 .WithMessage("*vẫn còn 2 phòng ban đang hoạt động*");
+        }
+
+        [Fact]
+        public async Task UpdateCompanyAsync_DeactivateWithActiveGates_ThrowsBadRequestException()
+        {
+            // Arrange
+            var current = new Company { Id = "c1", Code = "HP01", Name = "Công ty 1", IsActive = true };
+            _companyRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(current));
+
+            _departmentRepo.CountAsync(Arg.Any<Expression<Func<Department, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+            _gateRepo.CountAsync(Arg.Any<Expression<Func<Gate, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(1L)); // 1 active gate
+
+            var request = new UpdateCompanyRequest { Code = "HP01", Name = "Công ty 1", IsActive = false };
+
+            // Act & Assert
+            var act = () => _service.UpdateCompanyAsync("c1", request);
+            await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.COMPANY_ACTIVE_DEPENDENCY_EXISTS)
+                .WithMessage("*vẫn còn 1 cổng đang hoạt động*");
+        }
+
+        [Fact]
+        public async Task UpdateCompanyAsync_DeactivateWithActiveClients_ThrowsBadRequestException()
+        {
+            // Arrange
+            var current = new Company { Id = "c1", Code = "HP01", Name = "Công ty 1", IsActive = true };
+            _companyRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(current));
+
+            _departmentRepo.CountAsync(Arg.Any<Expression<Func<Department, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+            _gateRepo.CountAsync(Arg.Any<Expression<Func<Gate, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+            _clientRepo.CountAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(5L)); // 5 active clients
+
+            var request = new UpdateCompanyRequest { Code = "HP01", Name = "Công ty 1", IsActive = false };
+
+            // Act & Assert
+            var act = () => _service.UpdateCompanyAsync("c1", request);
+            await act.Should().ThrowAsync<BadRequestException>()
+                .Where(e => e.ErrorCode == ErrorCodes.COMPANY_ACTIVE_DEPENDENCY_EXISTS)
+                .WithMessage("*vẫn còn 5 khách hàng/nhân sự đang hoạt động*");
         }
 
         [Fact]
@@ -220,6 +268,29 @@ namespace HPParking.Tests.Api.Unit
         }
 
         [Fact]
+        public async Task DeleteCompanyAsync_HasClients_ThrowsConflictException()
+        {
+            // Arrange
+            var company = new Company { Id = "c1", Name = "Công ty A" };
+            _companyRepo.GetByIdAsync("c1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Company?>(company));
+
+            _departmentRepo.CountAsync(Arg.Any<Expression<Func<Department, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+            _gateRepo.CountAsync(Arg.Any<Expression<Func<Gate, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+            _clientRepo.CountAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(4L)); // 4 clients exist
+
+            // Act & Assert
+            var act = () => _service.DeleteCompanyAsync("c1");
+            await act.Should().ThrowAsync<ConflictException>()
+                .Where(e => e.ErrorCode == ErrorCodes.COMPANY_HAS_CLIENTS);
+
+            await _companyRepo.DidNotReceive().DeleteAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task DeleteCompanyAsync_SoftDelete_CallsSoftDelete()
         {
             // Arrange
@@ -231,6 +302,9 @@ namespace HPParking.Tests.Api.Unit
                 .Returns(Task.FromResult(0L));
 
             _gateRepo.CountAsync(Arg.Any<Expression<Func<Gate, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+
+            _clientRepo.CountAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(0L));
 
             // Act
@@ -253,6 +327,9 @@ namespace HPParking.Tests.Api.Unit
                 .Returns(Task.FromResult(0L));
 
             _gateRepo.CountAsync(Arg.Any<Expression<Func<Gate, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(0L));
+
+            _clientRepo.CountAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult(0L));
 
             // Act
