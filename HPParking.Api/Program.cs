@@ -91,6 +91,12 @@ builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IParkingSessionService, ParkingSessionService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
+// Đăng ký dịch vụ Nhập/Xuất Excel chuẩn hóa ClosedXML (ADR 0023)
+builder.Services.AddSingleton<IExcelService, ClosedXmlExcelService>();
+builder.Services.AddScoped<IClientExcelService, ClientExcelService>();
+builder.Services.AddScoped<IMasterDataExcelService, MasterDataExcelService>();
+builder.Services.AddScoped<IReportExcelService, ReportExcelService>();
+
 // Cấu hình Mapster Object Mapping
 builder.Services.RegisterMapsterConfiguration();
 

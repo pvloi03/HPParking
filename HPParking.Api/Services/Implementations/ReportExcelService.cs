@@ -1,0 +1,292 @@
+using HPParking.Api.Common.Excel;
+using HPParking.Api.Common.Helpers;
+using HPParking.Api.DTOs.AuditLogs;
+using HPParking.Api.DTOs.Excel.Reports;
+using HPParking.Api.DTOs.ParkingSessions;
+using HPParking.Api.DTOs.Statistics;
+using HPParking.Api.Services.Interfaces;
+using HPParking.Core.Interfaces;
+using HPParking.Core.Models.Entities;
+using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace HPParking.Api.Services.Implementations
+{
+    /// <summary>
+    /// Hiện thực hóa dịch vụ Xuất Excel cho Sổ cái và Báo cáo (Nhóm III - ADR 0023, ADR 0030)
+    /// </summary>
+    public class ReportExcelService : IReportExcelService
+    {
+        private const int MaxExportLimit = 10000;
+
+        private readonly IExcelService _excelService;
+        private readonly IRepository<ParkingSession> _sessionRepo;
+        private readonly IRepository<AuditLog> _auditLogRepo;
+        private readonly IStatisticsService _statisticsService;
+        private readonly ILogger<ReportExcelService> _logger;
+
+        public ReportExcelService(
+            IExcelService excelService,
+            IRepository<ParkingSession> sessionRepo,
+            IRepository<AuditLog> auditLogRepo,
+            IStatisticsService statisticsService,
+            ILogger<ReportExcelService> logger)
+        {
+            _excelService = excelService;
+            _sessionRepo = sessionRepo;
+            _auditLogRepo = auditLogRepo;
+            _statisticsService = statisticsService;
+            _logger = logger;
+        }
+
+        public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportParkingSessionsAsync(
+            ParkingSessionFilterQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var filter = BuildParkingSessionFilter(query);
+            var sort = BuildParkingSessionSort(query);
+
+            var totalCount = await _sessionRepo.CountAsync(filter, cancellationToken);
+            var isTruncated = totalCount > MaxExportLimit;
+
+            var sessions = await _sessionRepo.FindAsync(
+                filter: filter,
+                sort: sort,
+                skip: 0,
+                limit: MaxExportLimit,
+                cancellationToken: cancellationToken);
+
+            var data = sessions.Select(s => new ParkingSessionExcelDto
+            {
+                PlateNumber = s.PlateNumber,
+                VehicleType = s.VehicleType,
+                Status = s.Status,
+                InTime = s.InTime,
+                InLaneName = s.InLaneName,
+                OutTime = s.OutTime,
+                OutLaneName = s.OutLaneName,
+                Duration = FormatDuration(s.InTime, s.OutTime)
+            });
+
+            var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+
+            _logger.LogInformation("Đã xuất {Count}/{Total} dòng lịch sử phiên đỗ xe ra Excel (Truncated: {IsTruncated})",
+                sessions.Count, totalCount, isTruncated);
+
+            return (bytes, $"Lich_Su_Do_Xe_{timestamp}.xlsx", isTruncated);
+        }
+
+        public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportAuditLogsAsync(
+            AuditLogFilterQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var filter = BuildAuditLogFilter(query);
+            var sort = BuildAuditLogSort(query);
+
+            var totalCount = await _auditLogRepo.CountAsync(filter, cancellationToken);
+            var isTruncated = totalCount > MaxExportLimit;
+
+            var logs = await _auditLogRepo.FindAsync(
+                filter: filter,
+                sort: sort,
+                skip: 0,
+                limit: MaxExportLimit,
+                cancellationToken: cancellationToken);
+
+            var data = logs.Select(l => new AuditLogExcelDto
+            {
+                CreatedAt = l.CreatedAt,
+                ActorUsername = l.ActorUsername,
+                ActorRole = l.ActorRole,
+                ActionType = l.ActionType,
+                TargetEntity = l.TargetEntity,
+                TargetDisplay = l.TargetDisplay,
+                IsSuccess = l.IsSuccess,
+                Reason = l.Reason,
+                ErrorMessage = l.ErrorMessage
+            });
+
+            var bytes = await _excelService.WriteAsync(data, new AuditLogExcelProfile(), "Nhat_Ky_He_Thong");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+
+            _logger.LogInformation("Đã xuất {Count}/{Total} dòng nhật ký kiểm toán ra Excel (Truncated: {IsTruncated})",
+                logs.Count, totalCount, isTruncated);
+
+            return (bytes, $"Nhat_Ky_He_Thong_{timestamp}.xlsx", isTruncated);
+        }
+
+        public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportDistributionMatrixAsync(
+            DistributionFilterQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            var stats = await _statisticsService.GetDistributionStatisticsAsync(query, cancellationToken);
+            var isTruncated = stats.Items.Count > MaxExportLimit;
+
+            var data = stats.Items.Take(MaxExportLimit).Select(item => new DistributionExcelDto
+            {
+                CompanyName = item.CompanyName,
+                DepartmentName = item.DepartmentName,
+                ClientCount = item.ClientCount,
+                VehicleCount = item.VehicleCount,
+                GateCount = item.GateCount,
+                LaneCount = item.LaneCount
+            });
+
+            var bytes = await _excelService.WriteAsync(data, new DistributionExcelProfile(), "Ma_Tran_Phan_Bo");
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+
+            _logger.LogInformation("Đã xuất {Count} bản ghi Ma trận phân bổ ra Excel", stats.Items.Count);
+
+            return (bytes, $"Bao_Cao_Phan_Bo_{timestamp}.xlsx", isTruncated);
+        }
+
+        #region Filter & Sort Builders
+
+        private static FilterDefinition<ParkingSession> BuildParkingSessionFilter(ParkingSessionFilterQuery query)
+        {
+            var builder = Builders<ParkingSession>.Filter;
+            var filters = new List<FilterDefinition<ParkingSession>>();
+
+            if (!string.IsNullOrWhiteSpace(query.PlateNumber))
+            {
+                var cleanPlate = PlateHelper.Normalize(query.PlateNumber);
+                filters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(cleanPlate, "i")));
+            }
+
+            if (query.VehicleType.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.VehicleType, query.VehicleType.Value));
+            }
+
+            if (query.Status.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.Status, query.Status.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.InLaneName))
+            {
+                var cleanLane = Regex.Escape(query.InLaneName.Trim());
+                filters.Add(builder.Regex(x => x.InLaneName, new BsonRegularExpression(cleanLane, "i")));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.OutLaneName))
+            {
+                var cleanLane = Regex.Escape(query.OutLaneName.Trim());
+                filters.Add(builder.Regex(x => x.OutLaneName, new BsonRegularExpression(cleanLane, "i")));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.PersonId))
+            {
+                filters.Add(builder.Eq(x => x.PersonId, query.PersonId));
+            }
+
+            if (query.FromDate.HasValue)
+            {
+                filters.Add(builder.Gte(x => x.InTime, query.FromDate.Value));
+            }
+
+            if (query.ToDate.HasValue)
+            {
+                filters.Add(builder.Lte(x => x.InTime, query.ToDate.Value));
+            }
+
+            return filters.Count > 0 ? builder.And(filters) : builder.Empty;
+        }
+
+        private static SortDefinition<ParkingSession> BuildParkingSessionSort(ParkingSessionFilterQuery query)
+        {
+            var sortBuilder = Builders<ParkingSession>.Sort;
+            var isAsc = query.SortOrder?.ToLower() == "asc";
+            return query.SortBy?.ToLower() switch
+            {
+                "platenumber" => isAsc ? sortBuilder.Ascending(x => x.PlateNumber) : sortBuilder.Descending(x => x.PlateNumber),
+                "vehicletype" => isAsc ? sortBuilder.Ascending(x => x.VehicleType) : sortBuilder.Descending(x => x.VehicleType),
+                "status" => isAsc ? sortBuilder.Ascending(x => x.Status) : sortBuilder.Descending(x => x.Status),
+                "outtime" => isAsc ? sortBuilder.Ascending(x => x.OutTime) : sortBuilder.Descending(x => x.OutTime),
+                _ => isAsc ? sortBuilder.Ascending(x => x.InTime) : sortBuilder.Descending(x => x.InTime)
+            };
+        }
+
+        private static FilterDefinition<AuditLog> BuildAuditLogFilter(AuditLogFilterQuery query)
+        {
+            var builder = Builders<AuditLog>.Filter;
+            var filters = new List<FilterDefinition<AuditLog>>();
+
+            if (!string.IsNullOrWhiteSpace(query.ActorUsername))
+            {
+                var cleanUsername = Regex.Escape(query.ActorUsername.Trim());
+                filters.Add(builder.Regex(x => x.ActorUsername, new BsonRegularExpression(cleanUsername, "i")));
+            }
+
+            if (query.ActionType.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.ActionType, query.ActionType.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.TargetEntity))
+            {
+                var cleanTarget = Regex.Escape(query.TargetEntity.Trim());
+                filters.Add(builder.Regex(x => x.TargetEntity, new BsonRegularExpression(cleanTarget, "i")));
+            }
+
+            if (query.IsSuccess.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.IsSuccess, query.IsSuccess.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.Source))
+            {
+                var cleanSource = Regex.Escape(query.Source.Trim());
+                filters.Add(builder.Regex(x => x.Source, new BsonRegularExpression(cleanSource, "i")));
+            }
+
+            if (query.FromDate.HasValue)
+            {
+                filters.Add(builder.Gte(x => x.CreatedAt, query.FromDate.Value));
+            }
+
+            if (query.ToDate.HasValue)
+            {
+                filters.Add(builder.Lte(x => x.CreatedAt, query.ToDate.Value));
+            }
+
+            return filters.Count > 0 ? builder.And(filters) : builder.Empty;
+        }
+
+        private static SortDefinition<AuditLog> BuildAuditLogSort(AuditLogFilterQuery query)
+        {
+            var sortBuilder = Builders<AuditLog>.Sort;
+            var isAsc = query.SortOrder?.ToLower() == "asc";
+            return query.SortBy?.ToLower() switch
+            {
+                "actorusername" => isAsc ? sortBuilder.Ascending(x => x.ActorUsername) : sortBuilder.Descending(x => x.ActorUsername),
+                "actiontype" => isAsc ? sortBuilder.Ascending(x => x.ActionType) : sortBuilder.Descending(x => x.ActionType),
+                "targetentity" => isAsc ? sortBuilder.Ascending(x => x.TargetEntity) : sortBuilder.Descending(x => x.TargetEntity),
+                _ => isAsc ? sortBuilder.Ascending(x => x.CreatedAt) : sortBuilder.Descending(x => x.CreatedAt)
+            };
+        }
+
+        private static string FormatDuration(DateTime? inTime, DateTime? outTime)
+        {
+            if (!inTime.HasValue) return string.Empty;
+            if (!outTime.HasValue) return "Đang trong bãi";
+
+            var diff = outTime.Value - inTime.Value;
+            if (diff.TotalMinutes < 1) return $"{Math.Max(0, (int)diff.TotalSeconds)} giây";
+            if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes} phút";
+            if (diff.TotalDays < 1) return $"{(int)diff.TotalHours} giờ {diff.Minutes} phút";
+
+            return $"{(int)diff.TotalDays} ngày {diff.Hours} giờ {diff.Minutes} phút";
+        }
+
+        #endregion
+    }
+}
