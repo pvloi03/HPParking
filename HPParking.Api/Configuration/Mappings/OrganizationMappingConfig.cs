@@ -1,4 +1,5 @@
 using HPParking.Api.DTOs.Companies;
+using HPParking.Api.DTOs.Contractors;
 using HPParking.Api.DTOs.Departments;
 using HPParking.Core.Models.Entities;
 using Mapster;
@@ -6,7 +7,7 @@ using Mapster;
 namespace HPParking.Api.Configuration.Mappings
 {
     /// <summary>
-    /// Cấu hình quy tắc ánh xạ Mapster cho cụm nghiệp vụ Danh mục Tổ chức (Company và Department)
+    /// Cấu hình quy tắc ánh xạ Mapster cho cụm nghiệp vụ Danh mục Tổ chức (Company, Department &amp; Contractor)
     /// </summary>
     public class OrganizationMappingConfig : IRegister
     {
@@ -17,6 +18,9 @@ namespace HPParking.Api.Configuration.Mappings
 
             // 2. Ánh xạ Department -> DepartmentDto
             config.NewConfig<Department, DepartmentDto>();
+
+            // 3. Ánh xạ Contractor -> ContractorDto
+            config.NewConfig<Contractor, ContractorDto>();
         }
     }
 }

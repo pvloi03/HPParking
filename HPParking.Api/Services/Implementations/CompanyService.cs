@@ -21,17 +21,20 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Department> _departmentRepo;
         private readonly IRepository<Gate> _gateRepo;
+        private readonly IRepository<Client> _clientRepo;
         private readonly ILogger<CompanyService> _logger;
 
         public CompanyService(
             IRepository<Company> companyRepo,
             IRepository<Department> departmentRepo,
             IRepository<Gate> gateRepo,
+            IRepository<Client> clientRepo,
             ILogger<CompanyService> logger)
         {
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
             _gateRepo = gateRepo;
+            _clientRepo = clientRepo;
             _logger = logger;
         }
 
@@ -138,7 +141,7 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            // Active State Protection (ADR 0030): Không cho tắt Công ty nếu còn phòng ban đang active
+            // Active State Protection (ADR 0030 & ADR 0033): Không cho tắt Công ty nếu còn phòng ban, cổng hoặc khách hàng đang active
             if (company.IsActive && !request.IsActive)
             {
                 var activeDepCount = await _departmentRepo.CountAsync(
@@ -149,7 +152,29 @@ namespace HPParking.Api.Services.Implementations
                 {
                     throw new BadRequestException(
                         $"Không thể vô hiệu hóa Công ty '{company.Name}' vì vẫn còn {activeDepCount} phòng ban đang hoạt động. Vui lòng tắt các phòng ban trước.",
-                        ErrorCodes.BAD_REQUEST);
+                        ErrorCodes.COMPANY_ACTIVE_DEPENDENCY_EXISTS);
+                }
+
+                var activeGateCount = await _gateRepo.CountAsync(
+                    g => g.CompanyId == id && g.IsActive && !g.IsDeleted,
+                    cancellationToken);
+
+                if (activeGateCount > 0)
+                {
+                    throw new BadRequestException(
+                        $"Không thể vô hiệu hóa Công ty '{company.Name}' vì vẫn còn {activeGateCount} cổng đang hoạt động. Vui lòng tắt các cổng trước.",
+                        ErrorCodes.COMPANY_ACTIVE_DEPENDENCY_EXISTS);
+                }
+
+                var activeClientCount = await _clientRepo.CountAsync(
+                    c => c.CompanyId == id && c.IsActive && !c.IsDeleted,
+                    cancellationToken);
+
+                if (activeClientCount > 0)
+                {
+                    throw new BadRequestException(
+                        $"Không thể vô hiệu hóa Công ty '{company.Name}' vì vẫn còn {activeClientCount} khách hàng/nhân sự đang hoạt động. Vui lòng tắt hoặc chuyển nhân sự trước.",
+                        ErrorCodes.COMPANY_ACTIVE_DEPENDENCY_EXISTS);
                 }
             }
 
@@ -196,6 +221,18 @@ namespace HPParking.Api.Services.Implementations
                 throw new ConflictException(
                     $"Không thể xóa Công ty '{company.Name}' vì vẫn còn {gateCount} cổng trực thuộc. Vui lòng xóa hoặc di chuyển các cổng trước.",
                     ErrorCodes.COMPANY_HAS_GATES);
+            }
+
+            // Restrict Deletion Policy (ADR 0030 & ADR 0033): Chặn xóa nếu còn Khách hàng/Nhân sự trực thuộc
+            var clientCount = await _clientRepo.CountAsync(
+                c => c.CompanyId == id && !c.IsDeleted,
+                cancellationToken);
+
+            if (clientCount > 0)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa Công ty '{company.Name}' vì vẫn còn {clientCount} khách hàng/nhân sự trực thuộc. Vui lòng chuyển hoặc xóa nhân sự trước.",
+                    ErrorCodes.COMPANY_HAS_CLIENTS);
             }
 
             if (!hardDelete)

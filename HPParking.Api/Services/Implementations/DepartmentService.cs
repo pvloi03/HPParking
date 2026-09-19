@@ -216,6 +216,21 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            // Active State Protection (ADR 0030 & ADR 0033): Không cho tắt Phòng ban nếu còn khách hàng/nhân sự đang active
+            if (department.IsActive && !request.IsActive)
+            {
+                var activeClientCount = await _clientRepo.CountAsync(
+                    c => c.DepartmentId == id && c.IsActive && !c.IsDeleted,
+                    cancellationToken);
+
+                if (activeClientCount > 0)
+                {
+                    throw new BadRequestException(
+                        $"Không thể vô hiệu hóa Phòng ban '{department.Name}' vì vẫn còn {activeClientCount} khách hàng/nhân sự đang hoạt động. Vui lòng tắt hoặc chuyển nhân sự trước.",
+                        ErrorCodes.DEPARTMENT_ACTIVE_CLIENTS_EXIST);
+                }
+            }
+
             department.Code = cleanCode;
             department.Name = cleanName;
             department.ManagerName = request.ManagerName?.Trim();
