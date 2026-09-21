@@ -501,6 +501,32 @@ namespace HPParking.Api.Services.Implementations
             return avatarUrl;
         }
 
+        public async Task<(byte[] Bytes, string ContentType)> GetAvatarAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var client = await _clientRepo.GetByIdAsync(id, cancellationToken);
+            if (client == null || client.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin khách hàng.", ErrorCodes.CLIENT_NOT_FOUND);
+            }
+
+            if (string.IsNullOrWhiteSpace(client.Avatar))
+            {
+                throw new NotFoundException("Khách hàng chưa có ảnh đại diện.", ErrorCodes.NOT_FOUND);
+            }
+
+            var bytes = await _fileStorage.ReadFileBytesAsync(client.Avatar, cancellationToken);
+            var extension = System.IO.Path.GetExtension(client.Avatar).ToLowerInvariant();
+            var contentType = extension switch
+            {
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                _ => "image/jpeg"
+            };
+
+            return (bytes, contentType);
+        }
+
         public async Task<SyncFaceIdResponse> SyncFaceIdAsync(string id, CancellationToken cancellationToken = default)
         {
             var client = await _clientRepo.GetByIdAsync(id, cancellationToken);

@@ -16,5 +16,6 @@ namespace HPParking.Api.Services.Interfaces
         Task<ClientDto> RestoreClientAsync(string id, CancellationToken cancellationToken = default);
         Task<string> UploadAvatarAsync(string id, IFormFile file, CancellationToken cancellationToken = default);
         Task<SyncFaceIdResponse> SyncFaceIdAsync(string id, CancellationToken cancellationToken = default);
+        Task<(byte[] Bytes, string ContentType)> GetAvatarAsync(string id, CancellationToken cancellationToken = default);
     }
 }

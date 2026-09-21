@@ -11,6 +11,15 @@ namespace HPParking.Api.DTOs.Vehicles
         public string? Keyword { get; set; }
 
         /// <summary>
+        /// Alias cho Keyword phục vụ query parameter ?plateNumber=
+        /// </summary>
+        public string? PlateNumber
+        {
+            get => Keyword;
+            set => Keyword = value;
+        }
+
+        /// <summary>
         /// Phân loại phương tiện (Ô tô, Xe máy, Xe đạp, Khác)
         /// </summary>
         public VehicleType? Type { get; set; }
