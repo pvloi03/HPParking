@@ -145,6 +145,20 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
+        /// Tải luồng ảnh đại diện chân dung của khách hàng
+        /// </summary>
+        [HttpGet("{id}/avatar")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(FileContentResult), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> GetClientAvatar(string id)
+        {
+            var (bytes, contentType) = await _clientService.GetAvatarAsync(id);
+            return File(bytes, contentType);
+        }
+
+        /// <summary>
         /// Chủ động đồng bộ hồ sơ, thẻ SĐT và ảnh khuôn mặt lên toàn bộ các thiết bị FaceID của làn xe đang hoạt động
         /// </summary>
         [HttpPost("{id}/sync-faceid")]

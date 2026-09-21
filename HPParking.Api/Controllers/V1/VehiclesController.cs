@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Asp.Versioning;
+using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
@@ -49,6 +51,42 @@ namespace HPParking.Api.Controllers.V1
         {
             var vehicle = await _vehicleService.GetVehicleByIdAsync(id);
             return OkApiResponse(vehicle, "Lấy thông tin phương tiện thành công.");
+        }
+
+        /// <summary>
+        /// Lấy danh sách tất cả phương tiện thuộc quyền sở hữu của một khách hàng
+        /// </summary>
+        [HttpGet("client/{clientId}")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<VehicleDto>>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> GetVehiclesByClientId(string clientId)
+        {
+            var vehicles = await _vehicleService.GetVehiclesByClientIdAsync(clientId);
+            return OkApiResponse(vehicles, "Lấy danh sách phương tiện của khách hàng thành công.");
+        }
+
+        /// <summary>
+        /// Đăng ký phương tiện mới gắn theo ClientId
+        /// </summary>
+        [HttpPost]
+        [Authorize(Roles = "Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<VehicleDto>), 201)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+        public async Task<IActionResult> CreateVehicle([FromBody] CreateVehicleRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.ClientId))
+            {
+                throw new BadRequestException("Vui lòng cung cấp ClientId của chủ xe.", ErrorCodes.BAD_REQUEST);
+            }
+
+            var created = await _vehicleService.CreateVehicleAsync(request.ClientId, request);
+            return CreatedApiResponse($"/api/v1/vehicles/{created.Id}", created, "Đăng ký phương tiện mới thành công.");
         }
 
         /// <summary>
