@@ -101,6 +101,19 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<UserInfoDto> GetCurrentUserAsync(string userId, CancellationToken cancellationToken = default)
         {
+            if (string.Equals(userId, "api-key-system", StringComparison.OrdinalIgnoreCase))
+            {
+                return new UserInfoDto
+                {
+                    Id = "api-key-system",
+                    Username = "ExternalSystem",
+                    FullName = "Hệ thống bên thứ 3 (API Key)",
+                    Role = "Admin",
+                    Email = "system@hpparking.local",
+                    IsActive = true
+                };
+            }
+
             var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
             if (user == null)
             {
