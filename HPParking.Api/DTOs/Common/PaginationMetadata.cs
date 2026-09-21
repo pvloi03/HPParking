@@ -1,5 +1,3 @@
-using System;
-
 namespace HPParking.Api.DTOs.Common
 {
     public class PaginationMetadata

@@ -1,8 +1,6 @@
 using HPParking.Api.DTOs.AuditLogs;
 using HPParking.Api.DTOs.ParkingSessions;
 using HPParking.Api.DTOs.Statistics;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Interfaces
 {
@@ -27,10 +25,10 @@ namespace HPParking.Api.Services.Interfaces
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Xuất báo cáo Ma trận phân bổ khách hàng và phương tiện theo đơn vị tổ chức
+        /// Xuất báo cáo tổng hợp lưu lượng lượt ra vào theo từng người và phương tiện
         /// </summary>
-        Task<(byte[] Content, string FileName, bool IsTruncated)> ExportDistributionMatrixAsync(
-            DistributionFilterQuery query,
+        Task<(byte[] Content, string FileName, bool IsTruncated)> ExportTrafficSummaryAsync(
+            TrafficSummaryFilterQuery query,
             CancellationToken cancellationToken = default);
     }
 }

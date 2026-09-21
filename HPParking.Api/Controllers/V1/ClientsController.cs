@@ -1,14 +1,10 @@
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Asp.Versioning;
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace HPParking.Api.Controllers.V1
 {

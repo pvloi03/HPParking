@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.Common.Excel;
 
 namespace HPParking.Api.Services.Interfaces
@@ -21,13 +17,15 @@ namespace HPParking.Api.Services.Interfaces
             CancellationToken cancellationToken = default) where T : class, new();
 
         /// <summary>
-        /// Xuất danh sách đối tượng Generic thành mảng byte bảng tính Excel (.xlsx)
+        /// Xuất danh sách đối tượng Generic thành mảng byte bảng tính Excel (.xlsx) kèm Report Title Banner (ADR 0023, ADR 0030)
         /// </summary>
         Task<byte[]> WriteAsync<T>(
             IEnumerable<T> data,
             ExcelProfile<T> profile,
             string sheetName = "Data",
+            string? reportTitle = null,
             CancellationToken cancellationToken = default) where T : class;
+
 
         /// <summary>
         /// Tự động sinh tệp Excel template chuẩn từ Fluent Profile (kèm header, styling, cell comments và dropdown validation)

@@ -1,7 +1,4 @@
 using HPParking.Api.DTOs.Excel;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Interfaces
 {

@@ -2,17 +2,11 @@ using HPParking.Api.Common.Excel;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Excel;
 using HPParking.Api.DTOs.Excel.MasterData;
+using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -30,6 +24,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Lane> _laneRepo;
         private readonly IRepository<Device> _deviceRepo;
+        private readonly IVehicleExcelService _vehicleExcelService;
         private readonly ILogger<MasterDataExcelService> _logger;
 
         public MasterDataExcelService(
@@ -40,6 +35,7 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Gate> gateRepo,
             IRepository<Lane> laneRepo,
             IRepository<Device> deviceRepo,
+            IVehicleExcelService vehicleExcelService,
             ILogger<MasterDataExcelService> logger)
         {
             _excelService = excelService;
@@ -49,6 +45,7 @@ namespace HPParking.Api.Services.Implementations
             _gateRepo = gateRepo;
             _laneRepo = laneRepo;
             _deviceRepo = deviceRepo;
+            _vehicleExcelService = vehicleExcelService;
             _logger = logger;
         }
 
@@ -87,7 +84,9 @@ namespace HPParking.Api.Services.Implementations
                     new DeviceExcelDto { Code = "CAM_01", Name = "Camera biển số Làn 1", Type = DeviceType.Camera, IpAddress = "192.168.1.101", Port = 8000, UserName = "admin", IsActive = true },
                     "Mau_Nhap_Thiet_Bi"), "Mau_Nhap_Thiet_Bi.xlsx"),
 
-                _ => throw new BadRequestException($"Thực thể Master Data '{entity}' không hợp lệ. Các giá trị hỗ trợ: companies, departments, contractors, gates, lanes, devices.")
+                "vehicles" => (await _vehicleExcelService.GenerateTemplateAsync(), "Mau_Nhap_Phuong_Tien.xlsx"),
+
+                _ => throw new BadRequestException($"Thực thể Master Data '{entity}' không hợp lệ. Các giá trị hỗ trợ: companies, departments, contractors, gates, lanes, devices, vehicles.")
             };
         }
 
@@ -109,6 +108,7 @@ namespace HPParking.Api.Services.Implementations
                 "gates" => await ImportGatesInternalAsync(fileStream, duplicateMode, dryRun, cancellationToken),
                 "lanes" => await ImportLanesInternalAsync(fileStream, duplicateMode, dryRun, cancellationToken),
                 "devices" => await ImportDevicesInternalAsync(fileStream, duplicateMode, dryRun, cancellationToken),
+                "vehicles" => await _vehicleExcelService.ImportVehiclesAsync(fileStream, dryRun, duplicateMode, cancellationToken),
                 _ => throw new BadRequestException($"Thực thể Master Data '{entity}' không hợp lệ.")
             };
         }
@@ -128,6 +128,7 @@ namespace HPParking.Api.Services.Implementations
                 "gates" => await ExportGatesInternalAsync(timestamp, cancellationToken),
                 "lanes" => await ExportLanesInternalAsync(timestamp, cancellationToken),
                 "devices" => await ExportDevicesInternalAsync(timestamp, cancellationToken),
+                "vehicles" => await _vehicleExcelService.ExportVehiclesAsync(new VehicleFilterQuery(), cancellationToken),
                 _ => throw new BadRequestException($"Thực thể Master Data '{entity}' không hợp lệ.")
             };
         }
@@ -163,7 +164,6 @@ namespace HPParking.Api.Services.Implementations
                         continue;
                     }
 
-                    // Update
                     if (!dryRun)
                     {
                         existing.Name = row.Name.Trim();
@@ -179,7 +179,7 @@ namespace HPParking.Api.Services.Implementations
 
                 if (!dryRun)
                 {
-                    var newCompany = new Company
+                    var newComp = new Company
                     {
                         Code = row.Code.Trim(),
                         Name = row.Name.Trim(),
@@ -188,8 +188,8 @@ namespace HPParking.Api.Services.Implementations
                         IsActive = row.IsActive ?? true,
                         CreatedAt = DateTime.UtcNow
                     };
-                    await _companyRepo.AddAsync(newCompany, cancellationToken);
-                    existingCompanies[codeKey] = newCompany;
+                    await _companyRepo.AddAsync(newComp, cancellationToken);
+                    existingCompanies[codeKey] = newComp;
                 }
                 result.SuccessCount++;
             }
@@ -206,7 +206,10 @@ namespace HPParking.Api.Services.Implementations
 
             var existingDepts = (await _departmentRepo.GetAllAsync(cancellationToken))
                 .ToDictionary(x => x.Code.Trim().ToLowerInvariant(), x => x);
-            var companies = await _companyRepo.GetAllAsync(cancellationToken);
+
+            var companiesByCode = (await _companyRepo.GetAllAsync(cancellationToken))
+                .Where(c => !string.IsNullOrEmpty(c.Code))
+                .ToDictionary(c => c.Code.Trim().ToLowerInvariant(), c => c);
 
             for (var i = 0; i < parseResult.SuccessData.Count; i++)
             {
@@ -214,13 +217,23 @@ namespace HPParking.Api.Services.Implementations
                 var rowIndex = i + 2;
                 var codeKey = row.Code.Trim().ToLowerInvariant();
 
-                string? resolvedCompanyId = null;
+                string? companyId = null;
                 if (!string.IsNullOrWhiteSpace(row.CompanyCode))
                 {
-                    var cleanComp = row.CompanyCode.Trim();
-                    resolvedCompanyId = companies.FirstOrDefault(c =>
-                        string.Equals(c.Code, cleanComp, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(c.Name, cleanComp, StringComparison.OrdinalIgnoreCase))?.Id;
+                    var compKey = row.CompanyCode.Trim().ToLowerInvariant();
+                    if (!companiesByCode.TryGetValue(compKey, out var matchedComp))
+                    {
+                        result.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Mã công ty",
+                            Value = row.CompanyCode,
+                            ErrorMessage = $"Mã công ty '{row.CompanyCode}' không tồn tại trong hệ thống."
+                        });
+                        result.FailedCount++;
+                        continue;
+                    }
+                    companyId = matchedComp.Id;
                 }
 
                 if (existingDepts.TryGetValue(codeKey, out var existing))
@@ -240,7 +253,7 @@ namespace HPParking.Api.Services.Implementations
                     if (!dryRun)
                     {
                         existing.Name = row.Name.Trim();
-                        if (resolvedCompanyId != null) existing.CompanyId = resolvedCompanyId;
+                        if (!string.IsNullOrWhiteSpace(row.CompanyCode)) existing.CompanyId = companyId;
                         existing.ManagerName = row.ManagerName?.Trim();
                         existing.PhoneNumber = row.PhoneNumber?.Trim();
                         existing.Email = row.Email?.Trim();
@@ -258,7 +271,7 @@ namespace HPParking.Api.Services.Implementations
                     {
                         Code = row.Code.Trim(),
                         Name = row.Name.Trim(),
-                        CompanyId = resolvedCompanyId,
+                        CompanyId = companyId,
                         ManagerName = row.ManagerName?.Trim(),
                         PhoneNumber = row.PhoneNumber?.Trim(),
                         Email = row.Email?.Trim(),
@@ -348,7 +361,10 @@ namespace HPParking.Api.Services.Implementations
 
             var existingGates = (await _gateRepo.GetAllAsync(cancellationToken))
                 .ToDictionary(x => x.Code.Trim().ToLowerInvariant(), x => x);
-            var companies = await _companyRepo.GetAllAsync(cancellationToken);
+
+            var companiesByCode = (await _companyRepo.GetAllAsync(cancellationToken))
+                .Where(c => !string.IsNullOrEmpty(c.Code))
+                .ToDictionary(c => c.Code.Trim().ToLowerInvariant(), c => c);
 
             for (var i = 0; i < parseResult.SuccessData.Count; i++)
             {
@@ -356,13 +372,23 @@ namespace HPParking.Api.Services.Implementations
                 var rowIndex = i + 2;
                 var codeKey = row.Code.Trim().ToLowerInvariant();
 
-                string? resolvedCompanyId = null;
+                string? companyId = null;
                 if (!string.IsNullOrWhiteSpace(row.CompanyCode))
                 {
-                    var cleanComp = row.CompanyCode.Trim();
-                    resolvedCompanyId = companies.FirstOrDefault(c =>
-                        string.Equals(c.Code, cleanComp, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(c.Name, cleanComp, StringComparison.OrdinalIgnoreCase))?.Id;
+                    var compKey = row.CompanyCode.Trim().ToLowerInvariant();
+                    if (!companiesByCode.TryGetValue(compKey, out var matchedComp))
+                    {
+                        result.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Mã công ty",
+                            Value = row.CompanyCode,
+                            ErrorMessage = $"Mã công ty '{row.CompanyCode}' không tồn tại trong hệ thống."
+                        });
+                        result.FailedCount++;
+                        continue;
+                    }
+                    companyId = matchedComp.Id;
                 }
 
                 if (existingGates.TryGetValue(codeKey, out var existing))
@@ -382,7 +408,7 @@ namespace HPParking.Api.Services.Implementations
                     if (!dryRun)
                     {
                         existing.Name = row.Name.Trim();
-                        if (resolvedCompanyId != null) existing.CompanyId = resolvedCompanyId;
+                        if (!string.IsNullOrWhiteSpace(row.CompanyCode)) existing.CompanyId = companyId;
                         if (!string.IsNullOrWhiteSpace(row.MachineCode)) existing.MachineCode = row.MachineCode.Trim();
                         if (row.IsActive.HasValue) existing.IsActive = row.IsActive.Value;
                         existing.UpdatedAt = DateTime.UtcNow;
@@ -398,7 +424,7 @@ namespace HPParking.Api.Services.Implementations
                     {
                         Code = row.Code.Trim(),
                         Name = row.Name.Trim(),
-                        CompanyId = resolvedCompanyId,
+                        CompanyId = companyId,
                         MachineCode = row.MachineCode.Trim(),
                         IsActive = row.IsActive ?? true,
                         CreatedAt = DateTime.UtcNow
@@ -421,7 +447,10 @@ namespace HPParking.Api.Services.Implementations
 
             var existingLanes = (await _laneRepo.GetAllAsync(cancellationToken))
                 .ToDictionary(x => x.Code.Trim().ToLowerInvariant(), x => x);
-            var gates = await _gateRepo.GetAllAsync(cancellationToken);
+
+            var gatesByCode = (await _gateRepo.GetAllAsync(cancellationToken))
+                .Where(g => !string.IsNullOrEmpty(g.Code))
+                .ToDictionary(g => g.Code.Trim().ToLowerInvariant(), g => g);
 
             for (var i = 0; i < parseResult.SuccessData.Count; i++)
             {
@@ -429,13 +458,23 @@ namespace HPParking.Api.Services.Implementations
                 var rowIndex = i + 2;
                 var codeKey = row.Code.Trim().ToLowerInvariant();
 
-                string? resolvedGateId = null;
+                string? gateId = null;
                 if (!string.IsNullOrWhiteSpace(row.GateCode))
                 {
-                    var cleanGate = row.GateCode.Trim();
-                    resolvedGateId = gates.FirstOrDefault(g =>
-                        string.Equals(g.Code, cleanGate, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(g.Name, cleanGate, StringComparison.OrdinalIgnoreCase))?.Id;
+                    var gateKey = row.GateCode.Trim().ToLowerInvariant();
+                    if (!gatesByCode.TryGetValue(gateKey, out var matchedGate))
+                    {
+                        result.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Mã cổng",
+                            Value = row.GateCode,
+                            ErrorMessage = $"Mã cổng '{row.GateCode}' không tồn tại trong hệ thống."
+                        });
+                        result.FailedCount++;
+                        continue;
+                    }
+                    gateId = matchedGate.Id;
                 }
 
                 if (existingLanes.TryGetValue(codeKey, out var existing))
@@ -455,7 +494,7 @@ namespace HPParking.Api.Services.Implementations
                     if (!dryRun)
                     {
                         existing.Name = row.Name.Trim();
-                        if (resolvedGateId != null) existing.GateId = resolvedGateId;
+                        if (!string.IsNullOrWhiteSpace(row.GateCode)) existing.GateId = gateId;
                         if (row.Direction.HasValue) existing.Direction = row.Direction.Value;
                         existing.OutputRelay = row.OutputRelay;
                         existing.InputReader = row.InputReader;
@@ -473,7 +512,7 @@ namespace HPParking.Api.Services.Implementations
                     {
                         Code = row.Code.Trim(),
                         Name = row.Name.Trim(),
-                        GateId = resolvedGateId,
+                        GateId = gateId,
                         Direction = row.Direction ?? LaneDirection.In,
                         OutputRelay = row.OutputRelay,
                         InputReader = row.InputReader,
@@ -524,8 +563,8 @@ namespace HPParking.Api.Services.Implementations
                         existing.Name = row.Name.Trim();
                         if (row.Type.HasValue) existing.Type = row.Type.Value;
                         if (!string.IsNullOrWhiteSpace(row.IpAddress)) existing.IpAddress = row.IpAddress.Trim();
-                        existing.Port = row.Port > 0 ? row.Port : 8000;
-                        if (row.UserName != null) existing.UserName = row.UserName.Trim();
+                        existing.Port = row.Port;
+                        existing.UserName = row.UserName?.Trim();
                         if (row.IsActive.HasValue) existing.IsActive = row.IsActive.Value;
                         existing.UpdatedAt = DateTime.UtcNow;
                         await _deviceRepo.UpdateAsync(existing, cancellationToken);
@@ -542,7 +581,7 @@ namespace HPParking.Api.Services.Implementations
                         Name = row.Name.Trim(),
                         Type = row.Type ?? DeviceType.Camera,
                         IpAddress = row.IpAddress.Trim(),
-                        Port = row.Port > 0 ? row.Port : 8000,
+                        Port = row.Port,
                         UserName = row.UserName?.Trim(),
                         IsActive = row.IsActive ?? true,
                         CreatedAt = DateTime.UtcNow
@@ -575,7 +614,7 @@ namespace HPParking.Api.Services.Implementations
                 IsActive = c.IsActive
             });
 
-            var bytes = await _excelService.WriteAsync(data, new CompanyExcelProfile(), "Danh_Sach_Cong_Ty");
+            var bytes = await _excelService.WriteAsync(data, new CompanyExcelProfile(), "Danh_Sach_Cong_Ty", "DANH SÁCH THÔNG TIN CÔNG TY", cancellationToken);
             return (bytes, $"Danh_Sach_Cong_Ty_{timestamp}.xlsx", isTruncated);
         }
 
@@ -585,18 +624,18 @@ namespace HPParking.Api.Services.Implementations
             var all = await _departmentRepo.GetAllAsync(cancellationToken);
             var companies = (await _companyRepo.GetAllAsync(cancellationToken)).ToDictionary(x => x.Id, x => x.Name);
             var isTruncated = all.Count > MaxExportLimit;
-            var data = all.Take(MaxExportLimit).Select(d => new DepartmentExcelDto
+            var data = all.Take(MaxExportLimit).Select(d => new DepartmentExportExcelDto
             {
                 Code = d.Code,
                 Name = d.Name,
-                CompanyCode = !string.IsNullOrEmpty(d.CompanyId) && companies.TryGetValue(d.CompanyId, out var cName) ? cName : null,
+                CompanyName = !string.IsNullOrEmpty(d.CompanyId) && companies.TryGetValue(d.CompanyId, out var cName) ? cName : null,
                 ManagerName = d.ManagerName,
                 PhoneNumber = d.PhoneNumber,
                 Email = d.Email,
                 IsActive = d.IsActive
             });
 
-            var bytes = await _excelService.WriteAsync(data, new DepartmentExcelProfile(), "Danh_Sach_Phong_Ban");
+            var bytes = await _excelService.WriteAsync(data, new DepartmentExportExcelProfile(), "Danh_Sach_Phong_Ban", "DANH SÁCH THÔNG TIN PHÒNG BAN", cancellationToken);
             return (bytes, $"Danh_Sach_Phong_Ban_{timestamp}.xlsx", isTruncated);
         }
 
@@ -615,7 +654,7 @@ namespace HPParking.Api.Services.Implementations
                 IsActive = c.IsActive
             });
 
-            var bytes = await _excelService.WriteAsync(data, new ContractorExcelProfile(), "Danh_Sach_Nha_Thau");
+            var bytes = await _excelService.WriteAsync(data, new ContractorExcelProfile(), "Danh_Sach_Nha_Thau", "DANH SÁCH THÔNG TIN NHÀ THẦU", cancellationToken);
             return (bytes, $"Danh_Sach_Nha_Thau_{timestamp}.xlsx", isTruncated);
         }
 
@@ -625,17 +664,17 @@ namespace HPParking.Api.Services.Implementations
             var all = await _gateRepo.GetAllAsync(cancellationToken);
             var companies = (await _companyRepo.GetAllAsync(cancellationToken)).ToDictionary(x => x.Id, x => x.Name);
             var isTruncated = all.Count > MaxExportLimit;
-            var data = all.Take(MaxExportLimit).Select(g => new GateExcelDto
+            var data = all.Take(MaxExportLimit).Select(g => new GateExportExcelDto
             {
                 Code = g.Code,
                 Name = g.Name,
-                CompanyCode = !string.IsNullOrEmpty(g.CompanyId) && companies.TryGetValue(g.CompanyId, out var cName) ? cName : null,
+                CompanyName = !string.IsNullOrEmpty(g.CompanyId) && companies.TryGetValue(g.CompanyId, out var cName) ? cName : null,
                 MachineCode = g.MachineCode,
                 IsActive = g.IsActive
             });
 
-            var bytes = await _excelService.WriteAsync(data, new GateExcelProfile(), "Danh_Sach_Cong_Kiem_Soat");
-            return (bytes, $"Danh_Sach_Cong_{timestamp}.xlsx", isTruncated);
+            var bytes = await _excelService.WriteAsync(data, new GateExportExcelProfile(), "Danh_Sach_Cong_Kiem_Soat", "DANH SÁCH CỔNG KIỂM SOÁT", cancellationToken);
+            return (bytes, $"Danh_Sach_Cong_Kiem_Soat_{timestamp}.xlsx", isTruncated);
         }
 
         private async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportLanesInternalAsync(
@@ -644,18 +683,18 @@ namespace HPParking.Api.Services.Implementations
             var all = await _laneRepo.GetAllAsync(cancellationToken);
             var gates = (await _gateRepo.GetAllAsync(cancellationToken)).ToDictionary(x => x.Id, x => x.Name);
             var isTruncated = all.Count > MaxExportLimit;
-            var data = all.Take(MaxExportLimit).Select(l => new LaneExcelDto
+            var data = all.Take(MaxExportLimit).Select(l => new LaneExportExcelDto
             {
                 Code = l.Code,
                 Name = l.Name,
-                GateCode = !string.IsNullOrEmpty(l.GateId) && gates.TryGetValue(l.GateId, out var gName) ? gName : null,
+                GateName = !string.IsNullOrEmpty(l.GateId) && gates.TryGetValue(l.GateId, out var gName) ? gName : null,
                 Direction = l.Direction,
                 OutputRelay = l.OutputRelay,
                 InputReader = l.InputReader,
                 IsActive = l.IsActive
             });
 
-            var bytes = await _excelService.WriteAsync(data, new LaneExcelProfile(), "Danh_Sach_Lan_Xe");
+            var bytes = await _excelService.WriteAsync(data, new LaneExportExcelProfile(), "Danh_Sach_Lan_Xe", "DANH SÁCH LÀN XE KIỂM SOÁT", cancellationToken);
             return (bytes, $"Danh_Sach_Lan_Xe_{timestamp}.xlsx", isTruncated);
         }
 
@@ -675,7 +714,7 @@ namespace HPParking.Api.Services.Implementations
                 IsActive = d.IsActive
             });
 
-            var bytes = await _excelService.WriteAsync(data, new DeviceExcelProfile(), "Danh_Sach_Thiet_Bi");
+            var bytes = await _excelService.WriteAsync(data, new DeviceExcelProfile(), "Danh_Sach_Thiet_Bi", "DANH SÁCH THIẾT BỊ HỆ THỐNG", cancellationToken);
             return (bytes, $"Danh_Sach_Thiet_Bi_{timestamp}.xlsx", isTruncated);
         }
 

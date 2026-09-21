@@ -5,10 +5,7 @@ using HPParking.Api.DTOs.ParkingSessions;
 using HPParking.Api.DTOs.Statistics;
 using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Controllers.V1
 {
@@ -107,20 +104,36 @@ namespace HPParking.Api.Controllers.V1
         }
 
         // =========================================================================
-        // --- 3. XUẤT BÁO CÁO MA TRẬN PHÂN BỔ (DISTRIBUTION MATRIX) ---
+        // --- 3. XUẤT BÁO CÁO TỔNG HỢP LƯỢT RA VÀO (TRAFFIC SUMMARY) ---
         // =========================================================================
 
         /// <summary>
-        /// Xuất báo cáo Ma trận phân bổ khách hàng &amp; phương tiện theo đơn vị tổ chức ra Excel
+        /// Xuất báo cáo tổng hợp lưu lượng lượt ra vào theo từng người và phương tiện ra Excel (POST kèm bộ lọc)
         /// </summary>
-        [HttpGet("distribution/export")]
-        [HttpGet("statistics/distribution/export")]
+        [HttpPost("traffic-summary/export")]
         [Authorize(Roles = "Viewer,Manager,Admin")]
         [ProducesResponseType(typeof(FileContentResult), 200)]
         [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-        public async Task<IActionResult> ExportDistributionMatrix([FromQuery] DistributionFilterQuery query)
+        public async Task<IActionResult> ExportTrafficSummaryPost([FromBody] TrafficSummaryFilterQuery query)
         {
-            var (content, fileName, isTruncated) = await _reportExcelService.ExportDistributionMatrixAsync(query);
+            var (content, fileName, isTruncated) = await _reportExcelService.ExportTrafficSummaryAsync(query ?? new TrafficSummaryFilterQuery());
+            if (isTruncated)
+            {
+                Response.Headers.Append("X-Export-Truncated", "true");
+            }
+            return File(content, ExcelContentType, fileName);
+        }
+
+        /// <summary>
+        /// Xuất báo cáo tổng hợp lưu lượng lượt ra vào theo từng người và phương tiện ra Excel (GET tải trực tiếp)
+        /// </summary>
+        [HttpGet("traffic-summary/export")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(FileContentResult), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        public async Task<IActionResult> ExportTrafficSummaryGet([FromQuery] TrafficSummaryFilterQuery query)
+        {
+            var (content, fileName, isTruncated) = await _reportExcelService.ExportTrafficSummaryAsync(query);
             if (isTruncated)
             {
                 Response.Headers.Append("X-Export-Truncated", "true");

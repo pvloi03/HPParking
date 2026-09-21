@@ -1,4 +1,3 @@
-using System;
 using HPParking.Api.DTOs.ParkingSessions;
 using HPParking.Core.Models.Entities;
 using Mapster;

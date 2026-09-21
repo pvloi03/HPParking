@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.Companies;
 

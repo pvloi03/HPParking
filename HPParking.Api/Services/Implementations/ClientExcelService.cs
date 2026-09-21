@@ -1,13 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using HPParking.Api.Common.Exceptions;
 using HPParking.Api.Common.Excel;
-using HPParking.Api.Common.Helpers;
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Excel;
 using HPParking.Api.DTOs.Excel.Clients;
@@ -15,15 +6,14 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
 {
     /// <summary>
-    /// Triển khai dịch vụ nghiệp vụ Nhập/Xuất Excel cho Khách hàng và Phương tiện (ADR 0023)
+    /// Triển khai dịch vụ nghiệp vụ Nhập/Xuất Excel cho Khách hàng (Độc lập, chỉ trường cơ bản, ADR 0023)
     /// </summary>
     public class ClientExcelService : IClientExcelService
     {
@@ -31,24 +21,24 @@ namespace HPParking.Api.Services.Implementations
 
         private readonly IExcelService _excelService;
         private readonly IRepository<Client> _clientRepo;
-        private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Department> _departmentRepo;
+        private readonly IRepository<Contractor> _contractorRepo;
         private readonly ILogger<ClientExcelService> _logger;
 
         public ClientExcelService(
             IExcelService excelService,
             IRepository<Client> clientRepo,
-            IRepository<Vehicle> vehicleRepo,
             IRepository<Company> companyRepo,
             IRepository<Department> departmentRepo,
+            IRepository<Contractor> contractorRepo,
             ILogger<ClientExcelService> logger)
         {
             _excelService = excelService;
             _clientRepo = clientRepo;
-            _vehicleRepo = vehicleRepo;
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
+            _contractorRepo = contractorRepo;
             _logger = logger;
         }
 
@@ -61,10 +51,12 @@ namespace HPParking.Api.Services.Implementations
                 PhoneNumber = "0912345678",
                 BirthDay = new DateTime(1990, 1, 15),
                 Address = "Hà Nội",
-                PlateNumber = "30A-12345",
-                VehicleType = VehicleType.Car,
-                CompanyName = "Công ty TNHH Hoàng Phát",
-                DepartmentName = "Phòng Kỹ thuật"
+                Email = "nguyenvana@example.com",
+                Type = ClientType.Employee,
+                CompanyCode = "CTY-HP",
+                DepartmentCode = "PB-KT",
+                ContractorCode = null,
+                IsActive = true
             };
 
             var profile = new ClientExcelProfile();
@@ -98,7 +90,6 @@ namespace HPParking.Api.Services.Implementations
                 IsDryRun = dryRun
             };
 
-            // Chuyển các lỗi định dạng ban đầu sang DTO
             foreach (var err in parseResult.Errors)
             {
                 resultDto.Errors.Add(new ExcelRowErrorDto
@@ -110,28 +101,25 @@ namespace HPParking.Api.Services.Implementations
                 });
             }
 
-            // 1. Tải cache Công ty, Phòng ban và Dữ liệu hiện có để đối soát
-            var companies = await _companyRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
-            var departments = await _departmentRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
-
             var existingClients = await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var clientsByPhone = existingClients.ToDictionary(c => c.PhoneNumber, c => c);
-            var clientsByCode = existingClients.Where(c => !string.IsNullOrEmpty(c.Code)).ToDictionary(c => c.Code!, c => c);
 
-            var existingVehicles = await _vehicleRepo.FindAsync(x => !x.IsDeleted && x.IsActive, cancellationToken);
-            var vehiclesByPlate = existingVehicles.ToDictionary(v => v.PlateNumber, v => v);
+            var companiesByCode = (await _companyRepo.FindAsync(x => !x.IsDeleted && !string.IsNullOrEmpty(x.Code), cancellationToken))
+                .ToDictionary(c => c.Code.Trim().ToLowerInvariant(), c => c);
+            var departmentsByCode = (await _departmentRepo.FindAsync(x => !x.IsDeleted && !string.IsNullOrEmpty(x.Code), cancellationToken))
+                .ToDictionary(d => d.Code.Trim().ToLowerInvariant(), d => d);
+            var contractorsByCode = (await _contractorRepo.FindAsync(x => !x.IsDeleted && !string.IsNullOrEmpty(x.Code), cancellationToken))
+                .ToDictionary(ct => ct.Code.Trim().ToLowerInvariant(), ct => ct);
 
             var seenPhonesInFile = new HashSet<string>();
-            var seenPlatesInFile = new HashSet<string>();
 
-            int rowIndex = 1; // Hàng dữ liệu bắt đầu từ 2
+            int rowIndex = 1;
             foreach (var row in parseResult.SuccessData)
             {
                 rowIndex++;
                 bool rowHasError = false;
 
-                // 2. Validate định dạng Số điện thoại (chuẩn 10 chữ số)
-                var phone = row.PhoneNumber.Trim();
+                var phone = (row.PhoneNumber ?? string.Empty).Trim();
                 if (!Regex.IsMatch(phone, @"^0\d{9}$"))
                 {
                     resultDto.Errors.Add(new ExcelRowErrorDto
@@ -144,7 +132,6 @@ namespace HPParking.Api.Services.Implementations
                     rowHasError = true;
                 }
 
-                // 3. Kiểm tra trùng số điện thoại trong chính tệp
                 if (!seenPhonesInFile.Add(phone))
                 {
                     resultDto.Errors.Add(new ExcelRowErrorDto
@@ -157,21 +144,66 @@ namespace HPParking.Api.Services.Implementations
                     rowHasError = true;
                 }
 
-                // 4. Kiểm tra biển số xe
-                string? cleanPlate = null;
-                if (!string.IsNullOrWhiteSpace(row.PlateNumber))
+                string? companyId = null;
+                if (!string.IsNullOrWhiteSpace(row.CompanyCode))
                 {
-                    cleanPlate = PlateHelper.Normalize(row.PlateNumber);
-                    if (!seenPlatesInFile.Add(cleanPlate))
+                    var cKey = row.CompanyCode.Trim().ToLowerInvariant();
+                    if (!companiesByCode.TryGetValue(cKey, out var matchedComp))
                     {
                         resultDto.Errors.Add(new ExcelRowErrorDto
                         {
                             Row = rowIndex,
-                            Column = "Biển số xe",
-                            Value = row.PlateNumber,
-                            ErrorMessage = "Biển số xe bị trùng lặp nhiều lần trong cùng tệp Excel."
+                            Column = "Mã công ty",
+                            Value = row.CompanyCode,
+                            ErrorMessage = $"Mã công ty '{row.CompanyCode}' không tồn tại trong hệ thống."
                         });
                         rowHasError = true;
+                    }
+                    else
+                    {
+                        companyId = matchedComp.Id;
+                    }
+                }
+
+                string? departmentId = null;
+                if (!string.IsNullOrWhiteSpace(row.DepartmentCode))
+                {
+                    var dKey = row.DepartmentCode.Trim().ToLowerInvariant();
+                    if (!departmentsByCode.TryGetValue(dKey, out var matchedDept))
+                    {
+                        resultDto.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Mã phòng ban",
+                            Value = row.DepartmentCode,
+                            ErrorMessage = $"Mã phòng ban '{row.DepartmentCode}' không tồn tại trong hệ thống."
+                        });
+                        rowHasError = true;
+                    }
+                    else
+                    {
+                        departmentId = matchedDept.Id;
+                    }
+                }
+
+                string? contractorId = null;
+                if (!string.IsNullOrWhiteSpace(row.ContractorCode))
+                {
+                    var ctKey = row.ContractorCode.Trim().ToLowerInvariant();
+                    if (!contractorsByCode.TryGetValue(ctKey, out var matchedContractor))
+                    {
+                        resultDto.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Mã nhà thầu",
+                            Value = row.ContractorCode,
+                            ErrorMessage = $"Mã nhà thầu '{row.ContractorCode}' không tồn tại trong hệ thống."
+                        });
+                        rowHasError = true;
+                    }
+                    else
+                    {
+                        contractorId = matchedContractor.Id;
                     }
                 }
 
@@ -181,7 +213,6 @@ namespace HPParking.Api.Services.Implementations
                     continue;
                 }
 
-                // 5. Đối soát trùng lặp với CSDL
                 bool phoneExists = clientsByPhone.TryGetValue(phone, out var existingClient);
                 if (phoneExists && existingClient != null)
                 {
@@ -211,39 +242,18 @@ namespace HPParking.Api.Services.Implementations
                         if (!string.IsNullOrWhiteSpace(row.Code)) existingClient.Code = row.Code.Trim();
                         if (row.BirthDay.HasValue) existingClient.BirthDay = row.BirthDay.Value;
                         if (row.Address != null) existingClient.Address = row.Address.Trim();
+                        if (row.Email != null) existingClient.Email = row.Email.Trim();
+                        if (row.Type.HasValue) existingClient.Type = row.Type.Value;
+                        if (!string.IsNullOrWhiteSpace(row.CompanyCode)) existingClient.CompanyId = companyId;
+                        if (!string.IsNullOrWhiteSpace(row.DepartmentCode)) existingClient.DepartmentId = departmentId;
+                        if (!string.IsNullOrWhiteSpace(row.ContractorCode)) existingClient.ContractorId = contractorId;
+                        if (row.IsActive.HasValue) existingClient.IsActive = row.IsActive.Value;
                         existingClient.UpdatedAt = DateTime.UtcNow;
 
-                        ResolveCompanyAndDepartment(row, companies, departments, out var compId, out var deptId);
-                        if (compId != null) existingClient.CompanyId = compId;
-                        if (deptId != null) existingClient.DepartmentId = deptId;
-
                         await _clientRepo.UpdateAsync(existingClient, cancellationToken);
-
-                        // Cập nhật phương tiện nếu có biển số
-                        if (!string.IsNullOrEmpty(cleanPlate))
-                        {
-                            await UpsertVehicleAsync(existingClient.Id, cleanPlate, row.VehicleType ?? VehicleType.Motorbike, vehiclesByPlate, cancellationToken);
-                        }
                     }
 
                     resultDto.SuccessCount++;
-                    continue;
-                }
-
-                // 6. Tạo mới Client
-                ResolveCompanyAndDepartment(row, companies, departments, out var resolvedCompId, out var resolvedDeptId);
-
-                // Kiểm tra biển số xe đã tồn tại của xe khác chưa
-                if (!string.IsNullOrEmpty(cleanPlate) && vehiclesByPlate.TryGetValue(cleanPlate, out var vehOwner))
-                {
-                    resultDto.Errors.Add(new ExcelRowErrorDto
-                    {
-                        Row = rowIndex,
-                        Column = "Biển số xe",
-                        Value = row.PlateNumber,
-                        ErrorMessage = $"Biển số xe '{cleanPlate}' đã được đăng ký cho phương tiện khác trên hệ thống."
-                    });
-                    resultDto.FailedCount++;
                     continue;
                 }
 
@@ -256,29 +266,17 @@ namespace HPParking.Api.Services.Implementations
                         PhoneNumber = phone,
                         BirthDay = row.BirthDay ?? DateTime.UtcNow,
                         Address = row.Address?.Trim() ?? "",
-                        CompanyId = resolvedCompId,
-                        DepartmentId = resolvedDeptId,
-                        Type = ClientType.Employee,
-                        IsActive = true,
+                        Email = row.Email?.Trim(),
+                        Type = row.Type ?? ClientType.Employee,
+                        CompanyId = companyId,
+                        DepartmentId = departmentId,
+                        ContractorId = contractorId,
+                        IsActive = row.IsActive ?? true,
                         CreatedAt = DateTime.UtcNow
                     };
 
                     await _clientRepo.AddAsync(newClient, cancellationToken);
                     clientsByPhone[phone] = newClient;
-
-                    if (!string.IsNullOrEmpty(cleanPlate))
-                    {
-                        var newVehicle = new Vehicle
-                        {
-                            PlateNumber = cleanPlate,
-                            Type = row.VehicleType ?? VehicleType.Motorbike,
-                            OwnerClientId = newClient.Id,
-                            IsActive = true,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        await _vehicleRepo.AddAsync(newVehicle, cancellationToken);
-                        vehiclesByPlate[cleanPlate] = newVehicle;
-                    }
                 }
 
                 resultDto.SuccessCount++;
@@ -305,130 +303,33 @@ namespace HPParking.Api.Services.Implementations
             var sort = Builders<Client>.Sort.Descending(x => x.CreatedAt);
             var clients = await _clientRepo.FindAsync(filter, sort, skip: 0, limit: take, cancellationToken: cancellationToken);
 
-            var clientIds = clients.Select(c => c.Id).ToHashSet();
-            var vehicles = await _vehicleRepo.FindAsync(v => !v.IsDeleted && !string.IsNullOrEmpty(v.OwnerClientId) && clientIds.Contains(v.OwnerClientId!), cancellationToken);
-            var vehiclesByClient = vehicles.GroupBy(v => v.OwnerClientId!).ToDictionary(g => g.Key, g => g.ToList());
-
             var companies = (await _companyRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
             var departments = (await _departmentRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(d => d.Id, d => d.Name);
+            var contractors = (await _contractorRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(ct => ct.Id, ct => ct.Name);
 
-            var exportList = new List<ClientExcelDto>();
-
-            foreach (var client in clients)
+            var exportList = clients.Select(client => new ClientExportExcelDto
             {
-                string companyName = !string.IsNullOrEmpty(client.CompanyId) && companies.TryGetValue(client.CompanyId, out var cName) ? cName : string.Empty;
-                string deptName = !string.IsNullOrEmpty(client.DepartmentId) && departments.TryGetValue(client.DepartmentId, out var dName) ? dName : string.Empty;
+                Code = client.Code ?? string.Empty,
+                Name = client.Name,
+                PhoneNumber = client.PhoneNumber,
+                BirthDay = client.BirthDay,
+                Address = client.Address,
+                Email = client.Email,
+                Type = client.Type,
+                CompanyName = !string.IsNullOrEmpty(client.CompanyId) && companies.TryGetValue(client.CompanyId, out var cName) ? cName : null,
+                DepartmentName = !string.IsNullOrEmpty(client.DepartmentId) && departments.TryGetValue(client.DepartmentId, out var dName) ? dName : null,
+                ContractorName = !string.IsNullOrEmpty(client.ContractorId) && contractors.TryGetValue(client.ContractorId, out var ctName) ? ctName : null,
+                HasFaceId = !string.IsNullOrWhiteSpace(client.Avatar) ? "Đã có" : "Chưa có",
+                IsActive = client.IsActive
+            }).ToList();
 
-                if (vehiclesByClient.TryGetValue(client.Id, out var clientVehicles) && clientVehicles.Count > 0)
-                {
-                    foreach (var v in clientVehicles)
-                    {
-                        exportList.Add(new ClientExcelDto
-                        {
-                            Code = client.Code ?? string.Empty,
-                            Name = client.Name,
-                            PhoneNumber = client.PhoneNumber,
-                            BirthDay = client.BirthDay,
-                            Address = client.Address,
-                            PlateNumber = v.PlateNumber,
-                            VehicleType = v.Type,
-                            CompanyName = companyName,
-                            DepartmentName = deptName
-                        });
-                    }
-                }
-                else
-                {
-                    exportList.Add(new ClientExcelDto
-                    {
-                        Code = client.Code ?? string.Empty,
-                        Name = client.Name,
-                        PhoneNumber = client.PhoneNumber,
-                        BirthDay = client.BirthDay,
-                        Address = client.Address,
-                        PlateNumber = string.Empty,
-                        VehicleType = null,
-                        CompanyName = companyName,
-                        DepartmentName = deptName
-                    });
-                }
-            }
-
-            var profile = new ClientExcelProfile();
-            var fileBytes = await _excelService.WriteAsync(exportList, profile, "Clients", cancellationToken);
+            var profile = new ClientExportExcelProfile();
+            var fileBytes = await _excelService.WriteAsync(exportList, profile, "Clients", "DANH SÁCH THÔNG TIN KHÁCH HÀNG", cancellationToken);
             string fileName = $"clients_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
 
             _logger.LogInformation("Xuất Excel Khách hàng: {Count} dòng (Truncated: {IsTruncated}).", exportList.Count, isTruncated);
 
             return (fileBytes, fileName, isTruncated);
-        }
-
-        private static void ResolveCompanyAndDepartment(
-            ClientExcelDto row,
-            IReadOnlyList<Company> companies,
-            IReadOnlyList<Department> departments,
-            out string? compId,
-            out string? deptId)
-        {
-            compId = null;
-            deptId = null;
-
-            if (!string.IsNullOrWhiteSpace(row.CompanyName))
-            {
-                var cleanComp = row.CompanyName.Trim();
-                var matchedComp = companies.FirstOrDefault(c =>
-                    string.Equals(c.Name, cleanComp, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(c.Code, cleanComp, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(c.Id, cleanComp, StringComparison.OrdinalIgnoreCase));
-                compId = matchedComp?.Id;
-            }
-
-            var localCompId = compId;
-            if (!string.IsNullOrWhiteSpace(row.DepartmentName))
-            {
-                var cleanDept = row.DepartmentName.Trim();
-                var matchedDept = departments.FirstOrDefault(d =>
-                    (localCompId == null || d.CompanyId == localCompId) &&
-                    (string.Equals(d.Name, cleanDept, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(d.Code, cleanDept, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(d.Id, cleanDept, StringComparison.OrdinalIgnoreCase)));
-                deptId = matchedDept?.Id;
-                if (compId == null && matchedDept != null && !string.IsNullOrEmpty(matchedDept.CompanyId))
-                {
-                    compId = matchedDept.CompanyId;
-                }
-            }
-        }
-
-        private async Task UpsertVehicleAsync(
-            string clientId,
-            string plateNumber,
-            VehicleType vehicleType,
-            Dictionary<string, Vehicle> vehiclesByPlate,
-            CancellationToken cancellationToken)
-        {
-            if (vehiclesByPlate.TryGetValue(plateNumber, out var existingVeh))
-            {
-                if (existingVeh.OwnerClientId == clientId)
-                {
-                    existingVeh.Type = vehicleType;
-                    existingVeh.UpdatedAt = DateTime.UtcNow;
-                    await _vehicleRepo.UpdateAsync(existingVeh, cancellationToken);
-                }
-            }
-            else
-            {
-                var newVeh = new Vehicle
-                {
-                    PlateNumber = plateNumber,
-                    Type = vehicleType,
-                    OwnerClientId = clientId,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _vehicleRepo.AddAsync(newVeh, cancellationToken);
-                vehiclesByPlate[plateNumber] = newVeh;
-            }
         }
 
         private static FilterDefinition<Client> BuildClientFilter(ClientFilterQuery query)

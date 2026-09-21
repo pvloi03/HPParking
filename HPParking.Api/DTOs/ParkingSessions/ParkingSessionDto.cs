@@ -1,4 +1,3 @@
-using System;
 using HPParking.Api.DTOs.Common;
 using HPParking.Core.Models.Enums;
 

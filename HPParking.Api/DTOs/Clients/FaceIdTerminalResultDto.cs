@@ -1,5 +1,3 @@
-using System;
-
 namespace HPParking.Api.DTOs.Clients
 {
     public class FaceIdTerminalResultDto

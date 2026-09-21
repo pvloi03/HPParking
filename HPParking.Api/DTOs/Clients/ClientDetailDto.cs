@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using HPParking.Api.DTOs.Vehicles;
 
 namespace HPParking.Api.DTOs.Clients

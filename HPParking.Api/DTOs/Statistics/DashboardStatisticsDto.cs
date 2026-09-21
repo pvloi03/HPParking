@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace HPParking.Api.DTOs.Statistics
 {
     /// <summary>

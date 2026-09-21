@@ -1,7 +1,4 @@
 using HPParking.Api.Common.Exceptions;
-using Microsoft.AspNetCore.Http;
-using System;
-using System.IO;
 
 namespace HPParking.Api.Common.Excel
 {

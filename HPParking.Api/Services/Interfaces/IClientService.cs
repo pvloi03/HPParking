@@ -1,8 +1,5 @@
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Common;
-using Microsoft.AspNetCore.Http;
 
 namespace HPParking.Api.Services.Interfaces
 {

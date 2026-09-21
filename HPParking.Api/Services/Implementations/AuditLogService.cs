@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.AuditLogs;
 using HPParking.Api.DTOs.Common;
@@ -10,9 +5,9 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using Mapster;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
 {
