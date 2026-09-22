@@ -13,12 +13,12 @@ describe('TrafficBarChart Component', () => {
     customTo: '2026-09-22',
   };
 
-  it('hiển thị tiêu đề biểu đồ và mô tả động theo ngày', () => {
+  it('hiển thị tiêu đề biểu đồ và mô tả động theo ngày 24/7', () => {
     render(<TrafficBarChart isLoading={false} filter={mockFilterDay} />);
 
     expect(screen.getByText('Thống Kê Số Lượt Xe Ra Vào')).toBeInTheDocument();
     expect(
-      screen.getByText(/Lưu lượng xe theo các khung giờ ngày 22\/09\/2026/i)
+      screen.getByText(/Lưu lượng xe 24\/7 theo từng giờ ngày 22\/09\/2026/i)
     ).toBeInTheDocument();
   });
 
@@ -32,7 +32,7 @@ describe('TrafficBarChart Component', () => {
     );
 
     expect(
-      screen.getByText(/Lưu lượng xe theo các giai đoạn trong tháng 09\/2026/i)
+      screen.getByText(/Lưu lượng xe đầy đủ 30 ngày trong tháng 09\/2026/i)
     ).toBeInTheDocument();
 
     const mockFilterYear: DashboardFilterState = {
