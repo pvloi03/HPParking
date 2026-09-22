@@ -9,6 +9,7 @@ import { ContractorsPage } from '@/pages/ContractorsPage';
 import { GatesPage } from '@/pages/GatesPage';
 import { LanesPage } from '@/pages/LanesPage';
 import { DevicesPage } from '@/pages/DevicesPage';
+import { ClientsPage } from '@/pages/ClientsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -55,6 +56,10 @@ export const router = createBrowserRouter([
       {
         path: 'devices',
         element: <DevicesPage />,
+      },
+      {
+        path: 'clients',
+        element: <ClientsPage />,
       },
     ],
   },
