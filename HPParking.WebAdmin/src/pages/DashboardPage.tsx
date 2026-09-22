@@ -290,7 +290,65 @@ export function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Mobile Stacked Cards View (< 640px) */}
+          <div className="block sm:hidden divide-y divide-border">
+            {mockRecentSessions.map((session) => (
+              <div
+                key={session.id}
+                className="p-4 space-y-2.5 hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-sm text-foreground">
+                    {session.plateNumber}
+                  </span>
+                  {session.mismatch ? (
+                    <Badge variant="warning" className="text-[10px]">
+                      Lệch biển số
+                    </Badge>
+                  ) : session.status === 'Đang đỗ' ? (
+                    <Badge variant="success" className="text-[10px]">
+                      Đang đỗ
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Hoàn tất
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Loại xe:</span>
+                    <span className="text-foreground font-medium">{session.vehicleType}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Làn vào:</span>
+                    <span className="text-foreground font-medium truncate block">{session.laneIn}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Thời điểm vào:</span>
+                    <span className="font-mono">{session.timeIn}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Thời lượng:</span>
+                    <span className="font-medium">{session.duration}</span>
+                  </div>
+                </div>
+
+                <div className="pt-1 flex items-center justify-end">
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer min-h-[36px] flex items-center"
+                  >
+                    Xem chi tiết ảnh đối soát →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop & Tablet Table View (>= 640px) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-y border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
