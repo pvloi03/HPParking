@@ -12,6 +12,35 @@ import {
 } from '@/hooks/useDashboard';
 import { ParkingSessionStatus } from '@/types/parkingSession';
 
+function getVehicleTypeName(type?: number | string | null): string {
+  if (type === 1 || type === 'Car') return 'Ô tô';
+  if (type === 2 || type === 'Motorbike') return 'Xe máy';
+  if (type === 3 || type === 'Bicycle') return 'Xe đạp';
+  if (type === 4 || type === 'Other') return 'Khác';
+  return 'Phương tiện';
+}
+
+function formatDuration(minutes?: number | null, inTime?: string): string {
+  if (minutes != null && minutes > 0) {
+    if (minutes < 1) return '< 1 phút';
+    if (minutes < 60) return `${Math.round(minutes)} phút`;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    if (hours < 24) return `${hours} giờ ${mins > 0 ? `${mins}p` : ''}`;
+    const days = Math.floor(hours / 24);
+    const remainHours = hours % 24;
+    return `${days} ngày ${remainHours > 0 ? `${remainHours}h` : ''}`;
+  }
+  if (inTime) {
+    const elapsedMinutes = Math.max(0, (Date.now() - new Date(inTime).getTime()) / 60000);
+    if (elapsedMinutes < 1) return '< 1 phút';
+    if (elapsedMinutes < 60) return `${Math.round(elapsedMinutes)} phút`;
+    const hours = Math.floor(elapsedMinutes / 60);
+    return `${hours} giờ`;
+  }
+  return '—';
+}
+
 export function DashboardPage() {
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
 
@@ -191,7 +220,7 @@ export function DashboardPage() {
                           Khách / Xe:
                         </span>
                         <span className="text-foreground font-medium">
-                          {session.clientName || session.vehicleType || 'Vãng lai'}
+                          {session.clientName || getVehicleTypeName(session.vehicleType)}
                         </span>
                       </div>
                       <div>
@@ -199,7 +228,7 @@ export function DashboardPage() {
                           Làn vào:
                         </span>
                         <span className="text-foreground font-medium truncate block">
-                          {session.laneInName || 'Cổng chính'}
+                          {session.inLaneName || session.laneInName || 'Cổng chính'}
                         </span>
                       </div>
                       <div>
@@ -215,7 +244,7 @@ export function DashboardPage() {
                           Thời lượng:
                         </span>
                         <span className="font-medium">
-                          {session.duration || 'Đang tính'}
+                          {formatDuration(session.durationMinutes, session.inTime)}
                         </span>
                       </div>
                     </div>
@@ -256,16 +285,16 @@ export function DashboardPage() {
                           {session.plateNumber}
                         </td>
                         <td className="py-3 px-4 text-muted-foreground">
-                          {session.clientName || session.vehicleType || 'Vãng lai'}
+                          {session.clientName || getVehicleTypeName(session.vehicleType)}
                         </td>
                         <td className="py-3 px-4 text-muted-foreground">
-                          {session.laneInName || 'Cổng chính'}
+                          {session.inLaneName || session.laneInName || 'Cổng chính'}
                         </td>
                         <td className="py-3 px-4 font-mono text-muted-foreground">
                           {new Date(session.inTime).toLocaleString('vi-VN')}
                         </td>
                         <td className="py-3 px-4 text-muted-foreground">
-                          {session.duration || '—'}
+                          {formatDuration(session.durationMinutes, session.inTime)}
                         </td>
                         <td className="py-3 px-4">
                           {session.isPlateMismatch ? (
