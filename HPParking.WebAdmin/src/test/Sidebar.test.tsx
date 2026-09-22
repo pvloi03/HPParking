@@ -1,5 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
 import { useUiStore } from '../stores/uiStore';
 
@@ -9,7 +10,11 @@ describe('Sidebar Component', () => {
   });
 
   it('hiển thị đầy đủ các nhóm danh mục tiếng Việt khi mở rộng', () => {
-    render(<Sidebar />);
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>
+    );
 
     expect(screen.getByText('Tổng quan')).toBeInTheDocument();
     expect(screen.getByText('Cơ cấu tổ chức')).toBeInTheDocument();
@@ -28,7 +33,11 @@ describe('Sidebar Component', () => {
   });
 
   it('hỗ trợ thu gọn thanh bên khi click nút đóng/mở', () => {
-    render(<Sidebar />);
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>
+    );
 
     const toggleBtn = screen.getByRole('button', { name: /thu gọn|mở rộng/i });
     expect(useUiStore.getState().isSidebarCollapsed).toBe(false);
