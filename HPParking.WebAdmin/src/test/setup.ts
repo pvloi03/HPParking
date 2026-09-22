@@ -14,3 +14,14 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 });
+
+// Mock ResizeObserver for Recharts ResponsiveContainer
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+window.ResizeObserver = MockResizeObserver;
+globalThis.ResizeObserver = MockResizeObserver;
+
+

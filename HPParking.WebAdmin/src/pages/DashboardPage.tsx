@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { KpiCardGrid } from '@/components/dashboard/KpiCardGrid';
+import { TrafficBarChart } from '@/components/dashboard/TrafficBarChart';
 import { DistributionMatrixTable } from '@/components/dashboard/DistributionMatrixTable';
 import {
   useDashboardKPIs,
@@ -123,6 +124,9 @@ export function DashboardPage() {
 
       {/* 6 Primary KPI Cards */}
       <KpiCardGrid data={kpiData} isLoading={isKpiLoading} />
+
+      {/* Traffic Flow Bar Chart (shadcn/ui + Recharts) */}
+      <TrafficBarChart isLoading={isKpiLoading || isRefreshing} />
 
       {/* Infrastructure & Unit Distribution Matrix */}
       <DistributionMatrixTable data={distData} isLoading={isDistLoading} />
