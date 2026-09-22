@@ -29,6 +29,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/api/authApi';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface NavSubItem {
@@ -134,7 +135,9 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
     'Hạ tầng bãi xe': true,
     'Sổ cái & Kiểm toán': true,
   });
-  const [activePath, setActivePath] = useState('/dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activePath = location.pathname;
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   const effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
@@ -170,7 +173,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   };
 
   const handleNavigate = (href: string) => {
-    setActivePath(href);
+    navigate(href);
     if (isMobile) {
       onClose?.();
     }
