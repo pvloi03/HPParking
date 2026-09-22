@@ -13,25 +13,6 @@ export interface DashboardStatisticsDto {
   activeLanes: number;
 }
 
-export interface UnitDistributionItemDto {
-  companyId: string | null;
-  companyName: string | null;
-  departmentId: string | null;
-  departmentName: string | null;
-  clientCount: number;
-  vehicleCount: number;
-  gateCount: number;
-  laneCount: number;
-}
-
-export interface DistributionStatisticsDto {
-  totalFilteredClients: number;
-  totalFilteredVehicles: number;
-  totalFilteredGates: number;
-  totalFilteredLanes: number;
-  items: UnitDistributionItemDto[] | null;
-}
-
 export interface TrafficSummaryItemDto {
   personId: string | null;
   fullName: string | null;

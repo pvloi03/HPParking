@@ -57,7 +57,7 @@ const menuConfig: MenuItem[] = [
   {
     type: 'single',
     item: {
-      title: 'Bảng điều khiển',
+      title: 'Dashboard',
       href: '/dashboard',
       icon: LayoutDashboard,
     },
@@ -65,7 +65,7 @@ const menuConfig: MenuItem[] = [
   {
     type: 'single',
     item: {
-      title: 'Lịch sử đỗ xe',
+      title: 'Lịch sử xe ra vào',
       href: '/parking-sessions',
       icon: History,
     },
@@ -152,12 +152,12 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
 
   const userInitials = user?.fullName
     ? user.fullName
-        .trim()
-        .split(/\s+/)
-        .map((n) => n[0])
-        .slice(-2)
-        .join('')
-        .toUpperCase()
+      .trim()
+      .split(/\s+/)
+      .map((n) => n[0])
+      .slice(-2)
+      .join('')
+      .toUpperCase()
     : 'AD';
   const userDisplayName = user?.fullName || 'Quản trị viên';
   const userRoleLabel = `${user?.role || 'Admin'} • HPParking`;

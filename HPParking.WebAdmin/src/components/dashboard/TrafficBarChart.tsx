@@ -83,22 +83,20 @@ export function TrafficBarChart({ isLoading }: TrafficBarChartProps) {
             <button
               type="button"
               onClick={() => setRange('today')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer text-xs ${
-                range === 'today'
-                  ? 'bg-card text-foreground shadow-2xs font-semibold'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer text-xs ${range === 'today'
+                ? 'bg-card text-foreground shadow-2xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+                }`}
             >
               Hôm Nay
             </button>
             <button
               type="button"
               onClick={() => setRange('week')}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer text-xs ${
-                range === 'week'
-                  ? 'bg-card text-foreground shadow-2xs font-semibold'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer text-xs ${range === 'week'
+                ? 'bg-card text-foreground shadow-2xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+                }`}
             >
               7 Ngày Qua
             </button>

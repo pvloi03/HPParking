@@ -21,7 +21,7 @@ describe('MobileDrawer Component', () => {
     render(<MobileDrawer />);
 
     expect(screen.getByLabelText('Đóng thanh bên')).toBeInTheDocument();
-    expect(screen.getByText('Bảng điều khiển')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
 
   it('đóng drawer khi bấm nút (X)', () => {

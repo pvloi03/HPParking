@@ -15,6 +15,6 @@ describe('AppLayout Component', () => {
 
     expect(screen.getByTestId('page-content')).toBeInTheDocument();
     expect(screen.getByText('HPParking Admin')).toBeInTheDocument();
-    expect(screen.getByText('Bảng điều khiển')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
 });

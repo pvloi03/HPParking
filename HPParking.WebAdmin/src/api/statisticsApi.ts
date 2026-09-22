@@ -2,7 +2,6 @@ import { apiClient } from '@/api/client';
 import type { ApiResponse } from '@/types/auth';
 import type {
   DashboardStatisticsDto,
-  DistributionStatisticsDto,
   TrafficSummaryItemDto,
 } from '@/types/statistics';
 
@@ -13,21 +12,6 @@ export const statisticsApi = {
   async getDashboardStatistics(): Promise<DashboardStatisticsDto> {
     const response = await apiClient.get<ApiResponse<DashboardStatisticsDto>>(
       '/v1/statistics/dashboard'
-    );
-    return response.data.data!;
-  },
-
-  /**
-   * Lấy ma trận phân bổ khách hàng, phương tiện và hạ tầng theo đơn vị (Công ty/Phòng ban)
-   */
-  async getDistributionStatistics(
-    companyId?: string
-  ): Promise<DistributionStatisticsDto> {
-    const response = await apiClient.get<ApiResponse<DistributionStatisticsDto>>(
-      '/v1/statistics/distribution',
-      {
-        params: companyId ? { companyId } : undefined,
-      }
     );
     return response.data.data!;
   },

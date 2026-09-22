@@ -44,43 +44,4 @@ describe('statisticsApi', () => {
     expect(result.activeParkingSessions).toBe(42);
     expect(result.activeLanes).toBe(8);
   });
-
-  it('gọi đúng endpoint GET /v1/statistics/distribution kèm query companyId', async () => {
-    const mockDistributionData = {
-      totalFilteredClients: 100,
-      totalFilteredVehicles: 120,
-      totalFilteredGates: 2,
-      totalFilteredLanes: 4,
-      items: [
-        {
-          companyId: 'comp-1',
-          companyName: 'Công ty Cổ phần HPParking',
-          departmentId: 'dept-1',
-          departmentName: 'Phòng Kỹ Thuật',
-          clientCount: 40,
-          vehicleCount: 50,
-          gateCount: 2,
-          laneCount: 4,
-        },
-      ],
-    };
-
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: {
-        success: true,
-        data: mockDistributionData,
-        message: 'Thành công.',
-      },
-    });
-
-    const result = await statisticsApi.getDistributionStatistics('comp-1');
-
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/v1/statistics/distribution',
-      {
-        params: { companyId: 'comp-1' },
-      }
-    );
-    expect(result.items?.[0].companyName).toBe('Công ty Cổ phần HPParking');
-  });
 });

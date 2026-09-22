@@ -6,10 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { KpiCardGrid } from '@/components/dashboard/KpiCardGrid';
 import { TrafficBarChart } from '@/components/dashboard/TrafficBarChart';
-import { DistributionMatrixTable } from '@/components/dashboard/DistributionMatrixTable';
 import {
   useDashboardKPIs,
-  useDistributionStatistics,
   useRecentSessions,
 } from '@/hooks/useDashboard';
 import { ParkingSessionStatus } from '@/types/parkingSession';
@@ -26,24 +24,16 @@ export function DashboardPage() {
   } = useDashboardKPIs();
 
   const {
-    data: distData,
-    isLoading: isDistLoading,
-    isRefetching: isDistRefetching,
-    refetch: refetchDist,
-  } = useDistributionStatistics();
-
-  const {
     data: recentSessions,
     isLoading: isSessionsLoading,
     isRefetching: isSessionsRefetching,
     refetch: refetchSessions,
   } = useRecentSessions(5);
 
-  const isRefreshing =
-    isKpiRefetching || isDistRefetching || isSessionsRefetching;
+  const isRefreshing = isKpiRefetching || isSessionsRefetching;
 
   const handleRefresh = async () => {
-    await Promise.all([refetchKpis(), refetchDist(), refetchSessions()]);
+    await Promise.all([refetchKpis(), refetchSessions()]);
   };
 
   return (
@@ -127,9 +117,6 @@ export function DashboardPage() {
 
       {/* Traffic Flow Bar Chart (shadcn/ui + Recharts) */}
       <TrafficBarChart isLoading={isKpiLoading || isRefreshing} />
-
-      {/* Infrastructure & Unit Distribution Matrix */}
-      <DistributionMatrixTable data={distData} isLoading={isDistLoading} />
 
       {/* Recent Parking Activity Table (Connected to API) */}
       <Card className="border-border/80 shadow-xs">
