@@ -10,6 +10,7 @@ import { GatesPage } from '@/pages/GatesPage';
 import { LanesPage } from '@/pages/LanesPage';
 import { DevicesPage } from '@/pages/DevicesPage';
 import { ClientsPage } from '@/pages/ClientsPage';
+import { VehiclesPage } from '@/pages/VehiclesPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -60,6 +61,10 @@ export const router = createBrowserRouter([
       {
         path: 'clients',
         element: <ClientsPage />,
+      },
+      {
+        path: 'vehicles',
+        element: <VehiclesPage />,
       },
     ],
   },
