@@ -11,25 +11,15 @@ export function Header({
 }: HeaderProps) {
   return (
     <header className="h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
-      <div className="flex items-center gap-3">
-        <div className="hidden sm:flex h-8 px-2 py-0.5 bg-white rounded-md border border-border shadow-xs items-center justify-center">
-          <img
-            src="/logo.png"
-            alt="Hoàng Phát Technology Era"
-            className="h-6 w-auto object-contain"
-          />
-        </div>
-        <div className="hidden sm:block h-5 w-px bg-border" />
-        <div>
-          <h2 className="text-sm font-bold text-foreground tracking-tight">
-            {title}
-          </h2>
-          {subtitle && (
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {subtitle}
-            </p>
-          )}
-        </div>
+      <div>
+        <h2 className="text-sm font-bold text-foreground tracking-tight">
+          {title}
+        </h2>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {subtitle}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronDown,
   LogOut,
+  ParkingSquare,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -139,49 +140,53 @@ export function Sidebar() {
       <aside
         className={cn(
           'relative flex flex-col border-r border-border bg-card transition-all duration-250 ease-in-out select-none shrink-0 z-30',
-          isSidebarCollapsed ? 'w-16' : 'w-64'
+          isSidebarCollapsed ? 'w-[68px]' : 'w-60'
         )}
       >
         {/* Brand Header */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-3.5">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="h-9 w-9 rounded-xl bg-white p-1 border border-border shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
-              <img
-                src="/logo.png"
-                alt="Hoàng Phát Logo"
-                className="h-full w-full object-contain"
-              />
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="flex flex-col truncate">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold tracking-tight text-sm text-foreground">
-                    HPParking
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50 leading-none">
-                    PRO
-                  </span>
+        <div
+          className={cn(
+            'flex items-center h-14 border-b border-border shrink-0 transition-all duration-200',
+            isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3.5'
+          )}
+        >
+          {!isSidebarCollapsed ? (
+            <>
+              <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                  <ParkingSquare className="h-4.5 w-4.5" />
                 </div>
-                <span className="text-[10px] text-muted-foreground truncate font-medium">
-                  Hoàng Phát Technology
-                </span>
+                <div className="min-w-0 overflow-hidden">
+                  <p className="text-[13px] font-bold text-foreground leading-tight truncate">
+                    HP<span className="text-blue-600 dark:text-blue-400">PARKING</span>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground leading-tight truncate">
+                    Quản trị bãi xe
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            aria-label={isSidebarCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'}
-            title={isSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
-          >
-            {isSidebarCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </button>
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer shrink-0 ml-1"
+                aria-label="Thu gọn thanh bên"
+                title="Thu gọn sidebar"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="h-9 w-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-all cursor-pointer shadow-xs group"
+              aria-label="Mở rộng thanh bên"
+              title="Mở rộng sidebar"
+            >
+              <ParkingSquare className="h-4.5 w-4.5 group-hover:hidden" />
+              <ChevronRight className="h-4.5 w-4.5 hidden group-hover:block" />
+            </button>
+          )}
         </div>
 
         {/* Section title for test accessibility */}
