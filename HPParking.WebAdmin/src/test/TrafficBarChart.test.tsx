@@ -1,46 +1,61 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { TrafficBarChart } from '@/components/dashboard/TrafficBarChart';
+import type { DashboardFilterState } from '@/types/dashboard';
 
 describe('TrafficBarChart Component', () => {
-  it('hiển thị tiêu đề biểu đồ và mô tả', () => {
-    render(<TrafficBarChart isLoading={false} />);
+  const mockFilterDay: DashboardFilterState = {
+    type: 'day',
+    date: '2026-09-22',
+    month: '2026-09',
+    year: '2026',
+    customFrom: '2026-09-16',
+    customTo: '2026-09-22',
+  };
+
+  it('hiển thị tiêu đề biểu đồ và mô tả động theo ngày', () => {
+    render(<TrafficBarChart isLoading={false} filter={mockFilterDay} />);
 
     expect(screen.getByText('Thống Kê Số Lượt Xe Ra Vào')).toBeInTheDocument();
     expect(
-      screen.getByText(/Lưu lượng xe quét thẻ và nhận diện biển số qua cổng theo thời gian/i)
+      screen.getByText(/Lưu lượng xe theo các khung giờ ngày 22\/09\/2026/i)
     ).toBeInTheDocument();
   });
 
-  it('hiển thị các nút chọn khoảng thời gian và cho phép chuyển đổi', () => {
-    render(<TrafficBarChart isLoading={false} />);
+  it('hiển thị mô tả động khi bộ lọc chuyển sang tháng hoặc năm', () => {
+    const mockFilterMonth: DashboardFilterState = {
+      ...mockFilterDay,
+      type: 'month',
+    };
+    const { rerender } = render(
+      <TrafficBarChart isLoading={false} filter={mockFilterMonth} />
+    );
 
-    const todayBtn = screen.getByRole('button', { name: 'Hôm Nay' });
-    const weekBtn = screen.getByRole('button', { name: '7 Ngày Qua' });
+    expect(
+      screen.getByText(/Lưu lượng xe theo các giai đoạn trong tháng 09\/2026/i)
+    ).toBeInTheDocument();
 
-    expect(todayBtn).toBeInTheDocument();
-    expect(weekBtn).toBeInTheDocument();
+    const mockFilterYear: DashboardFilterState = {
+      ...mockFilterDay,
+      type: 'year',
+    };
+    rerender(<TrafficBarChart isLoading={false} filter={mockFilterYear} />);
 
-    // Ban đầu chọn Hôm Nay
-    expect(todayBtn.className).toContain('font-semibold');
-
-    // Chuyển sang 7 Ngày Qua
-    fireEvent.click(weekBtn);
-    expect(weekBtn.className).toContain('font-semibold');
+    expect(
+      screen.getByText(/Lưu lượng xe qua 12 tháng năm 2026/i)
+    ).toBeInTheDocument();
   });
 
   it('hiển thị tổng số lượt xe vào và xe ra trong pill thống kê nhanh', () => {
-    render(<TrafficBarChart isLoading={false} />);
+    render(<TrafficBarChart isLoading={false} filter={mockFilterDay} />);
 
-    // Kiểm tra có hiển thị badge Vào và Ra
     expect(screen.getByText(/Vào:/i)).toBeInTheDocument();
     expect(screen.getByText(/Ra:/i)).toBeInTheDocument();
   });
 
   it('hiển thị skeleton khi isLoading là true', () => {
-    const { container } = render(<TrafficBarChart isLoading={true} />);
+    const { container } = render(<TrafficBarChart isLoading={true} filter={mockFilterDay} />);
 
-    // Không render ChartContainer mà render Skeleton elements
     const skeletons = container.querySelectorAll('.animate-pulse');
     expect(skeletons.length).toBeGreaterThan(0);
   });

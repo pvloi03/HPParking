@@ -1,15 +1,18 @@
-import { RefreshCw, History, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { History, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { KpiCardGrid } from '@/components/dashboard/KpiCardGrid';
 import { TrafficBarChart } from '@/components/dashboard/TrafficBarChart';
+import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar';
 import {
   useDashboardKPIs,
   useRecentSessions,
 } from '@/hooks/useDashboard';
 import { ParkingSessionStatus } from '@/types/parkingSession';
+import type { DashboardFilterState } from '@/types/dashboard';
 
 function getVehicleTypeName(type?: number | string | null): string {
   if (type === 1 || type === 'Car') return 'Ô tô';
@@ -41,6 +44,21 @@ function formatDuration(minutes?: number | null, inTime?: string): string {
 }
 
 export function DashboardPage() {
+  const [filter, setFilter] = useState<DashboardFilterState>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const month = today.slice(0, 7);
+    const year = today.slice(0, 4);
+    const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+    return {
+      type: 'day',
+      date: today,
+      month,
+      year,
+      customFrom: weekAgo,
+      customTo: today,
+    };
+  });
+
   const {
     data: kpiData,
     isLoading: isKpiLoading,
@@ -64,8 +82,8 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Control Bar: Title & Refresh */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Control Bar: Title & Unified Filter Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             Tổng Quan Hoạt Động Bãi Xe
@@ -75,18 +93,13 @@ export function DashboardPage() {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="h-8 gap-1.5 text-xs cursor-pointer min-h-[36px]"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
-          />
-          <span className="hidden sm:inline">Làm mới</span>
-        </Button>
+        {/* Thanh bộ lọc dùng chung: Ngày, Tháng, Năm, Tùy chọn & Nút làm mới */}
+        <DashboardFilterBar
+          filter={filter}
+          onFilterChange={setFilter}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
       </div>
 
       {kpiError && (
@@ -99,11 +112,14 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* 6 Primary KPI Cards */}
+      {/* 5 Primary KPI Cards */}
       <KpiCardGrid data={kpiData} isLoading={isKpiLoading} />
 
-      {/* Traffic Flow Bar Chart (shadcn/ui + Recharts) */}
-      <TrafficBarChart isLoading={isKpiLoading || isRefreshing} />
+      {/* Traffic Flow Bar Chart (shadcn/ui + Recharts) - Đồng bộ theo bộ lọc dùng chung */}
+      <TrafficBarChart
+        isLoading={isKpiLoading || isRefreshing}
+        filter={filter}
+      />
 
       {/* Recent Parking Activity Table (Connected to API) */}
       <Card className="border-border/80 shadow-xs">
@@ -115,7 +131,7 @@ export function DashboardPage() {
                 Hoạt Động Ra Vào Gần Nhất
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                Nhật ký phương tiện vừa quét thẻ / nhận diện biển số tại các làn
+                Nhật ký phương tiện vừa ra vào tại các làn
               </CardDescription>
             </div>
             <Button
