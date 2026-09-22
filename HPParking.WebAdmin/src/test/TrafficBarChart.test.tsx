@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { TrafficBarChart } from '@/components/dashboard/TrafficBarChart';
 import type { DashboardFilterState } from '@/types/dashboard';
+import type { ParkingSessionDto } from '@/types/parkingSession';
 
 describe('TrafficBarChart Component', () => {
   const mockFilterDay: DashboardFilterState = {
@@ -46,11 +47,36 @@ describe('TrafficBarChart Component', () => {
     ).toBeInTheDocument();
   });
 
-  it('hiển thị tổng số lượt xe vào và xe ra trong pill thống kê nhanh', () => {
-    render(<TrafficBarChart isLoading={false} filter={mockFilterDay} />);
+  it('tính toán và hiển thị số lượt xe vào và xe ra thực tế từ sessions', () => {
+    const mockSessions: ParkingSessionDto[] = [
+      {
+        id: '1',
+        plateNumber: '29A12345',
+        vehicleType: 1,
+        status: 2,
+        inTime: '2026-09-22T08:15:00',
+        outTime: '2026-09-22T17:30:00',
+      },
+      {
+        id: '2',
+        plateNumber: '29B67890',
+        vehicleType: 2,
+        status: 1,
+        inTime: '2026-09-22T08:45:00',
+        outTime: undefined,
+      },
+    ];
 
-    expect(screen.getByText(/Vào:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ra:/i)).toBeInTheDocument();
+    render(
+      <TrafficBarChart
+        isLoading={false}
+        filter={mockFilterDay}
+        sessions={mockSessions}
+      />
+    );
+
+    expect(screen.getByText('2')).toBeInTheDocument(); // Tổng vào = 2
+    expect(screen.getByText('1')).toBeInTheDocument(); // Tổng ra = 1
   });
 
   it('hiển thị skeleton khi isLoading là true', () => {

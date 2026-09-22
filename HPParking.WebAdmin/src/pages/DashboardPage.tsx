@@ -10,6 +10,7 @@ import { DashboardFilterBar } from '@/components/dashboard/DashboardFilterBar';
 import {
   useDashboardKPIs,
   useRecentSessions,
+  useTrafficSessions,
 } from '@/hooks/useDashboard';
 import { ParkingSessionStatus } from '@/types/parkingSession';
 import type { DashboardFilterState } from '@/types/dashboard';
@@ -74,10 +75,17 @@ export function DashboardPage() {
     refetch: refetchSessions,
   } = useRecentSessions(5);
 
-  const isRefreshing = isKpiRefetching || isSessionsRefetching;
+  const {
+    data: trafficSessions,
+    isLoading: isTrafficLoading,
+    isRefetching: isTrafficRefetching,
+    refetch: refetchTraffic,
+  } = useTrafficSessions(filter);
+
+  const isRefreshing = isKpiRefetching || isSessionsRefetching || isTrafficRefetching;
 
   const handleRefresh = async () => {
-    await Promise.all([refetchKpis(), refetchSessions()]);
+    await Promise.all([refetchKpis(), refetchSessions(), refetchTraffic()]);
   };
 
   return (
@@ -115,10 +123,11 @@ export function DashboardPage() {
       {/* 5 Primary KPI Cards */}
       <KpiCardGrid data={kpiData} isLoading={isKpiLoading} />
 
-      {/* Traffic Flow Bar Chart (shadcn/ui + Recharts) - Đồng bộ theo bộ lọc dùng chung */}
+      {/* Traffic Flow Bar Chart (shadcn/ui + Recharts) - Đồng bộ theo bộ lọc dùng chung và dữ liệu thật */}
       <TrafficBarChart
-        isLoading={isKpiLoading || isRefreshing}
+        isLoading={isTrafficLoading || isKpiLoading || isRefreshing}
         filter={filter}
+        sessions={trafficSessions ?? []}
       />
 
       {/* Recent Parking Activity Table (Connected to API) */}

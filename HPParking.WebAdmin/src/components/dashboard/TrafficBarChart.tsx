@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardFilterState } from '@/types/dashboard';
+import type { ParkingSessionDto } from '@/types/parkingSession';
 
 const chartConfig = {
   inCount: {
@@ -43,170 +44,204 @@ function formatMonthDisplay(isoMonthStr?: string): string {
   return `${parts[1]}/${parts[0]}`;
 }
 
+export interface ChartDataItem {
+  time: string;
+  tooltipLabel?: string;
+  inCount: number;
+  outCount: number;
+}
+
 /**
- * Sinh dữ liệu trọn vẹn 24/7 (đủ 24 giờ từ 00h đến 23h) cho ngày đã chọn
+ * Tổng hợp dữ liệu thực tế từ danh sách các phiên đỗ xe trong CSDL (Phương án 2)
  */
-function generate24HoursData(dateStr?: string) {
-  const data = [];
-  const seed = dateStr ? dateStr.charCodeAt(dateStr.length - 1) : 5;
+export function aggregateSessionsToChart(
+  sessions: ParkingSessionDto[] = [],
+  filter: DashboardFilterState
+): {
+  chartData: ChartDataItem[];
+  periodDescription: string;
+  maxBarSize: number;
+} {
+  if (filter.type === 'day') {
+    // 24 giờ trọn vẹn từ 00h đến 23h
+    const slots: ChartDataItem[] = Array.from({ length: 24 }, (_, h) => {
+      const hourLabel = `${String(h).padStart(2, '0')}h`;
+      const nextHour = (h + 1) % 24;
+      return {
+        time: hourLabel,
+        tooltipLabel: `Khung giờ ${String(h).padStart(2, '0')}:00 - ${String(nextHour).padStart(2, '0')}:00`,
+        inCount: 0,
+        outCount: 0,
+      };
+    });
 
-  for (let h = 0; h < 24; h++) {
-    const hourLabel = `${String(h).padStart(2, '0')}h`;
-    const nextHour = (h + 1) % 24;
-    const fullTimeRange = `${String(h).padStart(2, '0')}:00 - ${String(nextHour).padStart(2, '0')}:00`;
-
-    let baseIn = 6 + (h % 3);
-    let baseOut = 4 + (h % 2);
-
-    if (h >= 6 && h <= 8) {
-      // Giờ cao điểm sáng vào ca làm việc
-      baseIn = 75 + (h === 7 ? 68 : 28) + (seed % 10);
-      baseOut = 12 + Math.floor(h * 2);
-    } else if (h >= 9 && h <= 11) {
-      baseIn = 35 + Math.floor((h % 3) * 12);
-      baseOut = 28 + Math.floor((h % 3) * 10);
-    } else if (h >= 12 && h <= 13) {
-      baseIn = 32 + Math.floor((h % 2) * 8);
-      baseOut = 36 + Math.floor((h % 2) * 10);
-    } else if (h >= 14 && h <= 15) {
-      baseIn = 38;
-      baseOut = 32;
-    } else if (h >= 16 && h <= 18) {
-      // Giờ cao điểm chiều tan ca ra về
-      baseIn = 22 + Math.floor((h % 3) * 6);
-      baseOut = 85 + (h === 17 ? 78 : 32) + (seed % 10);
-    } else if (h >= 19 && h <= 21) {
-      baseIn = 16;
-      baseOut = 35;
-    } else if (h >= 22) {
-      // Đêm muộn
-      baseIn = 8;
-      baseOut = 12;
+    for (const session of sessions) {
+      if (session.inTime) {
+        const inDate = new Date(session.inTime);
+        const inDateStr = inDate.toLocaleDateString('en-CA');
+        if (inDateStr === filter.date) {
+          const h = inDate.getHours();
+          if (h >= 0 && h < 24) {
+            slots[h].inCount += 1;
+          }
+        }
+      }
+      if (session.outTime) {
+        const outDate = new Date(session.outTime);
+        const outDateStr = outDate.toLocaleDateString('en-CA');
+        if (outDateStr === filter.date) {
+          const h = outDate.getHours();
+          if (h >= 0 && h < 24) {
+            slots[h].outCount += 1;
+          }
+        }
+      }
     }
 
-    data.push({
-      time: hourLabel,
-      tooltipLabel: `Khung giờ ${fullTimeRange}`,
-      inCount: baseIn,
-      outCount: baseOut,
+    return {
+      chartData: slots,
+      periodDescription: `Lưu lượng xe 24/7 theo từng giờ ngày ${formatDateDisplay(filter.date)} (24 giờ)`,
+      maxBarSize: 16,
+    };
+  }
+
+  if (filter.type === 'month') {
+    const [yearStr, mStr] = (filter.month || '2026-09').split('-');
+    const year = parseInt(yearStr, 10) || 2026;
+    const month = parseInt(mStr, 10) || 9;
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    const slots: ChartDataItem[] = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
+      const dayStr = String(day).padStart(2, '0');
+      return {
+        time: dayStr,
+        tooltipLabel: `Ngày ${dayStr}/${String(month).padStart(2, '0')}/${year}`,
+        inCount: 0,
+        outCount: 0,
+      };
     });
-  }
-  return data;
-}
 
-/**
- * Sinh dữ liệu trọn vẹn đủ tất cả các ngày trong tháng (từ ngày 01 đến ngày cuối tháng)
- */
-function generateMonthDaysData(monthStr?: string) {
-  const [yearStr, mStr] = (monthStr || '2026-09').split('-');
-  const year = parseInt(yearStr, 10) || 2026;
-  const month = parseInt(mStr, 10) || 9;
-  const daysInMonth = new Date(year, month, 0).getDate();
+    for (const session of sessions) {
+      if (session.inTime) {
+        const inDate = new Date(session.inTime);
+        if (inDate.getFullYear() === year && inDate.getMonth() + 1 === month) {
+          const dayIndex = inDate.getDate() - 1;
+          if (dayIndex >= 0 && dayIndex < daysInMonth) {
+            slots[dayIndex].inCount += 1;
+          }
+        }
+      }
+      if (session.outTime) {
+        const outDate = new Date(session.outTime);
+        if (outDate.getFullYear() === year && outDate.getMonth() + 1 === month) {
+          const dayIndex = outDate.getDate() - 1;
+          if (dayIndex >= 0 && dayIndex < daysInMonth) {
+            slots[dayIndex].outCount += 1;
+          }
+        }
+      }
+    }
 
-  const data = [];
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dayStr = String(d).padStart(2, '0');
-    const dateObj = new Date(year, month - 1, d);
-    const dayOfWeek = dateObj.getDay();
-
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const baseIn = isWeekend ? 210 + (d % 4) * 25 : 540 + ((d * 19) % 180);
-    const baseOut = isWeekend ? 195 + (d % 4) * 20 : 520 + ((d * 13) % 170);
-
-    data.push({
-      time: `${dayStr}`,
-      tooltipLabel: `Ngày ${dayStr}/${String(month).padStart(2, '0')}/${year}`,
-      inCount: baseIn,
-      outCount: baseOut,
-    });
-  }
-  return data;
-}
-
-/**
- * Dữ liệu 12 tháng trọn vẹn trong năm
- */
-const yearlyData = [
-  { time: 'Thg 1', tooltipLabel: 'Tháng 01', inCount: 4520, outCount: 4410 },
-  { time: 'Thg 2', tooltipLabel: 'Tháng 02', inCount: 3890, outCount: 3750 },
-  { time: 'Thg 3', tooltipLabel: 'Tháng 03', inCount: 5120, outCount: 4980 },
-  { time: 'Thg 4', tooltipLabel: 'Tháng 04', inCount: 4890, outCount: 4720 },
-  { time: 'Thg 5', tooltipLabel: 'Tháng 05', inCount: 5340, outCount: 5180 },
-  { time: 'Thg 6', tooltipLabel: 'Tháng 06', inCount: 5620, outCount: 5480 },
-  { time: 'Thg 7', tooltipLabel: 'Tháng 07', inCount: 5410, outCount: 5290 },
-  { time: 'Thg 8', tooltipLabel: 'Tháng 08', inCount: 5800, outCount: 5650 },
-  { time: 'Thg 9', tooltipLabel: 'Tháng 09', inCount: 4950, outCount: 4810 },
-  { time: 'Thg 10', tooltipLabel: 'Tháng 10', inCount: 5210, outCount: 5090 },
-  { time: 'Thg 11', tooltipLabel: 'Tháng 11', inCount: 5100, outCount: 4950 },
-  { time: 'Thg 12', tooltipLabel: 'Tháng 12', inCount: 5780, outCount: 5620 },
-];
-
-/**
- * Xử lý khoảng ngày tùy chọn
- */
-function getCustomRangeData(from?: string, to?: string) {
-  if (!from || !to) return generateMonthDaysData();
-
-  const startDate = new Date(from);
-  const endDate = new Date(to);
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-    return generateMonthDaysData();
+    return {
+      chartData: slots,
+      periodDescription: `Lưu lượng xe đầy đủ ${slots.length} ngày trong tháng ${formatMonthDisplay(filter.month)}`,
+      maxBarSize: 14,
+    };
   }
 
+  if (filter.type === 'year') {
+    const year = parseInt(filter.year, 10) || 2026;
+    const slots: ChartDataItem[] = Array.from({ length: 12 }, (_, i) => ({
+      time: `Thg ${i + 1}`,
+      tooltipLabel: `Tháng ${String(i + 1).padStart(2, '0')}/${year}`,
+      inCount: 0,
+      outCount: 0,
+    }));
+
+    for (const session of sessions) {
+      if (session.inTime) {
+        const inDate = new Date(session.inTime);
+        if (inDate.getFullYear() === year) {
+          const m = inDate.getMonth();
+          if (m >= 0 && m < 12) {
+            slots[m].inCount += 1;
+          }
+        }
+      }
+      if (session.outTime) {
+        const outDate = new Date(session.outTime);
+        if (outDate.getFullYear() === year) {
+          const m = outDate.getMonth();
+          if (m >= 0 && m < 12) {
+            slots[m].outCount += 1;
+          }
+        }
+      }
+    }
+
+    return {
+      chartData: slots,
+      periodDescription: `Lưu lượng xe qua 12 tháng năm ${filter.year}`,
+      maxBarSize: 28,
+    };
+  }
+
+  // Chế độ Tùy chọn (Custom range)
+  const startDate = new Date(filter.customFrom);
+  const endDate = new Date(filter.customTo);
   const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
   if (diffDays <= 1) {
-    return generate24HoursData(from);
+    return aggregateSessionsToChart(sessions, {
+      ...filter,
+      type: 'day',
+      date: filter.customFrom,
+    });
   }
 
-  if (diffDays <= 31) {
-    const data = [];
-    const curr = new Date(startDate);
-    while (curr <= endDate) {
-      const day = String(curr.getDate()).padStart(2, '0');
-      const month = String(curr.getMonth() + 1).padStart(2, '0');
-      const dayOfWeek = curr.getDay();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-      data.push({
-        time: `${day}/${month}`,
-        tooltipLabel: `Ngày ${day}/${month}/${curr.getFullYear()}`,
-        inCount: isWeekend ? 210 + (curr.getDate() % 4) * 20 : 540 + ((curr.getDate() * 17) % 170),
-        outCount: isWeekend ? 195 + (curr.getDate() % 4) * 20 : 520 + ((curr.getDate() * 13) % 160),
-      });
-      curr.setDate(curr.getDate() + 1);
-    }
-    return data;
-  }
-
-  const stepDays = Math.max(1, Math.floor(diffDays / 8));
-  const data = [];
+  const slots: (ChartDataItem & { dateStr: string })[] = [];
   const curr = new Date(startDate);
   while (curr <= endDate) {
-    const next = new Date(curr);
-    next.setDate(next.getDate() + stepDays - 1);
-    const actualNext = next > endDate ? endDate : next;
-
-    const startStr = `${String(curr.getDate()).padStart(2, '0')}/${String(curr.getMonth() + 1).padStart(2, '0')}`;
-    const endStr = `${String(actualNext.getDate()).padStart(2, '0')}/${String(actualNext.getMonth() + 1).padStart(2, '0')}`;
-    const labelRange = startStr === endStr ? startStr : `${startStr}-${endStr}`;
-
-    data.push({
-      time: labelRange,
-      tooltipLabel: `Giai đoạn ${labelRange}`,
-      inCount: (stepDays * 480) + Math.floor(Math.random() * 80),
-      outCount: (stepDays * 460) + Math.floor(Math.random() * 80),
+    const d = String(curr.getDate()).padStart(2, '0');
+    const m = String(curr.getMonth() + 1).padStart(2, '0');
+    const y = curr.getFullYear();
+    const dateStr = curr.toLocaleDateString('en-CA');
+    slots.push({
+      time: `${d}/${m}`,
+      tooltipLabel: `Ngày ${d}/${m}/${y}`,
+      dateStr,
+      inCount: 0,
+      outCount: 0,
     });
-
-    curr.setDate(curr.getDate() + stepDays);
+    curr.setDate(curr.getDate() + 1);
   }
-  return data;
+
+  for (const session of sessions) {
+    if (session.inTime) {
+      const inDateStr = new Date(session.inTime).toLocaleDateString('en-CA');
+      const found = slots.find((s) => s.dateStr === inDateStr);
+      if (found) found.inCount += 1;
+    }
+    if (session.outTime) {
+      const outDateStr = new Date(session.outTime).toLocaleDateString('en-CA');
+      const found = slots.find((s) => s.dateStr === outDateStr);
+      if (found) found.outCount += 1;
+    }
+  }
+
+  return {
+    chartData: slots,
+    periodDescription: `Lưu lượng xe từ ${formatDateDisplay(filter.customFrom)} đến ${formatDateDisplay(filter.customTo)} (${slots.length} ngày)`,
+    maxBarSize: slots.length > 20 ? 14 : 20,
+  };
 }
 
 interface TrafficBarChartProps {
   isLoading?: boolean;
   filter?: DashboardFilterState;
+  sessions?: ParkingSessionDto[];
 }
 
 const defaultFilter: DashboardFilterState = {
@@ -221,28 +256,12 @@ const defaultFilter: DashboardFilterState = {
 export function TrafficBarChart({
   isLoading,
   filter = defaultFilter,
+  sessions = [],
 }: TrafficBarChartProps) {
-  let chartData = generate24HoursData(filter.date);
-  let periodDescription = `Lưu lượng xe 24/7 theo từng giờ ngày ${formatDateDisplay(filter.date)} (24 giờ)`;
-  let maxBarSize = 16;
-
-  if (filter.type === 'day') {
-    chartData = generate24HoursData(filter.date);
-    periodDescription = `Lưu lượng xe 24/7 theo từng giờ ngày ${formatDateDisplay(filter.date)} (24 giờ)`;
-    maxBarSize = 16;
-  } else if (filter.type === 'month') {
-    chartData = generateMonthDaysData(filter.month);
-    periodDescription = `Lưu lượng xe đầy đủ ${chartData.length} ngày trong tháng ${formatMonthDisplay(filter.month)}`;
-    maxBarSize = 14;
-  } else if (filter.type === 'year') {
-    chartData = yearlyData;
-    periodDescription = `Lưu lượng xe qua 12 tháng năm ${filter.year}`;
-    maxBarSize = 28;
-  } else if (filter.type === 'custom') {
-    chartData = getCustomRangeData(filter.customFrom, filter.customTo);
-    periodDescription = `Lưu lượng xe từ ${formatDateDisplay(filter.customFrom)} đến ${formatDateDisplay(filter.customTo)} (${chartData.length} mốc)`;
-    maxBarSize = chartData.length > 20 ? 14 : 20;
-  }
+  const { chartData, periodDescription, maxBarSize } = aggregateSessionsToChart(
+    sessions,
+    filter
+  );
 
   const totalIn = chartData.reduce((acc, cur) => acc + cur.inCount, 0);
   const totalOut = chartData.reduce((acc, cur) => acc + cur.outCount, 0);
@@ -260,7 +279,7 @@ export function TrafficBarChart({
           </CardDescription>
         </div>
 
-        {/* Quick KPI pills - đồng bộ theo bộ lọc dùng chung */}
+        {/* Quick KPI pills - tính tổng thời gian thực từ Database */}
         <div className="flex items-center gap-2 text-xs">
           <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-medium border border-blue-200/60 dark:border-blue-900/40">
             <ArrowDownRight className="h-3.5 w-3.5 text-blue-600" />
