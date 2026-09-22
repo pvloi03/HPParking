@@ -145,23 +145,23 @@ export function Sidebar() {
         {/* Brand Header */}
         <div
           className={cn(
-            'flex items-center h-14 border-b border-border shrink-0 transition-all duration-200',
-            isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3.5'
+            'flex items-center h-16 border-b border-border shrink-0 transition-all duration-200',
+            isSidebarCollapsed ? 'justify-center px-1.5' : 'justify-between px-3'
           )}
         >
           {!isSidebarCollapsed ? (
             <>
-              <div className="flex items-center min-w-0 flex-1 overflow-hidden px-1">
+              <div className="flex items-center min-w-0 flex-1 overflow-hidden pr-1">
                 <img
                   src="/logo.png"
                   alt="HPParking Logo"
-                  className="h-9 w-auto max-w-[170px] object-contain shrink-0"
+                  className="h-12 max-h-[50px] w-auto max-w-[185px] object-contain shrink-0"
                 />
               </div>
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer shrink-0 ml-1"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer shrink-0"
                 aria-label="Thu gọn thanh bên"
                 title="Thu gọn sidebar"
               >
@@ -172,16 +172,16 @@ export function Sidebar() {
             <button
               type="button"
               onClick={toggleSidebar}
-              className="h-9 w-9 rounded-lg hover:bg-muted/60 flex items-center justify-center transition-all cursor-pointer group p-1"
+              className="h-11 w-[56px] rounded-lg hover:bg-muted/60 flex items-center justify-center transition-all cursor-pointer group p-1"
               aria-label="Mở rộng thanh bên"
               title="Mở rộng sidebar"
             >
               <img
                 src="/logo.png"
                 alt="HPParking Logo"
-                className="h-7 w-7 object-contain group-hover:hidden"
+                className="w-full h-auto max-h-9 object-contain group-hover:hidden"
               />
-              <ChevronRight className="h-4.5 w-4.5 text-foreground hidden group-hover:block" />
+              <ChevronRight className="h-5 w-5 text-foreground hidden group-hover:block" />
             </button>
           )}
         </div>

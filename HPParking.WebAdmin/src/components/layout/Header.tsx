@@ -10,7 +10,7 @@ export function Header({
   subtitle = 'Trung tâm giám sát & vận hành bãi đỗ xe HPParking',
 }: HeaderProps) {
   return (
-    <header className="h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
+    <header className="h-16 border-b border-border bg-card/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
       <div>
         <h2 className="text-sm font-bold text-foreground tracking-tight">
           {title}
