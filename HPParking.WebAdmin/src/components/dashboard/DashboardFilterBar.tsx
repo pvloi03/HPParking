@@ -26,57 +26,71 @@ export function DashboardFilterBar({
   const availableYears = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* 4 Chế độ lọc dùng chung: Ngày / Tháng / Năm / Tùy chọn */}
-      <div className="flex items-center rounded-lg border border-border bg-card p-1 text-xs shadow-xs">
-        <button
-          type="button"
-          onClick={() => handleTypeChange('day')}
-          className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-            filter.type === 'day'
-              ? 'bg-blue-600 text-white shadow-xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
+    <div className="flex flex-col items-start sm:items-end gap-2">
+      {/* Hàng 1: 4 Chế độ lọc dùng chung + Nút Làm mới */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center rounded-lg border border-border bg-card p-1 text-xs shadow-xs">
+          <button
+            type="button"
+            onClick={() => handleTypeChange('day')}
+            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              filter.type === 'day'
+                ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Ngày
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('month')}
+            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              filter.type === 'month'
+                ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Tháng
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('year')}
+            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              filter.type === 'year'
+                ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Năm
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTypeChange('custom')}
+            className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+              filter.type === 'custom'
+                ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Tùy chọn
+          </button>
+        </div>
+
+        {/* Nút Làm mới đồng bộ */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="h-8 gap-1.5 text-xs cursor-pointer min-h-[34px] shadow-2xs"
         >
-          Ngày
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTypeChange('month')}
-          className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-            filter.type === 'month'
-              ? 'bg-blue-600 text-white shadow-xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Tháng
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTypeChange('year')}
-          className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-            filter.type === 'year'
-              ? 'bg-blue-600 text-white shadow-xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Năm
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTypeChange('custom')}
-          className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-            filter.type === 'custom'
-              ? 'bg-blue-600 text-white shadow-xs font-semibold'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Tùy chọn
-        </button>
+          <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Làm mới</span>
+        </Button>
       </div>
 
-      {/* Bộ điều khiển chi tiết theo chế độ lọc đang chọn */}
-      <div className="flex items-center">
+      {/* Hàng 2: Bộ điều khiển chi tiết (input date / month / year / range) đưa xuống hàng dưới */}
+      <div className="flex items-center justify-start sm:justify-end">
         {filter.type === 'day' && (
           <div className="relative flex items-center">
             <Calendar className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -85,7 +99,7 @@ export function DashboardFilterBar({
               aria-label="Chọn ngày xem báo cáo"
               value={filter.date}
               onChange={(e) => onFilterChange({ ...filter, date: e.target.value })}
-              className="h-8 pl-8 pr-2.5 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              className="h-8 pl-8 pr-3 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             />
           </div>
         )}
@@ -98,7 +112,7 @@ export function DashboardFilterBar({
               aria-label="Chọn tháng xem báo cáo"
               value={filter.month}
               onChange={(e) => onFilterChange({ ...filter, month: e.target.value })}
-              className="h-8 pl-8 pr-2.5 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              className="h-8 pl-8 pr-3 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             />
           </div>
         )}
@@ -110,7 +124,7 @@ export function DashboardFilterBar({
               aria-label="Chọn năm xem báo cáo"
               value={filter.year}
               onChange={(e) => onFilterChange({ ...filter, year: e.target.value })}
-              className="h-8 pl-8 pr-3 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              className="h-8 pl-8 pr-4 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             >
               {availableYears.map((y) => (
                 <option key={y} value={String(y)}>
@@ -122,7 +136,7 @@ export function DashboardFilterBar({
         )}
 
         {filter.type === 'custom' && (
-          <div className="flex items-center gap-1.5 text-xs bg-card border border-border rounded-lg px-2 py-1 shadow-2xs">
+          <div className="flex items-center gap-1.5 text-xs bg-card border border-border rounded-lg px-2.5 py-1 shadow-2xs">
             <input
               type="date"
               aria-label="Từ ngày"
@@ -141,18 +155,6 @@ export function DashboardFilterBar({
           </div>
         )}
       </div>
-
-      {/* Nút Làm mới đồng bộ */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRefresh}
-        disabled={isRefreshing}
-        className="h-8 gap-1.5 text-xs cursor-pointer min-h-[34px] shadow-2xs"
-      >
-        <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-        <span className="hidden sm:inline">Làm mới</span>
-      </Button>
     </div>
   );
 }
