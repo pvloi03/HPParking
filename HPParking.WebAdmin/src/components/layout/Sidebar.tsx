@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/tooltip';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useUiStore } from '@/stores/uiStore';
+import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/api/authApi';
 import { cn } from '@/lib/utils';
 
 interface NavSubItem {
@@ -118,6 +120,8 @@ const menuConfig: MenuItem[] = [
 
 export function Sidebar() {
   const { isSidebarCollapsed, toggleSidebar } = useUiStore();
+  const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     'Cơ cấu tổ chức': true,
     'Khách hàng & Xe': true,
@@ -126,6 +130,29 @@ export function Sidebar() {
   });
   const [activePath, setActivePath] = useState('/dashboard');
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // ignore network or session errors during logout
+    } finally {
+      clearAuth();
+      window.location.href = '/login';
+    }
+  };
+
+  const userInitials = user?.fullName
+    ? user.fullName
+        .trim()
+        .split(/\s+/)
+        .map((n) => n[0])
+        .slice(-2)
+        .join('')
+        .toUpperCase()
+    : 'AD';
+  const userDisplayName = user?.fullName || 'Quản trị viên';
+  const userRoleLabel = `${user?.role || 'Admin'} • HPParking`;
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => ({
@@ -330,15 +357,15 @@ export function Sidebar() {
             )}
           >
             <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 text-white text-[11px] font-bold flex items-center justify-center shrink-0 shadow-xs">
-              AD
+              {userInitials}
             </div>
             {!isSidebarCollapsed && (
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-semibold text-foreground truncate leading-tight">
-                  Quản trị viên
+                  {userDisplayName}
                 </p>
-                <p className="text-[10px] text-muted-foreground leading-tight">
-                  Admin • HPParking
+                <p className="text-[10px] text-muted-foreground leading-tight truncate">
+                  {userRoleLabel}
                 </p>
               </div>
             )}
@@ -367,6 +394,7 @@ export function Sidebar() {
           confirmIcon={<LogOut className="h-3.5 w-3.5" />}
           onConfirm={() => {
             setShowLogoutDialog(false);
+            void handleLogout();
           }}
         />
       </aside>
