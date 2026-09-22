@@ -4,7 +4,6 @@ import {
   ShieldCheck,
   Building2,
   Route,
-  ScanFace,
   AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,8 +18,8 @@ interface KpiCardGridProps {
 export function KpiCardGrid({ data, isLoading }: KpiCardGridProps) {
   if (isLoading || !data) {
     return (
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i} className="shadow-xs border-border/80">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -91,18 +90,10 @@ export function KpiCardGrid({ data, isLoading }: KpiCardGridProps) {
       iconColor: 'text-purple-600 dark:text-purple-400',
       iconBg: 'bg-purple-50 dark:bg-purple-950/50',
     },
-    {
-      title: 'Đồng Bộ FaceID',
-      value: `${data.faceIdSyncRatePercentage.toFixed(1)}%`,
-      subtext: `${data.clientsWithFaceId.toLocaleString()} khách đã nạp`,
-      icon: ScanFace,
-      iconColor: 'text-sky-600 dark:text-sky-400',
-      iconBg: 'bg-sky-50 dark:bg-sky-950/50',
-    },
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
       {kpis.map((kpi, idx) => {
         const Icon = kpi.icon;
         return (

@@ -19,7 +19,7 @@ const mockKpiData: DashboardStatisticsDto = {
 };
 
 describe('KpiCardGrid Component', () => {
-  it('hiển thị đầy đủ 6 chỉ số KPIs khi có dữ liệu', () => {
+  it('hiển thị đầy đủ 5 chỉ số KPIs khi có dữ liệu', () => {
     render(<KpiCardGrid data={mockKpiData} isLoading={false} />);
 
     expect(screen.getByText('Khách Hàng')).toBeInTheDocument();
@@ -36,9 +36,6 @@ describe('KpiCardGrid Component', () => {
 
     expect(screen.getByText('Làn Vận Hành')).toBeInTheDocument();
     expect(screen.getByText('8 / 8')).toBeInTheDocument();
-
-    expect(screen.getByText('Đồng Bộ FaceID')).toBeInTheDocument();
-    expect(screen.getByText('84.0%')).toBeInTheDocument();
   });
 
   it('hiển thị cảnh báo dung lượng khi số lượng xe đang đỗ cao', () => {
