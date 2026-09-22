@@ -17,7 +17,6 @@ import {
   ChevronRight,
   ChevronDown,
   LogOut,
-  ParkingSquare,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -153,9 +152,11 @@ export function Sidebar() {
           {!isSidebarCollapsed ? (
             <>
               <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                  <ParkingSquare className="h-4.5 w-4.5" />
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="HPParking Logo"
+                  className="h-8 w-8 rounded-lg object-contain shrink-0 shadow-xs"
+                />
                 <div className="min-w-0 overflow-hidden">
                   <p className="text-[13px] font-bold text-foreground leading-tight truncate">
                     HP<span className="text-blue-600 dark:text-blue-400">PARKING</span>
@@ -179,12 +180,16 @@ export function Sidebar() {
             <button
               type="button"
               onClick={toggleSidebar}
-              className="h-9 w-9 rounded-lg bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white transition-all cursor-pointer shadow-xs group"
+              className="h-9 w-9 rounded-lg hover:bg-muted/60 flex items-center justify-center transition-all cursor-pointer group p-0.5"
               aria-label="Mở rộng thanh bên"
               title="Mở rộng sidebar"
             >
-              <ParkingSquare className="h-4.5 w-4.5 group-hover:hidden" />
-              <ChevronRight className="h-4.5 w-4.5 hidden group-hover:block" />
+              <img
+                src="/logo.png"
+                alt="HPParking Logo"
+                className="h-8 w-8 rounded-lg object-contain group-hover:hidden"
+              />
+              <ChevronRight className="h-4.5 w-4.5 text-foreground hidden group-hover:block" />
             </button>
           )}
         </div>
