@@ -44,14 +44,17 @@ function formatMonthDisplay(isoMonthStr?: string): string {
 }
 
 /**
- * Sinh dữ liệu trọn vẹn 24/7 (đủ 24 giờ từ 00:00 đến 23:00) cho ngày đã chọn
+ * Sinh dữ liệu trọn vẹn 24/7 (đủ 24 giờ từ 00h đến 23h) cho ngày đã chọn
  */
 function generate24HoursData(dateStr?: string) {
   const data = [];
   const seed = dateStr ? dateStr.charCodeAt(dateStr.length - 1) : 5;
 
   for (let h = 0; h < 24; h++) {
-    const hourStr = `${String(h).padStart(2, '0')}:00`;
+    const hourLabel = `${String(h).padStart(2, '0')}h`;
+    const nextHour = (h + 1) % 24;
+    const fullTimeRange = `${String(h).padStart(2, '0')}:00 - ${String(nextHour).padStart(2, '0')}:00`;
+
     let baseIn = 6 + (h % 3);
     let baseOut = 4 + (h % 2);
 
@@ -82,7 +85,8 @@ function generate24HoursData(dateStr?: string) {
     }
 
     data.push({
-      time: hourStr,
+      time: hourLabel,
+      tooltipLabel: `Khung giờ ${fullTimeRange}`,
       inCount: baseIn,
       outCount: baseOut,
     });
@@ -91,7 +95,7 @@ function generate24HoursData(dateStr?: string) {
 }
 
 /**
- * Sinh dữ liệu trọn vẹn đủ tất cả các ngày trong tháng (từ ngày 1 đến ngày 28/29/30/31)
+ * Sinh dữ liệu trọn vẹn đủ tất cả các ngày trong tháng (từ ngày 01 đến ngày cuối tháng)
  */
 function generateMonthDaysData(monthStr?: string) {
   const [yearStr, mStr] = (monthStr || '2026-09').split('-');
@@ -103,7 +107,7 @@ function generateMonthDaysData(monthStr?: string) {
   for (let d = 1; d <= daysInMonth; d++) {
     const dayStr = String(d).padStart(2, '0');
     const dateObj = new Date(year, month - 1, d);
-    const dayOfWeek = dateObj.getDay(); // 0 = CN, 6 = T7
+    const dayOfWeek = dateObj.getDay();
 
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const baseIn = isWeekend ? 210 + (d % 4) * 25 : 540 + ((d * 19) % 180);
@@ -111,6 +115,7 @@ function generateMonthDaysData(monthStr?: string) {
 
     data.push({
       time: `${dayStr}`,
+      tooltipLabel: `Ngày ${dayStr}/${String(month).padStart(2, '0')}/${year}`,
       inCount: baseIn,
       outCount: baseOut,
     });
@@ -122,18 +127,18 @@ function generateMonthDaysData(monthStr?: string) {
  * Dữ liệu 12 tháng trọn vẹn trong năm
  */
 const yearlyData = [
-  { time: 'Thg 1', inCount: 4520, outCount: 4410 },
-  { time: 'Thg 2', inCount: 3890, outCount: 3750 },
-  { time: 'Thg 3', inCount: 5120, outCount: 4980 },
-  { time: 'Thg 4', inCount: 4890, outCount: 4720 },
-  { time: 'Thg 5', inCount: 5340, outCount: 5180 },
-  { time: 'Thg 6', inCount: 5620, outCount: 5480 },
-  { time: 'Thg 7', inCount: 5410, outCount: 5290 },
-  { time: 'Thg 8', inCount: 5800, outCount: 5650 },
-  { time: 'Thg 9', inCount: 4950, outCount: 4810 },
-  { time: 'Thg 10', inCount: 5210, outCount: 5090 },
-  { time: 'Thg 11', inCount: 5100, outCount: 4950 },
-  { time: 'Thg 12', inCount: 5780, outCount: 5620 },
+  { time: 'Thg 1', tooltipLabel: 'Tháng 01', inCount: 4520, outCount: 4410 },
+  { time: 'Thg 2', tooltipLabel: 'Tháng 02', inCount: 3890, outCount: 3750 },
+  { time: 'Thg 3', tooltipLabel: 'Tháng 03', inCount: 5120, outCount: 4980 },
+  { time: 'Thg 4', tooltipLabel: 'Tháng 04', inCount: 4890, outCount: 4720 },
+  { time: 'Thg 5', tooltipLabel: 'Tháng 05', inCount: 5340, outCount: 5180 },
+  { time: 'Thg 6', tooltipLabel: 'Tháng 06', inCount: 5620, outCount: 5480 },
+  { time: 'Thg 7', tooltipLabel: 'Tháng 07', inCount: 5410, outCount: 5290 },
+  { time: 'Thg 8', tooltipLabel: 'Tháng 08', inCount: 5800, outCount: 5650 },
+  { time: 'Thg 9', tooltipLabel: 'Tháng 09', inCount: 4950, outCount: 4810 },
+  { time: 'Thg 10', tooltipLabel: 'Tháng 10', inCount: 5210, outCount: 5090 },
+  { time: 'Thg 11', tooltipLabel: 'Tháng 11', inCount: 5100, outCount: 4950 },
+  { time: 'Thg 12', tooltipLabel: 'Tháng 12', inCount: 5780, outCount: 5620 },
 ];
 
 /**
@@ -166,6 +171,7 @@ function getCustomRangeData(from?: string, to?: string) {
 
       data.push({
         time: `${day}/${month}`,
+        tooltipLabel: `Ngày ${day}/${month}/${curr.getFullYear()}`,
         inCount: isWeekend ? 210 + (curr.getDate() % 4) * 20 : 540 + ((curr.getDate() * 17) % 170),
         outCount: isWeekend ? 195 + (curr.getDate() % 4) * 20 : 520 + ((curr.getDate() * 13) % 160),
       });
@@ -174,7 +180,6 @@ function getCustomRangeData(from?: string, to?: string) {
     return data;
   }
 
-  // Nếu dài hơn 31 ngày: chia đều các mốc
   const stepDays = Math.max(1, Math.floor(diffDays / 8));
   const data = [];
   const curr = new Date(startDate);
@@ -182,12 +187,14 @@ function getCustomRangeData(from?: string, to?: string) {
     const next = new Date(curr);
     next.setDate(next.getDate() + stepDays - 1);
     const actualNext = next > endDate ? endDate : next;
-    
+
     const startStr = `${String(curr.getDate()).padStart(2, '0')}/${String(curr.getMonth() + 1).padStart(2, '0')}`;
     const endStr = `${String(actualNext.getDate()).padStart(2, '0')}/${String(actualNext.getMonth() + 1).padStart(2, '0')}`;
-    
+    const labelRange = startStr === endStr ? startStr : `${startStr}-${endStr}`;
+
     data.push({
-      time: startStr === endStr ? startStr : `${startStr}-${endStr}`,
+      time: labelRange,
+      tooltipLabel: `Giai đoạn ${labelRange}`,
       inCount: (stepDays * 480) + Math.floor(Math.random() * 80),
       outCount: (stepDays * 460) + Math.floor(Math.random() * 80),
     });
@@ -283,50 +290,70 @@ export function TrafficBarChart({
             ))}
           </div>
         ) : (
-          <ChartContainer config={chartConfig} className="h-[290px] w-full">
-            <BarChart
-              data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          <div className="w-full overflow-x-auto pb-1">
+            <ChartContainer
+              config={chartConfig}
+              className="h-[290px] min-w-[560px] sm:min-w-full w-full"
             >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                className="stroke-border/40"
-              />
-              <XAxis
-                dataKey="time"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                interval="preserveStartEnd"
-                minTickGap={6}
-                className="text-[10px] fill-muted-foreground font-medium"
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                className="text-[11px] fill-muted-foreground"
-              />
-              <ChartTooltip
-                cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
-                content={<ChartTooltipContent indicator="dot" />}
-              />
-              <ChartLegend content={<ChartLegendContent />} />
-              <Bar
-                dataKey="inCount"
-                fill="var(--color-inCount)"
-                radius={[3, 3, 0, 0]}
-                maxBarSize={maxBarSize}
-              />
-              <Bar
-                dataKey="outCount"
-                fill="var(--color-outCount)"
-                radius={[3, 3, 0, 0]}
-                maxBarSize={maxBarSize}
-              />
-            </BarChart>
-          </ChartContainer>
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 16, left: 8, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  className="stroke-border/40"
+                />
+                <XAxis
+                  dataKey="time"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  interval={0}
+                  className="text-[10px] fill-muted-foreground font-medium"
+                />
+                <YAxis
+                  width={48}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={6}
+                  className="text-[11px] fill-muted-foreground"
+                />
+                <ChartTooltip
+                  cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
+                  content={
+                    <ChartTooltipContent
+                      indicator="dot"
+                      labelFormatter={(_, payload) => {
+                        if (
+                          payload &&
+                          payload.length > 0 &&
+                          payload[0].payload &&
+                          payload[0].payload.tooltipLabel
+                        ) {
+                          return payload[0].payload.tooltipLabel;
+                        }
+                        return _;
+                      }}
+                    />
+                  }
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar
+                  dataKey="inCount"
+                  fill="var(--color-inCount)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={maxBarSize}
+                />
+                <Bar
+                  dataKey="outCount"
+                  fill="var(--color-outCount)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={maxBarSize}
+                />
+              </BarChart>
+            </ChartContainer>
+          </div>
         )}
       </CardContent>
     </Card>
