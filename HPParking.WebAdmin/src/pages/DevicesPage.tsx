@@ -20,7 +20,10 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DeviceFormDialog } from '@/components/infrastructure/DeviceFormDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { devicesApi, extractErrorMessage } from '@/api/infrastructureApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import {
   DeviceType,
   type DeviceDto,
@@ -43,6 +46,25 @@ export function DevicesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<DeviceDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<DeviceDto | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('devices', {
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+        deviceType: typeFilter === 'all' ? undefined : Number(typeFilter),
+      });
+      downloadBlob(blob, 'danh_sach_thiet_bi.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Query: Lấy danh sách thiết bị
   const { data, isLoading } = useQuery({
@@ -322,6 +344,9 @@ export function DevicesPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Thêm mới thiết bị"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedDevice(item);
@@ -349,6 +374,16 @@ export function DevicesPage() {
         initialData={selectedDevice}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="devices"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['devices'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm Thiết Bị */}

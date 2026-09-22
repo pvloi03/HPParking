@@ -13,11 +13,14 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DepartmentFormDialog } from '@/components/organizations/DepartmentFormDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import {
   departmentsApi,
   companiesApi,
   extractErrorMessage,
 } from '@/api/masterDataApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import type {
   DepartmentDto,
   CreateDepartmentRequest,
@@ -39,6 +42,25 @@ export function DepartmentsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<DepartmentDto | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('departments', {
+        keyword: searchKeyword.trim() || undefined,
+        companyId: selectedCompanyFilter === 'all' ? undefined : selectedCompanyFilter,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+      });
+      downloadBlob(blob, 'danh_sach_phong_ban.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Nạp danh sách công ty để đổ vào dropdown bộ lọc và Form
   const { data: companiesData } = useQuery({
@@ -282,6 +304,9 @@ export function DepartmentsPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Thêm mới phòng ban"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedDepartment(item);
@@ -310,6 +335,16 @@ export function DepartmentsPage() {
         companies={companies}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="departments"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['departments'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm */}

@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Inbox,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -50,6 +52,9 @@ interface DataTableProps<T> {
   onTrashModeToggle?: () => void;
   onAddNew?: () => void;
   addNewLabel?: string;
+  onImportExcel?: () => void;
+  onExportExcel?: () => void;
+  isExportingExcel?: boolean;
   actions?: DataTableActions<T>;
   extraFilters?: React.ReactNode;
   emptyTitle?: string;
@@ -72,6 +77,9 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   onTrashModeToggle,
   onAddNew,
   addNewLabel = 'Thêm mới',
+  onImportExcel,
+  onExportExcel,
+  isExportingExcel = false,
   actions,
   extraFilters,
   emptyTitle = 'Không tìm thấy dữ liệu',
@@ -191,8 +199,35 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
           )}
         </div>
 
-        {/* Nhóm thao tác Thùng rác & Thêm mới */}
+        {/* Nhóm thao tác Thùng rác, Excel & Thêm mới */}
         <div className="flex items-center gap-2 shrink-0">
+          {onExportExcel && !isTrashMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportExcel}
+              disabled={isExportingExcel}
+              className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+              title="Xuất dữ liệu ra Excel"
+            >
+              <Download className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Xuất Excel</span>
+            </Button>
+          )}
+
+          {onImportExcel && !isTrashMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onImportExcel}
+              className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+              title="Nhập dữ liệu từ tệp Excel"
+            >
+              <Upload className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Nhập Excel</span>
+            </Button>
+          )}
+
           {onTrashModeToggle && (
             <Button
               variant={isTrashMode ? 'secondary' : 'outline'}

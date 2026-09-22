@@ -6,7 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { CompanyFormDialog } from '@/components/organizations/CompanyFormDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { companiesApi, extractErrorMessage } from '@/api/masterDataApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import type {
   CompanyDto,
   CreateCompanyRequest,
@@ -27,6 +30,24 @@ export function CompaniesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<CompanyDto | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('companies', {
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+      });
+      downloadBlob(blob, 'danh_sach_cong_ty.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // TanStack Query: Lấy danh sách công ty
   const { data, isLoading } = useQuery({
@@ -222,6 +243,9 @@ export function CompaniesPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Thêm mới công ty"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedCompany(item);
@@ -249,6 +273,16 @@ export function CompaniesPage() {
         initialData={selectedCompany}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="companies"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['companies'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm */}

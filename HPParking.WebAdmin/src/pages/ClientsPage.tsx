@@ -21,8 +21,11 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ClientFormDialog } from '@/components/clients/ClientFormDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { clientApi, extractErrorMessage } from '@/api/clientApi';
 import { companiesApi, departmentsApi, contractorsApi } from '@/api/masterDataApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import type {
   ClientDto,
   CreateClientRequest,
@@ -46,6 +49,26 @@ export function ClientsPage() {
   const [selectedClient, setSelectedClient] = useState<ClientDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<ClientDto | null>(null);
   const [syncingClientId, setSyncingClientId] = useState<string | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('clients', {
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+        companyId: companyFilter === 'all' ? undefined : companyFilter,
+        departmentId: departmentFilter === 'all' ? undefined : departmentFilter,
+      });
+      downloadBlob(blob, 'danh_sach_khach_hang.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Query: Lấy danh sách công ty, phòng ban, nhà thầu
   const { data: companiesData } = useQuery({
@@ -476,6 +499,9 @@ export function ClientsPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Thêm mới khách hàng"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedClient(item);
@@ -506,6 +532,16 @@ export function ClientsPage() {
         contractors={contractors}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="clients"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['clients'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm Khách Hàng */}

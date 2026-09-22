@@ -13,8 +13,11 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { GateFormDialog } from '@/components/infrastructure/GateFormDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { gatesApi, extractErrorMessage } from '@/api/infrastructureApi';
 import { companiesApi } from '@/api/masterDataApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import type {
   GateDto,
   CreateGateRequest,
@@ -36,6 +39,25 @@ export function GatesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedGate, setSelectedGate] = useState<GateDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<GateDto | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('gates', {
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+        companyId: companyFilter === 'all' ? undefined : companyFilter,
+      });
+      downloadBlob(blob, 'danh_sach_cong.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Query: Lấy danh sách công ty để chọn & lọc
   const { data: companiesData } = useQuery({
@@ -271,6 +293,9 @@ export function GatesPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Thêm mới cổng"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedGate(item);
@@ -299,6 +324,16 @@ export function GatesPage() {
         companies={companies}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="gates"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['gates'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm Cổng */}
