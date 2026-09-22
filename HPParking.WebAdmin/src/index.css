@@ -33,6 +33,12 @@
     --input: 214 20% 90%;
     --ring: 221 83% 53%;
     --radius: 0.625rem;
+
+    --chart-1: 221 83% 53%;             /* Blue */
+    --chart-2: 160 84% 39%;             /* Emerald */
+    --chart-3: 38 92% 50%;              /* Amber */
+    --chart-4: 262 83% 58%;             /* Purple */
+    --chart-5: 199 89% 48%;             /* Cyan */
   }
 
   .dark {
@@ -64,6 +70,12 @@
     --border: 217 33% 18%;              /* #1e2d3d */
     --input: 217 33% 18%;
     --ring: 217 91% 60%;
+
+    --chart-1: 217 91% 60%;             /* Blue */
+    --chart-2: 158 64% 52%;             /* Emerald */
+    --chart-3: 43 96% 56%;              /* Amber */
+    --chart-4: 263 70% 66%;             /* Purple */
+    --chart-5: 198 93% 60%;             /* Cyan */
   }
 }
 
