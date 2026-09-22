@@ -13,8 +13,11 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { vehicleApi, extractErrorMessage } from '@/api/vehicleApi';
 import { clientApi } from '@/api/clientApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import {
   VehicleType,
   type VehicleDto,
@@ -37,6 +40,25 @@ export function VehiclesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<VehicleDto | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('vehicles', {
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+        vehicleType: typeFilter === 'all' ? undefined : Number(typeFilter),
+      });
+      downloadBlob(blob, 'danh_sach_phuong_tien.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Query: Lấy danh sách khách hàng để ánh xạ chủ sở hữu và chọn trong Form
   const { data: clientsData } = useQuery({
@@ -335,6 +357,9 @@ export function VehiclesPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Đăng ký phương tiện"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedVehicle(item);
@@ -363,6 +388,16 @@ export function VehiclesPage() {
         clients={clients}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="vehicles"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm Phương tiện */}

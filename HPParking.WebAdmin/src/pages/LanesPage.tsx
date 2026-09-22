@@ -22,12 +22,15 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LaneFormDialog } from '@/components/infrastructure/LaneFormDialog';
 import { LaneDetailDialog } from '@/components/infrastructure/LaneDetailDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import {
   lanesApi,
   gatesApi,
   devicesApi,
   extractErrorMessage,
 } from '@/api/infrastructureApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import {
   LaneDirection,
   type LaneDto,
@@ -52,6 +55,26 @@ export function LanesPage() {
   const [selectedLane, setSelectedLane] = useState<LaneDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<LaneDto | null>(null);
   const [detailLaneId, setDetailLaneId] = useState<string | null>(null);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('lanes', {
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+        gateId: gateFilter === 'all' ? undefined : gateFilter,
+        laneDirection: directionFilter === 'all' ? undefined : Number(directionFilter),
+      });
+      downloadBlob(blob, 'danh_sach_lan_xe.xlsx');
+      toast.success('Đã xuất dữ liệu Excel thành công');
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   // Query: Lấy danh sách cổng kiểm soát
   const { data: gatesData } = useQuery({
@@ -364,6 +387,9 @@ export function LanesPage() {
           setIsFormOpen(true);
         }}
         addNewLabel="Thêm mới làn xe"
+        onImportExcel={() => setIsExcelImportOpen(true)}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onEdit: (item) => {
             setSelectedLane(item);
@@ -400,6 +426,16 @@ export function LanesPage() {
         open={Boolean(detailLaneId)}
         onOpenChange={(open) => !open && setDetailLaneId(null)}
         laneId={detailLaneId}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="lanes"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['lanes'] });
+        }}
       />
 
       {/* Confirm Xóa Mềm Làn xe */}
