@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.DTOs.Statistics;
 
 namespace HPParking.Api.Services.Interfaces
@@ -15,8 +13,8 @@ namespace HPParking.Api.Services.Interfaces
         Task<DashboardStatisticsDto> GetDashboardStatisticsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Báo cáo thống kê phân bổ số lượng khách hàng và phương tiện theo đơn vị tổ chức
+        /// Báo cáo tổng hợp lưu lượng lượt ra vào theo từng người và phương tiện
         /// </summary>
-        Task<DistributionStatisticsDto> GetDistributionStatisticsAsync(DistributionFilterQuery query, CancellationToken cancellationToken = default);
+        Task<List<TrafficSummaryItemDto>> GetTrafficSummaryAsync(TrafficSummaryFilterQuery query, CancellationToken cancellationToken = default);
     }
 }

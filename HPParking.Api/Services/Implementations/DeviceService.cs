@@ -5,7 +5,6 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using Mapster;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;

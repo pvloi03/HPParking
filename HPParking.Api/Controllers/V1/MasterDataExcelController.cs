@@ -3,10 +3,7 @@ using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.Excel;
 using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Controllers.V1
 {

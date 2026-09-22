@@ -1,5 +1,3 @@
-using System;
-
 namespace HPParking.Services.FaceId
 {
     public static class FaceIdErrorFormatter

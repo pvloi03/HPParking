@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.Common.Helpers;
 using HPParking.Api.DTOs.Clients;
@@ -12,8 +7,6 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using Mapster;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 

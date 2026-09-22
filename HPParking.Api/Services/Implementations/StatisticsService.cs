@@ -1,15 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.DTOs.Statistics;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -25,6 +19,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Department> _departmentRepo;
+        private readonly IRepository<Contractor> _contractorRepo;
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Lane> _laneRepo;
         private readonly MongoDbContext? _mongoContext;
@@ -36,6 +31,7 @@ namespace HPParking.Api.Services.Implementations
             IRepository<ParkingSession> sessionRepo,
             IRepository<Company> companyRepo,
             IRepository<Department> departmentRepo,
+            IRepository<Contractor> contractorRepo,
             IRepository<Gate> gateRepo,
             IRepository<Lane> laneRepo,
             ILogger<StatisticsService> logger,
@@ -46,6 +42,7 @@ namespace HPParking.Api.Services.Implementations
             _sessionRepo = sessionRepo;
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
+            _contractorRepo = contractorRepo;
             _gateRepo = gateRepo;
             _laneRepo = laneRepo;
             _logger = logger;
@@ -250,156 +247,204 @@ namespace HPParking.Api.Services.Implementations
             };
         }
 
-        public async Task<DistributionStatisticsDto> GetDistributionStatisticsAsync(DistributionFilterQuery query, CancellationToken cancellationToken = default)
+        public async Task<List<TrafficSummaryItemDto>> GetTrafficSummaryAsync(TrafficSummaryFilterQuery query, CancellationToken cancellationToken = default)
         {
-            var result = new DistributionStatisticsDto();
-
-            // 1. Tải danh sách Công ty và Phòng ban để đối chiếu tên hiển thị
-            var companies = (await _companyRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
-            var departments = (await _departmentRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(d => d.Id, d => d);
-
-            // 2. Tải danh sách Gates và Lanes để thống kê hạ tầng
-            var gates = await _gateRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
-            var lanes = await _laneRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
-
-            var filteredGates = gates.AsEnumerable();
-            if (!string.IsNullOrWhiteSpace(query.CompanyId))
+            // 1. Tải danh sách ParkingSessions thỏa mãn điều kiện thời gian & phương tiện
+            var sessionFilterBuilder = Builders<ParkingSession>.Filter;
+            var sessionFilters = new List<FilterDefinition<ParkingSession>>
             {
-                filteredGates = filteredGates.Where(g => g.CompanyId == query.CompanyId);
-            }
-            var gateList = filteredGates.ToList();
-            var gateIds = gateList.Select(g => g.Id).ToHashSet();
-            var filteredLanes = lanes.Where(l => !string.IsNullOrEmpty(l.GateId) && gateIds.Contains(l.GateId)).ToList();
-
-            var lanesByGate = filteredLanes
-                .Where(l => !string.IsNullOrEmpty(l.GateId))
-                .GroupBy(l => l.GateId!)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            var gatesByCompany = gateList
-                .Where(g => !string.IsNullOrEmpty(g.CompanyId))
-                .GroupBy(g => g.CompanyId!)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            result.TotalFilteredGates = gateList.Count;
-            result.TotalFilteredLanes = filteredLanes.Count;
-
-            // 3. Lấy danh sách Clients thỏa mãn bộ lọc
-            var clients = await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
-            var filteredClients = clients.AsEnumerable();
-
-            if (!string.IsNullOrWhiteSpace(query.CompanyId))
-            {
-                filteredClients = filteredClients.Where(c => c.CompanyId == query.CompanyId);
-            }
-
-            if (!string.IsNullOrWhiteSpace(query.DepartmentId))
-            {
-                filteredClients = filteredClients.Where(c => c.DepartmentId == query.DepartmentId);
-            }
+                sessionFilterBuilder.Eq(x => x.IsDeleted, false)
+            };
 
             if (query.FromDate.HasValue)
             {
-                filteredClients = filteredClients.Where(c => c.CreatedAt >= query.FromDate.Value);
+                sessionFilters.Add(sessionFilterBuilder.Gte(x => x.InTime, query.FromDate.Value));
             }
-
             if (query.ToDate.HasValue)
             {
-                filteredClients = filteredClients.Where(c => c.CreatedAt <= query.ToDate.Value);
+                sessionFilters.Add(sessionFilterBuilder.Lte(x => x.InTime, query.ToDate.Value));
+            }
+            if (query.VehicleType.HasValue)
+            {
+                sessionFilters.Add(sessionFilterBuilder.Eq(x => x.VehicleType, query.VehicleType.Value));
+            }
+            if (!string.IsNullOrWhiteSpace(query.PlateNumber))
+            {
+                var cleanPlate = query.PlateNumber.Trim().ToUpperInvariant();
+                sessionFilters.Add(sessionFilterBuilder.Regex(x => x.PlateNumber, new BsonRegularExpression(cleanPlate, "i")));
             }
 
-            var clientList = filteredClients.ToList();
-            var clientIds = clientList.Select(c => c.Id).ToHashSet();
+            var combinedFilter = sessionFilterBuilder.And(sessionFilters);
+            var sessions = await _sessionRepo.FindAsync(filter: combinedFilter, cancellationToken: cancellationToken);
 
-            // 4. Lấy danh sách Vehicles liên kết với các Clients đã lọc
-            var vehicles = await _vehicleRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
-            var filteredVehicles = vehicles.Where(v => !string.IsNullOrEmpty(v.OwnerClientId) && clientIds.Contains(v.OwnerClientId!)).ToList();
+            // 2. Tra cứu thông tin Clients, Companies, Departments, Contractors, Vehicles để điền chi tiết
+            var clients = (await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(c => c.Id, c => c);
+            var companies = (await _companyRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
+            var departments = (await _departmentRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(d => d.Id, d => d.Name);
+            var contractors = (await _contractorRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(c => c.Id, c => c.Name);
+            var vehicles = (await _vehicleRepo.FindAsync(x => !x.IsDeleted, cancellationToken)).ToDictionary(v => v.PlateNumber, v => v, StringComparer.OrdinalIgnoreCase);
 
-            var vehiclesByClient = filteredVehicles
-                .GroupBy(v => v.OwnerClientId!)
-                .ToDictionary(g => g.Key, g => g.Count());
-
-            result.TotalFilteredClients = clientList.Count;
-            result.TotalFilteredVehicles = filteredVehicles.Count;
-
-            // 5. Gom nhóm theo Company & Department
-            var grouped = clientList
-                .GroupBy(c => new { c.CompanyId, c.DepartmentId })
+            // 3. Gom nhóm theo (PlateNumber, PersonId, VehicleType)
+            var groups = sessions
+                .GroupBy(s => new
+                {
+                    PlateNumber = s.PlateNumber?.Trim().ToUpperInvariant() ?? string.Empty,
+                    PersonId = s.PersonId ?? (vehicles.TryGetValue(s.PlateNumber ?? string.Empty, out var veh) ? veh.OwnerClientId : null),
+                    s.VehicleType
+                })
                 .ToList();
 
-            var processedCompanyIds = new HashSet<string>();
+            var result = new List<TrafficSummaryItemDto>();
 
-            foreach (var group in grouped)
+            foreach (var g in groups)
             {
-                string companyName = "Chưa phân công ty";
-                if (!string.IsNullOrEmpty(group.Key.CompanyId) && companies.TryGetValue(group.Key.CompanyId, out var cName))
-                {
-                    companyName = cName;
-                }
+                var plate = g.Key.PlateNumber;
+                var personId = g.Key.PersonId;
+                var vehicleType = g.Key.VehicleType;
 
-                string departmentName = "Chưa phân phòng ban";
-                if (!string.IsNullOrEmpty(group.Key.DepartmentId) && departments.TryGetValue(group.Key.DepartmentId, out var dept))
+                string clientCode = string.Empty;
+                string clientName = "Khách vãng lai";
+                ClientType? clientType = null;
+                string clientTypeName = "Khách vãng lai";
+                string companyName = string.Empty;
+                string departmentName = string.Empty;
+
+                if (!string.IsNullOrEmpty(personId) && clients.TryGetValue(personId, out var client))
                 {
-                    departmentName = dept.Name;
-                    if (string.IsNullOrEmpty(group.Key.CompanyId) && !string.IsNullOrEmpty(dept.CompanyId) && companies.TryGetValue(dept.CompanyId, out var parentCompName))
+                    clientCode = client.Code;
+                    clientName = client.Name;
+                    clientType = client.Type;
+
+                    clientTypeName = client.Type switch
                     {
-                        companyName = parentCompName;
+                        ClientType.Employee => "Cán bộ CNV",
+                        ClientType.Contractor => "Nhà thầu",
+                        ClientType.Visitor => "Khách vãng lai",
+                        ClientType.VIP => "Khách VIP",
+                        _ => "Khác"
+                    };
+
+                    if (client.Type == ClientType.Contractor)
+                    {
+                        // 1. Nếu là Nhà thầu: Cột Đơn vị/Công ty lấy tên nhà thầu, Cột Phòng ban để trống
+                        if (!string.IsNullOrEmpty(client.ContractorId) && contractors.TryGetValue(client.ContractorId, out var cName))
+                        {
+                            companyName = cName;
+                        }
+                        departmentName = string.Empty;
+                    }
+                    else if (client.Type == ClientType.Employee)
+                    {
+                        // 2. Nếu là Cán bộ CNV: Cột Đơn vị/Công ty lấy tên công ty, Cột Phòng ban lấy tên phòng ban
+                        if (!string.IsNullOrEmpty(client.CompanyId) && companies.TryGetValue(client.CompanyId, out var compName))
+                        {
+                            companyName = compName;
+                        }
+                        if (!string.IsNullOrEmpty(client.DepartmentId) && departments.TryGetValue(client.DepartmentId, out var deptName))
+                        {
+                            departmentName = deptName;
+                        }
+                    }
+                    else
+                    {
+                        // 3. Nếu chưa thuộc công ty hay nhà thầu thì để trống cả cột 4, 5
+                        if (!string.IsNullOrEmpty(client.CompanyId) && companies.TryGetValue(client.CompanyId, out var compName))
+                        {
+                            companyName = compName;
+                        }
+                        else if (!string.IsNullOrEmpty(client.ContractorId) && contractors.TryGetValue(client.ContractorId, out var cName))
+                        {
+                            companyName = cName;
+                        }
+
+                        if (!string.IsNullOrEmpty(client.DepartmentId) && departments.TryGetValue(client.DepartmentId, out var deptName))
+                        {
+                            departmentName = deptName;
+                        }
                     }
                 }
 
-                long vehicleCount = group.Sum(c => vehiclesByClient.TryGetValue(c.Id, out var count) ? count : 0);
-
-                long gateCount = 0;
-                long laneCount = 0;
-                if (!string.IsNullOrEmpty(group.Key.CompanyId) && gatesByCompany.TryGetValue(group.Key.CompanyId, out var compGates))
+                // Lọc theo ClientType nếu có
+                if (query.ClientType.HasValue)
                 {
-                    gateCount = compGates.Count;
-                    laneCount = compGates.Sum(g => lanesByGate.TryGetValue(g.Id, out var count) ? count : 0);
-                    processedCompanyIds.Add(group.Key.CompanyId);
+                    if (clientType != query.ClientType.Value)
+                    {
+                        continue;
+                    }
                 }
 
-                result.Items.Add(new UnitDistributionItemDto
+                // Lọc theo ContractorId nếu có
+                if (!string.IsNullOrWhiteSpace(query.ContractorId))
                 {
-                    CompanyId = group.Key.CompanyId,
+                    if (string.IsNullOrEmpty(personId) || !clients.TryGetValue(personId, out var c) || c.ContractorId != query.ContractorId)
+                    {
+                        continue;
+                    }
+                }
+
+                // Lọc theo CompanyId nếu có
+                if (!string.IsNullOrWhiteSpace(query.CompanyId))
+                {
+                    if (string.IsNullOrEmpty(personId) || !clients.TryGetValue(personId, out var c) || c.CompanyId != query.CompanyId)
+                    {
+                        continue;
+                    }
+                }
+
+                // Lọc theo DepartmentId nếu có
+                if (!string.IsNullOrWhiteSpace(query.DepartmentId))
+                {
+                    if (string.IsNullOrEmpty(personId) || !clients.TryGetValue(personId, out var c) || c.DepartmentId != query.DepartmentId)
+                    {
+                        continue;
+                    }
+                }
+
+                // Lọc theo SearchTerm (mã/tên khách hoặc biển số) nếu có
+                if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+                {
+                    var term = query.SearchTerm.Trim();
+                    bool matchPlate = plate.Contains(term, StringComparison.OrdinalIgnoreCase);
+                    bool matchName = clientName.Contains(term, StringComparison.OrdinalIgnoreCase);
+                    bool matchCode = clientCode.Contains(term, StringComparison.OrdinalIgnoreCase);
+                    if (!matchPlate && !matchName && !matchCode)
+                    {
+                        continue;
+                    }
+                }
+
+                int inCount = g.Count(s => s.InTime.HasValue);
+                int outCount = g.Count(s => s.OutTime.HasValue);
+                int completedCount = g.Count(s => s.Status == ParkingSessionStatus.Completed);
+                int activeCount = g.Count(s => s.Status == ParkingSessionStatus.Active);
+
+                result.Add(new TrafficSummaryItemDto
+                {
+                    PersonId = personId,
+                    ClientCode = clientCode,
+                    ClientName = clientName,
+                    ClientType = clientType,
+                    ClientTypeName = clientTypeName,
                     CompanyName = companyName,
-                    DepartmentId = group.Key.DepartmentId,
                     DepartmentName = departmentName,
-                    ClientCount = group.Count(),
-                    VehicleCount = vehicleCount,
-                    GateCount = gateCount,
-                    LaneCount = laneCount
+                    PlateNumber = plate,
+                    VehicleType = vehicleType,
+                    InCount = inCount,
+                    OutCount = outCount,
+                    CompletedCount = completedCount,
+                    ActiveCount = activeCount
                 });
             }
 
-            // 6. Bổ sung các công ty có Cổng/Làn nhưng chưa có Client nào (nếu không lọc Department cụ thể)
-            if (string.IsNullOrWhiteSpace(query.DepartmentId))
-            {
-                foreach (var kvp in gatesByCompany)
-                {
-                    if (!string.IsNullOrEmpty(kvp.Key) && !processedCompanyIds.Contains(kvp.Key))
-                    {
-                        string cName = companies.TryGetValue(kvp.Key, out var name) ? name : "Công ty không xác định";
-                        long laneCount = kvp.Value.Sum(g => lanesByGate.TryGetValue(g.Id, out var count) ? count : 0);
+            var sorted = result
+                .OrderByDescending(x => x.InCount)
+                .ThenBy(x => x.ClientName)
+                .ThenBy(x => x.PlateNumber)
+                .ToList();
 
-                        result.Items.Add(new UnitDistributionItemDto
-                        {
-                            CompanyId = kvp.Key,
-                            CompanyName = cName,
-                            DepartmentId = null,
-                            DepartmentName = "Chưa phân phòng ban",
-                            ClientCount = 0,
-                            VehicleCount = 0,
-                            GateCount = kvp.Value.Count,
-                            LaneCount = laneCount
-                        });
-                    }
-                }
-            }
+            _logger.LogInformation("Tổng hợp lượt ra vào theo người & xe: {Count} bản ghi.", sorted.Count);
 
-            _logger.LogInformation("Đã trích xuất báo cáo phân bổ: {ClientCount} khách hàng, {VehicleCount} phương tiện, {GateCount} cổng, {LaneCount} làn trong {GroupCount} nhóm.",
-                result.TotalFilteredClients, result.TotalFilteredVehicles, result.TotalFilteredGates, result.TotalFilteredLanes, result.Items.Count);
-
-            return result;
+            return sorted;
         }
     }
 }

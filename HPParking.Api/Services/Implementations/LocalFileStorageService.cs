@@ -1,14 +1,6 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.Configuration;
 using HPParking.Api.Services.Interfaces;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace HPParking.Api.Services.Implementations

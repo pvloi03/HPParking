@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace HPParking.Api.Configuration
 {
     public class StorageSettings

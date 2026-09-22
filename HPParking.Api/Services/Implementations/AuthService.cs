@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.Configuration;
 using HPParking.Api.DTOs.Auth;
@@ -12,9 +5,11 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace HPParking.Api.Services.Implementations
 {

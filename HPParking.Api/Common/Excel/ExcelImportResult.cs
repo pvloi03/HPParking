@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace HPParking.Api.Common.Excel
 {
     /// <summary>

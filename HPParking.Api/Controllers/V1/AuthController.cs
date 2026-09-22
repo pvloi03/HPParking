@@ -1,16 +1,11 @@
-using System;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
 using Asp.Versioning;
 using HPParking.Api.DTOs.Auth;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace HPParking.Api.Controllers.V1
 {

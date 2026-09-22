@@ -1,4 +1,3 @@
-using HPParking.Api.Common.Excel;
 using HPParking.Api.Common.Helpers;
 using HPParking.Api.DTOs.AuditLogs;
 using HPParking.Api.DTOs.Excel.Reports;
@@ -7,15 +6,9 @@ using HPParking.Api.DTOs.Statistics;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
-using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -29,6 +22,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IExcelService _excelService;
         private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IRepository<AuditLog> _auditLogRepo;
+        private readonly IRepository<Client> _clientRepo;
         private readonly IStatisticsService _statisticsService;
         private readonly ILogger<ReportExcelService> _logger;
 
@@ -36,12 +30,14 @@ namespace HPParking.Api.Services.Implementations
             IExcelService excelService,
             IRepository<ParkingSession> sessionRepo,
             IRepository<AuditLog> auditLogRepo,
+            IRepository<Client> clientRepo,
             IStatisticsService statisticsService,
             ILogger<ReportExcelService> logger)
         {
             _excelService = excelService;
             _sessionRepo = sessionRepo;
             _auditLogRepo = auditLogRepo;
+            _clientRepo = clientRepo;
             _statisticsService = statisticsService;
             _logger = logger;
         }
@@ -63,19 +59,35 @@ namespace HPParking.Api.Services.Implementations
                 limit: MaxExportLimit,
                 cancellationToken: cancellationToken);
 
+            var personIds = sessions
+                .Where(s => !string.IsNullOrEmpty(s.PersonId))
+                .Select(s => s.PersonId!)
+                .Distinct()
+                .ToHashSet();
+
+            var clients = personIds.Count > 0
+                ? (await _clientRepo.FindAsync(c => personIds.Contains(c.Id), cancellationToken: cancellationToken)).ToDictionary(c => c.Id, c => c)
+                : new Dictionary<string, Client>();
+
             var data = sessions.Select(s => new ParkingSessionExcelDto
             {
                 PlateNumber = s.PlateNumber,
                 VehicleType = s.VehicleType,
                 Status = s.Status,
+                ClientCode = s.PersonId != null && clients.TryGetValue(s.PersonId, out var c) ? c.Code : null,
+                ClientName = s.PersonId != null && clients.TryGetValue(s.PersonId, out var c2) ? c2.Name : null,
                 InTime = s.InTime,
                 InLaneName = s.InLaneName,
+                InPlateImagePath = s.InPlateImagePath,
+                InOverviewImagePath = s.InOverviewImagePath,
                 OutTime = s.OutTime,
                 OutLaneName = s.OutLaneName,
+                OutPlateImagePath = s.OutPlateImagePath,
+                OutOverviewImagePath = s.OutOverviewImagePath,
                 Duration = FormatDuration(s.InTime, s.OutTime)
             });
 
-            var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe");
+            var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe", "BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE", cancellationToken);
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
 
             _logger.LogInformation("Đã xuất {Count}/{Total} dòng lịch sử phiên đỗ xe ra Excel (Truncated: {IsTruncated})",
@@ -114,7 +126,7 @@ namespace HPParking.Api.Services.Implementations
                 ErrorMessage = l.ErrorMessage
             });
 
-            var bytes = await _excelService.WriteAsync(data, new AuditLogExcelProfile(), "Nhat_Ky_He_Thong");
+            var bytes = await _excelService.WriteAsync(data, new AuditLogExcelProfile(), "Nhat_Ky_He_Thong", "BÁO CÁO NHẬT KÝ KIỂM TOÁN HỆ THỐNG", cancellationToken);
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
 
             _logger.LogInformation("Đã xuất {Count}/{Total} dòng nhật ký kiểm toán ra Excel (Truncated: {IsTruncated})",
@@ -123,29 +135,40 @@ namespace HPParking.Api.Services.Implementations
             return (bytes, $"Nhat_Ky_He_Thong_{timestamp}.xlsx", isTruncated);
         }
 
-        public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportDistributionMatrixAsync(
-            DistributionFilterQuery query,
+        public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportTrafficSummaryAsync(
+            TrafficSummaryFilterQuery query,
             CancellationToken cancellationToken = default)
         {
-            var stats = await _statisticsService.GetDistributionStatisticsAsync(query, cancellationToken);
-            var isTruncated = stats.Items.Count > MaxExportLimit;
+            var items = await _statisticsService.GetTrafficSummaryAsync(query, cancellationToken);
+            var isTruncated = items.Count > MaxExportLimit;
 
-            var data = stats.Items.Take(MaxExportLimit).Select(item => new DistributionExcelDto
+            var data = items.Take(MaxExportLimit).Select((item, index) => new TrafficSummaryExcelDto
             {
+                Index = index + 1,
+                ClientCode = item.ClientCode,
+                ClientName = item.ClientName,
+                ClientTypeName = item.ClientTypeName,
                 CompanyName = item.CompanyName,
                 DepartmentName = item.DepartmentName,
-                ClientCount = item.ClientCount,
-                VehicleCount = item.VehicleCount,
-                GateCount = item.GateCount,
-                LaneCount = item.LaneCount
+                PlateNumber = item.PlateNumber,
+                VehicleType = item.VehicleType,
+                InCount = item.InCount,
+                OutCount = item.OutCount,
+                CompletedCount = item.CompletedCount,
+                IsInParking = item.IsInParking
             });
 
-            var bytes = await _excelService.WriteAsync(data, new DistributionExcelProfile(), "Ma_Tran_Phan_Bo");
+            var bytes = await _excelService.WriteAsync(
+                data,
+                new TrafficSummaryExcelProfile(),
+                "Tong_Hop_Luot_Ra_Vao",
+                "BÁO CÁO TỔNG HỢP LƯỢT RA VÀO THEO ĐỐI TƯỢNG",
+                cancellationToken);
+
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            _logger.LogInformation("Đã xuất {Count} bản ghi tổng hợp lượt ra vào theo người & xe ra Excel", items.Count);
 
-            _logger.LogInformation("Đã xuất {Count} bản ghi Ma trận phân bổ ra Excel", stats.Items.Count);
-
-            return (bytes, $"Bao_Cao_Phan_Bo_{timestamp}.xlsx", isTruncated);
+            return (bytes, $"Bao_Cao_Tong_Hop_Luot_Ra_Vao_{timestamp}.xlsx", isTruncated);
         }
 
         #region Filter & Sort Builders

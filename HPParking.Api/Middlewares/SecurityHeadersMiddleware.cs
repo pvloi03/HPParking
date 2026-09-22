@@ -1,6 +1,3 @@
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-
 namespace HPParking.Api.Middlewares
 {
     public class SecurityHeadersMiddleware

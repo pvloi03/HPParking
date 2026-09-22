@@ -1,6 +1,5 @@
 using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
-using HPParking.Core.Models.Entities;
 using HPParking.Core.Repositories;
 using HPParking.Forms;
 using HPParking.Forms.ConfigManager;

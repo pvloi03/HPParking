@@ -1,7 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-
 namespace HPParking.Api.Services.Interfaces
 {
     public interface IFileStorageService

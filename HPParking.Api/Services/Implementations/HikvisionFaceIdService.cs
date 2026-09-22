@@ -1,15 +1,10 @@
-using System;
+using HPParking.Api.DTOs.Clients;
+using HPParking.Api.Services.Interfaces;
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using HPParking.Api.DTOs.Clients;
-using HPParking.Api.Services.Interfaces;
-using Microsoft.Extensions.Logging;
 
 namespace HPParking.Api.Services.Implementations
 {

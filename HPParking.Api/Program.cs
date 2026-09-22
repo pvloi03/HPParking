@@ -93,6 +93,7 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 // Đăng ký dịch vụ Nhập/Xuất Excel chuẩn hóa ClosedXML (ADR 0023)
 builder.Services.AddSingleton<IExcelService, ClosedXmlExcelService>();
+builder.Services.AddScoped<IVehicleExcelService, VehicleExcelService>();
 builder.Services.AddScoped<IClientExcelService, ClientExcelService>();
 builder.Services.AddScoped<IMasterDataExcelService, MasterDataExcelService>();
 builder.Services.AddScoped<IReportExcelService, ReportExcelService>();

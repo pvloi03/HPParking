@@ -1,4 +1,3 @@
-using System;
 using HPParking.Api.DTOs.Common;
 
 namespace HPParking.Api.DTOs.Auth

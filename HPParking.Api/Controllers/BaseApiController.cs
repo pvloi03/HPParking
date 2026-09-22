@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using HPParking.Api.DTOs.Common;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace HPParking.Api.Controllers
 {

@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Management;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;

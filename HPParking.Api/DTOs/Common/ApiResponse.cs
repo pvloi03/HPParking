@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace HPParking.Api.DTOs.Common
 {
     /// <summary>

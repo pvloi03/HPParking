@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace HPParking.Api.Common.Exceptions
 {
     public class AppException : Exception
