@@ -1,81 +1,60 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { RefreshCw, History, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { KpiCardGrid } from '@/components/dashboard/KpiCardGrid';
+import { DistributionMatrixTable } from '@/components/dashboard/DistributionMatrixTable';
 import {
-  Car,
-  ArrowDownRight,
-  ArrowUpRight,
-  AlertTriangle,
-  RefreshCw,
-} from 'lucide-react';
-
-const mockRecentSessions = [
-  {
-    id: 'SES-9081',
-    plateNumber: '29A-888.99',
-    vehicleType: 'Ô tô 4 chỗ',
-    laneIn: 'Làn Vào 01 (Cổng Chính)',
-    timeIn: '10:02:15 22/09/2026',
-    timeOut: '—',
-    duration: '6 phút',
-    status: 'Đang đỗ',
-    mismatch: false,
-  },
-  {
-    id: 'SES-9080',
-    plateNumber: '51F-123.45',
-    vehicleType: 'Ô tô 7 chỗ',
-    laneIn: 'Làn Vào 02 (Cổng Phụ)',
-    timeIn: '09:45:10 22/09/2026',
-    timeOut: '—',
-    duration: '23 phút',
-    status: 'Đang đỗ',
-    mismatch: false,
-  },
-  {
-    id: 'SES-9079',
-    plateNumber: '30E-654.32',
-    vehicleType: 'Xe máy',
-    laneIn: 'Làn Vào 03 (Xe Máy)',
-    timeIn: '08:15:00 22/09/2026',
-    timeOut: '10:05:40 22/09/2026',
-    duration: '1 giờ 50 phút',
-    status: 'Hoàn tất',
-    mismatch: false,
-  },
-  {
-    id: 'SES-9078',
-    plateNumber: '15A-999.88',
-    vehicleType: 'Xe bán tải',
-    laneIn: 'Làn Vào 01 (Cổng Chính)',
-    timeIn: '07:30:22 22/09/2026',
-    timeOut: '09:55:12 22/09/2026',
-    duration: '2 giờ 24 phút',
-    status: 'Hoàn tất',
-    mismatch: true,
-  },
-];
+  useDashboardKPIs,
+  useDistributionStatistics,
+  useRecentSessions,
+} from '@/hooks/useDashboard';
+import { ParkingSessionStatus } from '@/types/parkingSession';
 
 export function DashboardPage() {
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 600);
+  const {
+    data: kpiData,
+    isLoading: isKpiLoading,
+    isRefetching: isKpiRefetching,
+    refetch: refetchKpis,
+    error: kpiError,
+  } = useDashboardKPIs();
+
+  const {
+    data: distData,
+    isLoading: isDistLoading,
+    isRefetching: isDistRefetching,
+    refetch: refetchDist,
+  } = useDistributionStatistics();
+
+  const {
+    data: recentSessions,
+    isLoading: isSessionsLoading,
+    isRefetching: isSessionsRefetching,
+    refetch: refetchSessions,
+  } = useRecentSessions(5);
+
+  const isRefreshing =
+    isKpiRefetching || isDistRefetching || isSessionsRefetching;
+
+  const handleRefresh = async () => {
+    await Promise.all([refetchKpis(), refetchDist(), refetchSessions()]);
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Control Bar: Period Filter & Refresh */}
+      {/* Top Control Bar: Title, Period Filter & Refresh */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             Tổng Quan Hoạt Động Bãi Xe
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Dữ liệu giám sát tự động cập nhật thời gian thực từ các đầu đọc làn xe
+            Dữ liệu giám sát tự động cập nhật thời gian thực từ API HPParking
           </p>
         </div>
 
@@ -121,7 +100,8 @@ export function DashboardPage() {
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            className="h-8 gap-1.5 text-xs cursor-pointer"
+            disabled={isRefreshing}
+            className="h-8 gap-1.5 text-xs cursor-pointer min-h-[36px]"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
@@ -131,263 +111,79 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* 4 Primary KPI Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1: Xe đang đỗ */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">
-                Xe Đang Đỗ Trong Bãi
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Car className="h-4.5 w-4.5" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tracking-tight text-foreground">
-                142
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600 mt-1">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                <span>Sức chứa: 142 / 200 chỗ (71%)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {kpiError && (
+        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            Không thể kết nối đến dịch vụ thống kê. Đang hiển thị bộ nhớ đệm
+            hoặc vui lòng kiểm tra kết nối API.
+          </span>
+        </div>
+      )}
 
-        {/* KPI 2: Lượt vào */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">
-                Lượt Xe Vào Hôm Nay
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <ArrowDownRight className="h-4.5 w-4.5" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tracking-tight text-foreground">
-                584
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                <span>Cao điểm: 07:30 - 08:30</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* 6 Primary KPI Cards */}
+      <KpiCardGrid data={kpiData} isLoading={isKpiLoading} />
 
-        {/* KPI 3: Lượt ra */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">
-                Lượt Xe Ra Hôm Nay
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                <ArrowUpRight className="h-4.5 w-4.5" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tracking-tight text-foreground">
-                442
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                <span>Trung bình: 48 lượt/giờ</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Infrastructure & Unit Distribution Matrix */}
+      <DistributionMatrixTable data={distData} isLoading={isDistLoading} />
 
-        {/* KPI 4: Cảnh báo lệch biển số */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground">
-                Cảnh Báo Lệch Biển Số
-              </span>
-              <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <AlertTriangle className="h-4.5 w-4.5" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tracking-tight text-foreground">
-                2
-              </div>
-              <div className="flex items-center gap-1.5 text-amber-600 mt-1">
-                <span>Cần bảo vệ kiểm tra đối soát</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Lane Status Monitoring Bar */}
-      <Card>
+      {/* Recent Parking Activity Table (Connected to API) */}
+      <Card className="border-border/80 shadow-xs">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-sm font-bold">
-                Trạng Thái Làn Xe & Cổng Kiểm Soát
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Giám sát tình trạng kết nối thiết bị ngoại vi tại các làn xe
-              </CardDescription>
-            </div>
-            <Badge variant="outline" className="text-xs gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              8/8 Làn Trực Tuyến
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
-            {[
-              { name: 'Làn Vào 01', type: 'Vào', gate: 'Cổng 1', active: true },
-              { name: 'Làn Ra 01', type: 'Ra', gate: 'Cổng 1', active: true },
-              { name: 'Làn Vào 02', type: 'Vào', gate: 'Cổng 1', active: true },
-              { name: 'Làn Ra 02', type: 'Ra', gate: 'Cổng 1', active: true },
-              { name: 'Làn Vào 03', type: 'Vào', gate: 'Cổng 2', active: true },
-              { name: 'Làn Ra 03', type: 'Ra', gate: 'Cổng 2', active: true },
-              { name: 'Làn Xe Máy 01', type: 'Vào', gate: 'Cổng 3', active: true },
-              { name: 'Làn Xe Máy 02', type: 'Ra', gate: 'Cổng 3', active: true },
-            ].map((lane, index) => (
-              <div
-                key={index}
-                className="rounded-lg border border-border p-3 bg-muted/20 hover:bg-muted/40 transition-colors text-center space-y-1"
-              >
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[11px] font-bold text-foreground">
-                    {lane.name}
-                  </span>
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {lane.gate} • {lane.type}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Parking Activity Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-sm font-bold">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <History className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 Hoạt Động Ra Vào Gần Nhất
               </CardTitle>
-              <CardDescription className="text-xs">
+              <CardDescription className="text-xs text-muted-foreground mt-0.5">
                 Nhật ký phương tiện vừa quét thẻ / nhận diện biển số tại các làn
               </CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs text-blue-600 dark:text-blue-400">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700"
+            >
               Xem tất cả lịch sử →
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Mobile Stacked Cards View (< 640px) */}
-          <div className="block sm:hidden divide-y divide-border">
-            {mockRecentSessions.map((session) => (
-              <div
-                key={session.id}
-                className="p-4 space-y-2.5 hover:bg-muted/30 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-sm text-foreground">
-                    {session.plateNumber}
-                  </span>
-                  {session.mismatch ? (
-                    <Badge variant="warning" className="text-[10px]">
-                      Lệch biển số
-                    </Badge>
-                  ) : session.status === 'Đang đỗ' ? (
-                    <Badge variant="success" className="text-[10px]">
-                      Đang đỗ
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Hoàn tất
-                    </Badge>
-                  )}
+          {isSessionsLoading ? (
+            <div className="p-4 space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-16" />
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Loại xe:</span>
-                    <span className="text-foreground font-medium">{session.vehicleType}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Làn vào:</span>
-                    <span className="text-foreground font-medium truncate block">{session.laneIn}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Thời điểm vào:</span>
-                    <span className="font-mono">{session.timeIn}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px]">Thời lượng:</span>
-                    <span className="font-medium">{session.duration}</span>
-                  </div>
-                </div>
-
-                <div className="pt-1 flex items-center justify-end">
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer min-h-[36px] flex items-center"
-                  >
-                    Xem chi tiết ảnh đối soát →
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop & Tablet Table View (>= 640px) */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-y border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  <th className="py-2.5 px-4">Biển Số Xe</th>
-                  <th className="py-2.5 px-4">Loại Xe</th>
-                  <th className="py-2.5 px-4">Làn Vào</th>
-                  <th className="py-2.5 px-4">Thời Điểm Vào</th>
-                  <th className="py-2.5 px-4">Thời Lượng</th>
-                  <th className="py-2.5 px-4">Trạng Thái</th>
-                  <th className="py-2.5 px-4 text-right">Hành Động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border text-xs">
-                {mockRecentSessions.map((session) => (
-                  <tr
+              ))}
+            </div>
+          ) : !recentSessions || recentSessions.length === 0 ? (
+            <div className="py-12 text-center text-xs text-muted-foreground">
+              Chưa ghi nhận lượt xe ra vào trong phiên làm việc hiện tại.
+            </div>
+          ) : (
+            <>
+              {/* Mobile Stacked Cards View (< 640px) */}
+              <div className="block sm:hidden divide-y divide-border">
+                {recentSessions.map((session) => (
+                  <div
                     key={session.id}
-                    className="hover:bg-muted/30 transition-colors"
+                    className="p-4 space-y-2.5 hover:bg-muted/20 transition-colors"
                   >
-                    <td className="py-3 px-4 font-mono font-bold text-foreground">
-                      {session.plateNumber}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {session.vehicleType}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {session.laneIn}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-muted-foreground">
-                      {session.timeIn}
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">
-                      {session.duration}
-                    </td>
-                    <td className="py-3 px-4">
-                      {session.mismatch ? (
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-sm text-foreground">
+                        {session.plateNumber}
+                      </span>
+                      {session.isPlateMismatch ? (
                         <Badge variant="warning" className="text-[10px]">
                           Lệch biển số
                         </Badge>
-                      ) : session.status === 'Đang đỗ' ? (
+                      ) : session.status === ParkingSessionStatus.Active ? (
                         <Badge variant="success" className="text-[10px]">
                           Đang đỗ
                         </Badge>
@@ -396,20 +192,120 @@ export function DashboardPage() {
                           Hoàn tất
                         </Badge>
                       )}
-                    </td>
-                    <td className="py-3 px-4 text-right">
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">
+                          Khách / Xe:
+                        </span>
+                        <span className="text-foreground font-medium">
+                          {session.clientName || session.vehicleType || 'Vãng lai'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">
+                          Làn vào:
+                        </span>
+                        <span className="text-foreground font-medium truncate block">
+                          {session.laneInName || 'Cổng chính'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">
+                          Thời điểm vào:
+                        </span>
+                        <span className="font-mono">
+                          {new Date(session.inTime).toLocaleTimeString('vi-VN')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">
+                          Thời lượng:
+                        </span>
+                        <span className="font-medium">
+                          {session.duration || 'Đang tính'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-end">
                       <button
                         type="button"
-                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer min-h-[36px] flex items-center"
                       >
-                        Chi tiết ảnh
+                        Xem chi tiết ảnh đối soát →
                       </button>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              {/* Desktop & Tablet Table View (>= 640px) */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-y border-border bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      <th className="py-2.5 px-4">Biển Số Xe</th>
+                      <th className="py-2.5 px-4">Khách Hàng / Loại Xe</th>
+                      <th className="py-2.5 px-4">Làn Vào</th>
+                      <th className="py-2.5 px-4">Thời Điểm Vào</th>
+                      <th className="py-2.5 px-4">Thời Lượng</th>
+                      <th className="py-2.5 px-4">Trạng Thái</th>
+                      <th className="py-2.5 px-4 text-right">Hành Động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {recentSessions.map((session) => (
+                      <tr
+                        key={session.id}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-foreground">
+                          {session.plateNumber}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {session.clientName || session.vehicleType || 'Vãng lai'}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {session.laneInName || 'Cổng chính'}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-muted-foreground">
+                          {new Date(session.inTime).toLocaleString('vi-VN')}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {session.duration || '—'}
+                        </td>
+                        <td className="py-3 px-4">
+                          {session.isPlateMismatch ? (
+                            <Badge variant="warning" className="text-[10px]">
+                              Lệch biển số
+                            </Badge>
+                          ) : session.status === ParkingSessionStatus.Active ? (
+                            <Badge variant="success" className="text-[10px]">
+                              Đang đỗ
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Hoàn tất
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                          >
+                            Chi tiết ảnh
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
