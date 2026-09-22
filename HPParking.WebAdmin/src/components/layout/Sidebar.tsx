@@ -151,20 +151,12 @@ export function Sidebar() {
         >
           {!isSidebarCollapsed ? (
             <>
-              <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
+              <div className="flex items-center min-w-0 flex-1 overflow-hidden px-1">
                 <img
                   src="/logo.png"
                   alt="HPParking Logo"
-                  className="h-8 w-8 rounded-lg object-contain shrink-0 shadow-xs"
+                  className="h-9 w-auto max-w-[170px] object-contain shrink-0"
                 />
-                <div className="min-w-0 overflow-hidden">
-                  <p className="text-[13px] font-bold text-foreground leading-tight truncate">
-                    HP<span className="text-blue-600 dark:text-blue-400">PARKING</span>
-                  </p>
-                  <p className="text-[10px] text-muted-foreground leading-tight truncate">
-                    Quản trị bãi xe
-                  </p>
-                </div>
               </div>
               <button
                 type="button"
@@ -180,14 +172,14 @@ export function Sidebar() {
             <button
               type="button"
               onClick={toggleSidebar}
-              className="h-9 w-9 rounded-lg hover:bg-muted/60 flex items-center justify-center transition-all cursor-pointer group p-0.5"
+              className="h-9 w-9 rounded-lg hover:bg-muted/60 flex items-center justify-center transition-all cursor-pointer group p-1"
               aria-label="Mở rộng thanh bên"
               title="Mở rộng sidebar"
             >
               <img
                 src="/logo.png"
                 alt="HPParking Logo"
-                className="h-8 w-8 rounded-lg object-contain group-hover:hidden"
+                className="h-7 w-7 object-contain group-hover:hidden"
               />
               <ChevronRight className="h-4.5 w-4.5 text-foreground hidden group-hover:block" />
             </button>
