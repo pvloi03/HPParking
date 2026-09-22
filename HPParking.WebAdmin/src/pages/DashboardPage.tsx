@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { RefreshCw, History, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,8 +41,6 @@ function formatDuration(minutes?: number | null, inTime?: string): string {
 }
 
 export function DashboardPage() {
-  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('today');
-
   const {
     data: kpiData,
     isLoading: isKpiLoading,
@@ -67,7 +64,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Control Bar: Title, Period Filter & Refresh */}
+      {/* Top Control Bar: Title & Refresh */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
@@ -78,57 +75,18 @@ export function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Period Selector Tabs */}
-          <div className="flex items-center rounded-lg border border-border bg-card p-1 text-xs shadow-xs">
-            <button
-              type="button"
-              onClick={() => setPeriod('today')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                period === 'today'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Hôm Nay
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriod('week')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                period === 'week'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Tuần Này
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriod('month')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
-                period === 'month'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Tháng Này
-            </button>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 gap-1.5 text-xs cursor-pointer min-h-[36px]"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
-            />
-            <span className="hidden sm:inline">Làm mới</span>
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="h-8 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
+          />
+          <span className="hidden sm:inline">Làm mới</span>
+        </Button>
       </div>
 
       {kpiError && (
