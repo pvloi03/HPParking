@@ -39,13 +39,13 @@ describe('statisticsApi', () => {
 
     const result = await statisticsApi.getDashboardStatistics();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/api/v1/statistics/dashboard');
+    expect(apiClient.get).toHaveBeenCalledWith('/v1/statistics/dashboard');
     expect(result).toEqual(mockDashboardData);
     expect(result.activeParkingSessions).toBe(42);
     expect(result.activeLanes).toBe(8);
   });
 
-  it('gọi đúng endpoint GET /api/v1/statistics/distribution kèm query companyId', async () => {
+  it('gọi đúng endpoint GET /v1/statistics/distribution kèm query companyId', async () => {
     const mockDistributionData = {
       totalFilteredClients: 100,
       totalFilteredVehicles: 120,
@@ -76,7 +76,7 @@ describe('statisticsApi', () => {
     const result = await statisticsApi.getDistributionStatistics('comp-1');
 
     expect(apiClient.get).toHaveBeenCalledWith(
-      '/api/v1/statistics/distribution',
+      '/v1/statistics/distribution',
       {
         params: { companyId: 'comp-1' },
       }

@@ -12,7 +12,7 @@ export const statisticsApi = {
    */
   async getDashboardStatistics(): Promise<DashboardStatisticsDto> {
     const response = await apiClient.get<ApiResponse<DashboardStatisticsDto>>(
-      '/api/v1/statistics/dashboard'
+      '/v1/statistics/dashboard'
     );
     return response.data.data!;
   },
@@ -24,7 +24,7 @@ export const statisticsApi = {
     companyId?: string
   ): Promise<DistributionStatisticsDto> {
     const response = await apiClient.get<ApiResponse<DistributionStatisticsDto>>(
-      '/api/v1/statistics/distribution',
+      '/v1/statistics/distribution',
       {
         params: companyId ? { companyId } : undefined,
       }
@@ -41,7 +41,7 @@ export const statisticsApi = {
     personId?: string;
   }): Promise<TrafficSummaryItemDto[]> {
     const response = await apiClient.get<ApiResponse<TrafficSummaryItemDto[]>>(
-      '/api/v1/statistics/traffic-summary',
+      '/v1/statistics/traffic-summary',
       { params }
     );
     return response.data.data!;

@@ -15,7 +15,7 @@ export const parkingSessionApi = {
   ): Promise<PagedResult<ParkingSessionDto>> {
     const response = await apiClient.get<
       ApiResponse<PagedResult<ParkingSessionDto>>
-    >('/api/v1/parking-sessions', {
+    >('/v1/parking-sessions', {
       params: query,
     });
     return response.data.data!;
@@ -37,7 +37,7 @@ export const parkingSessionApi = {
    */
   async getSessionById(id: string): Promise<ParkingSessionDto> {
     const response = await apiClient.get<ApiResponse<ParkingSessionDto>>(
-      `/api/v1/parking-sessions/${id}`
+      `/v1/parking-sessions/${id}`
     );
     return response.data.data!;
   },
