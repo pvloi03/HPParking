@@ -32,10 +32,9 @@ export function ClientSelect({
     const q = search.toLowerCase().trim();
     return clients.filter(
       (c) =>
-        c.fullName.toLowerCase().includes(q) ||
-        c.phoneNumber.includes(q) ||
-        c.identityNumber.includes(q) ||
-        c.code.toLowerCase().includes(q)
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        (c.phoneNumber && c.phoneNumber.includes(q)) ||
+        (c.code && c.code.toLowerCase().includes(q))
     );
   }, [clients, search]);
 
@@ -56,7 +55,7 @@ export function ClientSelect({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo tên, SĐT, CCCD..."
+                placeholder="Tìm theo tên, SĐT, CCCD/Mã..."
                 className="pl-7 h-7 text-xs"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
@@ -72,14 +71,14 @@ export function ClientSelect({
               <SelectItem key={client.id} value={client.id} className="text-xs py-1.5">
                 <div className="flex flex-col">
                   <span className="font-semibold text-foreground">
-                    {client.fullName}{' '}
+                    {client.name}{' '}
                     <span className="font-mono font-normal text-muted-foreground">
                       ({client.phoneNumber})
                     </span>
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    Mã: {client.code} • CCCD: {client.identityNumber}
-                    {client.companyName ? ` • ${client.companyName}` : ''}
+                    Mã/CCCD: {client.code}
+                    {client.address ? ` • ${client.address}` : ''}
                   </span>
                 </div>
               </SelectItem>

@@ -32,10 +32,10 @@ const clientSchema = z.object({
   code: z
     .string()
     .trim()
-    .min(2, 'Mã khách hàng phải có ít nhất 2 ký tự')
-    .max(50, 'Mã khách hàng không được quá 50 ký tự')
-    .regex(/^[A-Za-z0-9_-]+$/, 'Mã khách hàng chỉ chứa chữ, số, gạch dưới hoặc gạch ngang'),
-  fullName: z
+    .min(2, 'Mã khách hàng/CCCD phải có ít nhất 2 ký tự')
+    .max(50, 'Mã không được quá 50 ký tự')
+    .regex(/^[A-Za-z0-9_-]+$/, 'Mã chỉ chứa chữ, số, gạch dưới hoặc gạch ngang'),
+  name: z
     .string()
     .trim()
     .min(2, 'Họ và tên phải có ít nhất 2 ký tự')
@@ -47,10 +47,7 @@ const clientSchema = z.object({
       /^(03|05|07|08|09)\d{8}$/,
       'Số điện thoại di động không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)'
     ),
-  identityNumber: z
-    .string()
-    .trim()
-    .regex(/^(\d{9}|\d{12})$/, 'Số CCCD/Định danh phải gồm đúng 9 hoặc 12 chữ số'),
+  address: z.string().trim().optional(),
   email: z
     .string()
     .trim()
@@ -104,9 +101,9 @@ export function ClientFormDialog({
     resolver: zodResolver(clientSchema),
     defaultValues: {
       code: '',
-      fullName: '',
+      name: '',
       phoneNumber: '',
-      identityNumber: '',
+      address: '',
       email: '',
       companyId: 'none',
       departmentId: 'none',
@@ -131,10 +128,10 @@ export function ClientFormDialog({
       setSelectedAvatarFile(null);
       if (initialData) {
         reset({
-          code: initialData.code,
-          fullName: initialData.fullName,
-          phoneNumber: initialData.phoneNumber,
-          identityNumber: initialData.identityNumber,
+          code: initialData.code || '',
+          name: initialData.name || '',
+          phoneNumber: initialData.phoneNumber || '',
+          address: initialData.address || '',
           email: initialData.email || '',
           companyId: initialData.companyId || 'none',
           departmentId: initialData.departmentId || 'none',
@@ -144,9 +141,9 @@ export function ClientFormDialog({
       } else {
         reset({
           code: '',
-          fullName: '',
+          name: '',
           phoneNumber: '',
-          identityNumber: '',
+          address: '',
           email: '',
           companyId: 'none',
           departmentId: 'none',
@@ -160,10 +157,9 @@ export function ClientFormDialog({
   const onFormSubmit = async (formData: ClientFormData) => {
     const payload: CreateClientRequest | UpdateClientRequest = {
       code: formData.code.toUpperCase(),
-      fullName: formData.fullName,
-      phoneNumber: formData.phoneNumber,
-      identityNumber: formData.identityNumber,
-      email: formData.email || undefined,
+      name: formData.name,
+      birthDay: initialData?.birthDay || new Date().toISOString(),
+      address: formData.address || '',
       companyId:
         formData.companyId && formData.companyId !== 'none'
           ? formData.companyId
@@ -176,7 +172,12 @@ export function ClientFormDialog({
         formData.contractorId && formData.contractorId !== 'none'
           ? formData.contractorId
           : undefined,
+      type: initialData?.type ?? 0,
+      email: formData.email || undefined,
+      gender: initialData?.gender ?? 1,
+      phoneNumber: formData.phoneNumber,
       isActive: formData.isActive,
+      expired: initialData?.expired || { enable: false, startDay: new Date().toISOString(), endDay: new Date().toISOString() },
     };
     await onSubmit(payload, selectedAvatarFile);
   };
@@ -203,7 +204,7 @@ export function ClientFormDialog({
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3.5 py-1">
           {/* Ảnh đại diện Avatar & FaceID */}
           <AvatarUploadField
-            currentUrl={initialData?.avatarUrl}
+            currentUrl={initialData?.avatar}
             onFileSelected={setSelectedAvatarFile}
             disabled={isSubmitting}
           />
@@ -212,7 +213,7 @@ export function ClientFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground">
-                Mã khách hàng <span className="text-destructive">*</span>
+                Mã khách hàng / CCCD <span className="text-destructive">*</span>
               </label>
               <Input
                 {...register('code')}
@@ -230,17 +231,17 @@ export function ClientFormDialog({
                 Họ và tên <span className="text-destructive">*</span>
               </label>
               <Input
-                {...register('fullName')}
+                {...register('name')}
                 placeholder="VD: Nguyễn Văn Nam"
                 className="text-xs"
               />
-              {errors.fullName && (
-                <p className="text-[11px] text-destructive">{errors.fullName.message}</p>
+              {errors.name && (
+                <p className="text-[11px] text-destructive">{errors.name.message}</p>
               )}
             </div>
           </div>
 
-          {/* Số điện thoại & CCCD/Định danh */}
+          {/* Số điện thoại & Địa chỉ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground">
@@ -261,19 +262,13 @@ export function ClientFormDialog({
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground">
-                Số CCCD / Mã định danh <span className="text-destructive">*</span>
+                Địa chỉ thường trú / tạm trú
               </label>
               <Input
-                {...register('identityNumber')}
-                placeholder="VD: 001234567890"
-                className="text-xs font-mono"
+                {...register('address')}
+                placeholder="VD: Hải Phòng, Việt Nam"
+                className="text-xs"
               />
-              <p className="text-[10px] text-muted-foreground">
-                9 hoặc 12 số định danh công dân Việt Nam.
-              </p>
-              {errors.identityNumber && (
-                <p className="text-[11px] text-destructive">{errors.identityNumber.message}</p>
-              )}
             </div>
           </div>
 

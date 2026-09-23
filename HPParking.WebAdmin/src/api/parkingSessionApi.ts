@@ -1,7 +1,8 @@
 import { apiClient } from '@/api/client';
 import type { ApiResponse } from '@/types/auth';
+import type { PagedResult } from '@/types/masterData';
 import type {
-  PagedResult,
+  ParkingSessionDetailDto,
   ParkingSessionDto,
   ParkingSessionFilterQuery,
 } from '@/types/parkingSession';
@@ -29,14 +30,14 @@ export const parkingSessionApi = {
       pageIndex: 1,
       pageSize,
     });
-    return result.items ?? [];
+    return (result.items as ParkingSessionDto[]) ?? [];
   },
 
   /**
-   * Lấy chi tiết phiên đỗ xe theo Id kèm ảnh bằng chứng
+   * Lấy chi tiết phiên đỗ xe theo Id kèm 4 ảnh bằng chứng và thời lượng đỗ xe (ParkingSessionDetailDto)
    */
-  async getSessionById(id: string): Promise<ParkingSessionDto> {
-    const response = await apiClient.get<ApiResponse<ParkingSessionDto>>(
+  async getSessionById(id: string): Promise<ParkingSessionDetailDto> {
+    const response = await apiClient.get<ApiResponse<ParkingSessionDetailDto>>(
       `/v1/parking-sessions/${id}`
     );
     return response.data.data!;

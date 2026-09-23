@@ -18,14 +18,14 @@ describe('Client API & FaceID Biometrics', () => {
   });
 
   describe('extractErrorMessage', () => {
-    it('ánh xạ chính xác mã lỗi CLIENT_PHONE_DUPLICATED', () => {
+    it('ánh xạ chính xác mã lỗi CLIENT_PHONE_DUPLICATE', () => {
       const error = new axios.AxiosError('Conflict');
       error.response = {
         status: 409,
         statusText: 'Conflict',
         data: {
           success: false,
-          message: 'CLIENT_PHONE_DUPLICATED',
+          message: 'CLIENT_PHONE_DUPLICATE',
           errors: [],
           timestamp: new Date().toISOString(),
         },
@@ -37,14 +37,14 @@ describe('Client API & FaceID Biometrics', () => {
       expect(msg).toContain('Số điện thoại này đã được đăng ký');
     });
 
-    it('ánh xạ chính xác mã lỗi CLIENT_IDENTITY_DUPLICATED', () => {
+    it('ánh xạ chính xác mã lỗi CLIENT_CODE_DUPLICATE', () => {
       const error = new axios.AxiosError('Conflict');
       error.response = {
         status: 409,
         statusText: 'Conflict',
         data: {
           success: false,
-          message: 'CLIENT_IDENTITY_DUPLICATED',
+          message: 'CLIENT_CODE_DUPLICATE',
           errors: [],
           timestamp: new Date().toISOString(),
         },
@@ -53,7 +53,7 @@ describe('Client API & FaceID Biometrics', () => {
       };
 
       const msg = extractErrorMessage(error);
-      expect(msg).toContain('Số CCCD/Định danh này đã tồn tại');
+      expect(msg).toContain('Mã khách hàng / Số CCCD này đã tồn tại');
     });
 
     it('ánh xạ chính xác mã lỗi FACEID_SYNC_FAILED', () => {
@@ -83,11 +83,15 @@ describe('Client API & FaceID Biometrics', () => {
           {
             id: 'client-1',
             code: 'KH_01',
-            fullName: 'Lê Văn C',
+            name: 'Lê Văn C',
+            birthDay: new Date().toISOString(),
+            address: 'Hà Nội',
+            type: 0,
+            avatar: '',
+            gender: 1,
             phoneNumber: '0912345678',
-            identityNumber: '001234567890',
-            isFaceIdEnrolled: true,
             isActive: true,
+            expired: { enable: false, startDay: '', endDay: '' },
             createdAt: '',
           },
         ],
@@ -110,7 +114,7 @@ describe('Client API & FaceID Biometrics', () => {
         params: { pageIndex: 1, pageSize: 15 },
       });
       expect(res.items).toHaveLength(1);
-      expect(res.items[0].fullName).toBe('Lê Văn C');
+      expect(res.items[0].name).toBe('Lê Văn C');
     });
 
     it('gọi đúng endpoint POST /v1/clients/{id}/sync-faceid khi đồng bộ FaceID', async () => {
@@ -118,17 +122,19 @@ describe('Client API & FaceID Biometrics', () => {
         data: {
           success: true,
           data: {
-            success: true,
-            message: 'Đồng bộ thành công tới 2 thiết bị',
-            syncedAt: new Date().toISOString(),
-            deviceCount: 2,
+            clientId: 'client-1',
+            clientName: 'Lê Văn C',
+            totalDevices: 2,
+            successCount: 2,
+            failureCount: 0,
+            results: [],
           },
         },
       });
 
       const res = await clientApi.syncFaceId('client-1');
       expect(apiClient.post).toHaveBeenCalledWith('/v1/clients/client-1/sync-faceid');
-      expect(res.deviceCount).toBe(2);
+      expect(res.totalDevices).toBe(2);
     });
   });
 });

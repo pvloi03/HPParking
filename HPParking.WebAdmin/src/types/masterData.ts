@@ -40,8 +40,6 @@ export interface CompanyDto {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface CompanyFilterQuery extends PaginationQuery {
@@ -79,8 +77,6 @@ export interface DepartmentDto {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface DepartmentFilterQuery extends PaginationQuery {
@@ -100,7 +96,7 @@ export interface CreateDepartmentRequest {
 }
 
 export interface UpdateDepartmentRequest {
-  companyId: string;
+  companyId?: string;
   code: string;
   name: string;
   managerName?: string;
@@ -121,8 +117,6 @@ export interface ContractorDto {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface ContractorFilterQuery extends PaginationQuery {

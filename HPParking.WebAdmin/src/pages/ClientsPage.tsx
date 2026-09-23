@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -89,6 +89,24 @@ export function ClientsPage() {
   });
   const contractors = contractorsData?.items || [];
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c) => map.set(c.id, c.name));
+    return map;
+  }, [companies]);
+
+  const departmentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    departments.forEach((d) => map.set(d.id, d.name));
+    return map;
+  }, [departments]);
+
+  const contractorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    contractors.forEach((c) => map.set(c.id, c.name));
+    return map;
+  }, [contractors]);
+
   // Lọc phòng ban cho dropdown lọc
   const filterDepartmentsList =
     companyFilter && companyFilter !== 'all'
@@ -140,7 +158,7 @@ export function ClientsPage() {
       return newClient;
     },
     onSuccess: (newClient) => {
-      toast.success(`Đã thêm mới khách hàng "${newClient.fullName}" thành công`);
+      toast.success(`Đã thêm mới khách hàng "${newClient.name}" thành công`);
       setIsFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
@@ -171,7 +189,7 @@ export function ClientsPage() {
       return updated;
     },
     onSuccess: (updated) => {
-      toast.success(`Đã cập nhật khách hàng "${updated.fullName}" thành công`);
+      toast.success(`Đã cập nhật khách hàng "${updated.name}" thành công`);
       setIsFormOpen(false);
       setSelectedClient(null);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -198,7 +216,7 @@ export function ClientsPage() {
   const restoreMutation = useMutation({
     mutationFn: (id: string) => clientApi.restore(id),
     onSuccess: (restored) => {
-      toast.success(`Đã khôi phục khách hàng "${restored.fullName}" thành công`);
+      toast.success(`Đã khôi phục khách hàng "${restored.name}" thành công`);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
     onError: (err) => {
@@ -213,7 +231,11 @@ export function ClientsPage() {
       setSyncingClientId(id);
     },
     onSuccess: (res) => {
-      toast.success(res.message || 'Đã phát lệnh đồng bộ FaceID lên thiết bị bãi xe thành công');
+      toast.success(
+        res.totalDevices > 0
+          ? `Đã hoàn tất đồng bộ FaceID (${res.successCount}/${res.totalDevices} thiết bị thành công).`
+          : 'Đã phát lệnh đồng bộ FaceID lên thiết bị bãi xe.'
+      );
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
     onError: (err) => {
@@ -250,30 +272,31 @@ export function ClientsPage() {
       cell: (item) => (
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-full bg-muted border border-border overflow-hidden shrink-0 flex items-center justify-center">
-            {item.avatarUrl ? (
+            {item.avatar ? (
               <img
-                src={item.avatarUrl}
-                alt={item.fullName}
+                src={item.avatar}
+                alt={item.name || 'Khách hàng'}
                 className="h-full w-full object-cover"
               />
             ) : (
               <span className="font-bold text-[11px] text-blue-600 dark:text-blue-400">
-                {item.fullName
+                {(item.name || '')
                   .trim()
                   .split(/\s+/)
+                  .filter(Boolean)
                   .map((n) => n[0])
                   .slice(-2)
                   .join('')
-                  .toUpperCase()}
+                  .toUpperCase() || 'KH'}
               </span>
             )}
           </div>
           <div className="min-w-0">
             <span className="font-semibold text-foreground text-xs block truncate">
-              {item.fullName}
+              {item.name || '—'}
             </span>
             <span className="font-mono text-[11px] text-muted-foreground block">
-              {item.code}
+              {item.code || '—'}
             </span>
           </div>
         </div>
@@ -293,38 +316,44 @@ export function ClientsPage() {
       mobileLabel: 'SĐT',
     },
     {
-      header: 'CCCD/Định danh',
-      accessorKey: 'identityNumber',
+      header: 'Địa chỉ',
+      accessorKey: 'address',
       cell: (item) => (
-        <span className="font-mono text-xs text-muted-foreground">
-          {item.identityNumber}
+        <span className="text-xs text-muted-foreground truncate block max-w-[200px]">
+          {item.address || '—'}
         </span>
       ),
-      className: 'w-36',
-      mobileLabel: 'CCCD',
+      className: 'w-40',
+      mobileLabel: 'Địa chỉ',
     },
     {
       header: 'Đơn vị trực thuộc',
-      cell: (item) => (
-        <div className="text-xs">
-          {item.companyName && (
-            <div className="font-medium text-foreground truncate">{item.companyName}</div>
-          )}
-          {item.departmentName && (
-            <div className="text-[11px] text-muted-foreground truncate">
-              {item.departmentName}
-            </div>
-          )}
-          {item.contractorName && (
-            <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium truncate">
-              Nhà thầu: {item.contractorName}
-            </div>
-          )}
-          {!item.companyName && !item.contractorName && (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
-      ),
+      cell: (item) => {
+        const companyName = item.companyId ? companyMap.get(item.companyId) : null;
+        const departmentName = item.departmentId ? departmentMap.get(item.departmentId) : null;
+        const contractorName = item.contractorId ? contractorMap.get(item.contractorId) : null;
+
+        return (
+          <div className="text-xs">
+            {companyName && (
+              <div className="font-medium text-foreground truncate">{companyName}</div>
+            )}
+            {departmentName && (
+              <div className="text-[11px] text-muted-foreground truncate">
+                {departmentName}
+              </div>
+            )}
+            {contractorName && (
+              <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium truncate">
+                Nhà thầu: {contractorName}
+              </div>
+            )}
+            {!companyName && !contractorName && (
+              <span className="text-muted-foreground">—</span>
+            )}
+          </div>
+        );
+      },
       className: 'min-w-[180px]',
       mobileLabel: 'Đơn vị',
     },
@@ -332,15 +361,15 @@ export function ClientsPage() {
       header: 'Sinh trắc FaceID',
       cell: (item) => (
         <div className="flex items-center gap-2">
-          {item.isFaceIdEnrolled ? (
+          {item.avatar ? (
             <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 gap-1 text-[11px] font-medium">
               <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-              <span>Đã nạp</span>
+              <span>Đã có ảnh</span>
             </Badge>
           ) : (
             <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px]">
               <AlertCircle className="h-3 w-3 text-muted-foreground" />
-              <span>Chưa nạp</span>
+              <span>Chưa có ảnh</span>
             </Badge>
           )}
 
@@ -549,7 +578,7 @@ export function ClientsPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xác Nhận Xóa Khách Hàng"
-        description={`Bạn có chắc chắn muốn chuyển khách hàng "${deleteCandidate?.fullName}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu khách hàng vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
+        description={`Bạn có chắc chắn muốn chuyển khách hàng "${deleteCandidate?.name || 'này'}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu khách hàng vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"

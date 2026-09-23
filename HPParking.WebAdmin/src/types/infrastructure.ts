@@ -27,8 +27,6 @@ export interface GateDto {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface GateSummaryDto {
@@ -49,7 +47,7 @@ export interface GateFilterQuery extends PaginationQuery {
 export interface CreateGateRequest {
   code: string;
   name: string;
-  companyId: string;
+  companyId?: string;
   machineCode: string;
   isActive: boolean;
 }
@@ -57,7 +55,7 @@ export interface CreateGateRequest {
 export interface UpdateGateRequest {
   code: string;
   name: string;
-  companyId: string;
+  companyId?: string;
   machineCode: string;
   isActive: boolean;
 }
@@ -76,8 +74,6 @@ export interface DeviceDto {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface DeviceSummaryDto {
@@ -136,8 +132,6 @@ export interface LaneDto {
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface LaneDetailDto extends LaneDto {

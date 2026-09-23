@@ -92,11 +92,15 @@ describe('ClientsPage Component', () => {
         {
           id: 'cli-1',
           code: 'KH_HOANG_NAM',
-          fullName: 'Hoàng Nam',
+          name: 'Hoàng Nam',
           phoneNumber: '0988111222',
-          identityNumber: '001234567890',
-          isFaceIdEnrolled: true,
+          address: 'Hà Nội',
+          birthDay: new Date().toISOString(),
+          type: 0,
+          avatar: 'http://example.com/avatar.jpg',
+          gender: 1,
           isActive: true,
+          expired: { enable: false, startDay: '', endDay: '' },
           createdAt: new Date().toISOString(),
         },
       ],
@@ -126,7 +130,63 @@ describe('ClientsPage Component', () => {
       expect(screen.getAllByText('KH_HOANG_NAM').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Hoàng Nam').length).toBeGreaterThan(0);
       expect(screen.getAllByText('0988111222').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Đã nạp').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Đã có ảnh').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('xử lý an toàn không crash khi dữ liệu name bị null hoặc undefined', async () => {
+    vi.mocked(companiesApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: { pageIndex: 1, pageSize: 100, totalCount: 0, totalPages: 0, hasPreviousPage: false, hasNextPage: false },
+    });
+    vi.mocked(departmentsApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: { pageIndex: 1, pageSize: 200, totalCount: 0, totalPages: 0, hasPreviousPage: false, hasNextPage: false },
+    });
+    vi.mocked(contractorsApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: { pageIndex: 1, pageSize: 100, totalCount: 0, totalPages: 0, hasPreviousPage: false, hasNextPage: false },
+    });
+
+    vi.mocked(clientApi.getPaged).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'cli-null-name',
+          code: 'KH_NO_NAME',
+          name: undefined as any,
+          phoneNumber: '0999888777',
+          address: 'Hải Phòng',
+          birthDay: new Date().toISOString(),
+          type: 0,
+          avatar: '',
+          gender: 1,
+          isActive: true,
+          expired: { enable: false, startDay: '', endDay: '' },
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 15,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ClientsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('KH_NO_NAME').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('KH').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Chưa có ảnh').length).toBeGreaterThan(0);
     });
   });
 });

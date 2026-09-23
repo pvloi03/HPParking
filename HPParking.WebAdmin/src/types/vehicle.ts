@@ -28,8 +28,6 @@ export interface VehicleDto {
   note?: string;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface VehicleFilterQuery extends PaginationQuery {
@@ -41,7 +39,7 @@ export interface VehicleFilterQuery extends PaginationQuery {
 }
 
 export interface CreateVehicleRequest {
-  clientId: string;
+  clientId?: string;
   plateNumber: string;
   type: VehicleType;
   isActive: boolean;

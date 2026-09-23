@@ -56,6 +56,11 @@ describe('TrafficBarChart Component', () => {
         status: 2,
         inTime: '2026-09-22T08:15:00',
         outTime: '2026-09-22T17:30:00',
+        inOverviewImagePath: '',
+        inPlateImagePath: '',
+        outOverviewImagePath: '',
+        outPlateImagePath: '',
+        createdAt: '2026-09-22T08:15:00',
       },
       {
         id: '2',
@@ -64,6 +69,11 @@ describe('TrafficBarChart Component', () => {
         status: 1,
         inTime: '2026-09-22T08:45:00',
         outTime: undefined,
+        inOverviewImagePath: '',
+        inPlateImagePath: '',
+        outOverviewImagePath: '',
+        outPlateImagePath: '',
+        createdAt: '2026-09-22T08:45:00',
       },
     ];
 

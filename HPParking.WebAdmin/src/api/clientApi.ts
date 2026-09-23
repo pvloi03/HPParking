@@ -6,7 +6,7 @@ import type {
   ClientFilterQuery,
   CreateClientRequest,
   UpdateClientRequest,
-  SyncFaceIdResultDto,
+  SyncFaceIdResponse,
 } from '@/types/client';
 
 /**
@@ -18,14 +18,11 @@ export function extractErrorMessage(error: unknown): string {
     const data = error.response?.data as ApiResponse<unknown> | undefined;
 
     if (data?.message) {
-      if (data.message.includes('CLIENT_PHONE_DUPLICATED')) {
+      if (data.message.includes('CLIENT_PHONE_DUPLICATE')) {
         return 'Số điện thoại này đã được đăng ký cho một khách hàng khác trong hệ thống.';
       }
-      if (data.message.includes('CLIENT_IDENTITY_DUPLICATED')) {
-        return 'Số CCCD/Định danh này đã tồn tại trên hệ thống.';
-      }
-      if (data.message.includes('CLIENT_CODE_DUPLICATED')) {
-        return 'Mã khách hàng này đã tồn tại trên hệ thống.';
+      if (data.message.includes('CLIENT_CODE_DUPLICATE')) {
+        return 'Mã khách hàng / Số CCCD này đã tồn tại trên hệ thống.';
       }
       if (data.message.includes('CLIENT_HAS_VEHICLES')) {
         return 'Không thể xóa khách hàng vì vẫn còn phương tiện đang gán quyền sở hữu. Vui lòng hủy gán xe trước.';
@@ -111,8 +108,8 @@ export const clientApi = {
 
   uploadAvatar: async (id: string, file: File): Promise<string> => {
     const formData = new FormData();
-    formData.append('avatar', file);
-    const response = await apiClient.post<ApiResponse<{ avatarUrl: string }>>(
+    formData.append('file', file);
+    const response = await apiClient.post<ApiResponse<string>>(
       `/v1/clients/${id}/avatar`,
       formData,
       {
@@ -121,11 +118,11 @@ export const clientApi = {
         },
       }
     );
-    return response.data.data.avatarUrl;
+    return response.data.data;
   },
 
-  syncFaceId: async (id: string): Promise<SyncFaceIdResultDto> => {
-    const response = await apiClient.post<ApiResponse<SyncFaceIdResultDto>>(
+  syncFaceId: async (id: string): Promise<SyncFaceIdResponse> => {
+    const response = await apiClient.post<ApiResponse<SyncFaceIdResponse>>(
       `/v1/clients/${id}/sync-faceid`
     );
     return response.data.data;

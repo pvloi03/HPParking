@@ -226,11 +226,11 @@ export function VehiclesPage() {
         return (
           <div className="text-xs">
             <span className="font-semibold text-foreground block">
-              {owner.fullName}
+              {owner.name}
             </span>
             <span className="font-mono text-[11px] text-muted-foreground block">
               {owner.phoneNumber}
-              {owner.companyName ? ` • ${owner.companyName}` : ''}
+              {owner.address ? ` • ${owner.address}` : ''}
             </span>
           </div>
         );

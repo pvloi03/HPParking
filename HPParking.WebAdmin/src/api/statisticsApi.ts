@@ -2,6 +2,7 @@ import { apiClient } from '@/api/client';
 import type { ApiResponse } from '@/types/auth';
 import type {
   DashboardStatisticsDto,
+  TrafficSummaryFilterQuery,
   TrafficSummaryItemDto,
 } from '@/types/statistics';
 
@@ -17,13 +18,11 @@ export const statisticsApi = {
   },
 
   /**
-   * Lấy báo cáo tổng hợp lưu lượng ra vào
+   * Lấy báo cáo tổng hợp lưu lượng ra vào (TrafficSummaryFilterQuery)
    */
-  async getTrafficSummary(params?: {
-    fromDate?: string;
-    toDate?: string;
-    personId?: string;
-  }): Promise<TrafficSummaryItemDto[]> {
+  async getTrafficSummary(
+    params?: TrafficSummaryFilterQuery
+  ): Promise<TrafficSummaryItemDto[]> {
     const response = await apiClient.get<ApiResponse<TrafficSummaryItemDto[]>>(
       '/v1/statistics/traffic-summary',
       { params }
