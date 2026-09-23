@@ -140,7 +140,7 @@ export function ClientFormDialog({
       departmentId: 'none',
       contractorId: 'none',
       note: '',
-      expiredEnable: false,
+      expiredEnable: true,
       expiredStartDay: defaultToday,
       expiredEndDay: defaultToday,
       isActive: true,
@@ -197,7 +197,7 @@ export function ClientFormDialog({
           departmentId: 'none',
           contractorId: 'none',
           note: '',
-          expiredEnable: false,
+          expiredEnable: true,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
           isActive: true,
@@ -541,8 +541,8 @@ export function ClientFormDialog({
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Giới hạn thời gian:
+                <span className="text-xs font-semibold text-foreground">
+                  Không giới hạn thời gian:
                 </span>
                 <button
                   type="button"
@@ -550,7 +550,7 @@ export function ClientFormDialog({
                     setValue('expiredEnable', !expiredEnable, { shouldDirty: true })
                   }
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    expiredEnable ? 'bg-purple-600' : 'bg-muted'
+                    expiredEnable ? 'bg-emerald-600' : 'bg-muted'
                   }`}
                 >
                   <span
@@ -562,34 +562,39 @@ export function ClientFormDialog({
               </div>
             </div>
 
-            {/* Chi tiết Từ ngày - Đến ngày khi bật Expired */}
+            {/* Chi tiết Từ ngày - Đến ngày */}
             {expiredEnable ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2.5 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-purple-900 dark:text-purple-300">
-                    Hiệu lực từ ngày
-                  </label>
-                  <Input
-                    {...register('expiredStartDay')}
-                    type="date"
-                    className="text-xs font-mono bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-purple-900 dark:text-purple-300">
-                    Hết hạn vào ngày
-                  </label>
-                  <Input
-                    {...register('expiredEndDay')}
-                    type="date"
-                    className="text-xs font-mono bg-background"
-                  />
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
+                ✓ Khách hàng được ra vào tự do (không áp dụng thời hạn hết hạn, bỏ qua giới hạn ngày vào/ra).
+              </p>
+            ) : (
+              <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2.5">
+                <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-300 block">
+                  Áp dụng giới hạn thời gian (Hệ thống sẽ chặn ra vào nếu ngoài khoảng thời gian này):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-amber-900 dark:text-amber-300">
+                      Từ ngày (StartDay)
+                    </label>
+                    <Input
+                      {...register('expiredStartDay')}
+                      type="date"
+                      className="text-xs font-mono bg-background"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-amber-900 dark:text-amber-300">
+                      Đến ngày (EndDay)
+                    </label>
+                    <Input
+                      {...register('expiredEndDay')}
+                      type="date"
+                      className="text-xs font-mono bg-background"
+                    />
+                  </div>
                 </div>
               </div>
-            ) : (
-              <p className="text-[11px] text-muted-foreground italic">
-                Thời hạn ra vào không giới hạn (Khách hàng được phép ra vào bãi đỗ xe theo hợp đồng dài hạn).
-              </p>
             )}
 
             {/* Ghi chú */}
