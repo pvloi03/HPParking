@@ -316,17 +316,6 @@ export function ClientsPage() {
       mobileLabel: 'SĐT',
     },
     {
-      header: 'Địa chỉ',
-      accessorKey: 'address',
-      cell: (item) => (
-        <span className="text-xs text-muted-foreground truncate block max-w-[200px]">
-          {item.address || '—'}
-        </span>
-      ),
-      className: 'w-40',
-      mobileLabel: 'Địa chỉ',
-    },
-    {
       header: 'Đơn vị trực thuộc',
       cell: (item) => {
         const companyName = item.companyId ? companyMap.get(item.companyId) : null;
