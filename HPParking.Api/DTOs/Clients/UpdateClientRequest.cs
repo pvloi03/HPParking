@@ -5,7 +5,7 @@ namespace HPParking.Api.DTOs.Clients
 {
     public class UpdateClientRequest
     {
-        public string? Code { get; set; }
+        public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public DateTime BirthDay { get; set; }
         public string Address { get; set; } = string.Empty;

@@ -7,9 +7,9 @@ namespace HPParking.Api.DTOs.Clients
     public class CreateClientRequest
     {
         /// <summary>
-        /// Số Căn cước công dân hoặc mã định danh cá nhân
+        /// Số Căn cước công dân hoặc mã định danh cá nhân (bắt buộc)
         /// </summary>
-        public string? Code { get; set; }
+        public string Code { get; set; } = string.Empty;
 
         /// <summary>
         /// Họ và tên khách hàng (bắt buộc)

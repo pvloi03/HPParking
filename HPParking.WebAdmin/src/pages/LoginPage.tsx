@@ -40,8 +40,8 @@ export function LoginPage() {
       const error = err as { response?: { data?: { message?: string } }; message?: string };
       setErrorMessage(
         error.response?.data?.message ||
-          error.message ||
-          'Đăng nhập không thành công. Vui lòng kiểm tra lại tài khoản.'
+        error.message ||
+        'Đăng nhập không thành công. Vui lòng kiểm tra lại tài khoản.'
       );
     } finally {
       setIsLoading(false);
@@ -75,7 +75,7 @@ export function LoginPage() {
                 HỆ THỐNG QUẢN TRỊ HPPARKING
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-1">
-                Trung tâm quản trị & giám sát bãi đỗ xe thông minh
+                Trung tâm quản trị & giám sát thông minh
               </CardDescription>
             </div>
           </CardHeader>

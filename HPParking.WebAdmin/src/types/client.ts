@@ -53,7 +53,7 @@ export interface ClientFilterQuery extends PaginationQuery {
 }
 
 export interface CreateClientRequest {
-  code?: string;
+  code: string;
   name: string;
   birthDay: string;
   address: string;
@@ -71,7 +71,7 @@ export interface CreateClientRequest {
 }
 
 export interface UpdateClientRequest {
-  code?: string;
+  code: string;
   name: string;
   birthDay: string;
   address: string;

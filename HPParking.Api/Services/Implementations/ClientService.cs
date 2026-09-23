@@ -135,20 +135,17 @@ namespace HPParking.Api.Services.Implementations
                     ErrorCodes.CLIENT_PHONE_DUPLICATE);
             }
 
-            // 2. Kiểm tra tính duy nhất của CCCD (nếu có nhập)
-            var cleanCode = request.Code?.Trim();
-            if (!string.IsNullOrWhiteSpace(cleanCode))
-            {
-                var existingCode = await _clientRepo.FindOneAsync(
-                    c => c.Code == cleanCode && !c.IsDeleted,
-                    cancellationToken);
+            // 2. Kiểm tra tính duy nhất của CCCD (bắt buộc)
+            var cleanCode = request.Code.Trim();
+            var existingCode = await _clientRepo.FindOneAsync(
+                c => c.Code == cleanCode && !c.IsDeleted,
+                cancellationToken);
 
-                if (existingCode != null)
-                {
-                    throw new ConflictException(
-                        $"Mã CCCD/Định danh '{cleanCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
-                        ErrorCodes.CLIENT_CODE_DUPLICATE);
-                }
+            if (existingCode != null)
+            {
+                throw new ConflictException(
+                    $"Mã CCCD/Định danh '{cleanCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
+                    ErrorCodes.CLIENT_CODE_DUPLICATE);
             }
 
             // 3. Kiểm tra tính duy nhất của danh sách phương tiện đính kèm ban đầu
@@ -196,7 +193,7 @@ namespace HPParking.Api.Services.Implementations
             // 5. Tạo thực thể Client
             var client = new Client
             {
-                Code = cleanCode ?? string.Empty,
+                Code = cleanCode,
                 Name = request.Name.Trim(),
                 BirthDay = request.BirthDay,
                 Address = request.Address?.Trim() ?? string.Empty,
@@ -261,8 +258,8 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            var cleanCode = request.Code?.Trim();
-            if (!string.IsNullOrWhiteSpace(cleanCode) && !string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase))
+            var cleanCode = request.Code.Trim();
+            if (!string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase))
             {
                 var existingCode = await _clientRepo.FindOneAsync(
                     c => c.Code == cleanCode && c.Id != id && !c.IsDeleted,
@@ -290,7 +287,7 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            client.Code = cleanCode ?? string.Empty;
+            client.Code = cleanCode;
             client.Name = request.Name.Trim();
             client.BirthDay = request.BirthDay;
             client.Address = request.Address?.Trim() ?? string.Empty;
