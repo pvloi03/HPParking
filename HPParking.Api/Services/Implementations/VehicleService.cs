@@ -166,8 +166,10 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteVehicleAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var vehicle = await _vehicleRepo.GetByIdAsync(id, cancellationToken);
-            if (vehicle == null || (!hardDelete && vehicle.IsDeleted))
+            var vehicle = await _vehicleRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _vehicleRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (vehicle == null)
             {
                 throw new NotFoundException("Không tìm thấy phương tiện cần xóa.", ErrorCodes.VEHICLE_NOT_FOUND);
             }

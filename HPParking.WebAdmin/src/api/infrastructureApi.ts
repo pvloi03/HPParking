@@ -15,6 +15,7 @@ import type {
   DeviceFilterQuery,
   CreateDeviceRequest,
   UpdateDeviceRequest,
+  DevicePingResultDto,
 } from '@/types/infrastructure';
 
 /**
@@ -192,6 +193,13 @@ export const devicesApi = {
 
   restore: async (id: string): Promise<DeviceDto> => {
     const response = await apiClient.post<ApiResponse<DeviceDto>>(`/v1/devices/${id}/restore`);
+    return response.data.data;
+  },
+
+  pingDeviceIp: async (ip: string, timeoutMs = 2000): Promise<DevicePingResultDto> => {
+    const response = await apiClient.get<ApiResponse<DevicePingResultDto>>('/v1/devices/ping', {
+      params: { ip, timeoutMs },
+    });
     return response.data.data;
   },
 };

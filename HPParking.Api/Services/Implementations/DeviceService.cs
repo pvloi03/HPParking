@@ -7,6 +7,8 @@ using HPParking.Core.Models.Entities;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -67,12 +69,8 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<DeviceDto> GetDeviceByIdAsync(string id, CancellationToken cancellationToken = default)
         {
-            var device = await _deviceRepo.GetByIdAsync(id, cancellationToken);
-            if (device == null)
-            {
-                throw new NotFoundException("Không tìm thấy thông tin thiết bị.", ErrorCodes.DEVICE_NOT_FOUND);
-            }
-
+            var device = await _deviceRepo.GetByIdAsync(id, cancellationToken)
+             ?? throw new NotFoundException("Không tìm thấy thông tin thiết bị.", ErrorCodes.DEVICE_NOT_FOUND);
             return MapToDto(device);
         }
 
@@ -193,11 +191,8 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteDeviceAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var device = await _deviceRepo.GetByIdAsync(id, cancellationToken);
-            if (device == null)
-            {
-                throw new NotFoundException("Không tìm thấy thông tin thiết bị cần xóa.", ErrorCodes.DEVICE_NOT_FOUND);
-            }
+            var device = (await _deviceRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _deviceRepo.GetDeletedByIdAsync(id, cancellationToken) : null)) ?? throw new NotFoundException("Không tìm thấy thông tin thiết bị cần xóa.", ErrorCodes.DEVICE_NOT_FOUND);
 
             // Universal Restrict Deletion Policy (ADR 0030 & ADR 0031):
             // Chặn xóa nếu thiết bị đang được gán ở bất kỳ Làn xe nào chưa bị xóa (!IsDeleted)
@@ -230,11 +225,7 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<DeviceDto> RestoreDeviceAsync(string id, CancellationToken cancellationToken = default)
         {
-            var device = await _deviceRepo.GetDeletedByIdAsync(id, cancellationToken);
-            if (device == null)
-            {
-                throw new NotFoundException("Không tìm thấy thông tin thiết bị trong thùng rác.", ErrorCodes.DEVICE_NOT_FOUND);
-            }
+            var device = await _deviceRepo.GetDeletedByIdAsync(id, cancellationToken) ?? throw new NotFoundException("Không tìm thấy thông tin thiết bị trong thùng rác.", ErrorCodes.DEVICE_NOT_FOUND);
 
             // Re-validation on Restore (ADR 0031):
             // Kiểm tra trùng mã Code với thiết bị đang hoạt động khác
@@ -273,6 +264,96 @@ namespace HPParking.Api.Services.Implementations
 
             _logger.LogInformation("Đã KHÔI PHỤC thiết bị {Id}: {Name} ({Code}) từ thùng rác.", device.Id, device.Name, device.Code);
             return MapToDto(device);
+        }
+
+        public async Task<DevicePingResultDto> PingDeviceIpAsync(string ipAddress, int timeoutMs = 2000, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress))
+            {
+                throw new BadRequestException("Địa chỉ IP thiết bị không được để trống.", ErrorCodes.BAD_REQUEST);
+            }
+
+            var cleanIp = ipAddress.Trim();
+            if (cleanIp.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanIp = cleanIp.Substring(7);
+            }
+            else if (cleanIp.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanIp = cleanIp.Substring(8);
+            }
+
+            if (cleanIp.Contains(':'))
+            {
+                cleanIp = cleanIp.Split(':')[0];
+            }
+            if (cleanIp.Contains('/'))
+            {
+                cleanIp = cleanIp.Split('/')[0];
+            }
+
+            var result = new DevicePingResultDto
+            {
+                IpAddress = cleanIp,
+                Timestamp = DateTime.UtcNow
+            };
+
+            // 1. Thử ICMP Ping trước
+            try
+            {
+                using var ping = new Ping();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var reply = await ping.SendPingAsync(cleanIp, timeoutMs);
+                sw.Stop();
+
+                if (reply.Status == IPStatus.Success)
+                {
+                    result.IsAlive = true;
+                    result.RoundtripTimeMs = reply.RoundtripTime > 0 ? reply.RoundtripTime : sw.ElapsedMilliseconds;
+                    result.Method = "ICMP";
+                    result.Message = $"Thiết bị phản hồi tốt ({result.RoundtripTimeMs}ms)";
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "ICMP Ping tới {Ip} thất bại: {Msg}", cleanIp, ex.Message);
+            }
+
+            // 2. Fallback: Nếu ICMP bị chặn bởi firewall, thử TCP Socket Connect tới các cổng thông dụng (80, 443, 8000, 554)
+            var commonPorts = new[] { 80, 443, 8000, 554 };
+            foreach (var port in commonPorts)
+            {
+                try
+                {
+                    using var tcpClient = new TcpClient();
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    cts.CancelAfter(Math.Min(timeoutMs, 800));
+
+                    await tcpClient.ConnectAsync(cleanIp, port, cts.Token);
+                    sw.Stop();
+
+                    if (tcpClient.Connected)
+                    {
+                        result.IsAlive = true;
+                        result.RoundtripTimeMs = sw.ElapsedMilliseconds;
+                        result.Method = $"TCP:{port}";
+                        result.Message = $"Thiết bị phản hồi qua cổng {port} ({result.RoundtripTimeMs}ms)";
+                        return result;
+                    }
+                }
+                catch
+                {
+                    // Thử cổng tiếp theo
+                }
+            }
+
+            result.IsAlive = false;
+            result.RoundtripTimeMs = timeoutMs;
+            result.Method = "NONE";
+            result.Message = "Không có phản hồi từ thiết bị (Thiết bị có thể đang tắt nguồn hoặc đứt mạng LAN)";
+            return result;
         }
 
         private static DeviceDto MapToDto(Device device)

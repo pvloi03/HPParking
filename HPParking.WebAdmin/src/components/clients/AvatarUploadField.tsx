@@ -63,7 +63,14 @@ export function AvatarUploadField({
     }
   };
 
-  const displaySrc = previewUrl || currentUrl || null;
+  const formatSrc = (src?: string | null) => {
+    if (!src) return null;
+    const clean = src.trim();
+    if (clean.startsWith('http') || clean.startsWith('blob:') || clean.startsWith('/')) return clean;
+    return `/${clean}`;
+  };
+
+  const displaySrc = previewUrl || formatSrc(currentUrl);
 
   return (
     <div className="flex items-center gap-4 p-3 rounded-xl border border-border/70 bg-card/60">

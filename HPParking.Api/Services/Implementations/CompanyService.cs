@@ -188,8 +188,10 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteCompanyAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var company = await _companyRepo.GetByIdAsync(id, cancellationToken);
-            if (company == null || company.IsDeleted)
+            var company = await _companyRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _companyRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (company == null)
             {
                 throw new NotFoundException("Không tìm thấy thông tin công ty cần xóa.", ErrorCodes.COMPANY_NOT_FOUND);
             }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -31,6 +31,7 @@ import type {
   CreateClientRequest,
   UpdateClientRequest,
 } from '@/types/client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function ClientsPage() {
   const queryClient = useQueryClient();
@@ -42,7 +43,11 @@ export function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [companyFilter, setCompanyFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
-  const [isTrashMode, setIsTrashMode] = useState(false);
+
+  // State chọn hàng loạt qua checkbox
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   // State Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -51,6 +56,11 @@ export function ClientsPage() {
   const [syncingClientId, setSyncingClientId] = useState<string | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // Tự động bỏ chọn checkbox khi đổi trang hoặc đổi bộ lọc
+  useEffect(() => {
+    setSelectedRowIds([]);
+  }, [pageIndex, searchKeyword, statusFilter, companyFilter, departmentFilter]);
 
   const handleExportExcel = async () => {
     try {
@@ -123,7 +133,6 @@ export function ClientsPage() {
       statusFilter,
       companyFilter,
       departmentFilter,
-      isTrashMode,
     ],
     queryFn: () =>
       clientApi.getPaged({
@@ -133,7 +142,6 @@ export function ClientsPage() {
         isActive: statusFilter === 'all' ? undefined : statusFilter,
         companyId: companyFilter === 'all' ? undefined : companyFilter,
         departmentId: departmentFilter === 'all' ? undefined : departmentFilter,
-        onlyDeleted: isTrashMode,
       }),
     placeholderData: keepPreviousData,
   });
@@ -158,7 +166,23 @@ export function ClientsPage() {
       return newClient;
     },
     onSuccess: (newClient) => {
-      toast.success(`Đã thêm mới khách hàng "${newClient.name}" thành công`);
+      const terminals = newClient.faceIdTerminals ?? [];
+      const total = terminals.length;
+      const failure = terminals.filter((t) => !t.isOnline || !t.userExists).length;
+      const success = total - failure;
+
+      if (total > 0 && failure > 0) {
+        toast.warning(
+          `Thêm mới thành công. Đồng bộ FaceID hoàn tất: ${success}/${total} thành công (${failure} thiết bị mất kết nối hoặc lỗi).`
+        );
+      } else if (total > 0) {
+        toast.success(
+          `Đã thêm mới khách hàng "${newClient.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
+        );
+      } else {
+        toast.success(`Đã thêm mới khách hàng "${newClient.name}" thành công.`);
+      }
+
       setIsFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
@@ -189,7 +213,23 @@ export function ClientsPage() {
       return updated;
     },
     onSuccess: (updated) => {
-      toast.success(`Đã cập nhật khách hàng "${updated.name}" thành công`);
+      const terminals = updated.faceIdTerminals ?? [];
+      const total = terminals.length;
+      const failure = terminals.filter((t) => !t.isOnline || !t.userExists).length;
+      const success = total - failure;
+
+      if (total > 0 && failure > 0) {
+        toast.warning(
+          `Cập nhật thành công. Đồng bộ FaceID hoàn tất: ${success}/${total} thành công (${failure} thiết bị mất kết nối hoặc lỗi).`
+        );
+      } else if (total > 0) {
+        toast.success(
+          `Đã cập nhật khách hàng "${updated.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
+        );
+      } else {
+        toast.success(`Đã cập nhật khách hàng "${updated.name}" thành công.`);
+      }
+
       setIsFormOpen(false);
       setSelectedClient(null);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -199,7 +239,7 @@ export function ClientsPage() {
     },
   });
 
-  // Mutation: Xóa mềm khách hàng
+  // Mutation: Xóa mềm khách hàng (Chuyển vào thùng rác)
   const deleteMutation = useMutation({
     mutationFn: (id: string) => clientApi.delete(id, false),
     onSuccess: () => {
@@ -212,17 +252,32 @@ export function ClientsPage() {
     },
   });
 
-  // Mutation: Khôi phục khách hàng
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => clientApi.restore(id),
-    onSuccess: (restored) => {
-      toast.success(`Đã khôi phục khách hàng "${restored.name}" thành công`);
+  // Xử lý thực thi xóa mềm hàng loạt qua checkbox (chuyển vào thùng rác)
+  const handleExecuteBulkDelete = async () => {
+    if (selectedRowIds.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedRowIds.map((id) => clientApi.delete(id, false))
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      if (failed > 0) {
+        toast.warning(
+          `Đã chuyển ${succeeded}/${results.length} khách hàng vào thùng rác (${failed} bản ghi không thể xóa do ràng buộc dữ liệu xe/lượt đỗ).`
+        );
+      } else {
+        toast.success(`Đã chuyển thành công ${succeeded} khách hàng vào thùng rác.`);
+      }
+      setSelectedRowIds([]);
+      setIsBulkDeleteOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
-    },
-    onError: (err) => {
+    } catch (err) {
       toast.error(extractErrorMessage(err));
-    },
-  });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
 
   // Mutation: Đồng bộ FaceID thủ công
   const syncFaceIdMutation = useMutation({
@@ -231,11 +286,15 @@ export function ClientsPage() {
       setSyncingClientId(id);
     },
     onSuccess: (res) => {
-      toast.success(
-        res.totalDevices > 0
-          ? `Đã hoàn tất đồng bộ FaceID (${res.successCount}/${res.totalDevices} thiết bị thành công).`
-          : 'Đã phát lệnh đồng bộ FaceID lên thiết bị bãi xe.'
-      );
+      if (res.totalDevices === 0) {
+        toast.info('Không có thiết bị FaceID nào đang hoạt động trên các làn xe.');
+      } else if (res.failureCount > 0) {
+        toast.warning(
+          `Đồng bộ FaceID hoàn tất: ${res.successCount}/${res.totalDevices} thành công (${res.failureCount} thiết bị mất kết nối hoặc lỗi).`
+        );
+      } else {
+        toast.success(`Đã hoàn tất đồng bộ FaceID lên toàn bộ ${res.totalDevices} thiết bị.`);
+      }
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
     onError: (err) => {
@@ -265,32 +324,37 @@ export function ClientsPage() {
     }
   };
 
+  // Chuẩn hóa đường dẫn Avatar để luôn tải được ảnh qua proxy
+  const formatAvatarUrl = (url?: string) => {
+    if (!url) return '';
+    const clean = url.trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('blob:')) return clean;
+    return clean.startsWith('/') ? clean : `/${clean}`;
+  };
+
   // Định nghĩa các cột
   const columns: ColumnDef<ClientDto>[] = [
     {
       header: 'Khách hàng',
       cell: (item) => (
         <div className="flex items-center gap-2.5">
-          <div className="h-9 w-9 rounded-full bg-muted border border-border overflow-hidden shrink-0 flex items-center justify-center">
-            {item.avatar ? (
-              <img
-                src={item.avatar}
-                alt={item.name || 'Khách hàng'}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="font-bold text-[11px] text-blue-600 dark:text-blue-400">
-                {(item.name || '')
-                  .trim()
-                  .split(/\s+/)
-                  .filter(Boolean)
-                  .map((n) => n[0])
-                  .slice(-2)
-                  .join('')
-                  .toUpperCase() || 'KH'}
-              </span>
-            )}
-          </div>
+          <Avatar className="h-9 w-9 border border-border/80 shrink-0">
+            <AvatarImage
+              src={formatAvatarUrl(item.avatar)}
+              alt={item.name || 'Khách hàng'}
+              className="object-cover"
+            />
+            <AvatarFallback className="font-bold text-[11px] text-blue-600 dark:text-blue-400 bg-muted">
+              {(item.name || '')
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((n) => n[0])
+                .slice(-2)
+                .join('')
+                .toUpperCase() || 'KH'}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0">
             <span className="font-semibold text-foreground text-xs block truncate">
               {item.name || '—'}
@@ -362,22 +426,20 @@ export function ClientsPage() {
             </Badge>
           )}
 
-          {!isTrashMode && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => syncFaceIdMutation.mutate(item.id)}
-              disabled={syncingClientId === item.id}
-              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 cursor-pointer"
-              title="Phát lệnh đồng bộ FaceID lên thiết bị làn xe"
-            >
-              {syncingClientId === item.id ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-              ) : (
-                <ScanFace className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => syncFaceIdMutation.mutate(item.id)}
+            disabled={syncingClientId === item.id}
+            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 cursor-pointer"
+            title="Phát lệnh đồng bộ FaceID lên thiết bị làn xe"
+          >
+            {syncingClientId === item.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+            ) : (
+              <ScanFace className="h-3.5 w-3.5" />
+            )}
+          </Button>
         </div>
       ),
       className: 'w-44',
@@ -389,11 +451,10 @@ export function ClientsPage() {
       cell: (item) => (
         <Badge
           variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${
-            item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-          }`}
+          className={`text-[11px] font-medium ${item.isActive
+            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
+            : 'bg-muted text-muted-foreground'
+            }`}
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
         </Badge>
@@ -451,66 +512,75 @@ export function ClientsPage() {
           setStatusFilter(st);
           setPageIndex(1);
         }}
-        isTrashMode={isTrashMode}
-        onTrashModeToggle={() => {
-          setIsTrashMode(!isTrashMode);
-          setPageIndex(1);
-        }}
         extraFilters={
-          !isTrashMode && (
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Lọc theo công ty */}
-              <div className="w-[180px]">
-                <Select
-                  value={companyFilter}
-                  onValueChange={(val) => {
-                    setCompanyFilter(val);
-                    setDepartmentFilter('all');
-                    setPageIndex(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Lọc theo công ty" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">
-                      Tất cả công ty
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Lọc theo công ty */}
+            <div className="w-[170px]">
+              <Select
+                value={companyFilter}
+                onValueChange={(val) => {
+                  setCompanyFilter(val);
+                  setDepartmentFilter('all');
+                  setPageIndex(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Tất cả công ty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    Tất cả công ty
+                  </SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">
+                      {c.name}
                     </SelectItem>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className="text-xs">
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Lọc theo phòng ban */}
-              <div className="w-[180px]">
-                <Select
-                  value={departmentFilter}
-                  onValueChange={(val) => {
-                    setDepartmentFilter(val);
-                    setPageIndex(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Lọc theo phòng ban" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all" className="text-xs">
-                      Tất cả phòng ban
-                    </SelectItem>
-                    {filterDepartmentsList.map((d) => (
-                      <SelectItem key={d.id} value={d.id} className="text-xs">
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )
+
+            {/* Lọc theo phòng ban */}
+            <div className="w-[170px]">
+              <Select
+                value={departmentFilter}
+                onValueChange={(val) => {
+                  setDepartmentFilter(val);
+                  setPageIndex(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Tất cả phòng ban" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    Tất cả phòng ban
+                  </SelectItem>
+                  {filterDepartmentsList.map((d) => (
+                    <SelectItem key={d.id} value={d.id} className="text-xs">
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        }
+        selectable={true}
+        selectedRowIds={selectedRowIds}
+        onSelectedRowIdsChange={setSelectedRowIds}
+        bulkActions={
+          <div className="flex items-center gap-1.5 ml-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+            </Button>
+          </div>
         }
         onAddNew={() => {
           setSelectedClient(null);
@@ -528,16 +598,9 @@ export function ClientsPage() {
           onDelete: (item) => {
             setDeleteCandidate(item);
           },
-          onRestore: (item) => {
-            restoreMutation.mutate(item.id);
-          },
         }}
-        emptyTitle={isTrashMode ? 'Thùng rác trống' : 'Không có khách hàng nào'}
-        emptyDescription={
-          isTrashMode
-            ? 'Hiện tại không có hồ sơ khách hàng nào nằm trong thùng rác.'
-            : 'Chưa có hồ sơ khách hàng hoặc không có bản ghi nào khớp với điều kiện tìm kiếm.'
-        }
+        emptyTitle="Không có khách hàng nào"
+        emptyDescription="Chưa có hồ sơ khách hàng hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
       />
 
       {/* Modal Form Thêm/Sửa Khách Hàng */}
@@ -562,22 +625,38 @@ export function ClientsPage() {
         }}
       />
 
-      {/* Confirm Xóa Mềm Khách Hàng */}
+      {/* Confirm Xóa Mềm Đơn Lẻ Khách Hàng */}
       <ConfirmDialog
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
-        title="Xác Nhận Xóa Khách Hàng"
-        description={`Bạn có chắc chắn muốn chuyển khách hàng "${deleteCandidate?.name || 'này'}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu khách hàng vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
+        title="Xác Nhận Xóa Khách Hàng (Xóa Mềm)"
+        description={`Bạn có chắc chắn muốn chuyển khách hàng "${deleteCandidate?.name || 'này'}" vào thùng rác không? Dữ liệu này có thể được khôi phục sau tại mục Thùng Rác Hệ Thống. Lưu ý: Hệ thống sẽ từ chối xóa nếu khách hàng vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"
-        icon={<Trash2 className="h-5 w-5 text-destructive" />}
+        isLoading={deleteMutation.isPending}
+        icon={<Trash2 className="h-5 w-5 text-amber-600" />}
         confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
         onConfirm={() => {
           if (deleteCandidate) {
             deleteMutation.mutate(deleteCandidate.id);
           }
         }}
+      />
+
+      {/* Confirm Xóa Mềm Hàng Loạt Khách Hàng */}
+      <ConfirmDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
+        title="Xác Nhận Xóa Mềm Hàng Loạt"
+        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} khách hàng đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
+        confirmText={`Chuyển Vào Thùng Rác (${selectedRowIds.length})`}
+        cancelText="Hủy Bỏ"
+        variant="destructive"
+        isLoading={isBulkLoading}
+        icon={<Trash2 className="h-5 w-5 text-amber-600" />}
+        confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
+        onConfirm={handleExecuteBulkDelete}
       />
     </div>
   );

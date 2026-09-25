@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Car, Trash2, Bike, HelpCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -34,7 +35,16 @@ export function VehiclesPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [isTrashMode, setIsTrashMode] = useState(false);
+
+  // State Checkbox selection & Bulk Delete
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+
+  // Tự động bỏ chọn checkbox khi đổi trang hoặc bộ lọc
+  useEffect(() => {
+    setSelectedRowIds([]);
+  }, [pageIndex, searchKeyword, statusFilter, typeFilter]);
 
   // State Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,7 +92,6 @@ export function VehiclesPage() {
       searchKeyword,
       statusFilter,
       typeFilter,
-      isTrashMode,
     ],
     queryFn: () =>
       vehicleApi.getPaged({
@@ -91,7 +100,6 @@ export function VehiclesPage() {
         keyword: searchKeyword.trim() || undefined,
         isActive: statusFilter === 'all' ? undefined : statusFilter,
         type: typeFilter === 'all' ? undefined : (Number(typeFilter) as VehicleType),
-        onlyDeleted: isTrashMode,
       }),
     placeholderData: keepPreviousData,
   });
@@ -137,17 +145,33 @@ export function VehiclesPage() {
     },
   });
 
-  // Mutation: Khôi phục phương tiện
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => vehicleApi.restore(id),
-    onSuccess: (restored) => {
-      toast.success(`Đã khôi phục phương tiện biển số "${restored.plateNumber}" thành công`);
+  // Xử lý thực thi xóa mềm hàng loạt qua checkbox (chuyển vào thùng rác)
+  const handleExecuteBulkDelete = async () => {
+    if (selectedRowIds.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedRowIds.map((id) => vehicleApi.delete(id, false))
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      if (failed > 0) {
+        toast.warning(
+          `Đã chuyển ${succeeded}/${results.length} phương tiện vào thùng rác (${failed} bản ghi không thể xóa do đang gửi trong bãi).`
+        );
+      } else {
+        toast.success(`Đã chuyển thành công ${succeeded} phương tiện vào thùng rác.`);
+      }
+      setSelectedRowIds([]);
+      setIsBulkDeleteOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-    },
-    onError: (err) => {
+    } catch (err) {
       toast.error(extractErrorMessage(err));
-    },
-  });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
 
   // Xử lý submit form
   const handleFormSubmit = async (
@@ -313,44 +337,53 @@ export function VehiclesPage() {
           setStatusFilter(st);
           setPageIndex(1);
         }}
-        isTrashMode={isTrashMode}
-        onTrashModeToggle={() => {
-          setIsTrashMode(!isTrashMode);
-          setPageIndex(1);
-        }}
         extraFilters={
-          !isTrashMode && (
-            <div className="w-[180px]">
-              <Select
-                value={typeFilter}
-                onValueChange={(val) => {
-                  setTypeFilter(val);
-                  setPageIndex(1);
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Lọc theo loại xe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">
-                    Tất cả loại xe
-                  </SelectItem>
-                  <SelectItem value={String(VehicleType.Car)} className="text-xs">
-                    Ô tô
-                  </SelectItem>
-                  <SelectItem value={String(VehicleType.Motorbike)} className="text-xs">
-                    Xe máy
-                  </SelectItem>
-                  <SelectItem value={String(VehicleType.Bicycle)} className="text-xs">
-                    Xe đạp / Xe điện
-                  </SelectItem>
-                  <SelectItem value={String(VehicleType.Other)} className="text-xs">
-                    Khác
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )
+          <div className="w-[180px]">
+            <Select
+              value={typeFilter}
+              onValueChange={(val) => {
+                setTypeFilter(val);
+                setPageIndex(1);
+              }}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Lọc theo loại xe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  Tất cả loại xe
+                </SelectItem>
+                <SelectItem value={String(VehicleType.Car)} className="text-xs">
+                  Ô tô
+                </SelectItem>
+                <SelectItem value={String(VehicleType.Motorbike)} className="text-xs">
+                  Xe máy
+                </SelectItem>
+                <SelectItem value={String(VehicleType.Bicycle)} className="text-xs">
+                  Xe đạp / Xe điện
+                </SelectItem>
+                <SelectItem value={String(VehicleType.Other)} className="text-xs">
+                  Khác
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        }
+        selectable={true}
+        selectedRowIds={selectedRowIds}
+        onSelectedRowIdsChange={setSelectedRowIds}
+        bulkActions={
+          <div className="flex items-center gap-1.5 ml-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+            </Button>
+          </div>
         }
         onAddNew={() => {
           setSelectedVehicle(null);
@@ -368,16 +401,9 @@ export function VehiclesPage() {
           onDelete: (item) => {
             setDeleteCandidate(item);
           },
-          onRestore: (item) => {
-            restoreMutation.mutate(item.id);
-          },
         }}
-        emptyTitle={isTrashMode ? 'Thùng rác trống' : 'Không có phương tiện nào'}
-        emptyDescription={
-          isTrashMode
-            ? 'Hiện tại không có phương tiện nào nằm trong thùng rác.'
-            : 'Chưa có dữ liệu phương tiện hoặc không có biển số nào khớp với từ khóa tìm kiếm.'
-        }
+        emptyTitle="Không có phương tiện nào"
+        emptyDescription="Chưa có dữ liệu phương tiện hoặc không có biển số nào khớp với từ khóa tìm kiếm."
       />
 
       {/* Modal Form Thêm/Sửa Phương tiện */}
@@ -416,6 +442,21 @@ export function VehiclesPage() {
             deleteMutation.mutate(deleteCandidate.id);
           }
         }}
+      />
+
+      {/* Confirm Xóa Mềm Hàng Loạt Phương Tiện */}
+      <ConfirmDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
+        title="Xác Nhận Xóa Mềm Hàng Loạt"
+        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} phương tiện đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
+        confirmText={`Chuyển Vào Thùng Rác (${selectedRowIds.length})`}
+        cancelText="Hủy Bỏ"
+        variant="destructive"
+        isLoading={isBulkLoading}
+        icon={<Trash2 className="h-5 w-5 text-amber-600" />}
+        confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
+        onConfirm={handleExecuteBulkDelete}
       />
     </div>
   );

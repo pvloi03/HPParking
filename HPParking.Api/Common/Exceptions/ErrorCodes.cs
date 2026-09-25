@@ -85,5 +85,9 @@ namespace HPParking.Api.Common.Exceptions
         public const string EXCEL_INVALID_FILE_FORMAT = "EXCEL_INVALID_FILE_FORMAT";
         public const string EXCEL_FILE_SIZE_EXCEEDED = "EXCEL_FILE_SIZE_EXCEEDED";
         public const string EXCEL_EMPTY_FILE = "EXCEL_EMPTY_FILE";
+
+        // FaceID
+        public const string FACEID_IMAGE_REJECTED = "FACEID_IMAGE_REJECTED";
+        public const string FACEID_OPERATION_FAILED = "FACEID_OPERATION_FAILED";
     }
 }

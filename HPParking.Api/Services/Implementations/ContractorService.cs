@@ -163,8 +163,10 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteContractorAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var contractor = await _contractorRepo.GetByIdAsync(id, cancellationToken);
-            if (contractor == null || contractor.IsDeleted)
+            var contractor = await _contractorRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _contractorRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (contractor == null)
             {
                 throw new NotFoundException("Không tìm thấy thông tin nhà thầu cần xóa.", ErrorCodes.CONTRACTOR_NOT_FOUND);
             }

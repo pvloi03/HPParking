@@ -286,7 +286,7 @@ export function ClientFormDialog({
             {/* Số CCCD & Họ tên */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
                   <span>
                     Số CCCD / Mã định danh <span className="text-destructive">*</span>
                   </span>
@@ -297,7 +297,7 @@ export function ClientFormDialog({
                 <Input
                   {...register('code')}
                   placeholder="VD: 001200012345"
-                  className="font-mono text-xs"
+                  className="font-mono text-xs h-9"
                   maxLength={12}
                   autoFocus={!isEditing}
                 />
@@ -307,13 +307,13 @@ export function ClientFormDialog({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
-                  Họ và tên <span className="text-destructive">*</span>
+                <label className="text-xs font-semibold text-foreground flex items-center h-5">
+                  <span>Họ và tên <span className="text-destructive">*</span></span>
                 </label>
                 <Input
                   {...register('name')}
                   placeholder="VD: Nguyễn Văn Nam"
-                  className="text-xs"
+                  className="text-xs h-9"
                 />
                 {errors.name && (
                   <p className="text-[11px] text-destructive">{errors.name.message}</p>
@@ -322,16 +322,16 @@ export function ClientFormDialog({
             </div>
 
             {/* Số điện thoại, Giới tính & Ngày sinh */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Số điện thoại */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
-                  Số điện thoại <span className="text-destructive">*</span>
+                <label className="text-xs font-semibold text-foreground flex items-center h-5">
+                  <span>Số điện thoại <span className="text-destructive">*</span></span>
                 </label>
                 <Input
                   {...register('phoneNumber')}
                   placeholder="VD: 0987654321"
-                  className="text-xs font-mono"
+                  className="text-xs font-mono h-9"
                   maxLength={10}
                 />
                 {errors.phoneNumber && (
@@ -341,59 +341,62 @@ export function ClientFormDialog({
                 )}
               </div>
 
-              {/* Giới tính */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
-                  Giới tính <span className="text-destructive">*</span>
-                </label>
-                <Select
-                  value={String(selectedGender)}
-                  onValueChange={(val) => setValue('gender', parseInt(val, 10))}
-                >
-                  <SelectTrigger className="text-xs bg-background">
-                    <SelectValue placeholder="Chọn giới tính" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1" className="text-xs">
-                      Nam
-                    </SelectItem>
-                    <SelectItem value="0" className="text-xs">
-                      Nữ
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Giới tính & Ngày sinh (chia đôi đều nhau ở cột phải) */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Giới tính */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center h-5">
+                    <span>Giới tính <span className="text-destructive">*</span></span>
+                  </label>
+                  <Select
+                    value={String(selectedGender)}
+                    onValueChange={(val) => setValue('gender', parseInt(val, 10))}
+                  >
+                    <SelectTrigger className="text-xs bg-background h-9">
+                      <SelectValue placeholder="Chọn giới tính" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1" className="text-xs">
+                        Nam
+                      </SelectItem>
+                      <SelectItem value="0" className="text-xs">
+                        Nữ
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Ngày sinh */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                  <span>Ngày sinh</span>
-                </label>
-                <Input
-                  {...register('birthDay')}
-                  type="date"
-                  className="text-xs font-mono"
-                />
-                {errors.birthDay && (
-                  <p className="text-[11px] text-destructive">
-                    {errors.birthDay.message}
-                  </p>
-                )}
+                {/* Ngày sinh */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1 h-5">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span>Ngày sinh</span>
+                  </label>
+                  <Input
+                    {...register('birthDay')}
+                    type="date"
+                    className="text-xs font-mono h-9"
+                  />
+                  {errors.birthDay && (
+                    <p className="text-[11px] text-destructive">
+                      {errors.birthDay.message}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Email & Địa chỉ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
-                  Email liên hệ
+                <label className="text-xs font-semibold text-foreground flex items-center h-5">
+                  <span>Email liên hệ</span>
                 </label>
                 <Input
                   {...register('email')}
                   placeholder="nam.nguyen@hoangphat.vn"
                   type="email"
-                  className="text-xs"
+                  className="text-xs h-9"
                 />
                 {errors.email && (
                   <p className="text-[11px] text-destructive">
@@ -403,13 +406,13 @@ export function ClientFormDialog({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
-                  Địa chỉ thường trú / tạm trú
+                <label className="text-xs font-semibold text-foreground flex items-center h-5">
+                  <span>Địa chỉ thường trú / tạm trú</span>
                 </label>
                 <Input
                   {...register('address')}
                   placeholder="VD: Hải Phòng, Việt Nam"
-                  className="text-xs"
+                  className="text-xs h-9"
                 />
               </div>
             </div>
@@ -427,8 +430,8 @@ export function ClientFormDialog({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Phân loại đối tượng */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">
-                  Loại khách hàng <span className="text-destructive">*</span>
+                <label className="text-xs font-semibold text-foreground flex items-center h-5">
+                  <span>Loại khách hàng <span className="text-destructive">*</span></span>
                 </label>
                 <Select
                   value={String(selectedType)}
@@ -437,7 +440,7 @@ export function ClientFormDialog({
                     setValue('type', parsed);
                   }}
                 >
-                  <SelectTrigger className="text-xs bg-background">
+                  <SelectTrigger className="text-xs bg-background h-9">
                     <SelectValue placeholder="Chọn loại khách hàng" />
                   </SelectTrigger>
                   <SelectContent>
@@ -452,7 +455,9 @@ export function ClientFormDialog({
 
               {/* Công ty */}
               <div className="space-y-1">
-                <label className="text-xs font-medium text-foreground">Công ty</label>
+                <label className="text-xs font-medium text-foreground flex items-center h-5">
+                  <span>Công ty</span>
+                </label>
                 <Select
                   value={selectedCompanyId}
                   onValueChange={(val) => {
@@ -460,7 +465,7 @@ export function ClientFormDialog({
                     setValue('departmentId', 'none');
                   }}
                 >
-                  <SelectTrigger className="text-xs bg-background">
+                  <SelectTrigger className="text-xs bg-background h-9">
                     <SelectValue placeholder="-- Không trực thuộc --" />
                   </SelectTrigger>
                   <SelectContent>
@@ -478,12 +483,14 @@ export function ClientFormDialog({
 
               {/* Phòng ban */}
               <div className="space-y-1">
-                <label className="text-xs font-medium text-foreground">Phòng ban</label>
+                <label className="text-xs font-medium text-foreground flex items-center h-5">
+                  <span>Phòng ban</span>
+                </label>
                 <Select
                   value={selectedDepartmentId}
                   onValueChange={(val) => setValue('departmentId', val)}
                 >
-                  <SelectTrigger className="text-xs bg-background">
+                  <SelectTrigger className="text-xs bg-background h-9">
                     <SelectValue placeholder="-- Không chọn phòng ban --" />
                   </SelectTrigger>
                   <SelectContent>
@@ -502,7 +509,7 @@ export function ClientFormDialog({
 
             {/* Nhà thầu thi công */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-foreground flex items-center justify-between">
+              <label className="text-xs font-medium text-foreground flex items-center justify-between h-5">
                 <span>Nhà thầu đối tác (Dành cho nhân sự nhà thầu)</span>
                 {selectedType === ClientType.Contractor && (
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
@@ -514,7 +521,7 @@ export function ClientFormDialog({
                 value={selectedContractorId}
                 onValueChange={(val) => setValue('contractorId', val)}
               >
-                <SelectTrigger className="text-xs bg-background">
+                <SelectTrigger className="text-xs bg-background h-9">
                   <SelectValue placeholder="-- Không phải nhân sự nhà thầu --" />
                 </SelectTrigger>
                 <SelectContent>
@@ -574,23 +581,23 @@ export function ClientFormDialog({
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-amber-900 dark:text-amber-300">
-                      Từ ngày (StartDay)
+                    <label className="text-xs font-medium text-amber-900 dark:text-amber-300 flex items-center h-5">
+                      <span>Từ ngày (StartDay)</span>
                     </label>
                     <Input
                       {...register('expiredStartDay')}
                       type="date"
-                      className="text-xs font-mono bg-background"
+                      className="text-xs font-mono bg-background h-9"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-amber-900 dark:text-amber-300">
-                      Đến ngày (EndDay)
+                    <label className="text-xs font-medium text-amber-900 dark:text-amber-300 flex items-center h-5">
+                      <span>Đến ngày (EndDay)</span>
                     </label>
                     <Input
                       {...register('expiredEndDay')}
                       type="date"
-                      className="text-xs font-mono bg-background"
+                      className="text-xs font-mono bg-background h-9"
                     />
                   </div>
                 </div>

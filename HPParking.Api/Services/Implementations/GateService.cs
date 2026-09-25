@@ -233,8 +233,10 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteGateAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var gate = await _gateRepo.GetByIdAsync(id, cancellationToken);
-            if (gate == null || gate.IsDeleted)
+            var gate = await _gateRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _gateRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (gate == null)
             {
                 throw new NotFoundException("Không tìm thấy thông tin cổng cần xóa.", ErrorCodes.GATE_NOT_FOUND);
             }

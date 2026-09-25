@@ -74,7 +74,7 @@ const menuConfig: MenuItem[] = [
   {
     type: 'group',
     group: {
-      title: 'Cơ cấu tổ chức',
+      title: 'Tổ chức & đơn vị',
       icon: Building2,
       children: [
         { title: 'Công ty', href: '/companies', icon: Building },
@@ -86,10 +86,10 @@ const menuConfig: MenuItem[] = [
   {
     type: 'group',
     group: {
-      title: 'Khách hàng & Xe',
+      title: 'Nhân sự & phương tiện',
       icon: Users,
       children: [
-        { title: 'Khách hàng', href: '/clients', icon: Users },
+        { title: 'Nhân sự', href: '/clients', icon: Users },
         { title: 'Phương tiện', href: '/vehicles', icon: Car },
       ],
     },
@@ -97,11 +97,11 @@ const menuConfig: MenuItem[] = [
   {
     type: 'group',
     group: {
-      title: 'Hạ tầng bãi xe',
+      title: 'Hạ tầng',
       icon: Route,
       children: [
-        { title: 'Cổng bãi xe', href: '/gates', icon: DoorOpen },
-        { title: 'Làn xe', href: '/lanes', icon: Route },
+        { title: 'Cổng ra vào', href: '/gates', icon: DoorOpen },
+        { title: 'Làn kiểm soát', href: '/lanes', icon: Route },
         { title: 'Thiết bị', href: '/devices', icon: Cpu },
       ],
     },
@@ -113,7 +113,7 @@ const menuConfig: MenuItem[] = [
       icon: ShieldAlert,
       children: [
         { title: 'Nhật ký kiểm toán', href: '/audit-logs', icon: ShieldAlert },
-        { title: 'Người dùng', href: '/users', icon: UserCog },
+        { title: 'Tài khoản', href: '/users', icon: UserCog },
         { title: 'Thùng rác hệ thống', href: '/recycle-bin', icon: Trash2 },
       ],
     },
@@ -130,9 +130,9 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    'Cơ cấu tổ chức': true,
-    'Khách hàng & Xe': true,
-    'Hạ tầng bãi xe': true,
+    'Tổ chức & đơn vị': true,
+    'Nhân sự & phương tiện': true,
+    'Hạ tầng': true,
     'Sổ cái & Kiểm toán': true,
   });
   const navigate = useNavigate();

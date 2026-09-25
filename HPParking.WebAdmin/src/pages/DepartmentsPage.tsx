@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Building, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -36,7 +37,16 @@ export function DepartmentsPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
-  const [isTrashMode, setIsTrashMode] = useState(false);
+
+  // State Checkbox selection & Bulk Delete
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+
+  // Tự động bỏ chọn checkbox khi đổi trang hoặc bộ lọc
+  useEffect(() => {
+    setSelectedRowIds([]);
+  }, [pageIndex, searchKeyword, selectedCompanyFilter, statusFilter]);
 
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -80,7 +90,6 @@ export function DepartmentsPage() {
       searchKeyword,
       selectedCompanyFilter,
       statusFilter,
-      isTrashMode,
     ],
     queryFn: () =>
       departmentsApi.getPaged({
@@ -89,7 +98,6 @@ export function DepartmentsPage() {
         companyId: selectedCompanyFilter === 'all' ? undefined : selectedCompanyFilter,
         keyword: searchKeyword.trim() || undefined,
         isActive: statusFilter === 'all' ? undefined : statusFilter,
-        onlyDeleted: isTrashMode,
       }),
   });
 
@@ -134,17 +142,33 @@ export function DepartmentsPage() {
     },
   });
 
-  // Mutation: Khôi phục phòng ban
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => departmentsApi.restore(id),
-    onSuccess: (restored) => {
-      toast.success(`Đã khôi phục phòng ban "${restored.name}" thành công`);
+  // Xử lý thực thi xóa mềm hàng loạt qua checkbox (chuyển vào thùng rác)
+  const handleExecuteBulkDelete = async () => {
+    if (selectedRowIds.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedRowIds.map((id) => departmentsApi.delete(id, false))
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      if (failed > 0) {
+        toast.warning(
+          `Đã chuyển ${succeeded}/${results.length} phòng ban vào thùng rác (${failed} bản ghi không thể xóa do có khách hàng trực thuộc).`
+        );
+      } else {
+        toast.success(`Đã chuyển thành công ${succeeded} phòng ban vào thùng rác.`);
+      }
+      setSelectedRowIds([]);
+      setIsBulkDeleteOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['departments'] });
-    },
-    onError: (err) => {
+    } catch (err) {
       toast.error(extractErrorMessage(err));
-    },
-  });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
 
   // Xử lý submit form
   const handleFormSubmit = async (
@@ -263,42 +287,51 @@ export function DepartmentsPage() {
         }}
         searchPlaceholder="Tìm kiếm mã, tên phòng ban..."
         extraFilters={
-          !isTrashMode && (
-            <div className="w-48">
-              <Select
-                value={selectedCompanyFilter}
-                onValueChange={(val) => {
-                  setSelectedCompanyFilter(val);
-                  setPageIndex(1);
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Lọc theo công ty..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">
-                    Tất cả công ty
+          <div className="w-48">
+            <Select
+              value={selectedCompanyFilter}
+              onValueChange={(val) => {
+                setSelectedCompanyFilter(val);
+                setPageIndex(1);
+              }}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Lọc theo công ty..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  Tất cả công ty
+                </SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id} className="text-xs">
+                    {c.name}
                   </SelectItem>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={c.id} className="text-xs">
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         }
         statusFilter={statusFilter}
         onStatusFilterChange={(st) => {
           setStatusFilter(st);
           setPageIndex(1);
         }}
-        isTrashMode={isTrashMode}
-        onTrashModeToggle={() => {
-          setIsTrashMode(!isTrashMode);
-          setPageIndex(1);
-        }}
+        selectable={true}
+        selectedRowIds={selectedRowIds}
+        onSelectedRowIdsChange={setSelectedRowIds}
+        bulkActions={
+          <div className="flex items-center gap-1.5 ml-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+            </Button>
+          </div>
+        }
         onAddNew={() => {
           setSelectedDepartment(null);
           setIsFormOpen(true);
@@ -315,16 +348,9 @@ export function DepartmentsPage() {
           onDelete: (item) => {
             setDeleteCandidate(item);
           },
-          onRestore: (item) => {
-            restoreMutation.mutate(item.id);
-          },
         }}
-        emptyTitle={isTrashMode ? 'Thùng rác trống' : 'Không có phòng ban nào'}
-        emptyDescription={
-          isTrashMode
-            ? 'Hiện tại không có phòng ban nào nằm trong thùng rác.'
-            : 'Chưa có phòng ban hoặc không có bản ghi nào khớp với điều kiện tìm kiếm.'
-        }
+        emptyTitle="Không có phòng ban nào"
+        emptyDescription="Chưa có phòng ban hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
       />
 
       {/* Modal Form Thêm/Sửa */}
@@ -363,6 +389,21 @@ export function DepartmentsPage() {
             deleteMutation.mutate(deleteCandidate.id);
           }
         }}
+      />
+
+      {/* Confirm Xóa Mềm Hàng Loạt Phòng Ban */}
+      <ConfirmDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
+        title="Xác Nhận Xóa Mềm Hàng Loạt"
+        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} phòng ban đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
+        confirmText={`Chuyển Vào Thùng Rác (${selectedRowIds.length})`}
+        cancelText="Hủy Bỏ"
+        variant="destructive"
+        isLoading={isBulkLoading}
+        icon={<Trash2 className="h-5 w-5 text-amber-600" />}
+        confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
+        onConfirm={handleExecuteBulkDelete}
       />
     </div>
   );

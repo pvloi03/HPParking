@@ -57,8 +57,9 @@ namespace HPParking.Api.Services.Implementations
                 await file.CopyToAsync(fileStream, cancellationToken);
             }
 
+            var avatarFolder = _settings.Folders?.Avatar?.Trim('/') ?? "Avatar";
             var normalizedRequestPath = _settings.RequestPath.TrimEnd('/');
-            var relativeUrl = $"{normalizedRequestPath}/{finalFileName}";
+            var relativeUrl = $"{normalizedRequestPath}/{avatarFolder}/{finalFileName}";
 
             _logger.LogInformation("Đã lưu ảnh đại diện tại {PhysicalPath} -> URL: {RelativeUrl}", physicalPath, relativeUrl);
             return relativeUrl;
@@ -102,8 +103,9 @@ namespace HPParking.Api.Services.Implementations
 
             await File.WriteAllBytesAsync(physicalPath, imageBytes, cancellationToken);
 
+            var avatarFolder = _settings.Folders?.Avatar?.Trim('/') ?? "Avatar";
             var normalizedRequestPath = _settings.RequestPath.TrimEnd('/');
-            var relativeUrl = $"{normalizedRequestPath}/{finalFileName}";
+            var relativeUrl = $"{normalizedRequestPath}/{avatarFolder}/{finalFileName}";
 
             return relativeUrl;
         }
@@ -169,8 +171,27 @@ namespace HPParking.Api.Services.Implementations
             }
 
             cleanPath = cleanPath.TrimStart('/');
+
+            var rootDir = Path.IsPathRooted(_settings.RootPath)
+                ? _settings.RootPath
+                : Path.Combine(_environment.ContentRootPath, _settings.RootPath);
+
+            // 1. Ghép với rootDir nếu cleanPath đã có tiền tố thư mục con (ví dụ Avatar/xyz.jpg)
+            var pathFromRoot = Path.Combine(rootDir, cleanPath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(pathFromRoot))
+            {
+                return pathFromRoot;
+            }
+
+            // 2. Ghép với uploadDir (thư mục Avatar) nếu cleanPath chỉ là tên file đơn thuần
             var uploadDir = GetUploadDirectory();
-            return Path.Combine(uploadDir, cleanPath);
+            var pathFromUpload = Path.Combine(uploadDir, Path.GetFileName(cleanPath));
+            if (File.Exists(pathFromUpload))
+            {
+                return pathFromUpload;
+            }
+
+            return cleanPath.Contains('/') ? pathFromRoot : pathFromUpload;
         }
 
         private static string SanitizeFileName(string name)

@@ -66,7 +66,32 @@ namespace HPParking.Api.Controllers.V1
         public async Task<IActionResult> CreateClient([FromBody] CreateClientRequest request)
         {
             var created = await _clientService.CreateClientAsync(request);
-            return CreatedApiResponse($"/api/v1/clients/{created.Id}", created, "Tạo mới khách hàng thành công.");
+            var terminals = created.FaceIdTerminals ?? [];
+            var total = terminals.Count;
+            var failure = terminals.Count(t => !t.IsOnline || !t.UserExists);
+            var success = total - failure;
+
+            var msg = total > 0 && failure > 0
+                ? $"Tạo mới khách hàng thành công (Đồng bộ FaceID: {success}/{total} thành công, {failure} thiết bị mất kết nối hoặc lỗi)."
+                : total > 0
+                    ? $"Tạo mới khách hàng và đồng bộ toàn bộ {total} thiết bị FaceID thành công."
+                    : "Tạo mới khách hàng thành công.";
+
+            return CreatedApiResponse($"/api/v1/clients/{created.Id}", created, msg);
+        }
+
+        /// <summary>
+        /// Kiểm tra live trạng thái Client trên tất cả các đầu đọc FaceID đang hoạt động
+        /// </summary>
+        [HttpGet("{id}/faceid-status")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<ClientFaceIdStatusResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> CheckFaceIdStatus(string id)
+        {
+            var result = await _clientService.CheckFaceIdStatusAsync(id);
+            return OkApiResponse(result, "Kiểm tra trạng thái FaceID thành công.");
         }
 
         /// <summary>
@@ -74,7 +99,7 @@ namespace HPParking.Api.Controllers.V1
         /// </summary>
         [HttpPut("{id}")]
         [Authorize(Roles = "Manager,Admin")]
-        [ProducesResponseType(typeof(ApiResponse<ClientDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<ClientDetailDto>), 200)]
         [ProducesResponseType(typeof(ApiResponse<object>), 400)]
         [ProducesResponseType(typeof(ApiResponse<object>), 401)]
         [ProducesResponseType(typeof(ApiResponse<object>), 403)]
@@ -83,7 +108,18 @@ namespace HPParking.Api.Controllers.V1
         public async Task<IActionResult> UpdateClient(string id, [FromBody] UpdateClientRequest request)
         {
             var updated = await _clientService.UpdateClientAsync(id, request);
-            return OkApiResponse(updated, "Cập nhật thông tin khách hàng thành công.");
+            var terminals = updated.FaceIdTerminals ?? [];
+            var total = terminals.Count;
+            var failure = terminals.Count(t => !t.IsOnline || !t.UserExists);
+            var success = total - failure;
+
+            var msg = total > 0 && failure > 0
+                ? $"Cập nhật khách hàng thành công (Đồng bộ FaceID: {success}/{total} thành công, {failure} thiết bị mất kết nối hoặc lỗi)."
+                : total > 0
+                    ? $"Cập nhật khách hàng và đồng bộ toàn bộ {total} thiết bị FaceID thành công."
+                    : "Cập nhật thông tin khách hàng thành công.";
+
+            return OkApiResponse(updated, msg);
         }
 
         /// <summary>
@@ -166,7 +202,9 @@ namespace HPParking.Api.Controllers.V1
         public async Task<IActionResult> SyncFaceId(string id)
         {
             var syncResult = await _clientService.SyncFaceIdAsync(id);
-            var msg = $"Đã hoàn tất đồng bộ FaceID ({syncResult.SuccessCount}/{syncResult.TotalDevices} thiết bị thành công).";
+            var msg = syncResult.FailureCount > 0
+                ? $"Hoàn tất đồng bộ FaceID: {syncResult.SuccessCount}/{syncResult.TotalDevices} thiết bị thành công (Có {syncResult.FailureCount} thiết bị lỗi)."
+                : $"Hoàn tất đồng bộ FaceID ({syncResult.SuccessCount}/{syncResult.TotalDevices} thiết bị thành công).";
             return OkApiResponse(syncResult, msg);
         }
 

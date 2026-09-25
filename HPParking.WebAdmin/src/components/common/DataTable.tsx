@@ -9,11 +9,13 @@ import {
   Inbox,
   Download,
   Upload,
+  ShieldAlert,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import type { PaginationMetadata } from '@/types/masterData';
 
@@ -31,9 +33,11 @@ export interface ColumnDef<T> {
 export interface DataTableActions<T> {
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
+  onHardDelete?: (item: T) => void;
   onRestore?: (item: T) => void;
   canEdit?: (item: T) => boolean;
   canDelete?: (item: T) => boolean;
+  canHardDelete?: (item: T) => boolean;
   canRestore?: (item: T) => boolean;
 }
 
@@ -60,6 +64,10 @@ interface DataTableProps<T> {
   emptyTitle?: string;
   emptyDescription?: string;
   renderMobileCard?: (item: T, actionButtons: React.ReactNode) => React.ReactNode;
+  selectable?: boolean;
+  selectedRowIds?: string[];
+  onSelectedRowIdsChange?: (ids: string[]) => void;
+  bulkActions?: React.ReactNode;
 }
 
 export function DataTable<T extends { id: string; isActive?: boolean }>({
@@ -85,32 +93,79 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   emptyTitle = 'Không tìm thấy dữ liệu',
   emptyDescription = 'Không có bản ghi nào phù hợp với bộ lọc hiện tại.',
   renderMobileCard,
+  selectable = false,
+  selectedRowIds = [],
+  onSelectedRowIdsChange,
+  bulkActions,
 }: DataTableProps<T>) {
-  const hasActions = Boolean(actions?.onEdit || actions?.onDelete || actions?.onRestore);
+  const hasActions = Boolean(actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
+
+  // Logic chọn tất cả / chọn một phần checkbox
+  const isAllSelected = data.length > 0 && data.every((item) => selectedRowIds.includes(item.id));
+  const isIndeterminate = !isAllSelected && data.some((item) => selectedRowIds.includes(item.id));
+
+  const handleToggleAll = (checked: boolean) => {
+    if (!onSelectedRowIdsChange) return;
+    if (checked) {
+      const pageIds = data.map((d) => d.id);
+      const merged = Array.from(new Set([...selectedRowIds, ...pageIds]));
+      onSelectedRowIdsChange(merged);
+    } else {
+      const pageIdSet = new Set(data.map((d) => d.id));
+      const remaining = selectedRowIds.filter((id) => !pageIdSet.has(id));
+      onSelectedRowIdsChange(remaining);
+    }
+  };
+
+  const handleToggleRow = (id: string, checked: boolean) => {
+    if (!onSelectedRowIdsChange) return;
+    if (checked) {
+      onSelectedRowIdsChange([...selectedRowIds, id]);
+    } else {
+      onSelectedRowIdsChange(selectedRowIds.filter((item) => item !== id));
+    }
+  };
 
   // Render các nút hành động cho một dòng/thẻ
   const renderActionButtons = (item: T) => {
     if (!hasActions) return null;
 
     if (isTrashMode) {
-      return actions?.onRestore ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => actions.onRestore?.(item)}
-          className="h-8 px-2.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 border-blue-200 dark:border-blue-900 cursor-pointer min-h-[36px]"
-          title="Khôi phục bản ghi"
-          aria-label="Khôi phục bản ghi"
-        >
-          <RotateCcw className="h-3.5 w-3.5 mr-1 text-blue-600" />
-          <span>Khôi phục</span>
-        </Button>
-      ) : null;
+      return (
+        <div className="flex items-center gap-1.5 justify-end">
+          {actions?.onRestore && (actions.canRestore ? actions.canRestore(item) : true) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => actions.onRestore?.(item)}
+              className="h-8 px-2.5 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 border-blue-200 dark:border-blue-900 cursor-pointer min-h-[36px]"
+              title="Khôi phục bản ghi"
+              aria-label="Khôi phục bản ghi"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1 text-blue-600" />
+              <span>Khôi phục</span>
+            </Button>
+          )}
+          {actions?.onHardDelete && (actions.canHardDelete ? actions.canHardDelete(item) : true) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => actions.onHardDelete?.(item)}
+              className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10 cursor-pointer min-h-[36px]"
+              title="Xóa vĩnh viễn khỏi CSDL (Xóa cứng)"
+              aria-label="Xóa vĩnh viễn"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" />
+              <span>Xóa vĩnh viễn</span>
+            </Button>
+          )}
+        </div>
+      );
     }
 
     return (
-      <div className="flex items-center gap-1.5 justify-end">
-        {actions?.onEdit && (
+      <div className="flex items-center gap-1 justify-end">
+        {actions?.onEdit && (actions.canEdit ? actions.canEdit(item) : true) && (
           <Button
             variant="ghost"
             size="sm"
@@ -122,16 +177,28 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
             <Edit className="h-4 w-4" />
           </Button>
         )}
-        {actions?.onDelete && (
+        {actions?.onDelete && (actions.canDelete ? actions.canDelete(item) : true) && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => actions.onDelete?.(item)}
-            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer min-h-[36px] min-w-[36px]"
-            title="Xóa vào thùng rác"
-            aria-label="Xóa"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer min-h-[36px] min-w-[36px]"
+            title="Xóa vào thùng rác (Xóa mềm)"
+            aria-label="Xóa mềm"
           >
-            <Trash2 className="h-4 w-4 text-destructive/80 hover:text-destructive" />
+            <Trash2 className="h-4 w-4 text-amber-600/80 hover:text-amber-600" />
+          </Button>
+        )}
+        {actions?.onHardDelete && (actions.canHardDelete ? actions.canHardDelete(item) : true) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => actions.onHardDelete?.(item)}
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer min-h-[36px] min-w-[36px]"
+            title="Xóa vĩnh viễn khỏi CSDL (Xóa cứng)"
+            aria-label="Xóa cứng"
+          >
+            <ShieldAlert className="h-4 w-4 text-destructive/80 hover:text-destructive" />
           </Button>
         )}
       </div>
@@ -139,26 +206,28 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   };
 
   return (
-    <div className="space-y-4">
-      {/* TOOLBAR: Search, Filters & Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Nhóm tìm kiếm và bộ lọc bổ sung */}
-        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+    <div className="space-y-3.5">
+      {/* TOOLBAR CHIA 2 DÒNG HOÀN TOÀN TÁCH BIỆT */}
+      <div className="p-3.5 rounded-xl border border-border bg-card shadow-xs space-y-3">
+        {/* DÒNG 1: TẤT CẢ BỘ LỌC TÌM KIẾM, ĐƠN VỊ VÀ TRẠNG THÁI */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full">
+          {/* Ô tìm kiếm */}
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
               value={searchKeyword}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="pl-8 h-9 text-xs"
+              className="pl-8 h-9 text-xs bg-background"
             />
           </div>
 
+          {/* Bộ lọc bổ sung (Công ty, Phòng ban, v.v.) */}
           {extraFilters}
 
           {/* Bộ lọc trạng thái hoạt động */}
           {onStatusFilterChange && !isTrashMode && (
-            <div className="flex items-center rounded-lg border border-border bg-card p-0.5 text-xs shadow-2xs">
+            <div className="flex items-center rounded-lg border border-border bg-background p-0.5 text-xs shadow-2xs">
               <button
                 type="button"
                 onClick={() => onStatusFilterChange('all')}
@@ -199,60 +268,88 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
           )}
         </div>
 
-        {/* Nhóm thao tác Thùng rác, Excel & Thêm mới */}
-        <div className="flex items-center gap-2 shrink-0">
-          {onExportExcel && !isTrashMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExportExcel}
-              disabled={isExportingExcel}
-              className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
-              title="Xuất dữ liệu ra Excel"
-            >
-              <Download className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Xuất Excel</span>
-            </Button>
-          )}
+        {/* DÒNG 2: THAO TÁC HÀNG LOẠT (BÊN TRÁI) & CÁC NÚT HÀNH ĐỘNG CHÍNH (BÊN PHẢI) */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 w-full pt-2 border-t border-border/60">
+          {/* Bên trái: Bulk Actions khi chọn Checkbox hoặc đếm số lượng */}
+          <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
+            {selectable && selectedRowIds.length > 0 ? (
+              <div className="flex items-center gap-2 bg-blue-50/90 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 px-3 py-1 rounded-lg">
+                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                  Đã chọn {selectedRowIds.length} mục
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectedRowIdsChange?.([])}
+                  className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Bỏ chọn
+                </Button>
+                {bulkActions}
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground font-medium">
+                Tổng cộng: <strong className="text-foreground font-semibold">{pagination.totalCount}</strong> bản ghi
+              </span>
+            )}
+          </div>
 
-          {onImportExcel && !isTrashMode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onImportExcel}
-              className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
-              title="Nhập dữ liệu từ tệp Excel"
-            >
-              <Upload className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Nhập Excel</span>
-            </Button>
-          )}
+          {/* Bên phải: Nhóm nút hành động chính */}
+          <div className="flex items-center gap-2 shrink-0">
+            {onExportExcel && !isTrashMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExportExcel}
+                disabled={isExportingExcel}
+                className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+                title="Xuất dữ liệu ra Excel"
+              >
+                <Download className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Xuất Excel</span>
+              </Button>
+            )}
 
-          {onTrashModeToggle && (
-            <Button
-              variant={isTrashMode ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={onTrashModeToggle}
-              className={cn(
-                'h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]',
-                isTrashMode && 'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 font-semibold border-amber-300'
-              )}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>{isTrashMode ? 'Thùng rác (Đang xem)' : 'Thùng rác'}</span>
-            </Button>
-          )}
+            {onImportExcel && !isTrashMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onImportExcel}
+                className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+                title="Nhập dữ liệu từ tệp Excel"
+              >
+                <Upload className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Nhập Excel</span>
+              </Button>
+            )}
 
-          {onAddNew && !isTrashMode && (
-            <Button
-              size="sm"
-              onClick={onAddNew}
-              className="h-9 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer shadow-xs min-h-[36px]"
-            >
-              <Plus className="h-4 w-4" />
-              <span>{addNewLabel}</span>
-            </Button>
-          )}
+            {onTrashModeToggle && (
+              <Button
+                variant={isTrashMode ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={onTrashModeToggle}
+                className={cn(
+                  'h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]',
+                  isTrashMode &&
+                    'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 font-semibold border-amber-300'
+                )}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{isTrashMode ? 'Thùng rác (Đang xem)' : 'Thùng rác'}</span>
+              </Button>
+            )}
+
+            {onAddNew && !isTrashMode && (
+              <Button
+                size="sm"
+                onClick={onAddNew}
+                className="h-9 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer shadow-xs min-h-[36px]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{addNewLabel}</span>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -265,14 +362,16 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
               Đang hiển thị danh sách trong <strong>Thùng rác</strong>. Bạn có thể khôi phục bản ghi bất kỳ lúc nào.
             </span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onTrashModeToggle}
-            className="h-7 text-xs font-semibold text-amber-900 dark:text-amber-200 hover:bg-amber-200/60 dark:hover:bg-amber-900/60 cursor-pointer"
-          >
-            Quay lại danh sách chính
-          </Button>
+          {onTrashModeToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onTrashModeToggle}
+              className="h-7 text-xs font-semibold text-amber-900 dark:text-amber-200 hover:bg-amber-200/60 dark:hover:bg-amber-900/60 cursor-pointer"
+            >
+              Quay lại danh sách chính
+            </Button>
+          )}
         </div>
       )}
 
@@ -321,6 +420,16 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-border bg-muted/40 font-semibold text-muted-foreground">
                   <tr>
+                    {selectable && (
+                      <th className="w-10 px-3 py-3 text-center">
+                        <Checkbox
+                          checked={isAllSelected}
+                          indeterminate={isIndeterminate}
+                          onCheckedChange={handleToggleAll}
+                          aria-label="Chọn tất cả trang này"
+                        />
+                      </th>
+                    )}
                     {columns
                       .filter((col) => !col.hiddenOnDesktop)
                       .map((col, idx) => (
@@ -337,8 +446,23 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                   {data.map((item) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-muted/30 transition-colors group"
+                      className={cn(
+                        'hover:bg-muted/30 transition-colors group',
+                        selectable && selectedRowIds.includes(item.id) && 'bg-blue-50/40 dark:bg-blue-950/20'
+                      )}
                     >
+                      {selectable && (
+                        <td
+                          className="w-10 px-3 py-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={selectedRowIds.includes(item.id)}
+                            onCheckedChange={(chk) => handleToggleRow(item.id, Boolean(chk))}
+                            aria-label={`Chọn dòng ${item.id}`}
+                          />
+                        </td>
+                      )}
                       {columns
                         .filter((col) => !col.hiddenOnDesktop)
                         .map((col, idx) => (
@@ -377,28 +501,40 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
               return (
                 <div
                   key={item.id}
-                  className="p-4 rounded-xl border border-border bg-card shadow-2xs space-y-2.5"
+                  className={cn(
+                    'p-4 rounded-xl border border-border bg-card shadow-2xs space-y-2.5',
+                    selectable && selectedRowIds.includes(item.id) && 'border-blue-500/50 bg-blue-50/20 dark:bg-blue-950/20'
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      {columns[0] && (
-                        <div className="font-semibold text-sm text-foreground truncate">
-                          {columns[0].cell
-                            ? columns[0].cell(item)
-                            : columns[0].accessorKey
-                            ? String(item[columns[0].accessorKey] ?? '—')
-                            : '—'}
-                        </div>
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {selectable && (
+                        <Checkbox
+                          checked={selectedRowIds.includes(item.id)}
+                          onCheckedChange={(chk) => handleToggleRow(item.id, Boolean(chk))}
+                          aria-label={`Chọn dòng ${item.id}`}
+                        />
                       )}
-                      {columns[1] && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {columns[1].cell
-                            ? columns[1].cell(item)
-                            : columns[1].accessorKey
-                            ? String(item[columns[1].accessorKey] ?? '—')
-                            : '—'}
-                        </div>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        {columns[0] && (
+                          <div className="font-semibold text-sm text-foreground truncate">
+                            {columns[0].cell
+                              ? columns[0].cell(item)
+                              : columns[0].accessorKey
+                              ? String(item[columns[0].accessorKey] ?? '—')
+                              : '—'}
+                          </div>
+                        )}
+                        {columns[1] && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {columns[1].cell
+                              ? columns[1].cell(item)
+                              : columns[1].accessorKey
+                              ? String(item[columns[1].accessorKey] ?? '—')
+                              : '—'}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     {item.isActive !== undefined && (
                       <Badge

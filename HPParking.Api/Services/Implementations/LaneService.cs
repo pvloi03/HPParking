@@ -308,8 +308,10 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteLaneAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var lane = await _laneRepo.GetByIdAsync(id, cancellationToken);
-            if (lane == null || lane.IsDeleted)
+            var lane = await _laneRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _laneRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (lane == null)
             {
                 throw new NotFoundException("Không tìm thấy thông tin làn xe cần xóa.", ErrorCodes.LANE_NOT_FOUND);
             }

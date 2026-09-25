@@ -17,18 +17,18 @@ describe('Sidebar Component', () => {
     );
 
     expect(screen.getByText('Tổng quan')).toBeInTheDocument();
-    expect(screen.getByText('Cơ cấu tổ chức')).toBeInTheDocument();
-    expect(screen.getByText('Hạ tầng bãi xe')).toBeInTheDocument();
-    expect(screen.getByText('Khách hàng & Xe')).toBeInTheDocument();
+    expect(screen.getByText('Tổ chức & đơn vị')).toBeInTheDocument();
+    expect(screen.getByText('Hạ tầng')).toBeInTheDocument();
+    expect(screen.getByText('Nhân sự & phương tiện')).toBeInTheDocument();
     expect(screen.getByText('Sổ cái & Kiểm toán')).toBeInTheDocument();
 
     // Kiểm tra các menu items cụ thể
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Công ty')).toBeInTheDocument();
     expect(screen.getByText('Phòng ban')).toBeInTheDocument();
-    expect(screen.getByText('Cổng bãi xe')).toBeInTheDocument();
-    expect(screen.getByText('Làn xe')).toBeInTheDocument();
-    expect(screen.getByText('Khách hàng')).toBeInTheDocument();
+    expect(screen.getByText('Cổng ra vào')).toBeInTheDocument();
+    expect(screen.getByText('Làn kiểm soát')).toBeInTheDocument();
+    expect(screen.getByText('Nhân sự')).toBeInTheDocument();
     expect(screen.getByText('Phương tiện')).toBeInTheDocument();
   });
 

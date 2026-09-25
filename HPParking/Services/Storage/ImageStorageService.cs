@@ -40,7 +40,10 @@ namespace HPParking.Services.Storage
                     bitmap.Save(path, ImageFormat.Jpeg);
                 }
 
-                return path;
+                string dbPrefix = Helper.StorageConfigHelper.GetPathImageDb();
+                return string.IsNullOrWhiteSpace(dbPrefix)
+                    ? $"{type}/{dateFolder}/{folder}/{fileName}".Replace('\\', '/')
+                    : $"{dbPrefix}/{type}/{dateFolder}/{folder}/{fileName}".Replace('\\', '/');
             }
             catch (Exception ex)
             {

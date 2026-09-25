@@ -11,6 +11,8 @@ import { LanesPage } from '@/pages/LanesPage';
 import { DevicesPage } from '@/pages/DevicesPage';
 import { ClientsPage } from '@/pages/ClientsPage';
 import { VehiclesPage } from '@/pages/VehiclesPage';
+import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
+import { RecycleBinPage } from '@/pages/RecycleBinPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -65,6 +67,14 @@ export const router = createBrowserRouter([
       {
         path: 'vehicles',
         element: <VehiclesPage />,
+      },
+      {
+        path: 'parking-sessions',
+        element: <ParkingSessionsPage />,
+      },
+      {
+        path: 'recycle-bin',
+        element: <RecycleBinPage />,
       },
     ],
   },

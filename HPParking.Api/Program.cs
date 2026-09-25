@@ -297,16 +297,10 @@ var app = builder.Build();
 // Khởi tạo tài khoản Quản trị viên mặc định (nếu CSDL chưa có Admin)
 await DbSeeder.SeedAdminUserAsync(app.Services);
 
-// 1. Exception Handling (Bắt ngoại lệ toàn cục ở tầng cao nhất)
-app.UseMiddleware<ExceptionMiddleware>();
-
-// 2. Trace Context (Gắn W3C traceparent sớm)
+// 1. Trace Context (Gắn W3C traceparent và TraceIdentifier ngay tại cửa ngõ đầu tiên)
 app.UseMiddleware<TraceIdMiddleware>();
 
-// 3. Security Headers (Gắn header bảo mật tầng biên)
-app.UseMiddleware<SecurityHeadersMiddleware>();
-
-// 4. Serilog Request Logging (Chỉ ghi log khi xảy ra lỗi >= 400 hoặc có ngoại lệ, bỏ qua request thành công)
+// 2. Serilog Request Logging (Chỉ ghi log khi xảy ra lỗi >= 400 hoặc có ngoại lệ, bỏ qua request thành công)
 app.UseSerilogRequestLogging(options =>
 {
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} phản hồi {StatusCode} trong {Elapsed:0.0000} ms";
@@ -327,24 +321,66 @@ app.UseSerilogRequestLogging(options =>
     };
 });
 
-// 5. Phục vụ Static Files (Ảnh avatar trả ngay từ đĩa theo cấu hình appsettings.json)
-var uploadPathConfig = builder.Configuration["StorageSettings:UploadPath"] ?? "Uploads/Avatar";
-var requestPathConfig = builder.Configuration["StorageSettings:RequestPath"] ?? "/uploads/avatar";
+// 3. Exception Handling (Bắt ngoại lệ toàn cục, phân loại 4xx Warning vs 5xx Error)
+app.UseMiddleware<ExceptionMiddleware>();
 
-var fullUploadPath = Path.IsPathRooted(uploadPathConfig)
-    ? uploadPathConfig
-    : Path.Combine(builder.Environment.ContentRootPath, uploadPathConfig);
+// 4. Security Headers (Gắn header bảo mật tầng biên)
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
-if (!Directory.Exists(fullUploadPath))
+// 5. Phục vụ Static Files (Cấu hình động theo StorageSettings, không fix cứng đường dẫn)
+var rootPathConfig = builder.Configuration["StorageSettings:RootPath"]
+    ?? builder.Configuration["StorageSettings:UploadPath"]
+    ?? @"C:\Users\ADMIN\Pictures\hpparking";
+var requestPathConfig = builder.Configuration["StorageSettings:RequestPath"] ?? "/images";
+
+var fullRootPath = Path.IsPathRooted(rootPathConfig)
+    ? rootPathConfig
+    : Path.Combine(builder.Environment.ContentRootPath, rootPathConfig);
+
+if (!Directory.Exists(fullRootPath))
 {
-    Directory.CreateDirectory(fullUploadPath);
+    Directory.CreateDirectory(fullRootPath);
 }
 
+// 5.1. Phục vụ toàn bộ thư mục gốc qua RequestPath (mặc định /images)
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullUploadPath),
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullRootPath),
     RequestPath = requestPathConfig.TrimEnd('/')
 });
+
+// 5.2. Tự động phục vụ tất cả các thư mục con trong Folders theo cấu hình (không fix cứng tên thư mục)
+var foldersSection = builder.Configuration.GetSection("StorageSettings:Folders");
+foreach (var folderConfig in foldersSection.GetChildren())
+{
+    var folderName = folderConfig.Value;
+    if (string.IsNullOrWhiteSpace(folderName)) continue;
+
+    var folderPhysicalPath = Path.Combine(fullRootPath, folderName);
+    if (!Directory.Exists(folderPhysicalPath))
+    {
+        Directory.CreateDirectory(folderPhysicalPath);
+    }
+
+    // Đăng ký phục vụ /{folderName} (ví dụ /Captures)
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(folderPhysicalPath),
+        RequestPath = $"/{folderName.TrimStart('/')}"
+    });
+
+    // Nếu tên thư mục có ký tự hoa, đăng ký thêm bản chữ thường để tương thích URL cả 2 dạng
+    var lower = folderName.ToLowerInvariant();
+    if (!string.Equals(folderName, lower, StringComparison.Ordinal))
+    {
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(folderPhysicalPath),
+            RequestPath = $"/{lower.TrimStart('/')}"
+        });
+    }
+}
+
 app.UseStaticFiles();
 
 // 6. Routing (Phân tích endpoint)

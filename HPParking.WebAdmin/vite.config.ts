@@ -20,7 +20,17 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/uploads': {
+      '/images': {
+        target: 'http://localhost:5051',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Captures': {
+        target: 'http://localhost:5051',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/Avatar': {
         target: 'http://localhost:5051',
         changeOrigin: true,
         secure: false,

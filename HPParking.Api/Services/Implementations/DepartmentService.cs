@@ -243,8 +243,10 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task<bool> DeleteDepartmentAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var department = await _departmentRepo.GetByIdAsync(id, cancellationToken);
-            if (department == null || department.IsDeleted)
+            var department = await _departmentRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _departmentRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (department == null)
             {
                 throw new NotFoundException("Không tìm thấy thông tin phòng ban cần xóa.", ErrorCodes.DEPARTMENT_NOT_FOUND);
             }

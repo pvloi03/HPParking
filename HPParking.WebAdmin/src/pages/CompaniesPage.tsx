@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Building2, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -24,7 +25,16 @@ export function CompaniesPage() {
   const pageSize = 15;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
-  const [isTrashMode, setIsTrashMode] = useState(false);
+
+  // State Checkbox selection & Bulk Delete
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+
+  // Tự động bỏ chọn checkbox khi đổi trang hoặc bộ lọc
+  useEffect(() => {
+    setSelectedRowIds([]);
+  }, [pageIndex, searchKeyword, statusFilter]);
 
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -57,7 +67,6 @@ export function CompaniesPage() {
       pageSize,
       searchKeyword,
       statusFilter,
-      isTrashMode,
     ],
     queryFn: () =>
       companiesApi.getPaged({
@@ -65,7 +74,6 @@ export function CompaniesPage() {
         pageSize,
         keyword: searchKeyword.trim() || undefined,
         isActive: statusFilter === 'all' ? undefined : statusFilter,
-        onlyDeleted: isTrashMode,
       }),
   });
 
@@ -111,17 +119,34 @@ export function CompaniesPage() {
     },
   });
 
-  // Mutation: Khôi phục công ty
-  const restoreMutation = useMutation({
-    mutationFn: (id: string) => companiesApi.restore(id),
-    onSuccess: (restored) => {
-      toast.success(`Đã khôi phục công ty "${restored.name}" thành công`);
+  // Xử lý thực thi xóa mềm hàng loạt qua checkbox (chuyển vào thùng rác)
+  const handleExecuteBulkDelete = async () => {
+    if (selectedRowIds.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedRowIds.map((id) => companiesApi.delete(id, false))
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      if (failed > 0) {
+        toast.warning(
+          `Đã chuyển ${succeeded}/${results.length} công ty vào thùng rác (${failed} bản ghi không thể xóa do có phòng ban, cổng hoặc khách hàng trực thuộc).`
+        );
+      } else {
+        toast.success(`Đã chuyển thành công ${succeeded} công ty vào thùng rác.`);
+      }
+      setSelectedRowIds([]);
+      setIsBulkDeleteOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['companies'] });
-    },
-    onError: (err) => {
+    } catch (err) {
       toast.error(extractErrorMessage(err));
-    },
-  });
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
+
+  // Mutation: Khôi phục công ty
 
   // Xử lý submit form
   const handleFormSubmit = async (
@@ -171,11 +196,10 @@ export function CompaniesPage() {
       cell: (item) => (
         <Badge
           variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${
-            item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-          }`}
+          className={`text-[11px] font-medium ${item.isActive
+            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
+            : 'bg-muted text-muted-foreground'
+            }`}
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
         </Badge>
@@ -233,11 +257,22 @@ export function CompaniesPage() {
           setStatusFilter(st);
           setPageIndex(1);
         }}
-        isTrashMode={isTrashMode}
-        onTrashModeToggle={() => {
-          setIsTrashMode(!isTrashMode);
-          setPageIndex(1);
-        }}
+        selectable={true}
+        selectedRowIds={selectedRowIds}
+        onSelectedRowIdsChange={setSelectedRowIds}
+        bulkActions={
+          <div className="flex items-center gap-1.5 ml-1">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+            </Button>
+          </div>
+        }
         onAddNew={() => {
           setSelectedCompany(null);
           setIsFormOpen(true);
@@ -254,16 +289,9 @@ export function CompaniesPage() {
           onDelete: (item) => {
             setDeleteCandidate(item);
           },
-          onRestore: (item) => {
-            restoreMutation.mutate(item.id);
-          },
         }}
-        emptyTitle={isTrashMode ? 'Thùng rác trống' : 'Không có công ty nào'}
-        emptyDescription={
-          isTrashMode
-            ? 'Hiện tại không có công ty nào nằm trong thùng rác.'
-            : 'Chưa có dữ liệu công ty hoặc không có bản ghi nào khớp với điều kiện tìm kiếm.'
-        }
+        emptyTitle="Không có công ty nào"
+        emptyDescription="Chưa có dữ liệu công ty hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
       />
 
       {/* Modal Form Thêm/Sửa */}
@@ -301,6 +329,21 @@ export function CompaniesPage() {
             deleteMutation.mutate(deleteCandidate.id);
           }
         }}
+      />
+
+      {/* Confirm Xóa Mềm Hàng Loạt Công Ty */}
+      <ConfirmDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
+        title="Xác Nhận Xóa Mềm Hàng Loạt"
+        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} công ty đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
+        confirmText={`Chuyển Vào Thùng Rác (${selectedRowIds.length})`}
+        cancelText="Hủy Bỏ"
+        variant="destructive"
+        isLoading={isBulkLoading}
+        icon={<Trash2 className="h-5 w-5 text-amber-600" />}
+        confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
+        onConfirm={handleExecuteBulkDelete}
       />
     </div>
   );

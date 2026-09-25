@@ -38,8 +38,31 @@ export interface ClientDto {
   updatedAt?: string;
 }
 
+export interface TerminalClientStatusDto {
+  deviceIp: string;
+  deviceName: string;
+  isOnline: boolean;
+  userExists: boolean;
+  hasFace: boolean;
+  cardCount: number;
+  cards: string[];
+  errorMessage?: string;
+  timestamp: string;
+}
+
+export interface ClientFaceIdStatusResponse {
+  clientId: string;
+  clientCode: string;
+  clientName: string;
+  totalDevices: number;
+  onlineDevices: number;
+  enrolledFaceDevices: number;
+  terminals: TerminalClientStatusDto[];
+}
+
 export interface ClientDetailDto extends ClientDto {
   vehicles: VehicleDto[];
+  faceIdTerminals?: TerminalClientStatusDto[];
 }
 
 export interface ClientFilterQuery extends PaginationQuery {

@@ -3,10 +3,12 @@ import { apiClient } from './client';
 import type { ApiResponse, PagedResult } from '@/types/masterData';
 import type {
   ClientDto,
+  ClientDetailDto,
   ClientFilterQuery,
   CreateClientRequest,
   UpdateClientRequest,
   SyncFaceIdResponse,
+  ClientFaceIdStatusResponse,
 } from '@/types/client';
 
 /**
@@ -35,6 +37,9 @@ export function extractErrorMessage(error: unknown): string {
       }
       if (data.message.includes('FACEID_SYNC_FAILED')) {
         return 'Đồng bộ khuôn mặt lên thiết bị FaceID thất bại. Vui lòng kiểm tra kết nối mạng của thiết bị ngoại vi.';
+      }
+      if (data.message.includes('FACEID_IMAGE_REJECTED')) {
+        return 'Ảnh khuôn mặt không đạt tiêu chuẩn của thiết bị FaceID (ảnh mờ hoặc không nhận diện rõ). Vui lòng chọn ảnh khác.';
       }
       if (data.message.includes('PARENT_IS_DELETED')) {
         return 'Không thể khôi phục vì đơn vị trực thuộc (công ty/phòng ban) đang nằm trong thùng rác.';
@@ -84,13 +89,13 @@ export const clientApi = {
     return response.data.data;
   },
 
-  create: async (payload: CreateClientRequest): Promise<ClientDto> => {
-    const response = await apiClient.post<ApiResponse<ClientDto>>('/v1/clients', payload);
+  create: async (payload: CreateClientRequest): Promise<ClientDetailDto> => {
+    const response = await apiClient.post<ApiResponse<ClientDetailDto>>('/v1/clients', payload);
     return response.data.data;
   },
 
-  update: async (id: string, payload: UpdateClientRequest): Promise<ClientDto> => {
-    const response = await apiClient.put<ApiResponse<ClientDto>>(`/v1/clients/${id}`, payload);
+  update: async (id: string, payload: UpdateClientRequest): Promise<ClientDetailDto> => {
+    const response = await apiClient.put<ApiResponse<ClientDetailDto>>(`/v1/clients/${id}`, payload);
     return response.data.data;
   },
 
@@ -124,6 +129,13 @@ export const clientApi = {
   syncFaceId: async (id: string): Promise<SyncFaceIdResponse> => {
     const response = await apiClient.post<ApiResponse<SyncFaceIdResponse>>(
       `/v1/clients/${id}/sync-faceid`
+    );
+    return response.data.data;
+  },
+
+  checkFaceIdStatus: async (id: string): Promise<ClientFaceIdStatusResponse> => {
+    const response = await apiClient.get<ApiResponse<ClientFaceIdStatusResponse>>(
+      `/v1/clients/${id}/faceid-status`
     );
     return response.data.data;
   },

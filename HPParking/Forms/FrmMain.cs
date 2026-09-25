@@ -440,16 +440,7 @@ namespace HPParking.Forms
                 oldPlate?.Dispose();
 
                 // Cập nhật ảnh Avatar: hiển thị ảnh avatar của Client nếu có, ngược lại xóa trắng để tránh dính ảnh lượt trước
-                var oldAvatar = ui.PicAvatar.Image;
-                if (result.Client != null && !string.IsNullOrWhiteSpace(result.Client.Avatar) && System.IO.File.Exists(result.Client.Avatar))
-                {
-                    ui.PicAvatar.Image = LoadBitmapWithoutLock(result.Client.Avatar);
-                }
-                else
-                {
-                    ui.PicAvatar.Image = null;
-                }
-                oldAvatar?.Dispose();
+                ImageHelper.SetAvatar(ui.PicAvatar, result.Client?.Avatar);
             }
             catch (Exception ex)
             {
@@ -463,17 +454,7 @@ namespace HPParking.Forms
 
         private static Bitmap? LoadBitmapWithoutLock(string? filePath)
         {
-            if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath)) return null;
-            try
-            {
-                using var stream = new System.IO.FileStream(filePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
-                using var original = Image.FromStream(stream);
-                return new Bitmap(original);
-            }
-            catch
-            {
-                return null;
-            }
+            return ImageHelper.LoadBitmapWithoutLock(filePath);
         }
 
         private void BindLaneUI()

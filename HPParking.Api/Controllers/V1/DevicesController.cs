@@ -129,5 +129,20 @@ namespace HPParking.Api.Controllers.V1
             var restored = await _deviceService.RestoreDeviceAsync(id);
             return OkApiResponse(restored, "Khôi phục thiết bị thành công.");
         }
+
+        /// <summary>
+        /// Ping nhanh kiểm tra trạng thái sống/chết (Online/Offline) của một thiết bị bất kỳ (Camera, Access Controller, FaceID...) theo địa chỉ IP
+        /// </summary>
+        [HttpGet("ping")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<DevicePingResultDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> PingDevice([FromQuery] string ip, [FromQuery] int timeoutMs = 2000)
+        {
+            var result = await _deviceService.PingDeviceIpAsync(ip, timeoutMs);
+            return OkApiResponse(result, result.Message);
+        }
     }
 }

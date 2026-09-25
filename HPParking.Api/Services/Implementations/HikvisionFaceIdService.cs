@@ -1,8 +1,11 @@
+using HPParking.Api.Common.Helpers;
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.Services.Interfaces;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -47,21 +50,23 @@ namespace HPParking.Api.Services.Implementations
                 if (!userOk)
                 {
                     result.IsSuccess = false;
-                    result.ErrorMessage = $"Lỗi tạo hồ sơ người dùng trên thiết bị: {userErr}";
+                    result.ErrorMessage = FaceIdErrorFormatter.Format(userErr ?? "Lỗi tạo hồ sơ người dùng trên thiết bị", terminal.DeviceIp);
                     _logger.LogWarning("Nạp User thất bại [{DeviceIp}]: {Error}", terminal.DeviceIp, result.ErrorMessage);
                     return result;
                 }
 
-                // 2. Gán Thẻ CardInfo (CardNo = PhoneNumber)
-                var (cardOk, cardErr) = await AssignCardAsync(client, employeeNo, phoneNumber, cancellationToken);
-                if (!cardOk)
+                // 2. Gán Thẻ CardInfo (tự động dọn thẻ cũ và gán thẻ mới)
+                if (!string.IsNullOrWhiteSpace(phoneNumber))
                 {
-                    // Compensation: Rollback User nếu gán thẻ thất bại
-                    await RollbackUserAsync(client, employeeNo);
-                    result.IsSuccess = false;
-                    result.ErrorMessage = $"Lỗi gán thẻ (SĐT) cho người dùng: {cardErr}";
-                    _logger.LogWarning("Gán Thẻ thất bại [{DeviceIp}]: {Error}", terminal.DeviceIp, result.ErrorMessage);
-                    return result;
+                    var cleanCardResult = await CleanAndAssignCardInternalAsync(client, terminal, employeeNo, phoneNumber, cancellationToken);
+                    if (!cleanCardResult.IsSuccess)
+                    {
+                        // Tuyệt đối không xóa User của khách hàng (No rollback), chỉ ghi nhận lỗi cho bước này
+                        result.IsSuccess = false;
+                        result.ErrorMessage = cleanCardResult.ErrorMessage;
+                        _logger.LogWarning("Gán Thẻ thất bại [{DeviceIp}]: {Error}", terminal.DeviceIp, result.ErrorMessage);
+                        return result;
+                    }
                 }
 
                 // 3. Nạp ảnh khuôn mặt (nếu có)
@@ -70,10 +75,9 @@ namespace HPParking.Api.Services.Implementations
                     var (faceOk, faceErr) = await UpsertFaceImageAsync(client, employeeNo, faceImageBytes, cancellationToken);
                     if (!faceOk)
                     {
-                        // Compensation: Rollback User nếu nạp ảnh khuôn mặt thất bại
-                        await RollbackUserAsync(client, employeeNo);
+                        // Tuyệt đối không xóa User của khách hàng (No rollback), bảo toàn thẻ và hồ sơ đã nạp
                         result.IsSuccess = false;
-                        result.ErrorMessage = $"Lỗi nạp ảnh khuôn mặt lên thiết bị: {faceErr}";
+                        result.ErrorMessage = FaceIdErrorFormatter.Format(faceErr ?? "Lỗi nạp ảnh khuôn mặt lên thiết bị", terminal.DeviceIp);
                         _logger.LogWarning("Nạp Face thất bại [{DeviceIp}]: {Error}", terminal.DeviceIp, result.ErrorMessage);
                         return result;
                     }
@@ -87,7 +91,7 @@ namespace HPParking.Api.Services.Implementations
             {
                 _logger.LogError(ex, "Ngoại lệ kết nối tới đầu đọc FaceID [{DeviceIp}]: {Message}", terminal.DeviceIp, ex.Message);
                 result.IsSuccess = false;
-                result.ErrorMessage = $"Lỗi kết nối tới thiết bị ({terminal.DeviceIp}): {ex.Message}";
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
                 return result;
             }
         }
@@ -109,26 +113,16 @@ namespace HPParking.Api.Services.Implementations
             {
                 var client = GetOrCreateHttpClient(terminal);
 
-                // Bước 1: Xóa Thẻ (CardInfo) để giải phóng chỉ mục duy nhất PhoneNumber
-                if (!string.IsNullOrWhiteSpace(phoneNumber))
+                // Bước 1: Xóa toàn bộ Thẻ (CardInfo) của User
+                var userCards = await SearchUserCardsAsync(client, employeeNo, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(phoneNumber) && !userCards.Contains(phoneNumber))
                 {
-                    var deleteCardPayload = new
-                    {
-                        CardInfoDelCond = new
-                        {
-                            CardNoList = new[]
-                            {
-                                new { cardNo = phoneNumber }
-                            }
-                        }
-                    };
+                    userCards.Add(phoneNumber);
+                }
 
-                    using var cardContent = new StringContent(
-                        JsonSerializer.Serialize(deleteCardPayload),
-                        Encoding.UTF8,
-                        "application/json");
-
-                    await client.PutAsync("/ISAPI/AccessControl/CardInfo/Delete?format=json", cardContent, cancellationToken);
+                if (userCards.Count > 0)
+                {
+                    await DeleteCardsInternalAsync(client, userCards, cancellationToken);
                 }
 
                 // Bước 2: Xóa Người dùng (UserInfo) -> Thiết bị tự động cascade xóa vector khuôn mặt
@@ -166,7 +160,7 @@ namespace HPParking.Api.Services.Implementations
             {
                 _logger.LogError(ex, "Lỗi khi xóa người dùng trên FaceID [{DeviceIp}]: {Message}", terminal.DeviceIp, ex.Message);
                 result.IsSuccess = false;
-                result.ErrorMessage = $"Lỗi kết nối tới thiết bị ({terminal.DeviceIp}): {ex.Message}";
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
                 return result;
             }
         }
@@ -183,6 +177,386 @@ namespace HPParking.Api.Services.Implementations
             {
                 _logger.LogDebug("Ping FaceID [{DeviceIp}] thất bại: {Message}", terminal.DeviceIp, ex.Message);
                 return false;
+            }
+        }
+
+        public async Task<bool> PingFastAsync(string deviceIp, int timeoutMs = 600, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(deviceIp)) return false;
+            var cleanIp = deviceIp.Trim();
+            if (cleanIp.Contains(':')) cleanIp = cleanIp.Split(':')[0];
+            if (cleanIp.Contains('/')) cleanIp = cleanIp.Split('/')[0];
+
+            try
+            {
+                using var ping = new Ping();
+                var reply = await ping.SendPingAsync(cleanIp, timeoutMs);
+                if (reply.Status == IPStatus.Success)
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Fallback thử TCP socket connect cổng 443
+            }
+
+            try
+            {
+                using var tcpClient = new TcpClient();
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(timeoutMs);
+                await tcpClient.ConnectAsync(cleanIp, 443, cts.Token);
+                return tcpClient.Connected;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public async Task<TerminalClientStatusDto> CheckUserStatusAsync(
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            CancellationToken cancellationToken = default)
+        {
+            var status = new TerminalClientStatusDto
+            {
+                DeviceIp = terminal.DeviceIp,
+                DeviceName = terminal.DeviceName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            try
+            {
+                // 1. Ping nhanh trước
+                bool isAlive = await PingFastAsync(terminal.DeviceIp, 600, cancellationToken);
+                if (!isAlive)
+                {
+                    status.IsOnline = false;
+                    status.ErrorMessage = "Thiết bị mất kết nối mạng LAN (Không phản hồi Ping)";
+                    return status;
+                }
+
+                status.IsOnline = true;
+                var client = GetOrCreateHttpClient(terminal);
+
+                // 2. Tìm kiếm UserInfo
+                var searchPayload = new
+                {
+                    UserInfoSearchCond = new
+                    {
+                        searchID = "1",
+                        searchResultPosition = 0,
+                        maxResults = 1,
+                        EmployeeNoList = new[]
+                        {
+                            new { employeeNo }
+                        }
+                    }
+                };
+
+                using var searchContent = new StringContent(
+                    JsonSerializer.Serialize(searchPayload),
+                    Encoding.UTF8,
+                    "application/json");
+
+                var response = await client.PostAsync("/ISAPI/AccessControl/UserInfo/Search?format=json", searchContent, cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    status.ErrorMessage = $"Lỗi truy vấn thiết bị: HTTP {(int)response.StatusCode}";
+                    return status;
+                }
+
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("UserInfoSearch", out var userInfoSearch))
+                {
+                    int matches = 0;
+                    if (userInfoSearch.TryGetProperty("numOfMatches", out var matchesProp))
+                    {
+                        matches = matchesProp.GetInt32();
+                    }
+
+                    if (matches > 0 && userInfoSearch.TryGetProperty("UserInfo", out var userInfoArray) && userInfoArray.GetArrayLength() > 0)
+                    {
+                        var userElem = userInfoArray[0];
+                        status.UserExists = true;
+
+                        if (userElem.TryGetProperty("numOfFace", out var numFaceProp))
+                        {
+                            status.HasFace = numFaceProp.GetInt32() > 0;
+                        }
+
+                        if (userElem.TryGetProperty("numOfCard", out var numCardProp))
+                        {
+                            status.CardCount = numCardProp.GetInt32();
+                        }
+                    }
+                }
+
+                // 3. Nếu User tồn tại, truy vấn thêm danh sách thẻ qua CardInfo/Search
+                if (status.UserExists)
+                {
+                    var cards = await SearchUserCardsAsync(client, employeeNo, cancellationToken);
+                    status.Cards = cards;
+                    if (status.Cards.Count > 0)
+                    {
+                        status.CardCount = status.Cards.Count;
+                    }
+                }
+
+                return status;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi kiểm tra trạng thái FaceID [{DeviceIp}] cho {EmployeeNo}: {Msg}", terminal.DeviceIp, employeeNo, ex.Message);
+                status.IsOnline = false;
+                status.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
+                return status;
+            }
+        }
+
+        public async Task<FaceIdTerminalResultDto> CleanAndAssignCardAsync(
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            string newCardNumber,
+            CancellationToken cancellationToken = default)
+        {
+            var client = GetOrCreateHttpClient(terminal);
+            return await CleanAndAssignCardInternalAsync(client, terminal, employeeNo, newCardNumber, cancellationToken);
+        }
+
+        private async Task<FaceIdTerminalResultDto> CleanAndAssignCardInternalAsync(
+            HttpClient client,
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            string newCardNumber,
+            CancellationToken cancellationToken)
+        {
+            var result = new FaceIdTerminalResultDto
+            {
+                DeviceIp = terminal.DeviceIp,
+                DeviceName = terminal.DeviceName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            try
+            {
+                // 1. Quét tìm tất cả các thẻ đang có của employeeNo trên đầu đọc
+                var existingCards = await SearchUserCardsAsync(client, employeeNo, cancellationToken);
+
+                // 2. Tìm các thẻ cũ khác với thẻ mới để xóa sạch (Self-Healing)
+                var cardsToDelete = existingCards
+                    .Where(c => !string.Equals(c, newCardNumber, StringComparison.OrdinalIgnoreCase))
+                    .Distinct()
+                    .ToList();
+
+                if (cardsToDelete.Count > 0)
+                {
+                    await DeleteCardsInternalAsync(client, cardsToDelete, cancellationToken);
+                    _logger.LogInformation("Đã tự động dọn {Count} thẻ cũ ({Cards}) của {EmployeeNo} trên đầu đọc [{DeviceIp}].",
+                        cardsToDelete.Count, string.Join(", ", cardsToDelete), employeeNo, terminal.DeviceIp);
+                }
+
+                // 3. Gán thẻ mới
+                if (!string.IsNullOrWhiteSpace(newCardNumber))
+                {
+                    var (assignOk, assignErr) = await AssignCardAsync(client, employeeNo, newCardNumber, cancellationToken);
+                    if (!assignOk)
+                    {
+                        result.IsSuccess = false;
+                        result.ErrorMessage = FaceIdErrorFormatter.Format(assignErr ?? "Lỗi gán thẻ mới", terminal.DeviceIp);
+                        return result;
+                    }
+                }
+
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi CleanAndAssignCard trên [{DeviceIp}]: {Msg}", terminal.DeviceIp, ex.Message);
+                result.IsSuccess = false;
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
+                return result;
+            }
+        }
+
+        public async Task<FaceIdTerminalResultDto> DeleteCardAsync(
+            FaceIdTerminalConfig terminal,
+            string cardNumber,
+            CancellationToken cancellationToken = default)
+        {
+            var result = new FaceIdTerminalResultDto
+            {
+                DeviceIp = terminal.DeviceIp,
+                DeviceName = terminal.DeviceName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            if (string.IsNullOrWhiteSpace(cardNumber))
+            {
+                result.IsSuccess = true;
+                return result;
+            }
+
+            try
+            {
+                var client = GetOrCreateHttpClient(terminal);
+                await DeleteCardsInternalAsync(client, new List<string> { cardNumber }, cancellationToken);
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi xóa thẻ {Card} trên [{DeviceIp}]: {Msg}", cardNumber, terminal.DeviceIp, ex.Message);
+                result.IsSuccess = false;
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
+                return result;
+            }
+        }
+
+        public async Task<FaceIdTerminalResultDto> UpdateUserInfoAsync(
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            string name,
+            bool isMale,
+            CancellationToken cancellationToken = default)
+        {
+            var result = new FaceIdTerminalResultDto
+            {
+                DeviceIp = terminal.DeviceIp,
+                DeviceName = terminal.DeviceName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            try
+            {
+                var client = GetOrCreateHttpClient(terminal);
+                var (ok, err) = await UpsertUserAsync(client, employeeNo, name, isMale, cancellationToken);
+                result.IsSuccess = ok;
+                if (!ok)
+                {
+                    result.ErrorMessage = FaceIdErrorFormatter.Format(err ?? "Lỗi cập nhật User", terminal.DeviceIp);
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.IsSuccess = false;
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
+                return result;
+            }
+        }
+
+        public async Task<FaceIdTerminalResultDto> UpdateFaceImageAsync(
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            byte[] faceImageBytes,
+            CancellationToken cancellationToken = default)
+        {
+            var result = new FaceIdTerminalResultDto
+            {
+                DeviceIp = terminal.DeviceIp,
+                DeviceName = terminal.DeviceName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            try
+            {
+                var client = GetOrCreateHttpClient(terminal);
+                var (ok, err) = await UpsertFaceImageAsync(client, employeeNo, faceImageBytes, cancellationToken);
+                result.IsSuccess = ok;
+                if (!ok)
+                {
+                    result.ErrorMessage = FaceIdErrorFormatter.Format(err ?? "Lỗi cập nhật ảnh khuôn mặt", terminal.DeviceIp);
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.IsSuccess = false;
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
+                return result;
+            }
+        }
+
+        private async Task<List<string>> SearchUserCardsAsync(HttpClient client, string employeeNo, CancellationToken cancellationToken)
+        {
+            var cards = new List<string>();
+            try
+            {
+                var cardSearchPayload = new
+                {
+                    CardInfoSearchCond = new
+                    {
+                        searchID = "1",
+                        searchResultPosition = 0,
+                        maxResults = 30,
+                        EmployeeNoList = new[]
+                        {
+                            new { employeeNo }
+                        }
+                    }
+                };
+
+                using var content = new StringContent(
+                    JsonSerializer.Serialize(cardSearchPayload),
+                    Encoding.UTF8,
+                    "application/json");
+
+                var response = await client.PostAsync("/ISAPI/AccessControl/CardInfo/Search?format=json", content, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync(cancellationToken);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("CardInfoSearch", out var cardSearch) &&
+                        cardSearch.TryGetProperty("CardInfo", out var cardArray))
+                    {
+                        foreach (var cardItem in cardArray.EnumerateArray())
+                        {
+                            if (cardItem.TryGetProperty("cardNo", out var cardNoProp))
+                            {
+                                var cardNo = cardNoProp.GetString();
+                                if (!string.IsNullOrWhiteSpace(cardNo))
+                                {
+                                    cards.Add(cardNo);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Lỗi truy vấn thẻ của {EmployeeNo}: {Msg}", employeeNo, ex.Message);
+            }
+            return cards;
+        }
+
+        private async Task DeleteCardsInternalAsync(HttpClient client, List<string> cardNumbers, CancellationToken cancellationToken)
+        {
+            if (cardNumbers == null || cardNumbers.Count == 0) return;
+
+            var deleteCardPayload = new
+            {
+                CardInfoDelCond = new
+                {
+                    CardNoList = cardNumbers.Select(c => new { cardNo = c }).ToArray()
+                }
+            };
+
+            using var cardContent = new StringContent(
+                JsonSerializer.Serialize(deleteCardPayload),
+                Encoding.UTF8,
+                "application/json");
+
+            var response = await client.PutAsync("/ISAPI/AccessControl/CardInfo/Delete?format=json", cardContent, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogWarning("Xóa danh sách thẻ thất bại: HTTP {Status}: {Body}", response.StatusCode, body);
             }
         }
 
@@ -265,6 +639,7 @@ namespace HPParking.Api.Services.Implementations
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             if (body.Contains("cardAlreadyExist", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("cardNoAlreadyExist", StringComparison.OrdinalIgnoreCase) ||
                 body.Contains("cardNoConflict", StringComparison.OrdinalIgnoreCase))
             {
                 // Thẻ đã được gán trước đó, chấp nhận hợp lệ
@@ -333,37 +708,9 @@ namespace HPParking.Api.Services.Implementations
                 return (true, null);
             }
 
-            var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            return (false, $"HTTP {(int)response.StatusCode}: {errBody}");
-        }
-
-        private async Task RollbackUserAsync(HttpClient client, string employeeNo)
-        {
-            try
-            {
-                var deleteUserPayload = new
-                {
-                    UserInfoDelCond = new
-                    {
-                        EmployeeNoList = new[]
-                        {
-                            new { employeeNo }
-                        }
-                    }
-                };
-
-                using var content = new StringContent(
-                    JsonSerializer.Serialize(deleteUserPayload),
-                    Encoding.UTF8,
-                    "application/json");
-
-                await client.PutAsync("/ISAPI/AccessControl/UserInfo/Delete?format=json", content);
-                _logger.LogInformation("Đã kích hoạt rollback User {EmployeeNo} trên thiết bị FaceID.", employeeNo);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Rollback User {EmployeeNo} thất bại: {Message}", employeeNo, ex.Message);
-            }
+            // Sửa lỗi: Đọc lỗi chính xác từ updateResponse thay vì response của lệnh POST
+            var errBody = await updateResponse.Content.ReadAsStringAsync(cancellationToken);
+            return (false, $"HTTP {(int)updateResponse.StatusCode}: {errBody}");
         }
 
         private HttpClient GetOrCreateHttpClient(FaceIdTerminalConfig terminal)

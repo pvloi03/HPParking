@@ -114,6 +114,13 @@ export interface UpdateDeviceRequest {
   isActive: boolean;
 }
 
+export interface DevicePingResultDto {
+  ipAddress: string;
+  isAlive: boolean;
+  roundtripTimeMs: number;
+  status: string;
+}
+
 // =================== LANES ===================
 
 export interface LaneDto {

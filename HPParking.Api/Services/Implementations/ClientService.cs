@@ -116,7 +116,49 @@ namespace HPParking.Api.Services.Implementations
 
             var detailDto = client.Adapt<ClientDetailDto>();
             detailDto.Vehicles = vehicleDtos;
+
+            // Kiểm tra live trạng thái FaceID của khách hàng trên các làn xe đang hoạt động
+            var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+            if (terminals.Count > 0)
+            {
+                var tasks = terminals.Select(t => _faceIdService.CheckUserStatusAsync(t, client.Code, cancellationToken));
+                var statuses = await Task.WhenAll(tasks);
+                detailDto.FaceIdTerminals = [.. statuses];
+            }
+
             return detailDto;
+        }
+
+        public async Task<ClientFaceIdStatusResponse> CheckFaceIdStatusAsync(string id, CancellationToken cancellationToken = default)
+        {
+            var client = await _clientRepo.GetByIdAsync(id, cancellationToken);
+            if (client == null || client.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin khách hàng.", ErrorCodes.CLIENT_NOT_FOUND);
+            }
+
+            var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+            var response = new ClientFaceIdStatusResponse
+            {
+                ClientId = client.Id,
+                ClientCode = client.Code,
+                ClientName = client.Name,
+                TotalDevices = terminals.Count
+            };
+
+            if (terminals.Count == 0)
+            {
+                return response;
+            }
+
+            var tasks = terminals.Select(t => _faceIdService.CheckUserStatusAsync(t, client.Code, cancellationToken));
+            var statuses = await Task.WhenAll(tasks);
+
+            response.Terminals = [.. statuses];
+            response.OnlineDevices = statuses.Count(s => s.IsOnline);
+            response.EnrolledFaceDevices = statuses.Count(s => s.HasFace);
+
+            return response;
         }
 
         public async Task<ClientDetailDto> CreateClientAsync(CreateClientRequest request, CancellationToken cancellationToken = default)
@@ -232,10 +274,48 @@ namespace HPParking.Api.Services.Implementations
 
             var detailDto = client.Adapt<ClientDetailDto>();
             detailDto.Vehicles = vehicleDtos;
+
+            // 6. Tự động nạp thông tin Khách hàng (User & Thẻ) lên toàn bộ FaceID active
+            try
+            {
+                var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                if (terminals.Count > 0)
+                {
+                    var pushResults = await ExecuteParallelFaceIdActionAsync(
+                        terminals,
+                        t => _faceIdService.PushUserAsync(
+                            t,
+                            client.Code,
+                            client.Name,
+                            client.Gender == 1,
+                            client.PhoneNumber,
+                            null,
+                            cancellationToken),
+                        cancellationToken);
+
+                    detailDto.FaceIdTerminals = pushResults.Select(r => new TerminalClientStatusDto
+                    {
+                        DeviceIp = r.DeviceIp,
+                        DeviceName = r.DeviceName,
+                        IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
+                        UserExists = r.IsSuccess,
+                        HasFace = false,
+                        CardCount = r.IsSuccess ? 1 : 0,
+                        Cards = r.IsSuccess ? new List<string> { client.PhoneNumber } : new(),
+                        ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
+                        Timestamp = r.Timestamp
+                    }).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi nạp FaceID tự động khi tạo khách hàng {Id}: {Message}", client.Id, ex.Message);
+            }
+
             return detailDto;
         }
 
-        public async Task<ClientDto> UpdateClientAsync(string id, UpdateClientRequest request, CancellationToken cancellationToken = default)
+        public async Task<ClientDetailDto> UpdateClientAsync(string id, UpdateClientRequest request, CancellationToken cancellationToken = default)
         {
             var client = await _clientRepo.GetByIdAsync(id, cancellationToken);
             if (client == null || client.IsDeleted)
@@ -287,6 +367,12 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            var oldCode = client.Code;
+            var oldPhone = client.PhoneNumber;
+            var isCodeChanged = !string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase);
+            var isPhoneChanged = !string.Equals(client.PhoneNumber, cleanPhone, StringComparison.OrdinalIgnoreCase);
+            var isNameOrGenderChanged = !string.Equals(client.Name, request.Name.Trim(), StringComparison.Ordinal) || client.Gender != request.Gender;
+
             client.Code = cleanCode;
             client.Name = request.Name.Trim();
             client.BirthDay = request.BirthDay;
@@ -306,13 +392,119 @@ namespace HPParking.Api.Services.Implementations
             await _clientRepo.UpdateAsync(client, cancellationToken);
             _logger.LogInformation("Đã cập nhật khách hàng ID {Id}: {Name}", id, client.Name);
 
-            return client.Adapt<ClientDto>();
+            var detailDto = client.Adapt<ClientDetailDto>();
+            var vehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == id && !v.IsDeleted, cancellationToken);
+            detailDto.Vehicles = vehicles.Adapt<List<VehicleDto>>();
+
+            // Tự động đồng bộ các thay đổi lên các FaceID active song song
+            try
+            {
+                var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                if (terminals.Count > 0)
+                {
+                    List<FaceIdTerminalResultDto> faceResults = new();
+                    if (isCodeChanged)
+                    {
+                        // 1. Đổi CCCD/Code: Vì employeeNo là khóa chính trên FaceID không thể sửa đổi,
+                        // ta xóa User cũ và nạp lại User mới (kèm Avatar nếu có)
+                        byte[]? faceBytes = null;
+                        if (!string.IsNullOrWhiteSpace(client.Avatar))
+                        {
+                            try
+                            {
+                                faceBytes = await _fileStorage.ReadFileBytesAsync(client.Avatar, cancellationToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Không đọc được tệp ảnh đại diện của khách hàng {Id}: {Message}", id, ex.Message);
+                            }
+                        }
+
+                        faceResults = await ExecuteParallelFaceIdActionAsync(
+                            terminals,
+                            async t =>
+                            {
+                                await _faceIdService.DeleteUserAsync(t, oldCode, oldPhone, cancellationToken);
+                                return await _faceIdService.PushUserAsync(
+                                    t,
+                                    client.Code,
+                                    client.Name,
+                                    client.Gender == 1,
+                                    client.PhoneNumber,
+                                    faceBytes,
+                                    cancellationToken);
+                            },
+                            cancellationToken);
+                    }
+                    else if (isPhoneChanged || isNameOrGenderChanged)
+                    {
+                        // 2. Không đổi CCCD:
+                        // - Nếu đổi SĐT: Self-Healing quét sạch thẻ cũ và gán thẻ mới
+                        // - Nếu đổi Tên hoặc Giới tính: Cập nhật UserInfo
+                        faceResults = await ExecuteParallelFaceIdActionAsync(
+                            terminals,
+                            async t =>
+                            {
+                                if (isPhoneChanged)
+                                {
+                                    var cardRes = await _faceIdService.CleanAndAssignCardAsync(t, client.Code, client.PhoneNumber, cancellationToken);
+                                    if (!cardRes.IsSuccess) return cardRes;
+                                }
+
+                                if (isNameOrGenderChanged)
+                                {
+                                    return await _faceIdService.UpdateUserInfoAsync(t, client.Code, client.Name, client.Gender == 1, cancellationToken);
+                                }
+
+                                return new FaceIdTerminalResultDto
+                                {
+                                    DeviceIp = t.DeviceIp,
+                                    DeviceName = t.DeviceName,
+                                    IsSuccess = true
+                                };
+                            },
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        // 3. Không đổi các trường ảnh hưởng FaceID (chỉ đổi địa chỉ, email, ghi chú...):
+                        // Truy vấn nhanh trạng thái hiện tại để trả về thông tin đầy đủ cho client
+                        var statusTasks = terminals.Select(t => _faceIdService.CheckUserStatusAsync(t, client.Code, cancellationToken));
+                        var statuses = await Task.WhenAll(statusTasks);
+                        detailDto.FaceIdTerminals = [.. statuses];
+                    }
+
+                    if (faceResults.Count > 0)
+                    {
+                        detailDto.FaceIdTerminals = [.. faceResults.Select(r => new TerminalClientStatusDto
+                        {
+                            DeviceIp = r.DeviceIp,
+                            DeviceName = r.DeviceName,
+                            IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
+                            UserExists = r.IsSuccess,
+                            HasFace = false,
+                            CardCount = r.IsSuccess ? 1 : 0,
+                            Cards = r.IsSuccess ? new List<string> { client.PhoneNumber } : new(),
+                            ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
+                            Timestamp = r.Timestamp
+                        })];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi đồng bộ FaceID khi cập nhật khách hàng {Id}: {Message}", id, ex.Message);
+            }
+
+            return detailDto;
         }
 
         public async Task<bool> DeleteClientAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
         {
-            var client = await _clientRepo.GetByIdAsync(id, cancellationToken);
-            if (client == null || (!hardDelete && client.IsDeleted))
+            var client = await _clientRepo.GetByIdAsync(id, cancellationToken)
+                ?? (hardDelete ? await _clientRepo.GetDeletedByIdAsync(id, cancellationToken) : null);
+
+            if (client == null)
             {
                 throw new NotFoundException("Không tìm thấy khách hàng cần xóa.", ErrorCodes.CLIENT_NOT_FOUND);
             }
@@ -350,7 +542,11 @@ namespace HPParking.Api.Services.Implementations
             // 4. Phát lệnh thu hồi (Delete Card & Delete User) trên toàn bộ FaceID active
             // =========================================================================
             var deletedVehicles = await _vehicleRepo.FindAsync(
-                v => v.OwnerClientId == id,
+                MongoDB.Driver.Builders<Vehicle>.Filter.Eq(v => v.OwnerClientId, id),
+                sort: null,
+                skip: 0,
+                limit: 0,
+                onlyDeleted: true,
                 cancellationToken);
 
             await _clientRepo.DeleteAsync(id, softDelete: false, cancellationToken);
@@ -365,13 +561,16 @@ namespace HPParking.Api.Services.Implementations
                 await _fileStorage.DeleteFileAsync(client.Avatar, cancellationToken);
             }
 
-            // Thu hồi FaceID trên các thiết bị active
+            // Thu hồi FaceID trên các thiết bị active song song qua Task.WhenAll
             try
             {
                 var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
-                foreach (var terminal in terminals)
+                if (terminals.Count > 0)
                 {
-                    await _faceIdService.DeleteUserAsync(terminal, client.Code, client.PhoneNumber, cancellationToken);
+                    await ExecuteParallelFaceIdActionAsync(
+                        terminals,
+                        t => _faceIdService.DeleteUserAsync(t, client.Code, client.PhoneNumber, cancellationToken),
+                        cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -488,6 +687,49 @@ namespace HPParking.Api.Services.Implementations
             await _clientRepo.UpdateAsync(client, cancellationToken);
             _logger.LogInformation("Đã cập nhật Avatar cho khách hàng {Id} ({Name}) -> {AvatarUrl}", id, client.Name, avatarUrl);
 
+            // Tự động đẩy Avatar mới lên toàn bộ FaceID active song song
+            try
+            {
+                var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                if (terminals.Count > 0)
+                {
+                    var imageBytes = await _fileStorage.ReadFileBytesAsync(avatarUrl, cancellationToken);
+                    var results = await ExecuteParallelFaceIdActionAsync(
+                        terminals,
+                        t => _faceIdService.UpdateFaceImageAsync(t, client.Code, imageBytes, cancellationToken),
+                        cancellationToken);
+
+                    // Kiểm tra xem có thiết bị nào từ chối ảnh do chất lượng khuôn mặt không
+                    var qualityError = results.FirstOrDefault(r => !r.IsSuccess &&
+                        (r.ErrorMessage?.Contains("không đạt chuẩn") == true ||
+                         r.ErrorMessage?.Contains("khuôn mặt") == true));
+
+                    if (qualityError != null)
+                    {
+                        // Rollback ảnh vừa upload để tránh ảnh rác trên đĩa và trong DB
+                        try
+                        {
+                            await _fileStorage.DeleteFileAsync(avatarUrl, cancellationToken);
+                            client.Avatar = string.Empty;
+                            await _clientRepo.UpdateAsync(client, cancellationToken);
+                        }
+                        catch { }
+
+                        throw new BadRequestException(
+                            qualityError.ErrorMessage ?? "Ảnh khuôn mặt không đạt tiêu chuẩn của thiết bị FaceID (ảnh mờ hoặc không nhận diện rõ). Vui lòng chọn ảnh khác.",
+                            ErrorCodes.FACEID_IMAGE_REJECTED);
+                    }
+                }
+            }
+            catch (BadRequestException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi đẩy avatar lên FaceID cho khách hàng {Id}: {Message}", id, ex.Message);
+            }
+
             return avatarUrl;
         }
 
@@ -552,33 +794,76 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            foreach (var terminal in terminals)
-            {
-                var result = await _faceIdService.PushUserAsync(
-                    terminal,
+            var results = await ExecuteParallelFaceIdActionAsync(
+                terminals,
+                t => _faceIdService.PushUserAsync(
+                    t,
                     client.Code,
                     client.Name,
                     client.Gender == 1,
                     client.PhoneNumber,
                     faceBytes,
-                    cancellationToken);
+                    cancellationToken),
+                cancellationToken);
 
-                response.Results.Add(result);
-                if (result.IsSuccess)
-                {
-                    response.SuccessCount++;
-                }
-                else
-                {
-                    response.FailureCount++;
-                }
-            }
+            response.Results = results;
+            response.SuccessCount = results.Count(r => r.IsSuccess);
+            response.FailureCount = results.Count(r => !r.IsSuccess);
 
             _logger.LogInformation(
                 "Đồng bộ FaceID cho khách hàng {Name} hoàn tất: {Success}/{Total} thiết bị thành công.",
                 client.Name, response.SuccessCount, response.TotalDevices);
 
             return response;
+        }
+
+        private async Task<List<FaceIdTerminalResultDto>> ExecuteParallelFaceIdActionAsync(
+            List<FaceIdTerminalConfig> terminals,
+            Func<FaceIdTerminalConfig, Task<FaceIdTerminalResultDto>> action,
+            CancellationToken cancellationToken = default)
+        {
+            if (terminals == null || terminals.Count == 0)
+            {
+                return new List<FaceIdTerminalResultDto>();
+            }
+
+            var tasks = terminals.Select(async terminal =>
+            {
+                try
+                {
+                    // 1. Fail-Fast Ping 600ms
+                    var isAlive = await _faceIdService.PingFastAsync(terminal.DeviceIp, 600, cancellationToken);
+                    if (!isAlive)
+                    {
+                        return new FaceIdTerminalResultDto
+                        {
+                            DeviceIp = terminal.DeviceIp,
+                            DeviceName = terminal.DeviceName,
+                            IsSuccess = false,
+                            ErrorMessage = $"Mất kết nối tới thiết bị [{terminal.DeviceIp}] (Ping timeout 600ms)",
+                            Timestamp = DateTime.UtcNow
+                        };
+                    }
+
+                    // 2. Thiết bị sống -> Thực thi hành động CRUD
+                    return await action(terminal);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Lỗi thực thi FaceID trên thiết bị {DeviceIp} ({DeviceName}): {Message}",
+                        terminal.DeviceIp, terminal.DeviceName, ex.Message);
+                    return new FaceIdTerminalResultDto
+                    {
+                        DeviceIp = terminal.DeviceIp,
+                        DeviceName = terminal.DeviceName,
+                        IsSuccess = false,
+                        ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp),
+                        Timestamp = DateTime.UtcNow
+                    };
+                }
+            });
+
+            return (await Task.WhenAll(tasks)).ToList();
         }
 
         private async Task<List<FaceIdTerminalConfig>> ResolveActiveFaceIdTerminalsAsync(CancellationToken cancellationToken)
