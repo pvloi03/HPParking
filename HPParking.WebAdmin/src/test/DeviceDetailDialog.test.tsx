@@ -134,7 +134,7 @@ describe('DeviceDetailDialog Component', () => {
     });
   });
 
-  it('thực hiện kiểm tra kết nối trực tiếp khi bấm nút Kiểm tra kết nối', async () => {
+  it('tự động ping kiểm tra kết nối khi mở dialog chi tiết thiết bị', async () => {
     vi.mocked(devicesApi.getById).mockResolvedValueOnce(mockDevice);
     vi.mocked(lanesApi.getPaged).mockResolvedValueOnce({
       items: mockLanes,
@@ -160,16 +160,14 @@ describe('DeviceDetailDialog Component', () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /Kiểm tra kết nối/i }).length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getAllByRole('button', { name: /Kiểm tra kết nối/i })[0]);
-
-    await waitFor(() => {
       expect(devicesApi.pingDeviceIp).toHaveBeenCalledWith('192.168.1.120');
       expect(screen.getByText('ONLINE')).toBeInTheDocument();
       expect(screen.getByText('14 ms')).toBeInTheDocument();
     });
+
+    // Không hiển thị lối tắt nhật ký kiểm toán và nút kiểm tra kết nối ở footer
+    expect(screen.queryByText(/nhật ký kiểm toán/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^kiểm tra kết nối$/i })).not.toBeInTheDocument();
   });
 
   it('hiển thị thông báo khi thiết bị chưa được gán vào làn xe nào', async () => {

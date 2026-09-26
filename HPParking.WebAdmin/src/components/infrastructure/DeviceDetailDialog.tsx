@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -25,7 +24,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   Network,
-  ExternalLink,
   Clock,
   User,
   Copy,
@@ -37,7 +35,6 @@ import {
   Info,
   X,
 } from 'lucide-react';
-import { usePermissions } from '@/hooks/usePermissions';
 import { devicesApi, lanesApi, extractErrorMessage } from '@/api/infrastructureApi';
 import {
   DeviceType,
@@ -59,9 +56,6 @@ export function DeviceDetailDialog({
   deviceId,
   onEdit,
 }: DeviceDetailDialogProps) {
-  const navigate = useNavigate();
-  const { isAdmin } = usePermissions();
-
   const [isCopied, setIsCopied] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
   const [pingResult, setPingResult] = useState<DevicePingResultDto | null>(null);
@@ -109,37 +103,51 @@ export function DeviceDetailDialog({
   };
 
   // Xử lý Ping kiểm tra kết nối thiết bị trực tiếp
-  const handlePing = async () => {
-    if (!device?.ipAddress) {
-      toast.error('Thiết bị chưa được cấu hình địa chỉ IP.');
-      return;
-    }
+  const handlePing = useCallback(
+    async (showToast = false) => {
+      if (!device?.ipAddress) return;
 
-    setIsPinging(true);
-    try {
-      const res = await devicesApi.pingDeviceIp(device.ipAddress);
-      setPingResult(res);
-      if (res.isAlive) {
-        toast.success(
-          `Kết nối thành công: ${res.ipAddress} (${res.roundtripTimeMs}ms via ${res.method})`
-        );
-      } else {
-        toast.error(`Mất kết nối: ${res.message || 'Không có phản hồi từ thiết bị'}`);
+      setIsPinging(true);
+      try {
+        const res = await devicesApi.pingDeviceIp(device.ipAddress);
+        setPingResult(res);
+        if (showToast) {
+          if (res.isAlive) {
+            toast.success(
+              `Kết nối thành công: ${res.ipAddress} (${res.roundtripTimeMs}ms via ${res.method})`
+            );
+          } else {
+            toast.error(`Mất kết nối: ${res.message || 'Không có phản hồi từ thiết bị'}`);
+          }
+        }
+      } catch (err) {
+        setPingResult({
+          ipAddress: device.ipAddress,
+          isAlive: false,
+          roundtripTimeMs: 2000,
+          method: 'ERROR',
+          message: extractErrorMessage(err),
+          timestamp: new Date().toISOString(),
+        });
+        if (showToast) {
+          toast.error(extractErrorMessage(err));
+        }
+      } finally {
+        setIsPinging(false);
       }
-    } catch (err) {
-      setPingResult({
-        ipAddress: device.ipAddress,
-        isAlive: false,
-        roundtripTimeMs: 2000,
-        method: 'ERROR',
-        message: extractErrorMessage(err),
-        timestamp: new Date().toISOString(),
-      });
-      toast.error(extractErrorMessage(err));
-    } finally {
+    },
+    [device?.ipAddress]
+  );
+
+  // Tự động ping ngay khi mở modal và đã nạp xong thông tin thiết bị
+  useEffect(() => {
+    if (open && device?.ipAddress) {
+      void handlePing(false);
+    } else if (!open) {
+      setPingResult(null);
       setIsPinging(false);
     }
-  };
+  }, [open, device?.id, device?.ipAddress, handlePing]);
 
   const getDeviceTypeBadge = (type: DeviceType) => {
     switch (type) {
@@ -282,7 +290,7 @@ export function DeviceDetailDialog({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handlePing}
+                    onClick={() => void handlePing(true)}
                     disabled={isPinging || !device.ipAddress}
                     className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                     title="Kiểm tra lại kết nối"
@@ -356,11 +364,11 @@ export function DeviceDetailDialog({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handlePing}
+                        onClick={() => void handlePing(true)}
                         className="h-6 text-[11px] gap-1 px-2 cursor-pointer"
                       >
                         <Activity className="h-3 w-3 text-blue-500" />
-                        <span>Kiểm tra kết nối</span>
+                        <span>Thử lại</span>
                       </Button>
                     </div>
                   )}
@@ -511,24 +519,6 @@ export function DeviceDetailDialog({
                 </div>
               )}
             </div>
-
-            {/* AUDIT LOG SHORTCUT NẾU LÀ ADMIN */}
-            {isAdmin && (
-              <div className="pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    onOpenChange(false);
-                    navigate(`/audit-logs?keyword=${encodeURIComponent(device.code)}`);
-                  }}
-                  className="w-full text-xs h-8 gap-1.5 cursor-pointer justify-center text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-950/50"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  <span>Xem nhật ký kiểm toán của thiết bị này</span>
-                </Button>
-              </div>
-            )}
           </div>
         ) : (
           <div className="py-8 text-center text-xs text-muted-foreground">
@@ -547,24 +537,6 @@ export function DeviceDetailDialog({
             >
               <Edit className="h-3.5 w-3.5 text-muted-foreground" />
               <span>Chỉnh sửa</span>
-            </Button>
-          )}
-
-          {device?.ipAddress && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handlePing}
-              disabled={isPinging}
-              className="text-xs h-9 cursor-pointer gap-1.5 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/50"
-            >
-              {isPinging ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-              ) : (
-                <Activity className="h-3.5 w-3.5 text-blue-600" />
-              )}
-              <span>Kiểm tra kết nối</span>
             </Button>
           )}
 
