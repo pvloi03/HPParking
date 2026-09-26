@@ -12,6 +12,7 @@ vi.mock('@/api/infrastructureApi', async (importOriginal) => {
     ...actual,
     devicesApi: {
       getPaged: vi.fn(),
+      getById: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -212,6 +213,67 @@ describe('DevicesPage Component', () => {
       ]);
       expect(screen.getAllByText(/Online/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Offline/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('mở modal DeviceDetailDialog khi bấm vào mã hoặc tên thiết bị', async () => {
+    vi.mocked(devicesApi.getPaged).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'dev-1',
+          code: 'CAM_LPR_01',
+          name: 'Camera Biển Số Cổng 1',
+          type: DeviceType.Camera,
+          ipAddress: '192.168.1.50',
+          port: 80,
+          userName: 'admin',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 15,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(devicesApi.getById).mockResolvedValueOnce({
+      id: 'dev-1',
+      code: 'CAM_LPR_01',
+      name: 'Camera Biển Số Cổng 1',
+      type: DeviceType.Camera,
+      ipAddress: '192.168.1.50',
+      port: 80,
+      userName: 'admin',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DevicesPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('CAM_LPR_01').length).toBeGreaterThan(0);
+    });
+
+    // Bấm vào mã thiết bị CAM_LPR_01
+    const codeBtn = screen.getAllByRole('button', { name: 'CAM_LPR_01' })[0];
+    fireEvent.click(codeBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Chi Tiết Thiết Bị Ngoại Vi & Kết Nối Mạng/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText('Địa chỉ kết nối (Endpoint)')).toBeInTheDocument();
     });
   });
 });

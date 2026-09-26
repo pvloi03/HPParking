@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -24,6 +23,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DeviceFormDialog } from '@/components/infrastructure/DeviceFormDialog';
+import { DeviceDetailDialog } from '@/components/infrastructure/DeviceDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { devicesApi, extractErrorMessage } from '@/api/infrastructureApi';
@@ -38,7 +38,6 @@ import {
 } from '@/types/infrastructure';
 
 export function DevicesPage() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canWrite } = usePermissions();
 
@@ -63,6 +62,7 @@ export function DevicesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<DeviceDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<DeviceDto | null>(null);
+  const [detailDeviceId, setDetailDeviceId] = useState<string | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
@@ -458,13 +458,14 @@ export function DevicesPage() {
       header: 'Mã thiết bị',
       accessorKey: 'code',
       cell: (item) => (
-        <Link
-          to={`/devices/${item.id}`}
-          className="font-mono font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+        <button
+          type="button"
+          onClick={() => setDetailDeviceId(item.id)}
+          className="font-mono font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer text-left"
           title={`Xem chi tiết thiết bị ${item.code}`}
         >
           {item.code}
-        </Link>
+        </button>
       ),
       className: 'font-semibold w-36',
       mobileLabel: 'Mã',
@@ -473,13 +474,14 @@ export function DevicesPage() {
       header: 'Tên thiết bị ngoại vi',
       accessorKey: 'name',
       cell: (item) => (
-        <Link
-          to={`/devices/${item.id}`}
-          className="font-semibold text-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+        <button
+          type="button"
+          onClick={() => setDetailDeviceId(item.id)}
+          className="font-semibold text-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left block truncate max-w-xs"
           title={`Xem chi tiết thiết bị ${item.name}`}
         >
           {item.name}
-        </Link>
+        </button>
       ),
       className: 'font-semibold min-w-[200px]',
       mobileLabel: 'Tên thiết bị',
@@ -671,7 +673,7 @@ export function DevicesPage() {
         isExportingExcel={isExportingExcel}
         actions={{
           onView: (item) => {
-            navigate(`/devices/${item.id}`);
+            setDetailDeviceId(item.id);
           },
           onEdit: canWrite
             ? (item) => {
@@ -696,6 +698,22 @@ export function DevicesPage() {
         initialData={selectedDevice}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Chi Tiết Cấu Hình & Kết Nối Thiết Bị Ngoại Vi */}
+      <DeviceDetailDialog
+        open={Boolean(detailDeviceId)}
+        onOpenChange={(open) => !open && setDetailDeviceId(null)}
+        deviceId={detailDeviceId}
+        onEdit={
+          canWrite
+            ? (device) => {
+                setDetailDeviceId(null);
+                setSelectedDevice(device);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Nhập Dữ Liệu Excel */}
