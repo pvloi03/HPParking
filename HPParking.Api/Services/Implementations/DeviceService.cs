@@ -416,6 +416,56 @@ namespace HPParking.Api.Services.Implementations
             return result;
         }
 
+        public async Task<List<DevicePingResultDto>> PingMultipleDevicesAsync(IEnumerable<string> ipAddresses, int timeoutMs = 2000, CancellationToken cancellationToken = default)
+        {
+            if (ipAddresses == null)
+            {
+                return [];
+            }
+
+            var cleanIps = ipAddresses
+                .Where(ip => !string.IsNullOrWhiteSpace(ip))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (cleanIps.Count == 0)
+            {
+                return [];
+            }
+
+            // Tối ưu hóa: Ping song song tối đa 10 luồng đồng thời bằng SemaphoreSlim
+            using var semaphore = new SemaphoreSlim(10, 10);
+            var tasks = cleanIps.Select(async ip =>
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    return await PingDeviceIpAsync(ip, timeoutMs, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi kiểm tra kết nối thiết bị {Ip}: {Message}", ip, ex.Message);
+                    return new DevicePingResultDto
+                    {
+                        IpAddress = ip,
+                        IsAlive = false,
+                        RoundtripTimeMs = timeoutMs,
+                        Method = "ERROR",
+                        Message = $"Lỗi kiểm tra kết nối: {ex.Message}",
+                        Timestamp = DateTime.UtcNow
+                    };
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            return [.. results];
+        }
+
+
         private static DeviceDto MapToDto(Device device)
         {
             var dto = device.Adapt<DeviceDto>();

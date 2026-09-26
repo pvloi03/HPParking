@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -7,7 +8,9 @@ import {
   Camera,
   ScanFace,
   HelpCircle,
-  Network,
+  Activity,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,9 +34,11 @@ import {
   type DeviceDto,
   type CreateDeviceRequest,
   type UpdateDeviceRequest,
+  type DevicePingResultDto,
 } from '@/types/infrastructure';
 
 export function DevicesPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { canWrite } = usePermissions();
 
@@ -60,6 +65,233 @@ export function DevicesPage() {
   const [deleteCandidate, setDeleteCandidate] = useState<DeviceDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // State Ping Device
+  interface PingState {
+    isPinging: boolean;
+    result?: DevicePingResultDto;
+  }
+  const [pingStates, setPingStates] = useState<Record<string, PingState>>({});
+  const [isBatchPinging, setIsBatchPinging] = useState(false);
+
+  // Xử lý Ping đơn lẻ cho 1 thiết bị
+  const handlePingSingle = async (device: DeviceDto) => {
+    if (!device.ipAddress?.trim()) {
+      toast.error(`Thiết bị "${device.name}" chưa được cấu hình địa chỉ IP.`);
+      return;
+    }
+
+    setPingStates((prev) => ({
+      ...prev,
+      [device.id]: { isPinging: true, result: prev[device.id]?.result },
+    }));
+
+    try {
+      const res = await devicesApi.pingDeviceIp(device.ipAddress);
+      setPingStates((prev) => ({
+        ...prev,
+        [device.id]: { isPinging: false, result: res },
+      }));
+
+      if (res.isAlive) {
+        toast.success(
+          `Thiết bị "${device.name}" (${res.ipAddress}): Online (${res.roundtripTimeMs}ms via ${res.method})`
+        );
+      } else {
+        toast.error(`Thiết bị "${device.name}" (${res.ipAddress}): ${res.message}`);
+      }
+    } catch (err) {
+      setPingStates((prev) => ({
+        ...prev,
+        [device.id]: {
+          isPinging: false,
+          result: {
+            ipAddress: device.ipAddress,
+            isAlive: false,
+            roundtripTimeMs: 2000,
+            method: 'ERROR',
+            message: extractErrorMessage(err),
+            timestamp: new Date().toISOString(),
+          },
+        },
+      }));
+      toast.error(extractErrorMessage(err));
+    }
+  };
+
+  // Xử lý Ping hàng loạt (tất cả hoặc danh sách đã chọn qua checkbox)
+  const handlePingBatch = async (targetDevices?: DeviceDto[]) => {
+    const devicesToPing =
+      targetDevices && targetDevices.length > 0
+        ? targetDevices
+        : data?.items || [];
+
+    const validDevices = devicesToPing.filter((d) => Boolean(d.ipAddress?.trim()));
+    if (validDevices.length === 0) {
+      toast.warning('Không có thiết bị nào có địa chỉ IP để kiểm tra kết nối.');
+      return;
+    }
+
+    setIsBatchPinging(true);
+    setPingStates((prev) => {
+      const next = { ...prev };
+      validDevices.forEach((d) => {
+        next[d.id] = { isPinging: true, result: next[d.id]?.result };
+      });
+      return next;
+    });
+
+    try {
+      const distinctIps = Array.from(
+        new Set(validDevices.map((d) => d.ipAddress.trim()))
+      );
+      const results = await devicesApi.pingBatchDeviceIps(distinctIps);
+
+      const resultMap = new Map<string, DevicePingResultDto>();
+      results.forEach((r) => {
+        resultMap.set(r.ipAddress.toLowerCase(), r);
+      });
+
+      setPingStates((prev) => {
+        const next = { ...prev };
+        validDevices.forEach((d) => {
+          const ip = d.ipAddress.trim().toLowerCase();
+          const hostOnly = ip.includes(':') ? ip.split(':')[0] : ip;
+          const matched = resultMap.get(ip) || resultMap.get(hostOnly);
+          if (matched) {
+            next[d.id] = { isPinging: false, result: matched };
+          } else {
+            next[d.id] = {
+              isPinging: false,
+              result: {
+                ipAddress: d.ipAddress,
+                isAlive: false,
+                roundtripTimeMs: 2000,
+                method: 'NONE',
+                message: 'Không nhận được phản hồi từ thiết bị',
+                timestamp: new Date().toISOString(),
+              },
+            };
+          }
+        });
+        return next;
+      });
+
+      const aliveCount = results.filter((r) => r.isAlive).length;
+      const deadCount = results.length - aliveCount;
+      if (deadCount === 0) {
+        toast.success(
+          `Kiểm tra hoàn tất: Toàn bộ ${aliveCount} thiết bị đang Online ổn định.`
+        );
+      } else {
+        toast.warning(
+          `Kiểm tra kết nối: ${aliveCount} thiết bị Online, ${deadCount} thiết bị Mất kết nối (Offline).`
+        );
+      }
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+      setPingStates((prev) => {
+        const next = { ...prev };
+        validDevices.forEach((d) => {
+          if (next[d.id]?.isPinging) {
+            next[d.id] = { ...next[d.id], isPinging: false };
+          }
+        });
+        return next;
+      });
+    } finally {
+      setIsBatchPinging(false);
+    }
+  };
+
+  const renderPingCell = (device: DeviceDto) => {
+    const status = pingStates[device.id];
+    const isPinging = status?.isPinging;
+    const result = status?.result;
+
+    if (isPinging) {
+      return (
+        <Badge
+          variant="outline"
+          className="gap-1.5 py-1 px-2 text-[11px] font-medium border-blue-300 bg-blue-50/70 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300 animate-pulse"
+        >
+          <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+          <span>Đang ping...</span>
+        </Badge>
+      );
+    }
+
+    if (!result) {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void handlePingSingle(device)}
+          disabled={isBatchPinging || !device.ipAddress}
+          className="h-7 px-2.5 text-[11px] gap-1 text-slate-700 dark:text-slate-300 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 cursor-pointer"
+          title={`Kiểm tra kết nối tới ${device.ipAddress || 'thiết bị'}`}
+        >
+          <Activity className="h-3 w-3 text-blue-500" />
+          <span>Ping</span>
+        </Button>
+      );
+    }
+
+    if (result.isAlive) {
+      return (
+        <div
+          className="flex items-center gap-1.5"
+          title={`${result.message} - Phương thức: ${result.method}`}
+        >
+          <Badge className="gap-1.5 py-1 px-2 text-[11px] font-medium bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span>Online</span>
+            <span className="text-[10px] opacity-75 font-mono">
+              ({result.roundtripTimeMs}ms)
+            </span>
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void handlePingSingle(device)}
+            disabled={isBatchPinging}
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+            title="Kiểm tra lại kết nối"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className="flex items-center gap-1.5"
+        title={`${result.message} (${result.method})`}
+      >
+        <Badge
+          variant="destructive"
+          className="gap-1.5 py-1 px-2 text-[11px] font-medium bg-rose-100 text-rose-800 hover:bg-rose-100 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300/60 dark:border-rose-800"
+        >
+          <span className="h-2 w-2 rounded-full bg-rose-500" />
+          <span>Offline</span>
+        </Badge>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void handlePingSingle(device)}
+          disabled={isBatchPinging}
+          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+          title="Thử lại kết nối"
+        >
+          <RefreshCw className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
 
   const handleExportExcel = async () => {
     try {
@@ -225,12 +457,30 @@ export function DevicesPage() {
     {
       header: 'Mã thiết bị',
       accessorKey: 'code',
+      cell: (item) => (
+        <Link
+          to={`/devices/${item.id}`}
+          className="font-mono font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+          title={`Xem chi tiết thiết bị ${item.code}`}
+        >
+          {item.code}
+        </Link>
+      ),
       className: 'font-semibold w-36',
       mobileLabel: 'Mã',
     },
     {
       header: 'Tên thiết bị ngoại vi',
       accessorKey: 'name',
+      cell: (item) => (
+        <Link
+          to={`/devices/${item.id}`}
+          className="font-semibold text-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+          title={`Xem chi tiết thiết bị ${item.name}`}
+        >
+          {item.name}
+        </Link>
+      ),
       className: 'font-semibold min-w-[200px]',
       mobileLabel: 'Tên thiết bị',
     },
@@ -242,22 +492,10 @@ export function DevicesPage() {
       mobileLabel: 'Loại',
     },
     {
-      header: 'Địa chỉ IP & Cổng',
-      cell: (item) => (
-        <span className="font-mono text-xs flex items-center gap-1 text-foreground">
-          <Network className="h-3.5 w-3.5 text-muted-foreground" />
-          {item.ipAddress}:{item.port}
-        </span>
-      ),
-      className: 'w-44',
-      mobileLabel: 'IP:Port',
-    },
-    {
-      header: 'Tài khoản',
-      accessorKey: 'userName',
-      cell: (item) => item.userName || <span className="text-muted-foreground">—</span>,
-      className: 'w-32',
-      mobileLabel: 'User',
+      header: 'Kết nối (Ping)',
+      cell: (item) => renderPingCell(item),
+      className: 'w-48',
+      mobileLabel: 'Kết nối',
     },
     {
       header: 'Trạng thái',
@@ -281,7 +519,7 @@ export function DevicesPage() {
   return (
     <div className="space-y-6">
       {/* Header trang */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
@@ -296,6 +534,29 @@ export function DevicesPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Nút Ping Tất Cả */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handlePingBatch()}
+            disabled={isBatchPinging || !data?.items?.length}
+            className="h-9 gap-1.5 text-xs font-semibold cursor-pointer border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/60 shadow-xs"
+            title="Kiểm tra kết nối song song toàn bộ thiết bị đang hiển thị trên trang"
+          >
+            {isBatchPinging ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+            ) : (
+              <Activity className="h-3.5 w-3.5 text-blue-600" />
+            )}
+            <span>
+              {isBatchPinging
+                ? 'Đang kiểm tra...'
+                : `Ping tất cả (${data?.items?.length || 0})`}
+            </span>
+          </Button>
         </div>
       </div>
 
@@ -367,6 +628,26 @@ export function DevicesPage() {
               <Button
                 size="sm"
                 variant="outline"
+                disabled={isBatchPinging}
+                onClick={() => {
+                  const selected = (data?.items || []).filter((d) =>
+                    selectedRowIds.includes(d.id)
+                  );
+                  void handlePingBatch(selected);
+                }}
+                className="h-7 px-2.5 text-xs text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer"
+              >
+                {isBatchPinging ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin text-blue-600" />
+                ) : (
+                  <Activity className="h-3 w-3 mr-1 text-blue-600" />
+                )}
+                <span>Ping đã chọn ({selectedRowIds.length})</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => setIsBulkDeleteOpen(true)}
                 className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
               >
@@ -389,6 +670,9 @@ export function DevicesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => {
+            navigate(`/devices/${item.id}`);
+          },
           onEdit: canWrite
             ? (item) => {
                 setSelectedDevice(item);

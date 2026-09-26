@@ -144,5 +144,25 @@ namespace HPParking.Api.Controllers.V1
             var result = await _deviceService.PingDeviceIpAsync(ip, timeoutMs);
             return OkApiResponse(result, result.Message);
         }
+
+        /// <summary>
+        /// Ping song song hàng loạt kiểm tra trạng thái sống/chết của nhiều thiết bị cùng lúc (tối ưu hóa concurrency)
+        /// </summary>
+        [HttpPost("ping-batch")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<List<DevicePingResultDto>>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public async Task<IActionResult> PingBatchDevices([FromBody] BatchPingDevicesRequest request)
+        {
+            if (request == null || request.IpAddresses == null || request.IpAddresses.Count == 0)
+            {
+                return OkApiResponse(new List<DevicePingResultDto>(), "Danh sách IP kiểm tra rỗng.");
+            }
+
+            var result = await _deviceService.PingMultipleDevicesAsync(request.IpAddresses, request.TimeoutMs);
+            return OkApiResponse(result, $"Đã kiểm tra kết nối {result.Count} thiết bị.");
+        }
     }
 }

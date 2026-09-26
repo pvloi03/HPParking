@@ -118,7 +118,10 @@ export interface DevicePingResultDto {
   ipAddress: string;
   isAlive: boolean;
   roundtripTimeMs: number;
-  status: string;
+  method?: string;
+  message?: string;
+  timestamp?: string;
+  status?: string;
 }
 
 // =================== LANES ===================
