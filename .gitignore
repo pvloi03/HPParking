@@ -10,6 +10,7 @@ CONTEXT.md
 .codegraph/
 appsettings.json
 node_modules/
+
 bin/
 obj/
 *app.config
@@ -84,3 +85,4 @@ ScaffoldingReadMe.txt
 
 # Mac
 .DS_Store
+

@@ -1,0 +1,1354 @@
+{
+  "info": {
+    "_postman_id": "8f2a1c3d-4e5b-6a7c-8d9e-0f1a2b3c4d5e",
+    "name": "HPParking REST API v1.0",
+    "description": "Bộ sưu tập Postman Collection hoàn chỉnh phục vụ Web Admin, Mobile App và Tích hợp bên thứ ba cho hệ thống kiểm soát xe thông minh HPParking (Giai đoạn 1).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{hpparking_access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request script toàn cục nếu cần thiết lập headers hoặc kiểm tra token"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Authentication & Session Management",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.accessToken) {",
+                  "        pm.environment.set('hpparking_access_token', json.data.accessToken);",
+                  "        pm.environment.set('hpparking_refresh_token', json.data.refreshToken);",
+                  "        console.log('Access token and Refresh token have been saved to environment.');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "auth", "login"]
+            },
+            "description": "Đăng nhập hệ thống lấy Access Token (15 phút) và Refresh Token (7 ngày). Tự động lưu token vào biến môi trường Postman."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var json = pm.response.json();",
+                  "    if (json.data && json.data.accessToken) {",
+                  "        pm.environment.set('hpparking_access_token', json.data.accessToken);",
+                  "        pm.environment.set('hpparking_refresh_token', json.data.refreshToken);",
+                  "        console.log('Rotated tokens updated in environment successfully.');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Refresh-Token",
+                "value": "{{hpparking_refresh_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "auth", "refresh-token"]
+            },
+            "description": "Làm mới Access Token thông qua Refresh Token Rotation theo ADR 0027."
+          }
+        },
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "auth", "me"]
+            },
+            "description": "Lấy thông tin tài khoản người dùng đang đăng nhập dựa trên Bearer JWT Token."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"AdminPassword123\",\n  \"newPassword\": \"NewPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "auth", "change-password"]
+            },
+            "description": "Đổi mật khẩu người dùng. Theo ADR 0025, Admin được miễn kiểm tra currentPassword."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "auth", "logout"]
+            },
+            "description": "Đăng xuất tài khoản, thu hồi phiên làm việc và xóa cookies."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Core Domain - Clients & Vehicles",
+      "item": [
+        {
+          "name": "Clients",
+          "item": [
+            {
+              "name": "List Clients",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients?pageIndex=1&pageSize=20&searchKeyword=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients"],
+                  "query": [
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" },
+                    { "key": "searchKeyword", "value": "" }
+                  ]
+                },
+                "description": "Lấy danh sách khách hàng phân trang 1-indexed, hỗ trợ tìm kiếm theo tên, SĐT, CCCD."
+              }
+            },
+            {
+              "name": "Get Client By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients", "{{clientId}}"]
+                },
+                "description": "Lấy thông tin chi tiết một khách hàng."
+              }
+            },
+            {
+              "name": "Create Client",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"KH001\",\n  \"fullName\": \"Nguyễn Văn An\",\n  \"phoneNumber\": \"0987654321\",\n  \"identityCardNumber\": \"001099123456\",\n  \"companyId\": \"{{companyId}}\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients"]
+                },
+                "description": "Thêm mới hồ sơ khách hàng. Trả về 409 Conflict nếu trùng số điện thoại."
+              }
+            },
+            {
+              "name": "Update Client",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"KH001\",\n  \"fullName\": \"Nguyễn Văn An (Updated)\",\n  \"phoneNumber\": \"0987654321\",\n  \"identityCardNumber\": \"001099123456\",\n  \"companyId\": \"{{companyId}}\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients", "{{clientId}}"]
+                },
+                "description": "Cập nhật thông tin hồ sơ khách hàng."
+              }
+            },
+            {
+              "name": "Delete Client",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients", "{{clientId}}"]
+                },
+                "description": "Xóa mềm khách hàng và bảo toàn chứng thực FaceID hoặc xóa cứng theo ADR 0029."
+              }
+            },
+            {
+              "name": "Upload Client Avatar",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": ""
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients/{{clientId}}/avatar",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients", "{{clientId}}", "avatar"]
+                },
+                "description": "Upload ảnh đại diện chân dung cho khách hàng (lưu phẳng theo {Code}.jpg / {PhoneNumber}.jpg)."
+              }
+            },
+            {
+              "name": "Get Client Avatar",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients/{{clientId}}/avatar",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients", "{{clientId}}", "avatar"]
+                },
+                "description": "Tải luồng ảnh đại diện chân dung của khách hàng."
+              }
+            },
+            {
+              "name": "Sync Client FaceID",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/clients/{{clientId}}/sync-faceid",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "clients", "{{clientId}}", "sync-faceid"]
+                },
+                "description": "Kích hoạt đồng bộ khuôn mặt khách hàng xuống các thiết bị FaceID phần cứng."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Vehicles",
+          "item": [
+            {
+              "name": "List Vehicles",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/vehicles?pageIndex=1&pageSize=20&plateNumber=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "vehicles"],
+                  "query": [
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" },
+                    { "key": "plateNumber", "value": "" }
+                  ]
+                },
+                "description": "Lấy danh sách phương tiện phân trang 1-indexed kèm tìm kiếm theo biển số."
+              }
+            },
+            {
+              "name": "Get Vehicle By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/vehicles/{{vehicleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "vehicles", "{{vehicleId}}"]
+                },
+                "description": "Lấy thông tin chi tiết một phương tiện."
+              }
+            },
+            {
+              "name": "Get Vehicles By Client Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/vehicles/client/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "vehicles", "client", "{{clientId}}"]
+                },
+                "description": "Lấy danh sách tất cả phương tiện thuộc quyền sở hữu của một khách hàng."
+              }
+            },
+            {
+              "name": "Create Vehicle",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"plateNumber\": \"29A-12345\",\n  \"vehicleType\": 1,\n  \"clientId\": \"{{clientId}}\",\n  \"brand\": \"Toyota\",\n  \"color\": \"White\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/vehicles",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "vehicles"]
+                },
+                "description": "Đăng ký phương tiện mới. Biển số xe được chuẩn hóa và kiểm tra duy nhất."
+              }
+            },
+            {
+              "name": "Update Vehicle",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"plateNumber\": \"29A-12345\",\n  \"vehicleType\": 1,\n  \"clientId\": \"{{clientId}}\",\n  \"brand\": \"Toyota\",\n  \"color\": \"Black\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/vehicles/{{vehicleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "vehicles", "{{vehicleId}}"]
+                },
+                "description": "Cập nhật thông tin phương tiện."
+              }
+            },
+            {
+              "name": "Delete Vehicle",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/vehicles/{{vehicleId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "vehicles", "{{vehicleId}}"]
+                },
+                "description": "Xóa phương tiện khỏi hệ thống."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03. Master Data - Organizations & Infrastructure",
+      "item": [
+        {
+          "name": "Companies",
+          "item": [
+            {
+              "name": "List Companies",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/companies?pageIndex=1&pageSize=20&keyword=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "companies"],
+                  "query": [
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" },
+                    { "key": "keyword", "value": "" }
+                  ]
+                },
+                "description": "Danh sách công ty phân trang kèm tìm kiếm theo mã/tên."
+              }
+            },
+            {
+              "name": "Get Company By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/companies/{{companyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "companies", "{{companyId}}"]
+                },
+                "description": "Chi tiết công ty theo ID."
+              }
+            },
+            {
+              "name": "Create Company",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"CTY01\",\n  \"name\": \"Tập đoàn Công nghệ HP\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/companies",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "companies"]
+                },
+                "description": "Tạo mới công ty. Mã công ty là duy nhất."
+              }
+            },
+            {
+              "name": "Update Company",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"CTY01\",\n  \"name\": \"Tập đoàn Công nghệ HP Việt Nam\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/companies/{{companyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "companies", "{{companyId}}"]
+                },
+                "description": "Cập nhật thông tin công ty."
+              }
+            },
+            {
+              "name": "Delete Company",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/companies/{{companyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "companies", "{{companyId}}"]
+                },
+                "description": "Xóa công ty theo cơ chế Restrict Deletion nếu có phòng ban hoặc nhân sự phụ thuộc."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Departments",
+          "item": [
+            {
+              "name": "List Departments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/departments?companyId={{companyId}}&pageIndex=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "departments"],
+                  "query": [
+                    { "key": "companyId", "value": "{{companyId}}" },
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" }
+                  ]
+                },
+                "description": "Lấy danh sách phòng ban, hỗ trợ lọc theo CompanyId."
+              }
+            },
+            {
+              "name": "Get Department By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/departments/{{departmentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "departments", "{{departmentId}}"]
+                },
+                "description": "Chi tiết phòng ban theo ID."
+              }
+            },
+            {
+              "name": "Create Department",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"PB01\",\n  \"name\": \"Phòng Công Nghệ Thông Tin\",\n  \"companyId\": \"{{companyId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/departments",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "departments"]
+                },
+                "description": "Tạo phòng ban mới trực thuộc một công ty."
+              }
+            },
+            {
+              "name": "Update Department",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"PB01\",\n  \"name\": \"Khối Công Nghệ & Phần Mềm\",\n  \"companyId\": \"{{companyId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/departments/{{departmentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "departments", "{{departmentId}}"]
+                },
+                "description": "Cập nhật thông tin phòng ban."
+              }
+            },
+            {
+              "name": "Delete Department",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/departments/{{departmentId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "departments", "{{departmentId}}"]
+                },
+                "description": "Xóa phòng ban nếu không có nhân viên trực thuộc."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Contractors",
+          "item": [
+            {
+              "name": "List Contractors",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/contractors?pageIndex=1&pageSize=20&keyword=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "contractors"],
+                  "query": [
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" },
+                    { "key": "keyword", "value": "" }
+                  ]
+                },
+                "description": "Danh sách nhà thầu phụ phân trang."
+              }
+            },
+            {
+              "name": "Get Contractor By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/contractors/{{contractorId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "contractors", "{{contractorId}}"]
+                },
+                "description": "Chi tiết nhà thầu phụ."
+              }
+            },
+            {
+              "name": "Create Contractor",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"NT01\",\n  \"name\": \"Công ty Xây dựng An Bình\",\n  \"phoneNumber\": \"0909123456\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/contractors",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "contractors"]
+                },
+                "description": "Thêm mới nhà thầu phụ."
+              }
+            },
+            {
+              "name": "Update Contractor",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"NT01\",\n  \"name\": \"Công ty Xây dựng & Cơ Điện An Bình\",\n  \"phoneNumber\": \"0909123456\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/contractors/{{contractorId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "contractors", "{{contractorId}}"]
+                },
+                "description": "Cập nhật thông tin nhà thầu phụ."
+              }
+            },
+            {
+              "name": "Delete Contractor",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/contractors/{{contractorId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "contractors", "{{contractorId}}"]
+                },
+                "description": "Xóa nhà thầu phụ khỏi hệ thống."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gates",
+          "item": [
+            {
+              "name": "List Gates",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/gates?companyId={{companyId}}&pageIndex=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "gates"],
+                  "query": [
+                    { "key": "companyId", "value": "{{companyId}}" },
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" }
+                  ]
+                },
+                "description": "Danh sách các cổng vật lý kiểm soát bãi đỗ xe."
+              }
+            },
+            {
+              "name": "Get Gate By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/gates/{{gateId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "gates", "{{gateId}}"]
+                },
+                "description": "Chi tiết cổng vật lý theo ID."
+              }
+            },
+            {
+              "name": "Create Gate",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"GATE-01\",\n  \"name\": \"Cổng Chính Phía Đông\",\n  \"machineCode\": \"BOT-01\",\n  \"companyId\": \"{{companyId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/gates",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "gates"]
+                },
+                "description": "Tạo cổng vật lý mới gắn với mã máy trạm bốt bảo vệ machineCode."
+              }
+            },
+            {
+              "name": "Update Gate",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"GATE-01\",\n  \"name\": \"Cổng Chính Phía Đông (Cập nhật)\",\n  \"machineCode\": \"BOT-01\",\n  \"companyId\": \"{{companyId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/gates/{{gateId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "gates", "{{gateId}}"]
+                },
+                "description": "Cập nhật thông tin cổng vật lý."
+              }
+            },
+            {
+              "name": "Delete Gate",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/gates/{{gateId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "gates", "{{gateId}}"]
+                },
+                "description": "Xóa cổng vật lý nếu không có làn xe trực thuộc."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lanes",
+          "item": [
+            {
+              "name": "List Lanes",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/lanes?gateId={{gateId}}&pageIndex=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "lanes"],
+                  "query": [
+                    { "key": "gateId", "value": "{{gateId}}" },
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" }
+                  ]
+                },
+                "description": "Danh sách các làn xe trực thuộc cổng kiểm soát."
+              }
+            },
+            {
+              "name": "Get Lane By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/lanes/{{laneId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "lanes", "{{laneId}}"]
+                },
+                "description": "Chi tiết làn xe theo ID."
+              }
+            },
+            {
+              "name": "Create Lane",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"LANE-01\",\n  \"name\": \"Làn Vào Ô Tô 1\",\n  \"gateId\": \"{{gateId}}\",\n  \"direction\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/lanes",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "lanes"]
+                },
+                "description": "Tạo làn xe mới kèm hướng làn (1: Vào, 2: Ra, 3: Hai chiều)."
+              }
+            },
+            {
+              "name": "Update Lane",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"LANE-01\",\n  \"name\": \"Làn Vào Ô Tô 1 (Updated)\",\n  \"gateId\": \"{{gateId}}\",\n  \"direction\": 1\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/lanes/{{laneId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "lanes", "{{laneId}}"]
+                },
+                "description": "Cập nhật thông tin làn xe."
+              }
+            },
+            {
+              "name": "Delete Lane",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/lanes/{{laneId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "lanes", "{{laneId}}"]
+                },
+                "description": "Xóa làn xe khỏi cổng kiểm soát."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Devices",
+          "item": [
+            {
+              "name": "List Devices",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices?pageIndex=1&pageSize=20",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices"],
+                  "query": [
+                    { "key": "pageIndex", "value": "1" },
+                    { "key": "pageSize", "value": "20" }
+                  ]
+                },
+                "description": "Danh sách các thiết bị ngoại vi (Camera, Controller, FaceID, Barie)."
+              }
+            },
+            {
+              "name": "Get Device By Id",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices/{{deviceId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices", "{{deviceId}}"]
+                },
+                "description": "Chi tiết thiết bị ngoại vi theo ID."
+              }
+            },
+            {
+              "name": "Create Device",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Camera Biển Số Làn 1\",\n  \"ipAddress\": \"192.168.1.101\",\n  \"port\": 8000,\n  \"deviceType\": 1,\n  \"username\": \"admin\",\n  \"password\": \"Admin12345\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices"]
+                },
+                "description": "Đăng ký thiết bị ngoại vi mới. Mật khẩu được che giấu trong phản hồi."
+              }
+            },
+            {
+              "name": "Update Device",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Camera Biển Số Làn 1 (Updated)\",\n  \"ipAddress\": \"192.168.1.101\",\n  \"port\": 8000,\n  \"deviceType\": 1,\n  \"username\": \"admin\",\n  \"password\": \"Admin12345\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices/{{deviceId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices", "{{deviceId}}"]
+                },
+                "description": "Cập nhật thông tin thiết bị ngoại vi."
+              }
+            },
+            {
+              "name": "Delete Device",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices/{{deviceId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices", "{{deviceId}}"]
+                },
+                "description": "Xóa thiết bị ngoại vi khỏi danh mục."
+              }
+            },
+            {
+              "name": "Ping Single Device",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices/{{deviceId}}/ping",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices", "{{deviceId}}", "ping"]
+                },
+                "description": "Kiểm tra kết nối TCP Socket thời gian thực đến một thiết bị."
+              }
+            },
+            {
+              "name": "Ping All Devices",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/devices/ping-all",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "devices", "ping-all"]
+                },
+                "description": "Kiểm tra kết nối TCP Socket đồng loạt đến toàn bộ các thiết bị đang hoạt động."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04. Statistics & Dashboard",
+      "item": [
+        {
+          "name": "Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/statistics/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "statistics", "dashboard"]
+            },
+            "description": "Thống kê tổng hợp số lượng khách hàng, phương tiện và tỷ lệ đồng bộ FaceID thời gian thực bằng $facet."
+          }
+        },
+        {
+          "name": "Vehicle Distribution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/statistics/distribution?companyId={{companyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "statistics", "distribution"],
+              "query": [
+                { "key": "companyId", "value": "{{companyId}}" }
+              ]
+            },
+            "description": "Báo cáo ma trận phân bổ phương tiện theo phòng ban và đơn vị."
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Transactions & Audit Logs (Read-only)",
+      "item": [
+        {
+          "name": "Search Parking Sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/parking-sessions?plateNumber=&pageIndex=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "parking-sessions"],
+              "query": [
+                { "key": "plateNumber", "value": "" },
+                { "key": "pageIndex", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Tra cứu sổ cái lượt xe vào/ra bãi đỗ (Read-only)."
+          }
+        },
+        {
+          "name": "Get Parking Session By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/parking-sessions/{{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "parking-sessions", "{{sessionId}}"]
+            },
+            "description": "Xem chi tiết một phiên gửi xe (hình ảnh vào/ra, làn xe, thời gian)."
+          }
+        },
+        {
+          "name": "Search Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/audit-logs?userId=&entityType=&pageIndex=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "audit-logs"],
+              "query": [
+                { "key": "userId", "value": "" },
+                { "key": "entityType", "value": "" },
+                { "key": "pageIndex", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "Tra cứu nhật ký kiểm toán hệ thống. Dành riêng cho tài khoản vai trò Admin."
+          }
+        },
+        {
+          "name": "Get Audit Log By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/audit-logs/{{auditLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "audit-logs", "{{auditLogId}}"]
+            },
+            "description": "Xem chi tiết một bản ghi nhật ký kiểm toán (Admin only)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Excel Import & Export Engine",
+      "item": [
+        {
+          "name": "Clients & Vehicles",
+          "item": [
+            {
+              "name": "Get Client Template",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/clients/template",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "clients", "template"]
+                },
+                "description": "Tải về file Excel mẫu nhập liệu khách hàng và phương tiện chuẩn ClosedXML."
+              }
+            },
+            {
+              "name": "Import Clients (Dry Run)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "file", "type": "file", "src": "" }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/clients/import?dryRun=true&duplicateMode=1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "clients", "import"],
+                  "query": [
+                    { "key": "dryRun", "value": "true" },
+                    { "key": "duplicateMode", "value": "1" }
+                  ]
+                },
+                "description": "Kiểm tra trước dữ liệu nhập liệu Excel (Dry-run preview) không ghi vào database."
+              }
+            },
+            {
+              "name": "Import Clients (Live Run)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "file", "type": "file", "src": "" }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/clients/import?dryRun=false&duplicateMode=2",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "clients", "import"],
+                  "query": [
+                    { "key": "dryRun", "value": "false" },
+                    { "key": "duplicateMode", "value": "2" }
+                  ]
+                },
+                "description": "Nhập liệu khách hàng và phương tiện từ file Excel. Hỗ trợ duplicateMode (1: Skip, 2: Update, 3: Error)."
+              }
+            },
+            {
+              "name": "Export Clients (GET)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/clients/export?searchKeyword=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "clients", "export"],
+                  "query": [
+                    { "key": "searchKeyword", "value": "" }
+                  ]
+                },
+                "description": "Xuất file Excel danh sách khách hàng và phương tiện qua GET."
+              }
+            },
+            {
+              "name": "Export Clients (POST Filter)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"searchKeyword\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/clients/export",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "clients", "export"]
+                },
+                "description": "Xuất file Excel danh sách khách hàng và phương tiện với bộ lọc phức tạp qua POST."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Master Data",
+          "item": [
+            {
+              "name": "Get Master Data Template",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/master-data/companies/template",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "master-data", "companies", "template"]
+                },
+                "description": "Tải file mẫu nhập liệu cho Master Data (hỗ trợ các loại: companies, departments, contractors, gates, lanes, devices)."
+              }
+            },
+            {
+              "name": "Import Master Data (Dry Run)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    { "key": "file", "type": "file", "src": "" }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/master-data/companies/import?dryRun=true&duplicateMode=1",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "master-data", "companies", "import"],
+                  "query": [
+                    { "key": "dryRun", "value": "true" },
+                    { "key": "duplicateMode", "value": "1" }
+                  ]
+                },
+                "description": "Kiểm tra trước dữ liệu nhập liệu Master Data."
+              }
+            },
+            {
+              "name": "Export Master Data (GET)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/master-data/companies/export?keyword=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "master-data", "companies", "export"],
+                  "query": [
+                    { "key": "keyword", "value": "" }
+                  ]
+                },
+                "description": "Xuất danh mục Master Data ra Excel qua GET."
+              }
+            },
+            {
+              "name": "Export Master Data (POST Filter)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"keyword\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/master-data/companies/export",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "master-data", "companies", "export"]
+                },
+                "description": "Xuất danh mục Master Data ra Excel qua POST."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reports & Ledgers",
+          "item": [
+            {
+              "name": "Export Parking Sessions (GET)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/reports/parking-sessions/export?plateNumber=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "reports", "parking-sessions", "export"],
+                  "query": [
+                    { "key": "plateNumber", "value": "" }
+                  ]
+                },
+                "description": "Xuất báo cáo lịch sử phiên gửi xe ra Excel."
+              }
+            },
+            {
+              "name": "Export Parking Sessions (POST Filter)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"plateNumber\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/reports/parking-sessions/export",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "reports", "parking-sessions", "export"]
+                },
+                "description": "Xuất báo cáo lịch sử phiên gửi xe ra Excel qua POST."
+              }
+            },
+            {
+              "name": "Export Audit Logs (GET - Admin Only)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/reports/audit-logs/export?userId=&entityType=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "reports", "audit-logs", "export"],
+                  "query": [
+                    { "key": "userId", "value": "" },
+                    { "key": "entityType", "value": "" }
+                  ]
+                },
+                "description": "Xuất nhật ký kiểm toán hệ thống ra Excel (Dành riêng cho Admin)."
+              }
+            },
+            {
+              "name": "Export Audit Logs (POST Filter - Admin Only)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"\",\n  \"entityType\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/reports/audit-logs/export",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "reports", "audit-logs", "export"]
+                },
+                "description": "Xuất nhật ký kiểm toán hệ thống ra Excel qua POST (Admin only)."
+              }
+            },
+            {
+              "name": "Export Distribution Matrix",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/{{apiVersion}}/excel/reports/distribution/export?companyId={{companyId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "{{apiVersion}}", "excel", "reports", "distribution", "export"],
+                  "query": [
+                    { "key": "companyId", "value": "{{companyId}}" }
+                  ]
+                },
+                "description": "Xuất báo cáo ma trận phân bổ phương tiện theo phòng ban/công ty ra Excel."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07. System Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "health"]
+            },
+            "description": "Kiểm tra tình trạng sống (Liveness/Readiness) của hệ thống REST API."
+          }
+        }
+      ]
+    }
+  ]
+}
