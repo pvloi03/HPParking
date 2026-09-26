@@ -71,13 +71,9 @@ describe('EvidenceImageGrid Component', () => {
     expect(screen.getByText(/Xe đang đỗ trong bãi \(Chưa có ảnh toàn cảnh ra\)/i)).toBeInTheDocument();
   });
 
-  it('kích hoạt mở modal phóng to ảnh khi click vào hình ảnh hoặc nút phóng to', () => {
+  it('không hiển thị nút phóng to ảnh', () => {
     render(<EvidenceImageGrid {...defaultProps} />);
 
-    const zoomBtn = screen.getByTitle(/phóng to ảnh/i);
-    fireEvent.click(zoomBtn);
-
-    // Modal phóng to hiển thị nút đóng
-    expect(screen.getByTitle(/đóng phóng to|đóng/i)).toBeInTheDocument();
+    expect(screen.queryByTitle(/phóng to ảnh/i)).not.toBeInTheDocument();
   });
 });

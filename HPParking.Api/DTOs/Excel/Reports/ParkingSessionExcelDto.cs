@@ -34,7 +34,7 @@ namespace HPParking.Api.DTOs.Excel.Reports
             Map(x => x.PlateNumber).ColumnName("Biển số xe").Order(1);
             Map(x => x.VehicleType).ColumnName("Loại xe").Order(2);
             Map(x => x.Status).ColumnName("Trạng thái").Order(3);
-            Map(x => x.ClientCode).ColumnName("Mã khách hàng").Order(4);
+            Map(x => x.ClientCode).ColumnName("Mã chủ xe").Order(4);
             Map(x => x.ClientName).ColumnName("Họ và tên").Order(5);
             Map(x => x.InTime).ColumnName("Thời điểm vào").Order(6).Format("dd/MM/yyyy HH:mm:ss");
             Map(x => x.InLaneName).ColumnName("Làn vào").Order(7);

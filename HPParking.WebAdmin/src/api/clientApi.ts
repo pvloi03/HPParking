@@ -84,8 +84,8 @@ export const clientApi = {
     return response.data.data;
   },
 
-  getById: async (id: string): Promise<ClientDto> => {
-    const response = await apiClient.get<ApiResponse<ClientDto>>(`/v1/clients/${id}`);
+  getById: async (id: string): Promise<ClientDetailDto> => {
+    const response = await apiClient.get<ApiResponse<ClientDetailDto>>(`/v1/clients/${id}`);
     return response.data.data;
   },
 

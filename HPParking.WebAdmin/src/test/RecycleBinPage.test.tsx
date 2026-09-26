@@ -3,8 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
+import { useAuthStore } from '@/stores/authStore';
+import { UserRole } from '@/types/user';
 import { clientApi } from '@/api/clientApi';
 import { vehicleApi } from '@/api/vehicleApi';
+import { usersApi } from '@/api/userApi';
 
 vi.mock('@/api/clientApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/clientApi')>();
@@ -50,6 +53,14 @@ vi.mock('@/api/infrastructureApi', async (importOriginal) => {
   };
 });
 
+vi.mock('@/api/userApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/userApi')>();
+  return {
+    ...actual,
+    usersApi: { getPaged: vi.fn(), delete: vi.fn(), restore: vi.fn() },
+  };
+});
+
 describe('RecycleBinPage Component', () => {
   let queryClient: QueryClient;
 
@@ -59,6 +70,17 @@ describe('RecycleBinPage Component', () => {
       defaultOptions: {
         queries: { retry: false },
       },
+    });
+    useAuthStore.setState({
+      user: {
+        id: 'u-admin',
+        username: 'admin',
+        fullName: 'Admin User',
+        role: UserRole.Admin,
+        isActive: true,
+      },
+      isAuthenticated: true,
+      isInitialized: true,
     });
   });
 
@@ -87,6 +109,7 @@ describe('RecycleBinPage Component', () => {
     renderComponent();
 
     expect(screen.getByText('Thùng Rác Hệ Thống')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Tất cả/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Khách hàng/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Phương tiện/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Công ty/i })).toBeInTheDocument();
@@ -95,6 +118,28 @@ describe('RecycleBinPage Component', () => {
     expect(screen.getByRole('tab', { name: /Cổng bãi xe/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Làn xe/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Thiết bị/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Tài khoản/i })).toBeInTheDocument();
+  });
+
+  it('ẩn hoàn toàn tab Tài khoản khi người dùng có vai trò Manager', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'u-mgr',
+        username: 'manager',
+        fullName: 'Quản Lý Bãi Xe',
+        role: UserRole.Manager,
+        isActive: true,
+      },
+      isAuthenticated: true,
+      isInitialized: true,
+    });
+
+    renderComponent();
+
+    expect(screen.getByRole('tab', { name: /Tất cả/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Khách hàng/i })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Tài khoản/i })).not.toBeInTheDocument();
+    expect(usersApi.getPaged).not.toHaveBeenCalled();
   });
 
   it('gọi getPaged với onlyDeleted=true và hiển thị các bản ghi bị xóa kèm nút Khôi phục & Xóa vĩnh viễn', async () => {
@@ -192,6 +237,41 @@ describe('RecycleBinPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('15A-999.99').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('hiển thị số lượng bản ghi bị xóa sau label và hiển thị 99+ khi số lượng từ 100 trở lên', async () => {
+    vi.mocked(clientApi.getPaged).mockResolvedValue({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 1,
+        totalCount: 150,
+        totalPages: 150,
+        hasPreviousPage: false,
+        hasNextPage: true,
+      },
+    });
+
+    vi.mocked(vehicleApi.getPaged).mockResolvedValue({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 1,
+        totalCount: 25,
+        totalPages: 25,
+        hasPreviousPage: false,
+        hasNextPage: true,
+      },
+    });
+
+    renderComponent();
+
+    await waitFor(() => {
+      // clientApi có 150 >= 100 và 'Tất cả' cũng >= 100 -> có nhiều hơn 1 badge '99+'
+      expect(screen.getAllByText('99+').length).toBeGreaterThanOrEqual(2);
+      // vehicleApi có 25 -> hiển thị '25'
+      expect(screen.getByText('25')).toBeInTheDocument();
     });
   });
 });

@@ -156,9 +156,9 @@ export function ParkingSessionsPage() {
         return (
           <div className="flex flex-col gap-1 py-0.5">
             <div className="flex items-center gap-1.5">
-              <span className="font-extrabold font-mono text-sm tracking-wide text-foreground">
+              <Badge variant='outline' className="border-slate-400">
                 {item.plateNumber}
-              </span>
+              </Badge>
             </div>
             {/* Huy hiệu cảnh báo lệch biển số nổi bật */}
             {isMismatch && (
@@ -179,7 +179,7 @@ export function ParkingSessionsPage() {
         <div className="flex items-center gap-1.5 text-xs">
           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="font-medium text-foreground truncate max-w-[140px]">
-            {(item as any).personFullName || 'Khách vãng lai'}
+            {item.personFullName || 'Khách vãng lai'}
           </span>
         </div>
       ),
@@ -275,18 +275,17 @@ export function ParkingSessionsPage() {
     },
     {
       header: 'Thao Tác',
-      className: 'text-right',
+      className: 'w-max',
       cell: (item) => (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-start gap-1">
           <Button
             size="sm"
-            variant="outline"
             onClick={() => setSelectedSessionId(item.id)}
-            className="h-7 px-2.5 text-xs gap-1 cursor-pointer font-medium border-border hover:bg-muted"
-            title="Xem chi tiết và 4 ảnh bằng chứng"
+            className="border-none bg-transparent shadow-none hover:bg-transparent h-7 p-0 text-xs gap-1 cursor-pointer font-medium text-slate-500"
+            title="Xem chi tiết"
           >
-            <FileText className="h-3.5 w-3.5 text-primary" />
-            Chi tiết
+            <FileText className="h-3.5 w-3.5" />
+            Xem chi tiết
           </Button>
         </div>
       ),
@@ -410,11 +409,10 @@ export function ParkingSessionsPage() {
               variant="outline"
               size="sm"
               onClick={() => setDatePreset('today')}
-              className={`h-7 px-2.5 text-[11px] cursor-pointer rounded-md ${
-                fromDate && fromDate === toDate && fromDate === new Date().toISOString().slice(0, 10)
-                  ? 'bg-primary text-primary-foreground font-bold border-primary'
-                  : 'text-muted-foreground'
-              }`}
+              className={`h-7 px-2.5 text-[11px] cursor-pointer rounded-md ${fromDate && fromDate === toDate && fromDate === new Date().toISOString().slice(0, 10)
+                ? 'bg-primary text-primary-foreground font-bold border-primary'
+                : 'text-muted-foreground'
+                }`}
             >
               Hôm nay
             </Button>
@@ -450,11 +448,10 @@ export function ParkingSessionsPage() {
               variant="outline"
               size="sm"
               onClick={() => setDatePreset('all')}
-              className={`h-7 px-2.5 text-[11px] cursor-pointer rounded-md ${
-                !fromDate && !toDate
-                  ? 'bg-muted font-bold text-foreground'
-                  : 'text-muted-foreground'
-              }`}
+              className={`h-7 px-2.5 text-[11px] cursor-pointer rounded-md ${!fromDate && !toDate
+                ? 'bg-muted font-bold text-foreground'
+                : 'text-muted-foreground'
+                }`}
             >
               Tất cả thời gian
             </Button>

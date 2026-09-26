@@ -13,7 +13,7 @@ export interface UserInfoDto {
   fullName: string;
   email?: string | null;
   phoneNumber?: string | null;
-  role: string;
+  role: string | number;
   isActive: boolean;
   lastLoginAt?: string | null;
   createdAt?: string;
@@ -43,4 +43,5 @@ export interface RefreshTokenResponse {
 export interface ChangePasswordRequest {
   oldPassword?: string;
   newPassword: string;
+  confirmNewPassword?: string;
 }

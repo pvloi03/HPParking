@@ -23,6 +23,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IRepository<AuditLog> _auditLogRepo;
         private readonly IRepository<Client> _clientRepo;
+        private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IStatisticsService _statisticsService;
         private readonly ILogger<ReportExcelService> _logger;
 
@@ -31,6 +32,7 @@ namespace HPParking.Api.Services.Implementations
             IRepository<ParkingSession> sessionRepo,
             IRepository<AuditLog> auditLogRepo,
             IRepository<Client> clientRepo,
+            IRepository<Vehicle> vehicleRepo,
             IStatisticsService statisticsService,
             ILogger<ReportExcelService> logger)
         {
@@ -38,6 +40,7 @@ namespace HPParking.Api.Services.Implementations
             _sessionRepo = sessionRepo;
             _auditLogRepo = auditLogRepo;
             _clientRepo = clientRepo;
+            _vehicleRepo = vehicleRepo;
             _statisticsService = statisticsService;
             _logger = logger;
         }
@@ -65,26 +68,78 @@ namespace HPParking.Api.Services.Implementations
                 .Distinct()
                 .ToHashSet();
 
+            var distinctPlates = sessions
+                .Where(s => !string.IsNullOrWhiteSpace(s.PlateNumber))
+                .Select(s => s.PlateNumber)
+                .Distinct()
+                .ToList();
+
+            var plateToClientMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (distinctPlates.Count > 0)
+            {
+                var searchPlates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var p in distinctPlates)
+                {
+                    searchPlates.Add(p);
+                    var norm = PlateHelper.Normalize(p);
+                    if (!string.IsNullOrEmpty(norm)) searchPlates.Add(norm);
+                }
+
+                var vehicleFilter = Builders<Vehicle>.Filter.And(
+                    Builders<Vehicle>.Filter.Eq(v => v.IsDeleted, false),
+                    Builders<Vehicle>.Filter.Ne(v => v.OwnerClientId, null),
+                    Builders<Vehicle>.Filter.In(v => v.PlateNumber, searchPlates)
+                );
+
+                var matchedVehicles = await _vehicleRepo.FindAsync(vehicleFilter, cancellationToken: cancellationToken);
+                foreach (var v in matchedVehicles)
+                {
+                    if (!string.IsNullOrWhiteSpace(v.OwnerClientId) && !string.IsNullOrWhiteSpace(v.PlateNumber))
+                    {
+                        plateToClientMap[v.PlateNumber] = v.OwnerClientId;
+                        var norm = PlateHelper.Normalize(v.PlateNumber);
+                        if (!string.IsNullOrEmpty(norm)) plateToClientMap[norm] = v.OwnerClientId;
+                        personIds.Add(v.OwnerClientId);
+                    }
+                }
+            }
+
             var clients = personIds.Count > 0
-                ? (await _clientRepo.FindAsync(c => personIds.Contains(c.Id), cancellationToken: cancellationToken)).ToDictionary(c => c.Id, c => c)
+                ? (await _clientRepo.FindAsync(c => personIds.Contains(c.Id) && !c.IsDeleted, cancellationToken: cancellationToken)).ToDictionary(c => c.Id, c => c)
                 : new Dictionary<string, Client>();
 
-            var data = sessions.Select(s => new ParkingSessionExcelDto
+            var data = sessions.Select(s =>
             {
-                PlateNumber = s.PlateNumber,
-                VehicleType = s.VehicleType,
-                Status = s.Status,
-                ClientCode = s.PersonId != null && clients.TryGetValue(s.PersonId, out var c) ? c.Code : null,
-                ClientName = s.PersonId != null && clients.TryGetValue(s.PersonId, out var c2) ? c2.Name : null,
-                InTime = s.InTime,
-                InLaneName = s.InLaneName,
-                InPlateImagePath = s.InPlateImagePath,
-                InOverviewImagePath = s.InOverviewImagePath,
-                OutTime = s.OutTime,
-                OutLaneName = s.OutLaneName,
-                OutPlateImagePath = s.OutPlateImagePath,
-                OutOverviewImagePath = s.OutOverviewImagePath,
-                Duration = FormatDuration(s.InTime, s.OutTime)
+                string? clientId = s.PersonId;
+                if ((string.IsNullOrWhiteSpace(clientId) || !clients.ContainsKey(clientId)) && !string.IsNullOrWhiteSpace(s.PlateNumber))
+                {
+                    var norm = PlateHelper.Normalize(s.PlateNumber);
+                    if (plateToClientMap.TryGetValue(s.PlateNumber, out var cid) || plateToClientMap.TryGetValue(norm, out cid))
+                    {
+                        clientId = cid;
+                    }
+                }
+
+                var client = clientId != null && clients.TryGetValue(clientId, out var c) ? c : null;
+
+                return new ParkingSessionExcelDto
+                {
+                    PlateNumber = s.PlateNumber,
+                    VehicleType = s.VehicleType,
+                    Status = s.Status,
+                    ClientCode = client?.Code,
+                    ClientName = client?.Name,
+                    InTime = s.InTime,
+                    InLaneName = s.InLaneName,
+                    InPlateImagePath = s.InPlateImagePath,
+                    InOverviewImagePath = s.InOverviewImagePath,
+                    OutTime = s.OutTime,
+                    OutLaneName = s.OutLaneName,
+                    OutPlateImagePath = s.OutPlateImagePath,
+                    OutOverviewImagePath = s.OutOverviewImagePath,
+                    Duration = FormatDuration(s.InTime, s.OutTime)
+                };
             });
 
             var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe", "BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE", cancellationToken);

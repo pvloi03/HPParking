@@ -15,21 +15,16 @@ namespace HPParking.Api.Services.Implementations
     /// <summary>
     /// Triển khai dịch vụ tra cứu chỉ đọc lịch sử và phiên đỗ xe hiện hành (Read-Only)
     /// </summary>
-    public class ParkingSessionService : IParkingSessionService
+    public class ParkingSessionService(
+        IRepository<ParkingSession> sessionRepo,
+        IRepository<Client> clientRepo,
+        IRepository<Vehicle> vehicleRepo,
+        ILogger<ParkingSessionService> logger) : IParkingSessionService
     {
-        private readonly IRepository<ParkingSession> _sessionRepo;
-        private readonly IRepository<Client> _clientRepo;
-        private readonly ILogger<ParkingSessionService> _logger;
-
-        public ParkingSessionService(
-            IRepository<ParkingSession> sessionRepo,
-            IRepository<Client> clientRepo,
-            ILogger<ParkingSessionService> logger)
-        {
-            _sessionRepo = sessionRepo;
-            _clientRepo = clientRepo;
-            _logger = logger;
-        }
+        private readonly IRepository<ParkingSession> _sessionRepo = sessionRepo;
+        private readonly IRepository<Client> _clientRepo = clientRepo;
+        private readonly IRepository<Vehicle> _vehicleRepo = vehicleRepo;
+        private readonly ILogger<ParkingSessionService> _logger = logger;
 
         public async Task<PagedResult<ParkingSessionDto>> GetParkingSessionsPagedAsync(ParkingSessionFilterQuery query, CancellationToken cancellationToken = default)
         {
@@ -96,6 +91,94 @@ namespace HPParking.Api.Services.Implementations
 
             var items = sessions.Adapt<List<ParkingSessionDto>>();
 
+            // 1. Tập hợp các PersonId trực tiếp từ session
+            var personIds = sessions
+                .Where(s => !string.IsNullOrWhiteSpace(s.PersonId))
+                .Select(s => s.PersonId!)
+                .Distinct()
+                .ToHashSet();
+
+            // 2. Tra cứu biển số xe qua Vehicle để tìm OwnerClientId cho tất cả các biển số trong trang
+            var distinctPlates = sessions
+                .Where(s => !string.IsNullOrWhiteSpace(s.PlateNumber))
+                .Select(s => s.PlateNumber)
+                .Distinct()
+                .ToList();
+
+            var plateToClientMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (distinctPlates.Count > 0)
+            {
+                var searchPlates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var p in distinctPlates)
+                {
+                    searchPlates.Add(p);
+                    var norm = PlateHelper.Normalize(p);
+                    if (!string.IsNullOrEmpty(norm))
+                    {
+                        searchPlates.Add(norm);
+                    }
+                }
+
+                var vehicleFilter = Builders<Vehicle>.Filter.And(
+                    Builders<Vehicle>.Filter.Eq(v => v.IsDeleted, false),
+                    Builders<Vehicle>.Filter.Ne(v => v.OwnerClientId, null),
+                    Builders<Vehicle>.Filter.In(v => v.PlateNumber, searchPlates)
+                );
+
+                var matchedVehicles = await _vehicleRepo.FindAsync(vehicleFilter, cancellationToken: cancellationToken);
+
+                foreach (var v in matchedVehicles)
+                {
+                    if (!string.IsNullOrWhiteSpace(v.OwnerClientId) && !string.IsNullOrWhiteSpace(v.PlateNumber))
+                    {
+                        plateToClientMap[v.PlateNumber] = v.OwnerClientId;
+                        var norm = PlateHelper.Normalize(v.PlateNumber);
+                        if (!string.IsNullOrEmpty(norm))
+                        {
+                            plateToClientMap[norm] = v.OwnerClientId;
+                        }
+                        personIds.Add(v.OwnerClientId);
+                    }
+                }
+            }
+
+            // 3. Tải thông tin các Clients
+            var clientMap = new Dictionary<string, Client>();
+            if (personIds.Count > 0)
+            {
+                var clientFilter = Builders<Client>.Filter.And(
+                    Builders<Client>.Filter.Eq(c => c.IsDeleted, false),
+                    Builders<Client>.Filter.In(c => c.Id, personIds)
+                );
+                var clients = await _clientRepo.FindAsync(clientFilter, cancellationToken: cancellationToken);
+                clientMap = clients.ToDictionary(c => c.Id, c => c);
+            }
+
+            // 4. Điền PersonFullName, PersonPhoneNumber, PersonCode cho từng item
+            foreach (var item in items)
+            {
+                string? clientId = item.PersonId;
+
+                // Nếu không có PersonId hoặc PersonId không tìm thấy trong Client, tra cứu qua biển số xe
+                if ((string.IsNullOrWhiteSpace(clientId) || !clientMap.ContainsKey(clientId)) && !string.IsNullOrWhiteSpace(item.PlateNumber))
+                {
+                    var norm = PlateHelper.Normalize(item.PlateNumber);
+                    if (plateToClientMap.TryGetValue(item.PlateNumber, out var cid) || plateToClientMap.TryGetValue(norm, out cid))
+                    {
+                        clientId = cid;
+                        item.PersonId = cid;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(clientId) && clientMap.TryGetValue(clientId, out var client))
+                {
+                    item.PersonFullName = client.Name;
+                    item.PersonPhoneNumber = client.PhoneNumber;
+                    item.PersonCode = client.Code;
+                }
+            }
+
             _logger.LogInformation("Tra cứu danh sách phiên đỗ xe: tìm thấy {TotalCount} bản ghi (Trang {PageIndex}/{TotalPages}).",
                 totalCount, query.PageIndex, (int)Math.Ceiling((double)totalCount / query.PageSize));
 
@@ -112,19 +195,49 @@ namespace HPParking.Api.Services.Implementations
 
             var detail = session.Adapt<ParkingSessionDetailDto>();
 
-            if (!string.IsNullOrWhiteSpace(session.PersonId))
+            string? effectiveClientId = session.PersonId;
+
+            Client? client = null;
+            if (!string.IsNullOrWhiteSpace(effectiveClientId))
             {
-                var client = await _clientRepo.GetByIdAsync(session.PersonId, cancellationToken);
-                if (client != null)
+                client = await _clientRepo.GetByIdAsync(effectiveClientId, cancellationToken);
+            }
+
+            // Nếu không có PersonId trong session hoặc Client không tồn tại, tra cứu qua biển số xe trong bảng Vehicle
+            if (client == null && !string.IsNullOrWhiteSpace(session.PlateNumber))
+            {
+                var normPlate = PlateHelper.Normalize(session.PlateNumber);
+                var searchPlates = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { session.PlateNumber };
+                if (!string.IsNullOrEmpty(normPlate))
                 {
-                    detail.PersonFullName = client.Name;
-                    detail.PersonPhoneNumber = client.PhoneNumber;
-                    detail.PersonCode = client.Code;
+                    searchPlates.Add(normPlate);
+                }
+
+                var vehicleFilter = Builders<Vehicle>.Filter.And(
+                    Builders<Vehicle>.Filter.Eq(v => v.IsDeleted, false),
+                    Builders<Vehicle>.Filter.Ne(v => v.OwnerClientId, null),
+                    Builders<Vehicle>.Filter.In(v => v.PlateNumber, searchPlates)
+                );
+
+                var vehicles = await _vehicleRepo.FindAsync(vehicleFilter, cancellationToken: cancellationToken);
+                var vehicle = vehicles.FirstOrDefault();
+                if (vehicle != null && !string.IsNullOrWhiteSpace(vehicle.OwnerClientId))
+                {
+                    effectiveClientId = vehicle.OwnerClientId;
+                    detail.PersonId = vehicle.OwnerClientId;
+                    client = await _clientRepo.GetByIdAsync(effectiveClientId, cancellationToken);
                 }
             }
 
-            _logger.LogInformation("Lấy chi tiết phiên đỗ xe {Id}: Biển số {PlateNumber}, Trạng thái {Status}.",
-                session.Id, session.PlateNumber, session.Status);
+            if (client != null)
+            {
+                detail.PersonFullName = client.Name;
+                detail.PersonPhoneNumber = client.PhoneNumber;
+                detail.PersonCode = client.Code;
+            }
+
+            _logger.LogInformation("Lấy chi tiết phiên đỗ xe {Id}: Biển số {PlateNumber}, Trạng thái {Status}, Khách hàng: {ClientName}.",
+                session.Id, session.PlateNumber, session.Status, detail.PersonFullName ?? "Khách vãng lai");
 
             return detail;
         }

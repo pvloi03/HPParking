@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ClientsPage } from '@/pages/ClientsPage';
+import { useAuthStore } from '@/stores/authStore';
+import { UserRole } from '@/types/user';
 import { clientApi } from '@/api/clientApi';
 import { companiesApi, departmentsApi, contractorsApi } from '@/api/masterDataApi';
 
@@ -47,6 +49,17 @@ describe('ClientsPage Component', () => {
       defaultOptions: {
         queries: { retry: false },
       },
+    });
+    useAuthStore.setState({
+      user: {
+        id: 'u-admin',
+        username: 'admin',
+        fullName: 'Admin User',
+        role: UserRole.Admin,
+        isActive: true,
+      },
+      isAuthenticated: true,
+      isInitialized: true,
     });
   });
 
@@ -130,7 +143,7 @@ describe('ClientsPage Component', () => {
       expect(screen.getAllByText('KH_HOANG_NAM').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Hoàng Nam').length).toBeGreaterThan(0);
       expect(screen.getAllByText('0988111222').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Đã có ảnh').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Đang hoạt động').length).toBeGreaterThan(0);
     });
   });
 
@@ -186,7 +199,47 @@ describe('ClientsPage Component', () => {
     await waitFor(() => {
       expect(screen.getAllByText('KH_NO_NAME').length).toBeGreaterThan(0);
       expect(screen.getAllByText('KH').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Chưa có ảnh').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('0999888777').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('ẩn hoàn toàn nút Thêm mới khách hàng và Nhập Excel khi đăng nhập vai trò Viewer', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'u-viewer',
+        username: 'viewer',
+        fullName: 'Viewer User',
+        role: UserRole.Viewer,
+        isActive: true,
+      },
+      isAuthenticated: true,
+      isInitialized: true,
+    });
+
+    vi.mocked(clientApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 15,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ClientsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Thêm mới khách hàng/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Nhập Excel/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Xuất Excel/i })).toBeInTheDocument();
     });
   });
 });

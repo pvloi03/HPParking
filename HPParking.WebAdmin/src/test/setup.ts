@@ -24,4 +24,9 @@ class MockResizeObserver {
 window.ResizeObserver = MockResizeObserver;
 globalThis.ResizeObserver = MockResizeObserver;
 
+// Mock URL.createObjectURL / revokeObjectURL for JSDOM
+globalThis.URL.createObjectURL = (blob: any) => `blob:mock-url-${blob?.name || 'file'}`;
+globalThis.URL.revokeObjectURL = () => {};
+
+
 

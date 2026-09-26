@@ -1,3 +1,4 @@
+using HPParking.Api.DTOs.Vehicles;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 
@@ -19,5 +20,10 @@ namespace HPParking.Api.DTOs.Clients
         public bool IsActive { get; set; } = true;
         public Expired Expired { get; set; } = new();
         public string? Note { get; set; }
+
+        /// <summary>
+        /// Danh sách phương tiện đăng ký bổ sung kèm theo (tùy chọn)
+        /// </summary>
+        public List<CreateVehicleRequest>? Vehicles { get; set; }
     }
 }

@@ -4,6 +4,7 @@ import {
   Trash2,
   RotateCcw,
   Edit,
+  FileText,
   ChevronLeft,
   ChevronRight,
   Inbox,
@@ -31,10 +32,12 @@ export interface ColumnDef<T> {
 }
 
 export interface DataTableActions<T> {
+  onView?: (item: T) => void;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   onHardDelete?: (item: T) => void;
   onRestore?: (item: T) => void;
+  canView?: (item: T) => boolean;
   canEdit?: (item: T) => boolean;
   canDelete?: (item: T) => boolean;
   canHardDelete?: (item: T) => boolean;
@@ -98,7 +101,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   onSelectedRowIdsChange,
   bulkActions,
 }: DataTableProps<T>) {
-  const hasActions = Boolean(actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
+  const hasActions = Boolean(actions?.onView || actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
 
   // Logic chọn tất cả / chọn một phần checkbox
   const isAllSelected = data.length > 0 && data.every((item) => selectedRowIds.includes(item.id));
@@ -165,6 +168,18 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
 
     return (
       <div className="flex items-center gap-1 justify-end">
+        {actions?.onView && (actions.canView ? actions.canView(item) : true) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => actions.onView?.(item)}
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer min-h-[36px] min-w-[36px]"
+            title="Xem chi tiết"
+            aria-label="Xem chi tiết"
+          >
+            <FileText className="h-4 w-4" />
+          </Button>
+        )}
         {actions?.onEdit && (actions.canEdit ? actions.canEdit(item) : true) && (
           <Button
             variant="ghost"
@@ -331,7 +346,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                 className={cn(
                   'h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]',
                   isTrashMode &&
-                    'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 font-semibold border-amber-300'
+                  'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 font-semibold border-amber-300'
                 )}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -470,8 +485,8 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                             {col.cell
                               ? col.cell(item)
                               : col.accessorKey
-                              ? String(item[col.accessorKey] ?? '—')
-                              : '—'}
+                                ? String(item[col.accessorKey] ?? '—')
+                                : '—'}
                           </td>
                         ))}
                       {hasActions && (
@@ -521,8 +536,8 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                             {columns[0].cell
                               ? columns[0].cell(item)
                               : columns[0].accessorKey
-                              ? String(item[columns[0].accessorKey] ?? '—')
-                              : '—'}
+                                ? String(item[columns[0].accessorKey] ?? '—')
+                                : '—'}
                           </div>
                         )}
                         {columns[1] && (
@@ -530,8 +545,8 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                             {columns[1].cell
                               ? columns[1].cell(item)
                               : columns[1].accessorKey
-                              ? String(item[columns[1].accessorKey] ?? '—')
-                              : '—'}
+                                ? String(item[columns[1].accessorKey] ?? '—')
+                                : '—'}
                           </div>
                         )}
                       </div>
@@ -562,8 +577,8 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                           {col.cell
                             ? col.cell(item)
                             : col.accessorKey
-                            ? String(item[col.accessorKey] ?? '—')
-                            : '—'}
+                              ? String(item[col.accessorKey] ?? '—')
+                              : '—'}
                         </span>
                       </div>
                     ))}

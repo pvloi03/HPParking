@@ -37,7 +37,10 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col bg-card border border-border shadow-2xl">
+      <DialogContent
+        preventOutsideClose={false}
+        className="max-w-md p-0 overflow-hidden flex flex-col bg-card border border-border shadow-2xl"
+      >
         <div className="p-6 flex items-start gap-4">
           <div className="h-11 w-11 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0 shadow-xs">
             {icon ?? <AlertTriangle className="h-5 w-5" />}

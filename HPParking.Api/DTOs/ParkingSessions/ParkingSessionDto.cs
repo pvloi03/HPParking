@@ -27,5 +27,13 @@ namespace HPParking.Api.DTOs.ParkingSessions
 
         // --- TÍNH TOÁN ---
         public double? DurationMinutes { get; set; }
+
+        // --- GHI CHÚ ---
+        public string? Note { get; set; }
+
+        // --- THÔNG TIN CHỦ PHƯƠNG TIỆN (CLIENT) ---
+        public string? PersonFullName { get; set; }
+        public string? PersonPhoneNumber { get; set; }
+        public string? PersonCode { get; set; }
     }
 }

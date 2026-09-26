@@ -12,7 +12,7 @@ namespace HPParking.Api.Common.Exceptions
         public const string CONFLICT = "CONFLICT";
         public const string TOO_MANY_REQUESTS = "TOO_MANY_REQUESTS";
 
-        // Auth
+        // Auth & User
         public const string AUTH_INVALID_CREDENTIALS = "AUTH_INVALID_CREDENTIALS";
         public const string AUTH_ACCOUNT_LOCKED = "AUTH_ACCOUNT_LOCKED";
         public const string AUTH_INVALID_TOKEN = "AUTH_INVALID_TOKEN";
@@ -20,6 +20,8 @@ namespace HPParking.Api.Common.Exceptions
         public const string AUTH_INVALID_API_KEY = "AUTH_INVALID_API_KEY";
         public const string AUTH_REFRESH_TOKEN_REQUIRED = "AUTH_REFRESH_TOKEN_REQUIRED";
         public const string AUTH_REFRESH_TOKEN_INVALID = "AUTH_REFRESH_TOKEN_INVALID";
+        public const string USER_NOT_FOUND = "USER_NOT_FOUND";
+        public const string USER_DUPLICATE_USERNAME = "USER_DUPLICATE_USERNAME";
 
         // Client
         public const string CLIENT_NOT_FOUND = "CLIENT_NOT_FOUND";

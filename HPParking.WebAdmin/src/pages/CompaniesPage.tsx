@@ -16,9 +16,11 @@ import type {
   CreateCompanyRequest,
   UpdateCompanyRequest,
 } from '@/types/masterData';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export function CompaniesPage() {
   const queryClient = useQueryClient();
+  const { canWrite } = usePermissions();
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
@@ -167,7 +169,7 @@ export function CompaniesPage() {
     {
       header: 'Mã công ty',
       accessorKey: 'code',
-      className: 'font-mono font-medium text-xs text-blue-600 dark:text-blue-400 w-36',
+      className: 'font-semibold w-36',
       mobileLabel: 'Mã',
     },
     {
@@ -257,38 +259,48 @@ export function CompaniesPage() {
           setStatusFilter(st);
           setPageIndex(1);
         }}
-        selectable={true}
+        selectable={canWrite}
         selectedRowIds={selectedRowIds}
         onSelectedRowIdsChange={setSelectedRowIds}
         bulkActions={
-          <div className="flex items-center gap-1.5 ml-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
-              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+              </Button>
+            </div>
+          ) : undefined
         }
-        onAddNew={() => {
-          setSelectedCompany(null);
-          setIsFormOpen(true);
-        }}
+        onAddNew={
+          canWrite
+            ? () => {
+                setSelectedCompany(null);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
         addNewLabel="Thêm mới công ty"
-        onImportExcel={() => setIsExcelImportOpen(true)}
+        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
-          onEdit: (item) => {
-            setSelectedCompany(item);
-            setIsFormOpen(true);
-          },
-          onDelete: (item) => {
-            setDeleteCandidate(item);
-          },
+          onEdit: canWrite
+            ? (item) => {
+                setSelectedCompany(item);
+                setIsFormOpen(true);
+              }
+            : undefined,
+          onDelete: canWrite
+            ? (item) => {
+                setDeleteCandidate(item);
+              }
+            : undefined,
         }}
         emptyTitle="Không có công ty nào"
         emptyDescription="Chưa có dữ liệu công ty hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."

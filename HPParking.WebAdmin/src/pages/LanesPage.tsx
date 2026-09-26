@@ -23,6 +23,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { LaneFormDialog } from '@/components/infrastructure/LaneFormDialog';
 import { LaneDetailDialog } from '@/components/infrastructure/LaneDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   lanesApi,
   gatesApi,
@@ -40,6 +41,7 @@ import {
 
 export function LanesPage() {
   const queryClient = useQueryClient();
+  const { canWrite } = usePermissions();
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
@@ -212,7 +214,7 @@ export function LanesPage() {
     {
       header: 'Mã làn',
       accessorKey: 'code',
-      className: 'font-mono font-medium text-xs text-blue-600 dark:text-blue-400 w-32',
+      className: 'font-semibold w-32',
       mobileLabel: 'Mã',
     },
     {
@@ -280,11 +282,10 @@ export function LanesPage() {
       cell: (item) => (
         <Badge
           variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${
-            item.isActive
+          className={`text-[11px] font-medium ${item.isActive
               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
               : 'bg-muted text-muted-foreground'
-          }`}
+            }`}
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
         </Badge>
@@ -399,38 +400,48 @@ export function LanesPage() {
             </div>
           </div>
         }
-        selectable={true}
+        selectable={canWrite}
         selectedRowIds={selectedRowIds}
         onSelectedRowIdsChange={setSelectedRowIds}
         bulkActions={
-          <div className="flex items-center gap-1.5 ml-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
-              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+              </Button>
+            </div>
+          ) : undefined
         }
-        onAddNew={() => {
-          setSelectedLane(null);
-          setIsFormOpen(true);
-        }}
+        onAddNew={
+          canWrite
+            ? () => {
+                setSelectedLane(null);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
         addNewLabel="Thêm mới làn xe"
-        onImportExcel={() => setIsExcelImportOpen(true)}
+        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
-          onEdit: (item) => {
-            setSelectedLane(item);
-            setIsFormOpen(true);
-          },
-          onDelete: (item) => {
-            setDeleteCandidate(item);
-          },
+          onEdit: canWrite
+            ? (item) => {
+                setSelectedLane(item);
+                setIsFormOpen(true);
+              }
+            : undefined,
+          onDelete: canWrite
+            ? (item) => {
+                setDeleteCandidate(item);
+              }
+            : undefined,
         }}
         emptyTitle="Không có làn xe nào"
         emptyDescription="Chưa có dữ liệu làn xe hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."

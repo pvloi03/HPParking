@@ -25,9 +25,11 @@ import {
   type CreateVehicleRequest,
   type UpdateVehicleRequest,
 } from '@/types/vehicle';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export function VehiclesPage() {
   const queryClient = useQueryClient();
+  const { canWrite } = usePermissions();
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
@@ -226,9 +228,9 @@ export function VehiclesPage() {
       header: 'Biển số xe',
       accessorKey: 'plateNumber',
       cell: (item) => (
-        <div className="inline-flex items-center px-2.5 py-1 rounded-md border-2 border-foreground/20 bg-background shadow-2xs font-mono font-bold text-xs tracking-wider text-blue-600 dark:text-blue-400">
+        <Badge variant='outline' className='border-slate-300'>
           {item.plateNumber}
-        </div>
+        </Badge>
       ),
       className: 'w-40',
       mobileLabel: 'Biển số',
@@ -274,12 +276,8 @@ export function VehiclesPage() {
       accessorKey: 'isActive',
       cell: (item) => (
         <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${
-            item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-          }`}
+          className='text-[11px]'
+          variant={item.isActive ? 'success' : 'secondary'}
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
         </Badge>
@@ -369,38 +367,48 @@ export function VehiclesPage() {
             </Select>
           </div>
         }
-        selectable={true}
+        selectable={canWrite}
         selectedRowIds={selectedRowIds}
         onSelectedRowIdsChange={setSelectedRowIds}
         bulkActions={
-          <div className="flex items-center gap-1.5 ml-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
-              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+              </Button>
+            </div>
+          ) : undefined
         }
-        onAddNew={() => {
-          setSelectedVehicle(null);
-          setIsFormOpen(true);
-        }}
+        onAddNew={
+          canWrite
+            ? () => {
+                setSelectedVehicle(null);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
         addNewLabel="Đăng ký phương tiện"
-        onImportExcel={() => setIsExcelImportOpen(true)}
+        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
-          onEdit: (item) => {
-            setSelectedVehicle(item);
-            setIsFormOpen(true);
-          },
-          onDelete: (item) => {
-            setDeleteCandidate(item);
-          },
+          onEdit: canWrite
+            ? (item) => {
+                setSelectedVehicle(item);
+                setIsFormOpen(true);
+              }
+            : undefined,
+          onDelete: canWrite
+            ? (item) => {
+                setDeleteCandidate(item);
+              }
+            : undefined,
         }}
         emptyTitle="Không có phương tiện nào"
         emptyDescription="Chưa có dữ liệu phương tiện hoặc không có biển số nào khớp với từ khóa tìm kiếm."

@@ -4,10 +4,10 @@ import { toast } from 'sonner';
 import {
   Users,
   Trash2,
-  ScanFace,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
+  CreditCard,
+  Phone,
+  Mail,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,11 +21,17 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ClientFormDialog } from '@/components/clients/ClientFormDialog';
+import { ClientDetailDialog } from '@/components/clients/ClientDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { clientApi, extractErrorMessage } from '@/api/clientApi';
+import { vehicleApi } from '@/api/vehicleApi';
 import { companiesApi, departmentsApi, contractorsApi } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
+import { usePermissions } from '@/hooks/usePermissions';
+import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
+import { cn } from '@/lib/utils';
+import { hn212Service, type Hn212CardData, type Hn212ReaderStatus } from '@/services/hn212Service';
 import type {
   ClientDto,
   CreateClientRequest,
@@ -35,6 +41,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function ClientsPage() {
   const queryClient = useQueryClient();
+  const { canWrite } = usePermissions();
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
@@ -52,10 +59,117 @@ export function ClientsPage() {
   // State Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientDto | null>(null);
+  const [detailClientId, setDetailClientId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<ClientDto | null>(null);
-  const [syncingClientId, setSyncingClientId] = useState<string | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // State đầu đọc CCCD HN212
+  const [hn212CardData, setHn212CardData] = useState<Hn212CardData | null>(null);
+  const [isReaderConnected, setIsReaderConnected] = useState<boolean>(false);
+  const [isReadingCard, setIsReadingCard] = useState<boolean>(false);
+  const [readingCardMessage, setReadingCardMessage] = useState<string>(
+    'Vui lòng giữ nguyên thẻ trên thiết bị đầu đọc HN212.'
+  );
+
+  // Tự động tắt Backdrop đọc thẻ nếu quá 15 giây không có phản hồi
+  useEffect(() => {
+    if (isReadingCard) {
+      const timer = setTimeout(() => {
+        setIsReadingCard(false);
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [isReadingCard]);
+
+  // Lắng nghe sự kiện cắm thẻ CCCD từ đầu đọc HN212
+  useEffect(() => {
+    hn212Service.connect();
+
+    // Lắng nghe trạng thái đặt thẻ/đang đọc/rút thẻ/lỗi đọc từ đầu đọc
+    const unsubscribeCardStatus = hn212Service.on(
+      'CardStatusChanged',
+      ({ status, message }: { status: string; message: string }) => {
+        if (status === 'Present' || status === 'Reading') {
+          setIsReadingCard(true);
+          setReadingCardMessage(message || 'Đang đọc dữ liệu từ chip CCCD...');
+        } else if (status === 'Absent') {
+          setIsReadingCard(false);
+        } else if (status === 'Error' || status === 'ReadError') {
+          setIsReadingCard(false);
+          toast.error(message || 'Đọc thẻ CCCD thất bại. Vui lòng kiểm tra lại vị trí đặt thẻ.');
+        }
+      }
+    );
+
+    // Lắng nghe khi có thẻ CCCD quét từ đầu đọc HN212 hoàn tất
+    const unsubscribeCard = hn212Service.on('CardReadCompleted', async (cardData: Hn212CardData) => {
+      setIsReadingCard(false);
+      const docNum = (cardData.DocumentNumber || cardData.documentNumber || '').trim();
+      const name = (cardData.FullName || cardData.fullName || '').trim();
+
+      if (!docNum && !name) {
+        return;
+      }
+
+      // Kiểm tra xem CCCD này đã tồn tại trong hệ thống hay chưa
+      let existingClient: ClientDto | null = null;
+      if (docNum) {
+        try {
+          const res = await clientApi.getPaged({ keyword: docNum, pageSize: 5 });
+          existingClient = res.items.find((c) => c.code?.trim() === docNum) || null;
+        } catch (err) {
+          console.error('Lỗi kiểm tra CCCD tồn tại:', err);
+        }
+      }
+
+      if (existingClient) {
+        toast.success(
+          `Đã tìm thấy hồ sơ: ${existingClient.name} (${docNum}). Mở màn hình cập nhật...`,
+          { duration: 4000 }
+        );
+        setSelectedClient(existingClient);
+        setHn212CardData(cardData);
+        setIsFormOpen(true);
+      } else {
+        toast.info(
+          `Đã phát hiện thẻ CCCD: ${name || 'Công dân'} (${docNum}). Mở màn hình thêm mới...`,
+          { duration: 4000 }
+        );
+        setSelectedClient(null);
+        setHn212CardData(cardData);
+        setIsFormOpen(true);
+      }
+    });
+
+    // Lắng nghe thay đổi trạng thái thiết bị
+    const unsubscribeStatus = hn212Service.on('DeviceStatusChanged', (status: Hn212ReaderStatus) => {
+      setIsReaderConnected(Boolean(status?.isReaderConnected));
+    });
+
+    const unsubscribeConn = hn212Service.on('connectionChanged', (connected: boolean) => {
+      if (connected) {
+        void hn212Service.getStatus().then((st) => {
+          setIsReaderConnected(Boolean(st?.isReaderConnected));
+        });
+      }
+    });
+
+    // Lấy trạng thái thiết bị lúc khởi tạo
+    void hn212Service.getStatus().then((st) => {
+      if (st) {
+        setIsReaderConnected(Boolean(st.isReaderConnected));
+      }
+    });
+
+    return () => {
+      unsubscribeCard();
+      unsubscribeCardStatus();
+      unsubscribeStatus();
+      unsubscribeConn();
+    };
+  }, []);
 
   // Tự động bỏ chọn checkbox khi đổi trang hoặc đổi bộ lọc
   useEffect(() => {
@@ -185,6 +299,7 @@ export function ClientsPage() {
 
       setIsFormOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
+      void queryClient.invalidateQueries({ queryKey: ['client-detail'] });
     },
     onError: (err) => {
       toast.error(extractErrorMessage(err));
@@ -233,6 +348,7 @@ export function ClientsPage() {
       setIsFormOpen(false);
       setSelectedClient(null);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
+      void queryClient.invalidateQueries({ queryKey: ['client-detail'] });
     },
     onError: (err) => {
       toast.error(extractErrorMessage(err));
@@ -279,32 +395,6 @@ export function ClientsPage() {
     }
   };
 
-  // Mutation: Đồng bộ FaceID thủ công
-  const syncFaceIdMutation = useMutation({
-    mutationFn: (id: string) => clientApi.syncFaceId(id),
-    onMutate: (id) => {
-      setSyncingClientId(id);
-    },
-    onSuccess: (res) => {
-      if (res.totalDevices === 0) {
-        toast.info('Không có thiết bị FaceID nào đang hoạt động trên các làn xe.');
-      } else if (res.failureCount > 0) {
-        toast.warning(
-          `Đồng bộ FaceID hoàn tất: ${res.successCount}/${res.totalDevices} thành công (${res.failureCount} thiết bị mất kết nối hoặc lỗi).`
-        );
-      } else {
-        toast.success(`Đã hoàn tất đồng bộ FaceID lên toàn bộ ${res.totalDevices} thiết bị.`);
-      }
-      void queryClient.invalidateQueries({ queryKey: ['clients'] });
-    },
-    onError: (err) => {
-      toast.error(extractErrorMessage(err));
-    },
-    onSettled: () => {
-      setSyncingClientId(null);
-    },
-  });
-
   // Xử lý submit form
   const handleFormSubmit = async (
     payload: CreateClientRequest | UpdateClientRequest,
@@ -316,20 +406,34 @@ export function ClientsPage() {
         payload: payload as UpdateClientRequest,
         avatarFile,
       });
+
+      // Nếu người dùng có bổ sung phương tiện mới trong form cập nhật:
+      const newVehicles = (payload as UpdateClientRequest).vehicles;
+      if (newVehicles && newVehicles.length > 0) {
+        for (const v of newVehicles) {
+          try {
+            await vehicleApi.create({
+              clientId: selectedClient.id,
+              plateNumber: v.plateNumber,
+              type: v.type,
+              isActive: v.isActive,
+              note: v.note,
+            });
+          } catch (vehErr) {
+            console.warn('Gán phương tiện bổ sung:', vehErr);
+          }
+        }
+        void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      }
     } else {
       await createMutation.mutateAsync({
         payload: payload as CreateClientRequest,
         avatarFile,
       });
+      if ((payload as CreateClientRequest).vehicles?.length) {
+        void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      }
     }
-  };
-
-  // Chuẩn hóa đường dẫn Avatar để luôn tải được ảnh qua proxy
-  const formatAvatarUrl = (url?: string) => {
-    if (!url) return '';
-    const clean = url.trim();
-    if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('blob:')) return clean;
-    return clean.startsWith('/') ? clean : `/${clean}`;
   };
 
   // Định nghĩa các cột
@@ -337,10 +441,17 @@ export function ClientsPage() {
     {
       header: 'Khách hàng',
       cell: (item) => (
-        <div className="flex items-center gap-2.5">
-          <Avatar className="h-9 w-9 border border-border/80 shrink-0">
+        <div
+          className="flex items-center gap-2.5 cursor-pointer group"
+          onClick={() => {
+            setDetailClientId(item.id);
+            setIsDetailOpen(true);
+          }}
+          title="Nhấn để xem hồ sơ chi tiết khách hàng"
+        >
+          <Avatar className="h-9 w-9 border border-border/80 shrink-0 group-hover:ring-2 group-hover:ring-blue-500 transition-all">
             <AvatarImage
-              src={formatAvatarUrl(item.avatar)}
+              src={formatAvatarUrl(item.avatar, item.updatedAt || item.createdAt)}
               alt={item.name || 'Khách hàng'}
               className="object-cover"
             />
@@ -356,7 +467,7 @@ export function ClientsPage() {
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <span className="font-semibold text-foreground text-xs block truncate">
+            <span className="font-semibold text-foreground text-xs block truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {item.name || '—'}
             </span>
             <span className="font-mono text-[11px] text-muted-foreground block">
@@ -369,15 +480,23 @@ export function ClientsPage() {
       mobileLabel: 'Khách hàng',
     },
     {
-      header: 'Số điện thoại',
-      accessorKey: 'phoneNumber',
+      header: 'Liên Hệ',
       cell: (item) => (
-        <span className="font-mono text-xs text-foreground font-medium">
-          {item.phoneNumber}
-        </span>
+        <div className="flex flex-col gap-1 text-xs">
+          <div className="flex items-center gap-1.5 text-foreground">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="font-mono text-xs">{item.phoneNumber || '—'}</span>
+          </div>
+          {item.email ? (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="truncate max-w-[200px] text-xs">{item.email}</span>
+            </div>
+          ) : null}
+        </div>
       ),
-      className: 'w-32',
-      mobileLabel: 'SĐT',
+      className: 'min-w-[180px]',
+      mobileLabel: 'Liên Hệ',
     },
     {
       header: 'Đơn vị trực thuộc',
@@ -411,55 +530,17 @@ export function ClientsPage() {
       mobileLabel: 'Đơn vị',
     },
     {
-      header: 'Sinh trắc FaceID',
-      cell: (item) => (
-        <div className="flex items-center gap-2">
-          {item.avatar ? (
-            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 gap-1 text-[11px] font-medium">
-              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-              <span>Đã có ảnh</span>
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px]">
-              <AlertCircle className="h-3 w-3 text-muted-foreground" />
-              <span>Chưa có ảnh</span>
-            </Badge>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => syncFaceIdMutation.mutate(item.id)}
-            disabled={syncingClientId === item.id}
-            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950 cursor-pointer"
-            title="Phát lệnh đồng bộ FaceID lên thiết bị làn xe"
-          >
-            {syncingClientId === item.id ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
-            ) : (
-              <ScanFace className="h-3.5 w-3.5" />
-            )}
-          </Button>
-        </div>
-      ),
-      className: 'w-44',
-      mobileLabel: 'FaceID',
-    },
-    {
       header: 'Trạng thái',
       accessorKey: 'isActive',
       cell: (item) => (
         <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-            : 'bg-muted text-muted-foreground'
-            }`}
+          variant={item.isActive ? 'success' : 'secondary'}
+          className='text-[12px]'
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
         </Badge>
       ),
-      className: 'w-36',
+      className: 'w-max',
       mobileLabel: 'Trạng thái',
     },
   ];
@@ -467,8 +548,9 @@ export function ClientsPage() {
   return (
     <div className="space-y-6">
       {/* Header trang */}
+      {/* Tiêu đề & thanh trạng thái đầu đọc */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-4">
-        <div>
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
               <Users className="h-5 w-5" />
@@ -480,6 +562,34 @@ export function ClientsPage() {
               <p className="text-xs text-muted-foreground">
                 Hồ sơ định danh khách hàng, số điện thoại Single Source of Truth, ảnh avatar và đồng bộ khuôn mặt sinh trắc học.
               </p>
+            </div>
+          </div>
+
+          {/* Trạng thái đầu đọc thẻ CCCD HN212 */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border/80 bg-card/80 shadow-2xs">
+            <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <div className="flex flex-col">
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                Đầu đọc CCCD HN212
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    isReaderConnected ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'
+                  )}
+                />
+                <span
+                  className={cn(
+                    'text-xs font-semibold',
+                    isReaderConnected
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {isReaderConnected ? 'Sẵn sàng quẹt thẻ' : 'Chưa kết nối thiết bị'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -566,48 +676,89 @@ export function ClientsPage() {
             </div>
           </div>
         }
-        selectable={true}
+        selectable={canWrite}
         selectedRowIds={selectedRowIds}
         onSelectedRowIdsChange={setSelectedRowIds}
         bulkActions={
-          <div className="flex items-center gap-1.5 ml-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
-              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+              </Button>
+            </div>
+          ) : undefined
         }
-        onAddNew={() => {
-          setSelectedClient(null);
-          setIsFormOpen(true);
-        }}
+        onAddNew={
+          canWrite
+            ? () => {
+                setSelectedClient(null);
+                setHn212CardData(null);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
         addNewLabel="Thêm mới khách hàng"
-        onImportExcel={() => setIsExcelImportOpen(true)}
+        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
-          onEdit: (item) => {
-            setSelectedClient(item);
-            setIsFormOpen(true);
+          onView: (item) => {
+            setDetailClientId(item.id);
+            setIsDetailOpen(true);
           },
-          onDelete: (item) => {
-            setDeleteCandidate(item);
-          },
+          onEdit: canWrite
+            ? (item) => {
+                setSelectedClient(item);
+                setHn212CardData(null);
+                setIsFormOpen(true);
+              }
+            : undefined,
+          onDelete: canWrite
+            ? (item) => {
+                setDeleteCandidate(item);
+              }
+            : undefined,
         }}
         emptyTitle="Không có khách hàng nào"
         emptyDescription="Chưa có hồ sơ khách hàng hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
       />
 
+      {/* Modal Xem Chi Tiết Khách Hàng */}
+      <ClientDetailDialog
+        open={isDetailOpen}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open) setDetailClientId(null);
+        }}
+        clientId={detailClientId}
+        companies={companies}
+        departments={departments}
+        contractors={contractors}
+        onEdit={(client) => {
+          setSelectedClient(client);
+          setHn212CardData(null);
+          setIsFormOpen(true);
+        }}
+      />
+
       {/* Modal Form Thêm/Sửa Khách Hàng */}
       <ClientFormDialog
         open={isFormOpen}
-        onOpenChange={setIsFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) {
+            setHn212CardData(null);
+            setSelectedClient(null);
+          }
+        }}
         initialData={selectedClient}
+        hn212CardData={hn212CardData}
         companies={companies}
         departments={departments}
         contractors={contractors}
@@ -658,6 +809,35 @@ export function ClientsPage() {
         confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
         onConfirm={handleExecuteBulkDelete}
       />
+
+      {/* Backdrop & Vòng xoay khi cắm thẻ CCCD đang đọc dữ liệu */}
+      {isReadingCard && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card border border-border/80 rounded-2xl p-6 sm:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center space-y-4">
+            <div className="relative flex items-center justify-center">
+              {/* Vòng tròn hiệu ứng quay xung quanh */}
+              <div className="absolute h-20 w-20 rounded-full border-4 border-blue-500/20 border-t-blue-500 animate-spin" />
+              <div className="h-14 w-14 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner">
+                <CreditCard className="h-7 w-7 animate-pulse" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-foreground">
+                Đang đọc dữ liệu từ thẻ CCCD...
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {readingCardMessage || 'Vui lòng giữ nguyên thẻ trên thiết bị đầu đọc HN212.'}
+              </p>
+            </div>
+
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/80 border border-border text-[11px] text-muted-foreground font-medium">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+              <span>Đầu đọc HN212 đang xử lý</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

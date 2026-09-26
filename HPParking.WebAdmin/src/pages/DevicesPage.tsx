@@ -22,6 +22,7 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DeviceFormDialog } from '@/components/infrastructure/DeviceFormDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
+import { usePermissions } from '@/hooks/usePermissions';
 import { devicesApi, extractErrorMessage } from '@/api/infrastructureApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
@@ -34,6 +35,7 @@ import {
 
 export function DevicesPage() {
   const queryClient = useQueryClient();
+  const { canWrite } = usePermissions();
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
@@ -223,7 +225,7 @@ export function DevicesPage() {
     {
       header: 'Mã thiết bị',
       accessorKey: 'code',
-      className: 'font-mono font-medium text-xs text-blue-600 dark:text-blue-400 w-36',
+      className: 'font-semibold w-36',
       mobileLabel: 'Mã',
     },
     {
@@ -263,11 +265,10 @@ export function DevicesPage() {
       cell: (item) => (
         <Badge
           variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${
-            item.isActive
+          className={`text-[11px] font-medium ${item.isActive
               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
               : 'bg-muted text-muted-foreground'
-          }`}
+            }`}
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
         </Badge>
@@ -357,38 +358,48 @@ export function DevicesPage() {
             </Select>
           </div>
         }
-        selectable={true}
+        selectable={canWrite}
         selectedRowIds={selectedRowIds}
         onSelectedRowIdsChange={setSelectedRowIds}
         bulkActions={
-          <div className="flex items-center gap-1.5 ml-1">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsBulkDeleteOpen(true)}
-              className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
-              <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                <span>Xóa vào thùng rác ({selectedRowIds.length})</span>
+              </Button>
+            </div>
+          ) : undefined
         }
-        onAddNew={() => {
-          setSelectedDevice(null);
-          setIsFormOpen(true);
-        }}
+        onAddNew={
+          canWrite
+            ? () => {
+                setSelectedDevice(null);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
         addNewLabel="Thêm mới thiết bị"
-        onImportExcel={() => setIsExcelImportOpen(true)}
+        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
-          onEdit: (item) => {
-            setSelectedDevice(item);
-            setIsFormOpen(true);
-          },
-          onDelete: (item) => {
-            setDeleteCandidate(item);
-          },
+          onEdit: canWrite
+            ? (item) => {
+                setSelectedDevice(item);
+                setIsFormOpen(true);
+              }
+            : undefined,
+          onDelete: canWrite
+            ? (item) => {
+                setDeleteCandidate(item);
+              }
+            : undefined,
         }}
         emptyTitle="Không có thiết bị nào"
         emptyDescription="Chưa có dữ liệu thiết bị hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."

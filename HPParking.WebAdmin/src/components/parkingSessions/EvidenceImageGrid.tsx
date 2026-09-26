@@ -2,11 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
-  Maximize2,
-  X,
   ImageOff,
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 export interface EvidenceImageGridProps {
   inPlateImagePath?: string | null;
@@ -58,7 +55,6 @@ export function EvidenceImageGrid({
   isActiveSession = false,
 }: EvidenceImageGridProps) {
   const [activeSlide, setActiveSlide] = useState(0);
-  const [zoomedSlide, setZoomedSlide] = useState<SlideItem | null>(null);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const slides: SlideItem[] = [
@@ -138,8 +134,7 @@ export function EvidenceImageGrid({
             key={current.id}
             src={current.url}
             alt={current.label}
-            className="w-full h-full object-contain transition-all duration-300 animate-in fade-in zoom-in-95 cursor-pointer"
-            onClick={() => setZoomedSlide(current)}
+            className="w-full h-full object-contain transition-all duration-300 animate-in fade-in zoom-in-95"
             onError={() => {
               setFailedImages((prev) => ({ ...prev, [current.id]: true }));
             }}
@@ -196,18 +191,6 @@ export function EvidenceImageGrid({
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-
-        {/* Nút phóng to ảnh ở góc dưới phải (chỉ hiện khi có ảnh hợp lệ) */}
-        {isCurrentValid && (
-          <button
-            type="button"
-            onClick={() => setZoomedSlide(current)}
-            className="absolute bottom-2.5 right-2.5 h-7 w-7 rounded-md bg-white/90 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center border border-slate-200 dark:border-slate-700/70 shadow-md transition-all opacity-70 hover:opacity-100 cursor-pointer"
-            title="Phóng to ảnh"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-          </button>
-        )}
 
         {/* Dot Indicators */}
         <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-white/80 dark:bg-slate-900/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700/50">
@@ -276,59 +259,6 @@ export function EvidenceImageGrid({
           );
         })}
       </div>
-
-      {/* Modal phóng to ảnh chi tiết */}
-      <Dialog open={Boolean(zoomedSlide)} onOpenChange={(open) => !open && setZoomedSlide(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-slate-950/95 border-slate-800 text-white">
-          <div className="relative">
-            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-extrabold text-white px-2 py-0.5 rounded ${zoomedSlide?.tagColor}`}>
-                  {zoomedSlide?.tag}
-                </span>
-                <DialogTitle className="text-sm font-semibold text-white">
-                  {zoomedSlide?.label} ({plateNumber})
-                </DialogTitle>
-              </div>
-              <button
-                type="button"
-                onClick={() => setZoomedSlide(null)}
-                className="h-8 w-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                title="Đóng phóng to"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-4 flex items-center justify-center max-h-[75vh]">
-              {zoomedSlide && zoomedSlide.hasImg && !failedImages[zoomedSlide.id] ? (
-                <img
-                  src={zoomedSlide.url}
-                  alt={zoomedSlide.label}
-                  className="max-h-[70vh] w-auto max-w-full object-contain rounded-lg shadow-2xl"
-                  onError={() => {
-                    setFailedImages((prev) => ({ ...prev, [zoomedSlide.id]: true }));
-                  }}
-                />
-              ) : (
-                <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-2.5 text-center">
-                  <div className="h-12 w-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500">
-                    <ImageOff className="h-6 w-6 opacity-60" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-300">Không thể tải ảnh phóng to</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Tệp hình ảnh không khả dụng hoặc bị lỗi đường dẫn máy chủ</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-2.5 bg-slate-900 border-t border-slate-800 text-xs text-slate-300 text-center font-mono">
-              {zoomedSlide?.subtitle}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -36,6 +36,14 @@ export interface ParkingSessionDto {
   // --- TÍNH TOÁN ---
   durationMinutes?: number;
 
+  // --- GHI CHÚ ---
+  note?: string;
+
+  // --- THÔNG TIN CHỦ PHƯƠNG TIỆN (CLIENT) ---
+  personFullName?: string;
+  personPhoneNumber?: string;
+  personCode?: string;
+
   // --- AUDIT TRAIL (AuditableDto) ---
   createdAt: string;
   updatedAt?: string;
@@ -45,9 +53,6 @@ export interface ParkingSessionDto {
  * DTO chi tiết phiên đỗ xe kèm thông tin khách hàng và định dạng thời lượng (ParkingSessionDetailDto.cs)
  */
 export interface ParkingSessionDetailDto extends ParkingSessionDto {
-  personFullName?: string;
-  personPhoneNumber?: string;
-  personCode?: string;
   durationFormatted?: string;
 }
 

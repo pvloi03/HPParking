@@ -98,28 +98,28 @@ export function ParkingSessionDetailDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden flex flex-col bg-background text-foreground border-border shadow-2xl">
         {/* Header Dialog */}
         <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border bg-muted/20">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-10">
+          <div className="flex flex-col gap-2.5 pr-8">
             <DialogTitle className="flex items-center gap-2.5 text-base sm:text-lg font-bold">
               <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <Car className="h-4.5 w-4.5" />
               </div>
-              <div className="truncate">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold tracking-wide">
                   Chi Tiết Lượt Xe: {session?.plateNumber || 'Đang tải...'}
                 </span>
-                <span className="text-xs text-muted-foreground ml-2 font-normal hidden sm:inline">
+                <span className="text-xs text-muted-foreground font-normal">
                   ({session?.personFullName || 'Khách vãng lai'} • {session ? getVehicleTypeName(session.vehicleType) : ''})
                 </span>
               </div>
             </DialogTitle>
 
-            {/* Badges trạng thái & thời lượng */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            {/* Badges trạng thái & thời lượng cho xuống hàng */}
+            <div className="flex items-center gap-2 flex-wrap sm:pl-10.5">
               {session && getStatusBadge(session.status)}
               {session?.inTime && (
                 <Badge
                   variant="outline"
-                  className="bg-background border-border text-foreground font-mono text-[11px] px-2 py-0.5 flex items-center gap-1 shadow-2xs"
+                  className="bg-background border-border text-foreground font-mono text-[11px] px-2.5 py-0.5 flex items-center gap-1 shadow-2xs"
                 >
                   <Timer className="h-3 w-3 text-primary" />
                   {session.durationFormatted || '--'}
@@ -399,6 +399,25 @@ export function ParkingSessionDetailDialog({
                             )}
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Card 5: Ghi Chú */}
+                    <div className="col-span-1 md:col-span-2 p-3.5 rounded-xl border border-border bg-card space-y-2 shadow-2xs">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-600 dark:text-amber-400 border-b border-border/60 pb-1.5">
+                        <FileText className="h-4 w-4" />
+                        <span>Ghi Chú</span>
+                      </div>
+                      <div className="pt-0.5">
+                        {session.note ? (
+                          <p className="text-xs text-foreground font-medium whitespace-pre-wrap leading-relaxed">
+                            {session.note}
+                          </p>
+                        ) : (
+                          <span className="text-muted-foreground italic text-xs">
+                            — Không có ghi chú nào cho phiên đỗ xe này —
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

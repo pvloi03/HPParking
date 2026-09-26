@@ -115,5 +115,26 @@ describe('ParkingSessionDetailDialog Component', () => {
 
     expect(screen.getByText(/Phương Tiện & Chủ Xe/i)).toBeInTheDocument();
     expect(screen.getByText(/Chi Tiết Lượt Vào/i)).toBeInTheDocument();
+    expect(screen.getByText('Ghi Chú')).toBeInTheDocument();
+  });
+
+  it('hiển thị nội dung ghi chú khi session có trường note', async () => {
+    vi.mocked(parkingSessionApi.getSessionById).mockResolvedValueOnce({
+      ...mockSessionNormal,
+      note: 'Xe chở sếp đi công tác, gửi qua đêm',
+    } as any);
+
+    renderWithClient(
+      <ParkingSessionDetailDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        sessionId="session-with-note"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Ghi Chú')).toBeInTheDocument();
+      expect(screen.getByText('Xe chở sếp đi công tác, gửi qua đêm')).toBeInTheDocument();
+    });
   });
 });

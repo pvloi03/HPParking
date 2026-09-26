@@ -1,5 +1,6 @@
 using FluentValidation;
 using HPParking.Api.DTOs.Clients;
+using HPParking.Api.Validators.Vehicles;
 
 namespace HPParking.Api.Validators.Clients
 {
@@ -37,6 +38,12 @@ namespace HPParking.Api.Validators.Clients
 
             RuleFor(x => x.Note)
                 .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự.");
+
+            When(x => x.Vehicles != null && x.Vehicles.Count > 0, () =>
+            {
+                RuleForEach(x => x.Vehicles)
+                    .SetValidator(new CreateVehicleRequestValidator());
+            });
         }
     }
 }

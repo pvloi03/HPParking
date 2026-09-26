@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   LayoutDashboard,
   History,
@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronDown,
   LogOut,
+  KeyRound,
   X,
 } from 'lucide-react';
 import {
@@ -26,28 +27,34 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { ChangePasswordDialog } from '@/components/auth/ChangePasswordDialog';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/api/authApi';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePermissions } from '@/hooks/usePermissions';
+import { UserRole } from '@/types/user';
 import { cn } from '@/lib/utils';
 
 interface NavSubItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  roles?: (UserRole | string | number)[];
 }
 
 interface NavGroup {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   children: NavSubItem[];
+  roles?: (UserRole | string | number)[];
 }
 
 interface NavSingleItem {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  roles?: (UserRole | string | number)[];
 }
 
 type MenuItem =
@@ -112,9 +119,24 @@ const menuConfig: MenuItem[] = [
       title: 'Sổ cái & Kiểm toán',
       icon: ShieldAlert,
       children: [
-        { title: 'Nhật ký kiểm toán', href: '/audit-logs', icon: ShieldAlert },
-        { title: 'Tài khoản', href: '/users', icon: UserCog },
-        { title: 'Thùng rác hệ thống', href: '/recycle-bin', icon: Trash2 },
+        {
+          title: 'Nhật ký kiểm toán',
+          href: '/audit-logs',
+          icon: ShieldAlert,
+          roles: [UserRole.Admin],
+        },
+        {
+          title: 'Tài khoản',
+          href: '/users',
+          icon: UserCog,
+          roles: [UserRole.Admin],
+        },
+        {
+          title: 'Thùng rác hệ thống',
+          href: '/recycle-bin',
+          icon: Trash2,
+          roles: [UserRole.Admin, UserRole.Manager],
+        },
       ],
     },
   },
@@ -139,6 +161,42 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   const location = useLocation();
   const activePath = location.pathname;
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const { hasRole } = usePermissions();
+
+  const filteredMenuConfig = useMemo(() => {
+    return menuConfig
+      .map((menu) => {
+        if (menu.type === 'single') {
+          if (menu.item.roles && !hasRole(menu.item.roles)) {
+            return null;
+          }
+          return menu;
+        }
+
+        if (menu.group.roles && !hasRole(menu.group.roles)) {
+          return null;
+        }
+
+        const allowedChildren = menu.group.children.filter((child) => {
+          return !child.roles || hasRole(child.roles);
+        });
+
+        // Nếu nhóm không còn bất kỳ mục con nào thì ẩn cả nhóm
+        if (allowedChildren.length === 0) {
+          return null;
+        }
+
+        return {
+          ...menu,
+          group: {
+            ...menu.group,
+            children: allowedChildren,
+          },
+        };
+      })
+      .filter((menu): menu is MenuItem => menu !== null);
+  }, [hasRole]);
 
   const effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
 
@@ -261,7 +319,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
 
         {/* Navigation list */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-          {menuConfig.map((menu, idx) => {
+          {filteredMenuConfig.map((menu, idx) => {
             if (menu.type === 'single') {
               const { item } = menu;
               const isActive = activePath === item.href;
@@ -408,17 +466,39 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
                 </p>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => setShowLogoutDialog(true)}
-              title="Đăng xuất"
-              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer shrink-0"
-              aria-label="Đăng xuất"
+            <div
+              className={cn(
+                'flex items-center gap-1 shrink-0',
+                effectiveCollapsed && 'flex-col mt-1'
+              )}
             >
-              <LogOut className="h-3.5 w-3.5" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordDialog(true)}
+                title="Đổi mật khẩu cá nhân"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors cursor-pointer"
+                aria-label="Đổi mật khẩu"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLogoutDialog(true)}
+                title="Đăng xuất"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                aria-label="Đăng xuất"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Change Password Dialog */}
+        <ChangePasswordDialog
+          open={showChangePasswordDialog}
+          onOpenChange={setShowChangePasswordDialog}
+        />
 
         {/* Logout Confirmation Dialog */}
         <ConfirmDialog

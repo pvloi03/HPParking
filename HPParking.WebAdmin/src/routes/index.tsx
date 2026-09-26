@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthGuard } from '@/components/layout/AuthGuard';
+import { RoleGuard } from '@/components/layout/RoleGuard';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { UserRole } from '@/types/user';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { CompaniesPage } from '@/pages/CompaniesPage';
@@ -12,6 +14,7 @@ import { DevicesPage } from '@/pages/DevicesPage';
 import { ClientsPage } from '@/pages/ClientsPage';
 import { VehiclesPage } from '@/pages/VehiclesPage';
 import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
+import { UsersPage } from '@/pages/UsersPage';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
@@ -73,8 +76,20 @@ export const router = createBrowserRouter([
         element: <ParkingSessionsPage />,
       },
       {
+        path: 'users',
+        element: (
+          <RoleGuard allowedRoles={[UserRole.Admin]}>
+            <UsersPage />
+          </RoleGuard>
+        ),
+      },
+      {
         path: 'recycle-bin',
-        element: <RecycleBinPage />,
+        element: (
+          <RoleGuard allowedRoles={[UserRole.Admin, UserRole.Manager]}>
+            <RecycleBinPage />
+          </RoleGuard>
+        ),
       },
     ],
   },

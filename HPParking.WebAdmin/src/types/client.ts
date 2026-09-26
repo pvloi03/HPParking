@@ -108,6 +108,7 @@ export interface UpdateClientRequest {
   isActive: boolean;
   expired: Expired;
   note?: string;
+  vehicles?: CreateVehicleRequest[];
 }
 
 export interface FaceIdTerminalResultDto {

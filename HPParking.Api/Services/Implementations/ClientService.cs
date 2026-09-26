@@ -367,6 +367,34 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            // 4. Kiểm tra tính duy nhất của danh sách phương tiện bổ sung (nếu có)
+            var normalizedVehicles = new List<CreateVehicleRequest>();
+            if (request.Vehicles != null && request.Vehicles.Count > 0)
+            {
+                foreach (var v in request.Vehicles)
+                {
+                    var normPlate = PlateHelper.Normalize(v.PlateNumber);
+                    var existingVehicle = await _vehicleRepo.FindOneAsync(
+                        x => x.PlateNumber == normPlate && x.IsActive && !x.IsDeleted,
+                        cancellationToken);
+
+                    if (existingVehicle != null)
+                    {
+                        throw new ConflictException(
+                            $"Biển số xe '{normPlate}' đã được đăng ký và đang hoạt động cho một khách hàng khác.",
+                            ErrorCodes.VEHICLE_PLATE_DUPLICATE);
+                    }
+
+                    normalizedVehicles.Add(new CreateVehicleRequest
+                    {
+                        PlateNumber = normPlate,
+                        Type = v.Type,
+                        IsActive = v.IsActive,
+                        Note = v.Note
+                    });
+                }
+            }
+
             var oldCode = client.Code;
             var oldPhone = client.PhoneNumber;
             var isCodeChanged = !string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase);
@@ -391,6 +419,21 @@ namespace HPParking.Api.Services.Implementations
 
             await _clientRepo.UpdateAsync(client, cancellationToken);
             _logger.LogInformation("Đã cập nhật khách hàng ID {Id}: {Name}", id, client.Name);
+
+            // Thêm các phương tiện bổ sung vào CSDL
+            foreach (var reqV in normalizedVehicles)
+            {
+                var vehicle = new Vehicle
+                {
+                    PlateNumber = reqV.PlateNumber,
+                    Type = reqV.Type,
+                    OwnerClientId = id,
+                    IsActive = reqV.IsActive,
+                    Note = reqV.Note,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _vehicleRepo.AddAsync(vehicle, cancellationToken);
+            }
 
             var detailDto = client.Adapt<ClientDetailDto>();
             var vehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == id && !v.IsDeleted, cancellationToken);

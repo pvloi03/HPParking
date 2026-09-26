@@ -77,6 +77,7 @@ builder.Services.AddHttpClient();
 
 // Đăng ký tầng dịch vụ nghiệp vụ (Services)
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddSingleton<IFaceIdService, HikvisionFaceIdService>();
 builder.Services.AddScoped<IVehicleService, VehicleService>();
@@ -342,11 +343,19 @@ if (!Directory.Exists(fullRootPath))
     Directory.CreateDirectory(fullRootPath);
 }
 
+// 5.0. Callback gắn header chống lưu cache cứng (Heuristic Caching) trên trình duyệt đối với tệp tĩnh (Avatar, ảnh chụp)
+Action<Microsoft.AspNetCore.StaticFiles.StaticFileResponseContext> setStaticFileCacheHeaders = ctx =>
+{
+    ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, must-revalidate");
+    ctx.Context.Response.Headers.Append("Pragma", "no-cache");
+};
+
 // 5.1. Phục vụ toàn bộ thư mục gốc qua RequestPath (mặc định /images)
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullRootPath),
-    RequestPath = requestPathConfig.TrimEnd('/')
+    RequestPath = requestPathConfig.TrimEnd('/'),
+    OnPrepareResponse = setStaticFileCacheHeaders
 });
 
 // 5.2. Tự động phục vụ tất cả các thư mục con trong Folders theo cấu hình (không fix cứng tên thư mục)
@@ -362,11 +371,12 @@ foreach (var folderConfig in foldersSection.GetChildren())
         Directory.CreateDirectory(folderPhysicalPath);
     }
 
-    // Đăng ký phục vụ /{folderName} (ví dụ /Captures)
+    // Đăng ký phục vụ /{folderName} (ví dụ /Captures, /Avatar)
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(folderPhysicalPath),
-        RequestPath = $"/{folderName.TrimStart('/')}"
+        RequestPath = $"/{folderName.TrimStart('/')}",
+        OnPrepareResponse = setStaticFileCacheHeaders
     });
 
     // Nếu tên thư mục có ký tự hoa, đăng ký thêm bản chữ thường để tương thích URL cả 2 dạng
@@ -376,7 +386,8 @@ foreach (var folderConfig in foldersSection.GetChildren())
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(folderPhysicalPath),
-            RequestPath = $"/{lower.TrimStart('/')}"
+            RequestPath = $"/{lower.TrimStart('/')}",
+            OnPrepareResponse = setStaticFileCacheHeaders
         });
     }
 }
