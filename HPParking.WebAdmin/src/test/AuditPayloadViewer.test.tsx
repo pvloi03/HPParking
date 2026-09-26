@@ -59,7 +59,7 @@ describe('AuditPayloadViewer Component', () => {
     // Kiểm tra thông tin người thực hiện, nguồn và thực thể
     expect(await screen.findByText('admin_master')).toBeInTheDocument();
     expect(screen.getByText('WebAdmin')).toBeInTheDocument();
-    expect(screen.getByText('Client')).toBeInTheDocument();
+    expect(screen.getAllByText('Client').length).toBeGreaterThan(0);
     expect(screen.getByText('Nguyễn Văn Test')).toBeInTheDocument();
 
     // Kiểm tra hiển thị lý do

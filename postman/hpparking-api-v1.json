@@ -10438,21 +10438,6 @@
                                                                                                       "type":  "string",
                                                                                                       "format":  "date-time"
                                                                                                   },
-                                                                                    "oldValues":  {
-                                                                                                      "type":  "string",
-                                                                                                      "nullable":  true
-                                                                                                  },
-                                                                                    "newValues":  {
-                                                                                                      "type":  "string",
-                                                                                                      "nullable":  true
-                                                                                                  },
-                                                                                    "changedProperties":  {
-                                                                                                              "type":  "array",
-                                                                                                              "items":  {
-                                                                                                                            "type":  "string"
-                                                                                                                        },
-                                                                                                              "nullable":  true
-                                                                                                          },
                                                                                     "reason":  {
                                                                                                    "type":  "string",
                                                                                                    "nullable":  true
@@ -10463,7 +10448,7 @@
                                                                                                      }
                                                                                 },
                                                                  "additionalProperties":  false,
-                                                                 "description":  "DTO chi tiết bản ghi nhật ký kiểm toán kèm dữ liệu thay đổi và lý do"
+                                                                 "description":  "DTO chi tiết bản ghi nhật ký kiểm toán kèm lý do và lỗi"
                                                              },
                                        "AuditLogDetailDtoApiResponse":  {
                                                                             "type":  "object",
