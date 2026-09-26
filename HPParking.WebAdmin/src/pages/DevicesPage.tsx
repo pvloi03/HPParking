@@ -4,12 +4,10 @@ import { toast } from 'sonner';
 import {
   Cpu,
   Trash2,
-  Camera,
-  ScanFace,
-  HelpCircle,
   Activity,
   RefreshCw,
   Loader2,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +34,8 @@ import {
   type UpdateDeviceRequest,
   type DevicePingResultDto,
 } from '@/types/infrastructure';
-import { useDevicePingStore } from '@/stores/devicePingStore';
+import { useDevicePingStore, isPingRecordFresh } from '@/stores/devicePingStore';
+import { getDeviceTypeBadge } from '@/components/infrastructure/deviceBadges';
 
 export function DevicesPage() {
   const queryClient = useQueryClient();
@@ -244,6 +243,7 @@ export function DevicesPage() {
     const isPinging = Boolean(pingingDeviceIds[device.id]);
     const storedRecord = pingRecords[device.id];
     const result = storedRecord?.result;
+    const isFresh = isPingRecordFresh(storedRecord);
 
     if (isPinging) {
       return (
@@ -270,6 +270,33 @@ export function DevicesPage() {
           <Activity className="h-3 w-3 text-blue-500" />
           <span>Ping</span>
         </Button>
+      );
+    }
+
+    if (!isFresh) {
+      return (
+        <div
+          className="flex items-center gap-1.5"
+          title={`Kết quả đo kiểm đã quá 5 phút (${new Date(storedRecord.lastPingedAt).toLocaleTimeString('vi-VN')}) - Nhấn để đo lại`}
+        >
+          <Badge
+            variant="outline"
+            className="gap-1.5 py-1 px-2 text-[11px] font-medium border-dashed border-amber-300 bg-amber-50/50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            <Clock className="h-3 w-3 text-amber-600" />
+            <span>Chờ kiểm tra</span>
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void handlePingSingle(device)}
+            disabled={isBatchPinging}
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+            title="Đo kiểm tra kết nối ngay"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </div>
       );
     }
 
@@ -435,38 +462,7 @@ export function DevicesPage() {
     }
   };
 
-  const getDeviceTypeBadge = (type: DeviceType) => {
-    switch (type) {
-      case DeviceType.Camera:
-        return (
-          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 gap-1 text-[11px] font-medium">
-            <Camera className="h-3 w-3" />
-            <span>Camera</span>
-          </Badge>
-        );
-      case DeviceType.Controller:
-        return (
-          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300 gap-1 text-[11px] font-medium">
-            <Cpu className="h-3 w-3" />
-            <span>Controller</span>
-          </Badge>
-        );
-      case DeviceType.FaceId:
-        return (
-          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 gap-1 text-[11px] font-medium">
-            <ScanFace className="h-3 w-3" />
-            <span>FaceID</span>
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-muted text-muted-foreground gap-1 text-[11px] font-medium">
-            <HelpCircle className="h-3 w-3" />
-            <span>Khác</span>
-          </Badge>
-        );
-    }
-  };
+
 
   // Định nghĩa các cột
   const columns: ColumnDef<DeviceDto>[] = [
@@ -522,8 +518,8 @@ export function DevicesPage() {
         <Badge
           variant={item.isActive ? 'default' : 'secondary'}
           className={`text-[11px] font-medium ${item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
+            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
+            : 'bg-muted text-muted-foreground'
             }`}
         >
           {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
@@ -644,11 +640,10 @@ export function DevicesPage() {
               variant={isAutoPingEnabled ? 'default' : 'outline'}
               size="sm"
               onClick={() => setAutoPingEnabled(!isAutoPingEnabled)}
-              className={`h-9 px-2.5 text-xs gap-1.5 transition-all cursor-pointer ${
-                isAutoPingEnabled
+              className={`h-9 px-2.5 text-xs gap-1.5 transition-all cursor-pointer ${isAutoPingEnabled
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
               title={
                 isAutoPingEnabled
                   ? 'Đang bật tự động kiểm tra mỗi 15s. Nhấn để tạm dừng.'
@@ -660,9 +655,8 @@ export function DevicesPage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
                 )}
                 <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${
-                    isAutoPingEnabled ? 'bg-white' : 'bg-muted-foreground'
-                  }`}
+                  className={`relative inline-flex rounded-full h-2 w-2 ${isAutoPingEnabled ? 'bg-white' : 'bg-muted-foreground'
+                    }`}
                 />
               </span>
               <span>Tự động ping (15s)</span>
@@ -710,9 +704,9 @@ export function DevicesPage() {
         onAddNew={
           canWrite
             ? () => {
-                setSelectedDevice(null);
-                setIsFormOpen(true);
-              }
+              setSelectedDevice(null);
+              setIsFormOpen(true);
+            }
             : undefined
         }
         addNewLabel="Thêm mới thiết bị"
@@ -725,14 +719,14 @@ export function DevicesPage() {
           },
           onEdit: canWrite
             ? (item) => {
-                setSelectedDevice(item);
-                setIsFormOpen(true);
-              }
+              setSelectedDevice(item);
+              setIsFormOpen(true);
+            }
             : undefined,
           onDelete: canWrite
             ? (item) => {
-                setDeleteCandidate(item);
-              }
+              setDeleteCandidate(item);
+            }
             : undefined,
         }}
         emptyTitle="Không có thiết bị nào"
@@ -756,10 +750,10 @@ export function DevicesPage() {
         onEdit={
           canWrite
             ? (device) => {
-                setDetailDeviceId(null);
-                setSelectedDevice(device);
-                setIsFormOpen(true);
-              }
+              setDetailDeviceId(null);
+              setSelectedDevice(device);
+              setIsFormOpen(true);
+            }
             : undefined
         }
       />

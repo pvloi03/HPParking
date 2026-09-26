@@ -11,7 +11,6 @@ import { ContractorsPage } from '@/pages/ContractorsPage';
 import { GatesPage } from '@/pages/GatesPage';
 import { LanesPage } from '@/pages/LanesPage';
 import { DevicesPage } from '@/pages/DevicesPage';
-import { DeviceDetailPage } from '@/pages/DeviceDetailPage';
 import { ClientsPage } from '@/pages/ClientsPage';
 import { VehiclesPage } from '@/pages/VehiclesPage';
 import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
@@ -67,7 +66,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'devices/:id',
-        element: <DeviceDetailPage />,
+        element: <Navigate to="/devices" replace />,
       },
       {
         path: 'clients',

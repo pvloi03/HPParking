@@ -79,7 +79,7 @@ describe('DevicesPage Component', () => {
     await waitFor(() => {
       expect(screen.getAllByText('CAM_LPR_01').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Camera Biển Số Cổng 1').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Camera').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Camera Giám Sát').length).toBeGreaterThan(0);
       expect(screen.getByText(/Ping tất cả/i)).toBeInTheDocument();
       expect(screen.getAllByTitle(/Kiểm tra kết nối tới/i).length).toBeGreaterThan(0);
     });
@@ -362,6 +362,63 @@ describe('DevicesPage Component', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Online').length).toBeGreaterThan(0);
       expect(screen.getAllByText('(12ms)').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('hiển thị badge "Chờ kiểm tra" khi bản ghi ping đã quá hạn TTL 5 phút', async () => {
+    // Nạp bản ghi quá hạn 6 phút
+    const sixMinutesAgo = Date.now() - 6 * 60 * 1000;
+    useDevicePingStore.setState({
+      records: {
+        'dev-1': {
+          result: {
+            ipAddress: '192.168.1.50',
+            isAlive: true,
+            roundtripTimeMs: 12,
+            method: 'ICMP',
+            message: 'Online 12ms',
+            timestamp: new Date(sixMinutesAgo).toISOString(),
+          },
+          lastPingedAt: sixMinutesAgo,
+        },
+      },
+    });
+
+    vi.mocked(devicesApi.getPaged).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'dev-1',
+          code: 'CAM_LPR_01',
+          name: 'Camera Biển Số Cổng 1',
+          type: DeviceType.Camera,
+          ipAddress: '192.168.1.50',
+          port: 80,
+          userName: 'admin',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 15,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DevicesPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // Kiểm tra thấy hiển thị badge "Chờ kiểm tra"
+    await waitFor(() => {
+      expect(screen.getAllByText('Chờ kiểm tra').length).toBeGreaterThan(0);
     });
   });
 });
