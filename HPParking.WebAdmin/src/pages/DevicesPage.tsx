@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -36,6 +36,7 @@ import {
   type UpdateDeviceRequest,
   type DevicePingResultDto,
 } from '@/types/infrastructure';
+import { useDevicePingStore } from '@/stores/devicePingStore';
 
 export function DevicesPage() {
   const queryClient = useQueryClient();
@@ -66,103 +67,116 @@ export function DevicesPage() {
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
-  // State Ping Device
-  interface PingState {
-    isPinging: boolean;
-    result?: DevicePingResultDto;
-  }
-  const [pingStates, setPingStates] = useState<Record<string, PingState>>({});
-  const [isBatchPinging, setIsBatchPinging] = useState(false);
+  // Query: Lấy danh sách thiết bị
+  const { data, isLoading } = useQuery({
+    queryKey: [
+      'devices',
+      pageIndex,
+      pageSize,
+      searchKeyword,
+      statusFilter,
+      typeFilter,
+    ],
+    queryFn: () =>
+      devicesApi.getPaged({
+        pageIndex,
+        pageSize,
+        keyword: searchKeyword.trim() || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter,
+        type: typeFilter === 'all' ? undefined : (Number(typeFilter) as DeviceType),
+      }),
+  });
+
+  // Zustand Ping Store & Actions
+  const pingRecords = useDevicePingStore((s) => s.records);
+  const pingingDeviceIds = useDevicePingStore((s) => s.pingingDeviceIds);
+  const isAutoPingEnabled = useDevicePingStore((s) => s.isAutoPingEnabled);
+  const isBatchPinging = useDevicePingStore((s) => s.isBatchPinging);
+  const setPingResult = useDevicePingStore((s) => s.setPingResult);
+  const setBatchPingResults = useDevicePingStore((s) => s.setBatchPingResults);
+  const setPinging = useDevicePingStore((s) => s.setPinging);
+  const setBatchPinging = useDevicePingStore((s) => s.setBatchPinging);
+  const setAutoPingEnabled = useDevicePingStore((s) => s.setAutoPingEnabled);
 
   // Xử lý Ping đơn lẻ cho 1 thiết bị
-  const handlePingSingle = async (device: DeviceDto) => {
-    if (!device.ipAddress?.trim()) {
-      toast.error(`Thiết bị "${device.name}" chưa được cấu hình địa chỉ IP.`);
-      return;
-    }
-
-    setPingStates((prev) => ({
-      ...prev,
-      [device.id]: { isPinging: true, result: prev[device.id]?.result },
-    }));
-
-    try {
-      const res = await devicesApi.pingDeviceIp(device.ipAddress);
-      setPingStates((prev) => ({
-        ...prev,
-        [device.id]: { isPinging: false, result: res },
-      }));
-
-      if (res.isAlive) {
-        toast.success(
-          `Thiết bị "${device.name}" (${res.ipAddress}): Online (${res.roundtripTimeMs}ms via ${res.method})`
-        );
-      } else {
-        toast.error(`Thiết bị "${device.name}" (${res.ipAddress}): ${res.message}`);
+  const handlePingSingle = useCallback(
+    async (device: DeviceDto) => {
+      if (!device.ipAddress?.trim()) {
+        toast.error(`Thiết bị "${device.name}" chưa được cấu hình địa chỉ IP.`);
+        return;
       }
-    } catch (err) {
-      setPingStates((prev) => ({
-        ...prev,
-        [device.id]: {
-          isPinging: false,
-          result: {
-            ipAddress: device.ipAddress,
-            isAlive: false,
-            roundtripTimeMs: 2000,
-            method: 'ERROR',
-            message: extractErrorMessage(err),
-            timestamp: new Date().toISOString(),
-          },
-        },
-      }));
-      toast.error(extractErrorMessage(err));
-    }
-  };
+
+      setPinging(device.id, true);
+
+      try {
+        const res = await devicesApi.pingDeviceIp(device.ipAddress);
+        setPingResult(device.id, res);
+
+        if (res.isAlive) {
+          toast.success(
+            `Thiết bị "${device.name}" (${res.ipAddress}): Online (${res.roundtripTimeMs}ms via ${res.method})`
+          );
+        } else {
+          toast.error(`Thiết bị "${device.name}" (${res.ipAddress}): ${res.message}`);
+        }
+      } catch (err) {
+        setPingResult(device.id, {
+          ipAddress: device.ipAddress,
+          isAlive: false,
+          roundtripTimeMs: 2000,
+          method: 'ERROR',
+          message: extractErrorMessage(err),
+          timestamp: new Date().toISOString(),
+        });
+        toast.error(extractErrorMessage(err));
+      } finally {
+        setPinging(device.id, false);
+      }
+    },
+    [setPinging, setPingResult]
+  );
 
   // Xử lý Ping hàng loạt (tất cả hoặc danh sách đã chọn qua checkbox)
-  const handlePingBatch = async (targetDevices?: DeviceDto[]) => {
-    const devicesToPing =
-      targetDevices && targetDevices.length > 0
-        ? targetDevices
-        : data?.items || [];
+  // isSilent: true khi chạy tự động ngầm theo chu kỳ 15s (không toast thông báo)
+  const handlePingBatch = useCallback(
+    async (targetDevices?: DeviceDto[], isSilent = false) => {
+      const devicesToPing =
+        targetDevices && targetDevices.length > 0
+          ? targetDevices
+          : data?.items || [];
 
-    const validDevices = devicesToPing.filter((d) => Boolean(d.ipAddress?.trim()));
-    if (validDevices.length === 0) {
-      toast.warning('Không có thiết bị nào có địa chỉ IP để kiểm tra kết nối.');
-      return;
-    }
+      const validDevices = devicesToPing.filter((d) => Boolean(d.ipAddress?.trim()));
+      if (validDevices.length === 0) {
+        if (!isSilent) {
+          toast.warning('Không có thiết bị nào có địa chỉ IP để kiểm tra kết nối.');
+        }
+        return;
+      }
 
-    setIsBatchPinging(true);
-    setPingStates((prev) => {
-      const next = { ...prev };
-      validDevices.forEach((d) => {
-        next[d.id] = { isPinging: true, result: next[d.id]?.result };
-      });
-      return next;
-    });
+      setBatchPinging(true);
+      validDevices.forEach((d) => setPinging(d.id, true));
 
-    try {
-      const distinctIps = Array.from(
-        new Set(validDevices.map((d) => d.ipAddress.trim()))
-      );
-      const results = await devicesApi.pingBatchDeviceIps(distinctIps);
+      try {
+        const distinctIps = Array.from(
+          new Set(validDevices.map((d) => d.ipAddress.trim()))
+        );
+        const results = await devicesApi.pingBatchDeviceIps(distinctIps);
 
-      const resultMap = new Map<string, DevicePingResultDto>();
-      results.forEach((r) => {
-        resultMap.set(r.ipAddress.toLowerCase(), r);
-      });
+        const resultMap = new Map<string, DevicePingResultDto>();
+        results.forEach((r) => {
+          resultMap.set(r.ipAddress.toLowerCase(), r);
+        });
 
-      setPingStates((prev) => {
-        const next = { ...prev };
+        const storeUpdates: { deviceId: string; result: DevicePingResultDto }[] = [];
         validDevices.forEach((d) => {
           const ip = d.ipAddress.trim().toLowerCase();
           const hostOnly = ip.includes(':') ? ip.split(':')[0] : ip;
           const matched = resultMap.get(ip) || resultMap.get(hostOnly);
           if (matched) {
-            next[d.id] = { isPinging: false, result: matched };
+            storeUpdates.push({ deviceId: d.id, result: matched });
           } else {
-            next[d.id] = {
-              isPinging: false,
+            storeUpdates.push({
+              deviceId: d.id,
               result: {
                 ipAddress: d.ipAddress,
                 isAlive: false,
@@ -171,43 +185,65 @@ export function DevicesPage() {
                 message: 'Không nhận được phản hồi từ thiết bị',
                 timestamp: new Date().toISOString(),
               },
-            };
+            });
           }
         });
-        return next;
-      });
 
-      const aliveCount = results.filter((r) => r.isAlive).length;
-      const deadCount = results.length - aliveCount;
-      if (deadCount === 0) {
-        toast.success(
-          `Kiểm tra hoàn tất: Toàn bộ ${aliveCount} thiết bị đang Online ổn định.`
-        );
-      } else {
-        toast.warning(
-          `Kiểm tra kết nối: ${aliveCount} thiết bị Online, ${deadCount} thiết bị Mất kết nối (Offline).`
-        );
-      }
-    } catch (err) {
-      toast.error(extractErrorMessage(err));
-      setPingStates((prev) => {
-        const next = { ...prev };
-        validDevices.forEach((d) => {
-          if (next[d.id]?.isPinging) {
-            next[d.id] = { ...next[d.id], isPinging: false };
+        setBatchPingResults(storeUpdates);
+
+        if (!isSilent) {
+          const aliveCount = results.filter((r) => r.isAlive).length;
+          const deadCount = results.length - aliveCount;
+          if (deadCount === 0) {
+            toast.success(
+              `Kiểm tra hoàn tất: Toàn bộ ${aliveCount} thiết bị đang Online ổn định.`
+            );
+          } else {
+            toast.warning(
+              `Kiểm tra kết nối: ${aliveCount} thiết bị Online, ${deadCount} thiết bị Mất kết nối (Offline).`
+            );
           }
-        });
-        return next;
-      });
-    } finally {
-      setIsBatchPinging(false);
-    }
-  };
+        }
+      } catch (err) {
+        if (!isSilent) {
+          toast.error(extractErrorMessage(err));
+        }
+      } finally {
+        validDevices.forEach((d) => setPinging(d.id, false));
+        setBatchPinging(false);
+      }
+    },
+    [data?.items, setBatchPinging, setPinging, setBatchPingResults]
+  );
+
+  // Polling tự động chu kỳ 15s cho danh sách thiết bị trên trang hiện tại khi isAutoPingEnabled = true
+  useEffect(() => {
+    if (!isAutoPingEnabled || !data?.items?.length) return;
+
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden && !isBatchPinging) {
+        void handlePingBatch(data.items, true);
+      }
+    }, 15000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAutoPingEnabled && !isBatchPinging && data?.items?.length) {
+        void handlePingBatch(data.items, true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAutoPingEnabled, data?.items, isBatchPinging, handlePingBatch]);
 
   const renderPingCell = (device: DeviceDto) => {
-    const status = pingStates[device.id];
-    const isPinging = status?.isPinging;
-    const result = status?.result;
+    const isPinging = Boolean(pingingDeviceIds[device.id]);
+    const storedRecord = pingRecords[device.id];
+    const result = storedRecord?.result;
 
     if (isPinging) {
       return (
@@ -309,26 +345,6 @@ export function DevicesPage() {
       setIsExportingExcel(false);
     }
   };
-
-  // Query: Lấy danh sách thiết bị
-  const { data, isLoading } = useQuery({
-    queryKey: [
-      'devices',
-      pageIndex,
-      pageSize,
-      searchKeyword,
-      statusFilter,
-      typeFilter,
-    ],
-    queryFn: () =>
-      devicesApi.getPaged({
-        pageIndex,
-        pageSize,
-        keyword: searchKeyword.trim() || undefined,
-        isActive: statusFilter === 'all' ? undefined : statusFilter,
-        type: typeFilter === 'all' ? undefined : (Number(typeFilter) as DeviceType),
-      }),
-  });
 
   // Mutation: Thêm mới thiết bị
   const createMutation = useMutation({
@@ -590,35 +606,67 @@ export function DevicesPage() {
           setPageIndex(1);
         }}
         extraFilters={
-          <div className="w-[180px]">
-            <Select
-              value={typeFilter}
-              onValueChange={(val) => {
-                setTypeFilter(val);
-                setPageIndex(1);
-              }}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-[180px]">
+              <Select
+                value={typeFilter}
+                onValueChange={(val) => {
+                  setTypeFilter(val);
+                  setPageIndex(1);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Lọc theo loại thiết bị" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    Tất cả loại thiết bị
+                  </SelectItem>
+                  <SelectItem value={String(DeviceType.Camera)} className="text-xs">
+                    Camera (Biển số / Toàn cảnh)
+                  </SelectItem>
+                  <SelectItem value={String(DeviceType.Controller)} className="text-xs">
+                    Controller (Barrier)
+                  </SelectItem>
+                  <SelectItem value={String(DeviceType.FaceId)} className="text-xs">
+                    FaceID (Khuôn mặt)
+                  </SelectItem>
+                  <SelectItem value={String(DeviceType.Other)} className="text-xs">
+                    Thiết bị khác
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Công tắc Bật/Tắt Tự động ping 15s */}
+            <Button
+              type="button"
+              variant={isAutoPingEnabled ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setAutoPingEnabled(!isAutoPingEnabled)}
+              className={`h-9 px-2.5 text-xs gap-1.5 transition-all cursor-pointer ${
+                isAutoPingEnabled
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title={
+                isAutoPingEnabled
+                  ? 'Đang bật tự động kiểm tra mỗi 15s. Nhấn để tạm dừng.'
+                  : 'Đang tắt tự động kiểm tra 15s. Nhấn để bật.'
+              }
             >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Lọc theo loại thiết bị" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">
-                  Tất cả loại thiết bị
-                </SelectItem>
-                <SelectItem value={String(DeviceType.Camera)} className="text-xs">
-                  Camera (Biển số / Toàn cảnh)
-                </SelectItem>
-                <SelectItem value={String(DeviceType.Controller)} className="text-xs">
-                  Controller (Barrier)
-                </SelectItem>
-                <SelectItem value={String(DeviceType.FaceId)} className="text-xs">
-                  FaceID (Khuôn mặt)
-                </SelectItem>
-                <SelectItem value={String(DeviceType.Other)} className="text-xs">
-                  Thiết bị khác
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              <span className="relative flex h-2 w-2">
+                {isAutoPingEnabled && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75" />
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    isAutoPingEnabled ? 'bg-white' : 'bg-muted-foreground'
+                  }`}
+                />
+              </span>
+              <span>Tự động ping (15s)</span>
+            </Button>
           </div>
         }
         selectable={canWrite}

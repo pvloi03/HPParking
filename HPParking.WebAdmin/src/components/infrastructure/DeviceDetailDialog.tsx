@@ -43,6 +43,8 @@ import {
   type DevicePingResultDto,
 } from '@/types/infrastructure';
 
+import { useDevicePingStore, isPingRecordFresh } from '@/stores/devicePingStore';
+
 export interface DeviceDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -58,7 +60,14 @@ export function DeviceDetailDialog({
 }: DeviceDetailDialogProps) {
   const [isCopied, setIsCopied] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
-  const [pingResult, setPingResult] = useState<DevicePingResultDto | null>(null);
+
+  // Đọc kết quả ping bền vững từ useDevicePingStore (localStorage)
+  const storedRecord = useDevicePingStore((s) =>
+    deviceId ? s.records[deviceId] : undefined
+  );
+  const setPingResultInStore = useDevicePingStore((s) => s.setPingResult);
+  const pingResult = storedRecord?.result;
+  const isFresh = isPingRecordFresh(storedRecord);
 
   // Query: Thông tin chi tiết thiết bị
   const {
@@ -105,12 +114,12 @@ export function DeviceDetailDialog({
   // Xử lý Ping kiểm tra kết nối thiết bị trực tiếp
   const handlePing = useCallback(
     async (showToast = false) => {
-      if (!device?.ipAddress) return;
+      if (!deviceId || !device?.ipAddress) return;
 
       setIsPinging(true);
       try {
         const res = await devicesApi.pingDeviceIp(device.ipAddress);
-        setPingResult(res);
+        setPingResultInStore(deviceId, res);
         if (showToast) {
           if (res.isAlive) {
             toast.success(
@@ -121,14 +130,15 @@ export function DeviceDetailDialog({
           }
         }
       } catch (err) {
-        setPingResult({
+        const errResult: DevicePingResultDto = {
           ipAddress: device.ipAddress,
           isAlive: false,
           roundtripTimeMs: 2000,
           method: 'ERROR',
           message: extractErrorMessage(err),
           timestamp: new Date().toISOString(),
-        });
+        };
+        setPingResultInStore(deviceId, errResult);
         if (showToast) {
           toast.error(extractErrorMessage(err));
         }
@@ -136,18 +146,37 @@ export function DeviceDetailDialog({
         setIsPinging(false);
       }
     },
-    [device?.ipAddress]
+    [deviceId, device?.ipAddress, setPingResultInStore]
   );
 
-  // Tự động ping ngay khi mở modal và đã nạp xong thông tin thiết bị
+  // Tự động ping ngay khi mở modal và lặp lại mỗi 15s; tạm dừng khi tab bị ẩn
   useEffect(() => {
-    if (open && device?.ipAddress) {
-      void handlePing(false);
-    } else if (!open) {
-      setPingResult(null);
+    if (!open || !deviceId || !device?.ipAddress) return;
+
+    // Ping làm mới ngay lần đầu khi mở modal
+    void handlePing(false);
+
+    // Chu kỳ 15 giây
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        void handlePing(false);
+      }
+    }, 15000);
+
+    // Lắng nghe visibilitychange: khi người dùng quay lại tab sau khi ẩn
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void handlePing(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       setIsPinging(false);
-    }
-  }, [open, device?.id, device?.ipAddress, handlePing]);
+    };
+  }, [open, deviceId, device?.ipAddress, handlePing]);
 
   const getDeviceTypeBadge = (type: DeviceType) => {
     switch (type) {
@@ -310,7 +339,7 @@ export function DeviceDetailDialog({
 
                 {/* Kết quả Ping */}
                 <div>
-                  {isPinging ? (
+                  {isPinging && !pingResult ? (
                     <div className="p-2.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/30 text-center space-y-1 animate-pulse">
                       <Loader2 className="h-4 w-4 animate-spin text-blue-600 mx-auto" />
                       <p className="text-[11px] font-medium text-blue-700 dark:text-blue-300">
@@ -348,15 +377,32 @@ export function DeviceDetailDialog({
                             </>
                           )}
                         </Badge>
-                        {pingResult.isAlive && (
-                          <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                            {pingResult.roundtripTimeMs} ms
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {isPinging && (
+                            <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                          )}
+                          {pingResult.isAlive && (
+                            <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                              {pingResult.roundtripTimeMs} ms
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground truncate">
                         {pingResult.message || (pingResult.isAlive ? 'Phản hồi tốt' : 'Không có phản hồi')}
                       </p>
+                      {storedRecord?.lastPingedAt && (
+                        <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-1 border-t border-border/40">
+                          <span>
+                            Cập nhật: {new Date(storedRecord.lastPingedAt).toLocaleTimeString('vi-VN')}
+                          </span>
+                          {!isFresh && (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">
+                              (Dữ liệu cũ &gt; 5p)
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="p-2 rounded-lg border border-dashed border-border bg-muted/10 flex items-center justify-between text-xs">

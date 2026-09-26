@@ -20,6 +20,8 @@ vi.mock('@/api/infrastructureApi', async (importOriginal) => {
   };
 });
 
+import { useDevicePingStore } from '@/stores/devicePingStore';
+
 describe('DeviceDetailDialog Component', () => {
   let queryClient: QueryClient;
 
@@ -57,6 +59,8 @@ describe('DeviceDetailDialog Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    useDevicePingStore.getState().clearAllRecords();
+    localStorage.clear();
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -220,5 +224,38 @@ describe('DeviceDetailDialog Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Chỉnh sửa/i }));
 
     expect(handleEdit).toHaveBeenCalledWith(mockDevice);
+  });
+
+  it('hiển thị ngay lập tức trạng thái từ store cache khi mở dialog', async () => {
+    // Lưu trước kết quả ping vào store (giả lập đã lưu từ trước khi F5)
+    useDevicePingStore.getState().setPingResult('dev-101', {
+      ipAddress: '192.168.1.120',
+      isAlive: true,
+      roundtripTimeMs: 25,
+      method: 'TCP_SOCKET',
+      message: 'Socket open port 8000 (25ms)',
+      timestamp: new Date().toISOString(),
+    });
+
+    vi.mocked(devicesApi.getById).mockResolvedValueOnce(mockDevice);
+    vi.mocked(lanesApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 100,
+        totalCount: 0,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    renderComponent();
+
+    // Phải hiển thị ngay ONLINE và 25 ms từ cache trước khi bất kỳ ping mới nào phản hồi
+    await waitFor(() => {
+      expect(screen.getByText('ONLINE')).toBeInTheDocument();
+      expect(screen.getByText('25 ms')).toBeInTheDocument();
+    });
   });
 });
