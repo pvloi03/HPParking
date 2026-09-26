@@ -4,9 +4,11 @@ using HPParking.Api.DTOs.Contractors;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -15,16 +17,27 @@ namespace HPParking.Api.Services.Implementations
     {
         private readonly IRepository<Contractor> _contractorRepo;
         private readonly IRepository<Client> _clientRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<ContractorService> _logger;
 
         public ContractorService(
             IRepository<Contractor> contractorRepo,
             IRepository<Client> clientRepo,
-            ILogger<ContractorService> logger)
+            ILogger<ContractorService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _contractorRepo = contractorRepo;
             _clientRepo = clientRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public ContractorService(
+            IRepository<Contractor> contractorRepo,
+            IRepository<Client> clientRepo,
+            ILogger<ContractorService> logger)
+            : this(contractorRepo, clientRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<ContractorDto>> GetContractorsPagedAsync(ContractorFilterQuery query, CancellationToken cancellationToken = default)
@@ -103,6 +116,17 @@ namespace HPParking.Api.Services.Implementations
             await _contractorRepo.AddAsync(contractor, cancellationToken);
             _logger.LogInformation("Đã tạo mới nhà thầu: {Name} (Code: {Code}) - ID: {Id}", contractor.Name, contractor.Code, contractor.Id);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Contractor",
+                    targetId: contractor.Id,
+                    targetDisplay: $"{contractor.Name} ({contractor.Code})",
+                    reason: $"Tạo mới nhà thầu '{contractor.Name}' (Mã: {contractor.Code}).",
+                    cancellationToken: cancellationToken);
+            }
+
             return contractor.Adapt<ContractorDto>();
         }
 
@@ -158,6 +182,17 @@ namespace HPParking.Api.Services.Implementations
             await _contractorRepo.UpdateAsync(contractor, cancellationToken);
             _logger.LogInformation("Đã cập nhật nhà thầu {Id}: {Name} (Code: {Code})", contractor.Id, contractor.Name, contractor.Code);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Contractor",
+                    targetId: contractor.Id,
+                    targetDisplay: $"{contractor.Name} ({contractor.Code})",
+                    reason: $"Cập nhật thông tin nhà thầu '{contractor.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             return contractor.Adapt<ContractorDto>();
         }
 
@@ -194,6 +229,19 @@ namespace HPParking.Api.Services.Implementations
                 _logger.LogInformation("Đã XÓA CỨNG nhà thầu {Id}: {Name}", id, contractor.Name);
             }
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Contractor",
+                    targetId: contractor.Id,
+                    targetDisplay: $"{contractor.Name} ({contractor.Code})",
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn nhà thầu '{contractor.Name}' khỏi hệ thống."
+                        : $"Chuyển nhà thầu '{contractor.Name}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return true;
         }
 
@@ -228,6 +276,18 @@ namespace HPParking.Api.Services.Implementations
             contractor.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Đã KHÔI PHỤC nhà thầu {Id}: {Name} ({Code}) từ thùng rác.", contractor.Id, contractor.Name, contractor.Code);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Contractor",
+                    targetId: contractor.Id,
+                    targetDisplay: $"{contractor.Name} ({contractor.Code})",
+                    reason: $"Khôi phục nhà thầu '{contractor.Name}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return contractor.Adapt<ContractorDto>();
         }
     }

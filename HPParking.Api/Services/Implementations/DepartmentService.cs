@@ -4,9 +4,11 @@ using HPParking.Api.DTOs.Departments;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -16,18 +18,30 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Department> _departmentRepo;
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Client> _clientRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<DepartmentService> _logger;
 
         public DepartmentService(
             IRepository<Department> departmentRepo,
             IRepository<Company> companyRepo,
             IRepository<Client> clientRepo,
-            ILogger<DepartmentService> logger)
+            ILogger<DepartmentService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _departmentRepo = departmentRepo;
             _companyRepo = companyRepo;
             _clientRepo = clientRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public DepartmentService(
+            IRepository<Department> departmentRepo,
+            IRepository<Company> companyRepo,
+            IRepository<Client> clientRepo,
+            ILogger<DepartmentService> logger)
+            : this(departmentRepo, companyRepo, clientRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<DepartmentDto>> GetDepartmentsPagedAsync(DepartmentFilterQuery query, CancellationToken cancellationToken = default)
@@ -161,6 +175,17 @@ namespace HPParking.Api.Services.Implementations
             await _departmentRepo.AddAsync(department, cancellationToken);
             _logger.LogInformation("Đã tạo mới phòng ban: {Name} (Code: {Code}) trực thuộc công ty {CompanyId}", department.Name, department.Code, company.Id);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Department",
+                    targetId: department.Id,
+                    targetDisplay: $"{department.Name} ({department.Code})",
+                    reason: $"Tạo mới phòng ban '{department.Name}' (Mã: {department.Code}) trực thuộc công ty '{company.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             var dto = department.Adapt<DepartmentDto>();
             dto.CompanyName = company.Name;
             return dto;
@@ -236,6 +261,17 @@ namespace HPParking.Api.Services.Implementations
             await _departmentRepo.UpdateAsync(department, cancellationToken);
             _logger.LogInformation("Đã cập nhật phòng ban {Id}: {Name} (Code: {Code})", department.Id, department.Name, department.Code);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Department",
+                    targetId: department.Id,
+                    targetDisplay: $"{department.Name} ({department.Code})",
+                    reason: $"Cập nhật thông tin phòng ban '{department.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             var dto = department.Adapt<DepartmentDto>();
             dto.CompanyName = targetCompanyName;
             return dto;
@@ -272,6 +308,19 @@ namespace HPParking.Api.Services.Implementations
             {
                 await _departmentRepo.DeleteAsync(id, softDelete: false, cancellationToken);
                 _logger.LogInformation("Đã XÓA CỨNG phòng ban {Id}: {Name}", id, department.Name);
+            }
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Department",
+                    targetId: department.Id,
+                    targetDisplay: $"{department.Name} ({department.Code})",
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn phòng ban '{department.Name}' khỏi hệ thống."
+                        : $"Chuyển phòng ban '{department.Name}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
             }
 
             return true;
@@ -324,6 +373,17 @@ namespace HPParking.Api.Services.Implementations
             department.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Đã KHÔI PHỤC phòng ban {Id}: {Name} ({Code}) thuộc công ty {CompanyId} từ thùng rác.", department.Id, department.Name, department.Code, company.Id);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Department",
+                    targetId: department.Id,
+                    targetDisplay: $"{department.Name} ({department.Code})",
+                    reason: $"Khôi phục phòng ban '{department.Name}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
 
             var dto = department.Adapt<DepartmentDto>();
             dto.CompanyName = company.Name;

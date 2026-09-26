@@ -17,5 +17,18 @@ namespace HPParking.Api.Services.Interfaces
         /// Lấy chi tiết một bản ghi nhật ký kiểm toán kèm dữ liệu thay đổi và lý do
         /// </summary>
         Task<AuditLogDetailDto> GetAuditLogByIdAsync(string id, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Ghi nhận sự kiện kiểm toán hệ thống bất biến vào CSDL
+        /// </summary>
+        Task LogActivityAsync(
+            HPParking.Core.Models.Enums.AuditActionType actionType,
+            string targetEntity,
+            string? targetId = null,
+            string? targetDisplay = null,
+            string? reason = null,
+            bool isSuccess = true,
+            string? errorMessage = null,
+            CancellationToken cancellationToken = default);
     }
 }

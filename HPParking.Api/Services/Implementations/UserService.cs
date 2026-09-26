@@ -10,6 +10,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,16 +21,27 @@ namespace HPParking.Api.Services.Implementations
     {
         private readonly IRepository<User> _userRepo;
         private readonly IRepository<AuditLog> _auditLogRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<UserService> _logger;
 
         public UserService(
             IRepository<User> userRepo,
             IRepository<AuditLog> auditLogRepo,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _userRepo = userRepo;
             _auditLogRepo = auditLogRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public UserService(
+            IRepository<User> userRepo,
+            IRepository<AuditLog> auditLogRepo,
+            ILogger<UserService> logger)
+            : this(userRepo, auditLogRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<UserDto>> GetUsersPagedAsync(UserFilterQuery query, CancellationToken cancellationToken = default)
@@ -117,14 +129,27 @@ namespace HPParking.Api.Services.Implementations
             _logger.LogInformation("Đã tạo mới tài khoản người dùng: {Username} ({Role})", user.Username, user.Role);
 
             // Ghi nhật ký kiểm toán
-            var auditLog = CreateAudit(
-                user.Username,
-                user.Role.ToString(),
-                AuditActionType.Create,
-                user.Id,
-                user.FullName,
-                $"Tạo mới tài khoản người dùng '{user.Username}' ({user.FullName}) với vai trò {user.Role}.");
-            await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "User",
+                    targetId: user.Id,
+                    targetDisplay: $"{user.FullName} ({user.Username})",
+                    reason: $"Tạo mới tài khoản người dùng '{user.Username}' ({user.FullName}) với vai trò {user.Role}.",
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                var auditLog = CreateAudit(
+                    user.Username,
+                    user.Role.ToString(),
+                    AuditActionType.Create,
+                    user.Id,
+                    user.FullName,
+                    $"Tạo mới tài khoản người dùng '{user.Username}' ({user.FullName}) với vai trò {user.Role}.");
+                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            }
 
             return user.Adapt<UserDto>();
         }
@@ -148,14 +173,27 @@ namespace HPParking.Api.Services.Implementations
             await _userRepo.UpdateAsync(user, cancellationToken);
             _logger.LogInformation("Đã cập nhật thông tin tài khoản người dùng: {Username} ({Id})", user.Username, user.Id);
 
-            var auditLog = CreateAudit(
-                user.Username,
-                user.Role.ToString(),
-                AuditActionType.Update,
-                user.Id,
-                user.FullName,
-                $"Cập nhật thông tin tài khoản '{user.Username}': Vai trò={user.Role}, Trạng thái={user.IsActive}.");
-            await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "User",
+                    targetId: user.Id,
+                    targetDisplay: $"{user.FullName} ({user.Username})",
+                    reason: $"Cập nhật thông tin tài khoản '{user.Username}': Vai trò={user.Role}, Trạng thái={user.IsActive}.",
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                var auditLog = CreateAudit(
+                    user.Username,
+                    user.Role.ToString(),
+                    AuditActionType.Update,
+                    user.Id,
+                    user.FullName,
+                    $"Cập nhật thông tin tài khoản '{user.Username}': Vai trò={user.Role}, Trạng thái={user.IsActive}.");
+                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            }
 
             return user.Adapt<UserDto>();
         }
@@ -208,14 +246,29 @@ namespace HPParking.Api.Services.Implementations
                 _logger.LogInformation("Đã chuyển tài khoản người dùng {Username} ({Id}) vào thùng rác.", user.Username, id);
             }
 
-            var auditLog = CreateAudit(
-                user.Username,
-                user.Role.ToString(),
-                permanent ? AuditActionType.PermanentDelete : AuditActionType.Delete,
-                user.Id,
-                user.FullName,
-                $"Xóa tài khoản người dùng '{user.Username}' (Vĩnh viễn: {permanent}).");
-            await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: permanent ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "User",
+                    targetId: user.Id,
+                    targetDisplay: $"{user.FullName} ({user.Username})",
+                    reason: permanent
+                        ? $"Xóa vĩnh viễn tài khoản người dùng '{user.Username}' khỏi hệ thống."
+                        : $"Chuyển tài khoản người dùng '{user.Username}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                var auditLog = CreateAudit(
+                    user.Username,
+                    user.Role.ToString(),
+                    permanent ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    user.Id,
+                    user.FullName,
+                    $"Xóa tài khoản người dùng '{user.Username}' (Vĩnh viễn: {permanent}).");
+                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            }
 
             return true;
         }
@@ -245,14 +298,27 @@ namespace HPParking.Api.Services.Implementations
             {
                 _logger.LogInformation("Đã khôi phục tài khoản người dùng {Username} ({Id}) từ thùng rác.", user.Username, id);
 
-                var auditLog = CreateAudit(
-                    user.Username,
-                    user.Role.ToString(),
-                    AuditActionType.Restore,
-                    user.Id,
-                    user.FullName,
-                    $"Khôi phục tài khoản người dùng '{user.Username}' từ thùng rác.");
-                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+                if (_auditLogService != null)
+                {
+                    await _auditLogService.LogActivityAsync(
+                        actionType: AuditActionType.Restore,
+                        targetEntity: "User",
+                        targetId: user.Id,
+                        targetDisplay: $"{user.FullName} ({user.Username})",
+                        reason: $"Khôi phục tài khoản người dùng '{user.Username}' từ thùng rác.",
+                        cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    var auditLog = CreateAudit(
+                        user.Username,
+                        user.Role.ToString(),
+                        AuditActionType.Restore,
+                        user.Id,
+                        user.FullName,
+                        $"Khôi phục tài khoản người dùng '{user.Username}' từ thùng rác.");
+                    await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+                }
             }
 
             return success;
@@ -272,14 +338,27 @@ namespace HPParking.Api.Services.Implementations
             await _userRepo.UpdateAsync(user, cancellationToken);
             _logger.LogInformation("Quản trị viên đã đặt lại mật khẩu cho tài khoản {Username} ({Id}).", user.Username, user.Id);
 
-            var auditLog = CreateAudit(
-                user.Username,
-                user.Role.ToString(),
-                AuditActionType.ChangePassword,
-                user.Id,
-                user.FullName,
-                $"Đặt lại mật khẩu cho tài khoản người dùng '{user.Username}'.");
-            await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.ChangePassword,
+                    targetEntity: "User",
+                    targetId: user.Id,
+                    targetDisplay: $"{user.FullName} ({user.Username})",
+                    reason: $"Đặt lại mật khẩu cho tài khoản người dùng '{user.Username}'.",
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                var auditLog = CreateAudit(
+                    user.Username,
+                    user.Role.ToString(),
+                    AuditActionType.ChangePassword,
+                    user.Id,
+                    user.FullName,
+                    $"Đặt lại mật khẩu cho tài khoản người dùng '{user.Username}'.");
+                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            }
 
             return true;
         }
@@ -320,14 +399,27 @@ namespace HPParking.Api.Services.Implementations
             _logger.LogInformation("Đã chuyển đổi trạng thái tài khoản {Username} ({Id}) thành: {Status}.",
                 user.Username, user.Id, user.IsActive ? "Kích hoạt" : "Vô hiệu hóa");
 
-            var auditLog = CreateAudit(
-                user.Username,
-                user.Role.ToString(),
-                AuditActionType.Update,
-                user.Id,
-                user.FullName,
-                $"Chuyển trạng thái hoạt động tài khoản '{user.Username}' thành {(user.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")}.");
-            await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "User",
+                    targetId: user.Id,
+                    targetDisplay: $"{user.FullName} ({user.Username})",
+                    reason: $"Chuyển trạng thái hoạt động tài khoản '{user.Username}' thành {(user.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")}.",
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                var auditLog = CreateAudit(
+                    user.Username,
+                    user.Role.ToString(),
+                    AuditActionType.Update,
+                    user.Id,
+                    user.FullName,
+                    $"Chuyển trạng thái hoạt động tài khoản '{user.Username}' thành {(user.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")}.");
+                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+            }
 
             return user.Adapt<UserDto>();
         }

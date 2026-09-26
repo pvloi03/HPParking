@@ -23,6 +23,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Contractor>? _contractorRepo;
         private readonly IFileStorageService _fileStorage;
         private readonly IFaceIdService _faceIdService;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<ClientService> _logger;
 
         public ClientService(
@@ -35,7 +36,8 @@ namespace HPParking.Api.Services.Implementations
             ILogger<ClientService> logger,
             IRepository<Company>? companyRepo = null,
             IRepository<Department>? departmentRepo = null,
-            IRepository<Contractor>? contractorRepo = null)
+            IRepository<Contractor>? contractorRepo = null,
+            IAuditLogService? auditLogService = null)
         {
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
@@ -47,6 +49,7 @@ namespace HPParking.Api.Services.Implementations
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
             _contractorRepo = contractorRepo;
+            _auditLogService = auditLogService;
         }
 
         public async Task<PagedResult<ClientDto>> GetClientsPagedAsync(ClientFilterQuery query, CancellationToken cancellationToken = default)
@@ -312,6 +315,17 @@ namespace HPParking.Api.Services.Implementations
                 _logger.LogWarning(ex, "Lỗi nạp FaceID tự động khi tạo khách hàng {Id}: {Message}", client.Id, ex.Message);
             }
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    HPParking.Core.Models.Enums.AuditActionType.Create,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Tạo mới hồ sơ khách hàng '{client.Name}' (Mã định danh: {client.Code}).",
+                    cancellationToken: cancellationToken);
+            }
+
             return detailDto;
         }
 
@@ -322,6 +336,8 @@ namespace HPParking.Api.Services.Implementations
             {
                 throw new NotFoundException("Không tìm thấy thông tin khách hàng cần cập nhật.", ErrorCodes.CLIENT_NOT_FOUND);
             }
+
+            var oldClientDto = client.Adapt<ClientDto>();
 
             var cleanPhone = request.PhoneNumber.Trim();
             if (!string.Equals(client.PhoneNumber, cleanPhone, StringComparison.OrdinalIgnoreCase))
@@ -539,6 +555,17 @@ namespace HPParking.Api.Services.Implementations
                 _logger.LogWarning(ex, "Lỗi đồng bộ FaceID khi cập nhật khách hàng {Id}: {Message}", id, ex.Message);
             }
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    HPParking.Core.Models.Enums.AuditActionType.Update,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Cập nhật hồ sơ khách hàng '{client.Name}' (CCCD: {client.Code}).",
+                    cancellationToken: cancellationToken);
+            }
+
             return detailDto;
         }
 
@@ -574,6 +601,18 @@ namespace HPParking.Api.Services.Implementations
                 // =========================================================================
                 await _clientRepo.DeleteAsync(id, softDelete: true, cancellationToken);
                 _logger.LogInformation("Đã XÓA MỀM khách hàng {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
+
+                if (_auditLogService != null)
+                {
+                    await _auditLogService.LogActivityAsync(
+                        HPParking.Core.Models.Enums.AuditActionType.Delete,
+                        "Client",
+                        client.Id,
+                        client.Name,
+                        reason: $"Chuyển khách hàng '{client.Name}' vào thùng rác.",
+                        cancellationToken: cancellationToken);
+                }
+
                 return true;
             }
 
@@ -622,6 +661,18 @@ namespace HPParking.Api.Services.Implementations
             }
 
             _logger.LogInformation("Đã XÓA CỨNG khách hàng {Id} và gửi lệnh thu hồi quyền FaceID.", id);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    HPParking.Core.Models.Enums.AuditActionType.PermanentDelete,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Xóa vĩnh viễn khách hàng '{client.Name}' khỏi CSDL.",
+                    cancellationToken: cancellationToken);
+            }
+
             return true;
         }
 
@@ -708,6 +759,18 @@ namespace HPParking.Api.Services.Implementations
             client.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Đã KHÔI PHỤC khách hàng {Id}: {Name} ({Phone}) từ thùng rác.", client.Id, client.Name, client.PhoneNumber);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    HPParking.Core.Models.Enums.AuditActionType.Restore,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Khôi phục khách hàng '{client.Name}' (CCCD: {client.Code}) từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return client.Adapt<ClientDto>();
         }
 
@@ -856,6 +919,19 @@ namespace HPParking.Api.Services.Implementations
             _logger.LogInformation(
                 "Đồng bộ FaceID cho khách hàng {Name} hoàn tất: {Success}/{Total} thiết bị thành công.",
                 client.Name, response.SuccessCount, response.TotalDevices);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    HPParking.Core.Models.Enums.AuditActionType.ManualOverride,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Đồng bộ nhận diện khuôn mặt FaceID cho khách hàng '{client.Name}': {response.SuccessCount}/{response.TotalDevices} thiết bị thành công.",
+                    isSuccess: response.FailureCount == 0,
+                    errorMessage: response.FailureCount > 0 ? $"{response.FailureCount} thiết bị đồng bộ thất bại" : null,
+                    cancellationToken: cancellationToken);
+            }
 
             return response;
         }

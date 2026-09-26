@@ -4,9 +4,11 @@ using HPParking.Api.DTOs.Gates;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -16,18 +18,30 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Lane> _laneRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<GateService> _logger;
 
         public GateService(
             IRepository<Gate> gateRepo,
             IRepository<Company> companyRepo,
             IRepository<Lane> laneRepo,
-            ILogger<GateService> logger)
+            ILogger<GateService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _gateRepo = gateRepo;
             _companyRepo = companyRepo;
             _laneRepo = laneRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public GateService(
+            IRepository<Gate> gateRepo,
+            IRepository<Company> companyRepo,
+            IRepository<Lane> laneRepo,
+            ILogger<GateService> logger)
+            : this(gateRepo, companyRepo, laneRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<GateDto>> GetGatesPagedAsync(GateFilterQuery query, CancellationToken cancellationToken = default)
@@ -158,6 +172,17 @@ namespace HPParking.Api.Services.Implementations
             await _gateRepo.AddAsync(gate, cancellationToken);
             _logger.LogInformation("Đã tạo mới cổng: {Name} (Code: {Code}) thuộc công ty {CompanyName} - ID: {Id}", gate.Name, gate.Code, company.Name, gate.Id);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Gate",
+                    targetId: gate.Id,
+                    targetDisplay: $"{gate.Name} ({gate.Code})",
+                    reason: $"Tạo mới cổng '{gate.Name}' (Mã: {gate.Code}) thuộc công ty '{company.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             var dto = gate.Adapt<GateDto>();
             dto.CompanyName = company.Name;
             return dto;
@@ -226,6 +251,17 @@ namespace HPParking.Api.Services.Implementations
             await _gateRepo.UpdateAsync(gate, cancellationToken);
             _logger.LogInformation("Đã cập nhật cổng {Id}: {Name} (Code: {Code})", gate.Id, gate.Name, gate.Code);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Gate",
+                    targetId: gate.Id,
+                    targetDisplay: $"{gate.Name} ({gate.Code})",
+                    reason: $"Cập nhật thông tin cổng '{gate.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             var dto = gate.Adapt<GateDto>();
             dto.CompanyName = company.Name;
             return dto;
@@ -263,6 +299,19 @@ namespace HPParking.Api.Services.Implementations
             {
                 await _gateRepo.DeleteAsync(id, softDelete: false, cancellationToken);
                 _logger.LogInformation("Đã xóa vĩnh viễn cổng {Id}: {Name} ({Code}) khỏi cơ sở dữ liệu", id, gate.Name, gate.Code);
+            }
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Gate",
+                    targetId: gate.Id,
+                    targetDisplay: $"{gate.Name} ({gate.Code})",
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn cổng '{gate.Name}' khỏi hệ thống."
+                        : $"Chuyển cổng '{gate.Name}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
             }
 
             return true;
@@ -307,6 +356,17 @@ namespace HPParking.Api.Services.Implementations
 
             gate.IsDeleted = false;
             gate.DeletedAt = null;
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Gate",
+                    targetId: gate.Id,
+                    targetDisplay: $"{gate.Name} ({gate.Code})",
+                    reason: $"Khôi phục cổng '{gate.Name}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
 
             var dto = gate.Adapt<GateDto>();
             if (company != null)

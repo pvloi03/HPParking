@@ -6,6 +6,7 @@ using HPParking.Api.DTOs.Statistics;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Text.RegularExpressions;
@@ -25,6 +26,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IStatisticsService _statisticsService;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<ReportExcelService> _logger;
 
         public ReportExcelService(
@@ -34,7 +36,8 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Client> clientRepo,
             IRepository<Vehicle> vehicleRepo,
             IStatisticsService statisticsService,
-            ILogger<ReportExcelService> logger)
+            ILogger<ReportExcelService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _excelService = excelService;
             _sessionRepo = sessionRepo;
@@ -42,7 +45,20 @@ namespace HPParking.Api.Services.Implementations
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
             _statisticsService = statisticsService;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public ReportExcelService(
+            IExcelService excelService,
+            IRepository<ParkingSession> sessionRepo,
+            IRepository<AuditLog> auditLogRepo,
+            IRepository<Client> clientRepo,
+            IRepository<Vehicle> vehicleRepo,
+            IStatisticsService statisticsService,
+            ILogger<ReportExcelService> logger)
+            : this(excelService, sessionRepo, auditLogRepo, clientRepo, vehicleRepo, statisticsService, logger, null)
+        {
         }
 
         public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportParkingSessionsAsync(
@@ -144,11 +160,22 @@ namespace HPParking.Api.Services.Implementations
 
             var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe", "BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE", cancellationToken);
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"Lich_Su_Do_Xe_{timestamp}.xlsx";
 
             _logger.LogInformation("Đã xuất {Count}/{Total} dòng lịch sử phiên đỗ xe ra Excel (Truncated: {IsTruncated})",
                 sessions.Count, totalCount, isTruncated);
 
-            return (bytes, $"Lich_Su_Do_Xe_{timestamp}.xlsx", isTruncated);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Export,
+                    targetEntity: "ParkingSession",
+                    targetDisplay: fileName,
+                    reason: $"Xuất Excel lịch sử phiên đỗ xe ({sessions.Count} bản ghi).",
+                    cancellationToken: cancellationToken);
+            }
+
+            return (bytes, fileName, isTruncated);
         }
 
         public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportAuditLogsAsync(
@@ -183,11 +210,22 @@ namespace HPParking.Api.Services.Implementations
 
             var bytes = await _excelService.WriteAsync(data, new AuditLogExcelProfile(), "Nhat_Ky_He_Thong", "BÁO CÁO NHẬT KÝ KIỂM TOÁN HỆ THỐNG", cancellationToken);
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"Nhat_Ky_He_Thong_{timestamp}.xlsx";
 
             _logger.LogInformation("Đã xuất {Count}/{Total} dòng nhật ký kiểm toán ra Excel (Truncated: {IsTruncated})",
                 logs.Count, totalCount, isTruncated);
 
-            return (bytes, $"Nhat_Ky_He_Thong_{timestamp}.xlsx", isTruncated);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Export,
+                    targetEntity: "AuditLog",
+                    targetDisplay: fileName,
+                    reason: $"Xuất Excel nhật ký kiểm toán hệ thống ({logs.Count} bản ghi).",
+                    cancellationToken: cancellationToken);
+            }
+
+            return (bytes, fileName, isTruncated);
         }
 
         public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportTrafficSummaryAsync(
@@ -221,9 +259,21 @@ namespace HPParking.Api.Services.Implementations
                 cancellationToken);
 
             var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"Bao_Cao_Tong_Hop_Luot_Ra_Vao_{timestamp}.xlsx";
+
             _logger.LogInformation("Đã xuất {Count} bản ghi tổng hợp lượt ra vào theo người & xe ra Excel", items.Count);
 
-            return (bytes, $"Bao_Cao_Tong_Hop_Luot_Ra_Vao_{timestamp}.xlsx", isTruncated);
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Export,
+                    targetEntity: "Statistics",
+                    targetDisplay: fileName,
+                    reason: $"Xuất Excel báo cáo tổng hợp lưu lượng lượt xe ra/vào ({items.Count} bản ghi).",
+                    cancellationToken: cancellationToken);
+            }
+
+            return (bytes, fileName, isTruncated);
         }
 
         #region Filter & Sort Builders

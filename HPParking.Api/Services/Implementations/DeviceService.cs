@@ -4,11 +4,13 @@ using HPParking.Api.DTOs.Devices;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -17,16 +19,27 @@ namespace HPParking.Api.Services.Implementations
     {
         private readonly IRepository<Device> _deviceRepo;
         private readonly IRepository<Lane> _laneRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<DeviceService> _logger;
 
         public DeviceService(
             IRepository<Device> deviceRepo,
             IRepository<Lane> laneRepo,
-            ILogger<DeviceService> logger)
+            ILogger<DeviceService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _deviceRepo = deviceRepo;
             _laneRepo = laneRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public DeviceService(
+            IRepository<Device> deviceRepo,
+            IRepository<Lane> laneRepo,
+            ILogger<DeviceService> logger)
+            : this(deviceRepo, laneRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<DeviceDto>> GetDevicesPagedAsync(DeviceFilterQuery query, CancellationToken cancellationToken = default)
@@ -113,6 +126,17 @@ namespace HPParking.Api.Services.Implementations
             await _deviceRepo.AddAsync(device, cancellationToken);
             _logger.LogInformation("Đã tạo mới thiết bị {Id}: {Name} ({Code}) tại {Ip}:{Port}", device.Id, device.Name, device.Code, device.IpAddress, device.Port);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Device",
+                    targetId: device.Id,
+                    targetDisplay: $"{device.Name} ({device.Code})",
+                    reason: $"Thêm mới thiết bị '{device.Name}' ({device.Code}) tại {device.IpAddress}:{device.Port}.",
+                    cancellationToken: cancellationToken);
+            }
+
             return MapToDto(device);
         }
 
@@ -186,6 +210,17 @@ namespace HPParking.Api.Services.Implementations
             await _deviceRepo.UpdateAsync(device, cancellationToken);
             _logger.LogInformation("Đã cập nhật thiết bị {Id}: {Name} ({Code})", device.Id, device.Name, device.Code);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Device",
+                    targetId: device.Id,
+                    targetDisplay: $"{device.Name} ({device.Code})",
+                    reason: $"Cập nhật thông tin thiết bị '{device.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             return MapToDto(device);
         }
 
@@ -218,6 +253,19 @@ namespace HPParking.Api.Services.Implementations
             {
                 await _deviceRepo.DeleteAsync(id, softDelete: true, cancellationToken);
                 _logger.LogInformation("Đã XÓA MỀM thiết bị {Id}: {Name} ({Code}) vào thùng rác", id, device.Name, device.Code);
+            }
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Device",
+                    targetId: device.Id,
+                    targetDisplay: $"{device.Name} ({device.Code})",
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn thiết bị '{device.Name}' khỏi hệ thống."
+                        : $"Chuyển thiết bị '{device.Name}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
             }
 
             return true;
@@ -263,6 +311,18 @@ namespace HPParking.Api.Services.Implementations
             device.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Đã KHÔI PHỤC thiết bị {Id}: {Name} ({Code}) từ thùng rác.", device.Id, device.Name, device.Code);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Device",
+                    targetId: device.Id,
+                    targetDisplay: $"{device.Name} ({device.Code})",
+                    reason: $"Khôi phục thiết bị '{device.Name}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return MapToDto(device);
         }
 

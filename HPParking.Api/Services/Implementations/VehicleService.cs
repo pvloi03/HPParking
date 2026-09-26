@@ -5,9 +5,11 @@ using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -15,16 +17,27 @@ namespace HPParking.Api.Services.Implementations
     {
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IRepository<Client> _clientRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<VehicleService> _logger;
 
         public VehicleService(
             IRepository<Vehicle> vehicleRepo,
             IRepository<Client> clientRepo,
-            ILogger<VehicleService> logger)
+            ILogger<VehicleService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _vehicleRepo = vehicleRepo;
             _clientRepo = clientRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public VehicleService(
+            IRepository<Vehicle> vehicleRepo,
+            IRepository<Client> clientRepo,
+            ILogger<VehicleService> logger)
+            : this(vehicleRepo, clientRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<VehicleDto>> GetVehiclesPagedAsync(VehicleFilterQuery query, CancellationToken cancellationToken = default)
@@ -124,6 +137,17 @@ namespace HPParking.Api.Services.Implementations
             await _vehicleRepo.AddAsync(vehicle, cancellationToken);
             _logger.LogInformation("Đã thêm phương tiện mới: {PlateNumber} cho khách hàng {ClientId}", normalizedPlate, clientId);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Vehicle",
+                    targetId: vehicle.Id,
+                    targetDisplay: vehicle.PlateNumber,
+                    reason: $"Thêm phương tiện mới '{vehicle.PlateNumber}' cho khách hàng '{client.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             return vehicle.Adapt<VehicleDto>();
         }
 
@@ -161,6 +185,17 @@ namespace HPParking.Api.Services.Implementations
             await _vehicleRepo.UpdateAsync(vehicle, cancellationToken);
             _logger.LogInformation("Đã cập nhật phương tiện {Id}: {PlateNumber}", id, normalizedPlate);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Vehicle",
+                    targetId: vehicle.Id,
+                    targetDisplay: vehicle.PlateNumber,
+                    reason: $"Cập nhật thông tin phương tiện '{vehicle.PlateNumber}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             return vehicle.Adapt<VehicleDto>();
         }
 
@@ -183,6 +218,19 @@ namespace HPParking.Api.Services.Implementations
             {
                 await _vehicleRepo.DeleteAsync(id, softDelete: true, cancellationToken);
                 _logger.LogInformation("Đã XÓA MỀM phương tiện {Id}.", id);
+            }
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Vehicle",
+                    targetId: vehicle.Id,
+                    targetDisplay: vehicle.PlateNumber,
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn phương tiện '{vehicle.PlateNumber}' khỏi hệ thống."
+                        : $"Chuyển phương tiện '{vehicle.PlateNumber}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
             }
 
             return true;
@@ -237,6 +285,18 @@ namespace HPParking.Api.Services.Implementations
             vehicle.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Đã KHÔI PHỤC phương tiện {Id}: {PlateNumber} cho khách hàng {OwnerClientId} từ thùng rác.", vehicle.Id, vehicle.PlateNumber, vehicle.OwnerClientId);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Vehicle",
+                    targetId: vehicle.Id,
+                    targetDisplay: vehicle.PlateNumber,
+                    reason: $"Khôi phục phương tiện '{vehicle.PlateNumber}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return vehicle.Adapt<VehicleDto>();
         }
     }

@@ -4,6 +4,7 @@ using HPParking.Api.DTOs.Common;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -15,17 +16,20 @@ namespace HPParking.Api.Services.Implementations
     /// Triển khai dịch vụ tra cứu chỉ đọc nhật ký kiểm toán hệ thống (Audit Log)
     /// Tuân thủ nguyên tắc Sổ cái bất biến (Append-Only Immutable Ledger)
     /// </summary>
-    public class AuditLogService : IAuditLogService
+    public class AuditLogService(
+        IRepository<AuditLog> auditLogRepo,
+        ICurrentUserService? currentUserService,
+        ILogger<AuditLogService> logger) : IAuditLogService
     {
-        private readonly IRepository<AuditLog> _auditLogRepo;
-        private readonly ILogger<AuditLogService> _logger;
+        private readonly IRepository<AuditLog> _auditLogRepo = auditLogRepo;
+        private readonly ICurrentUserService? _currentUserService = currentUserService;
+        private readonly ILogger<AuditLogService> _logger = logger;
 
         public AuditLogService(
             IRepository<AuditLog> auditLogRepo,
             ILogger<AuditLogService> logger)
+            : this(auditLogRepo, null, logger)
         {
-            _auditLogRepo = auditLogRepo;
-            _logger = logger;
         }
 
         public async Task<PagedResult<AuditLogDto>> GetAuditLogsPagedAsync(AuditLogFilterQuery query, CancellationToken cancellationToken = default)
@@ -106,6 +110,47 @@ namespace HPParking.Api.Services.Implementations
                 log.Id, log.ActionType, log.ActorUsername, log.TargetEntity);
 
             return log.Adapt<AuditLogDetailDto>();
+        }
+
+        public async Task LogActivityAsync(
+            AuditActionType actionType,
+            string targetEntity,
+            string? targetId = null,
+            string? targetDisplay = null,
+            string? reason = null,
+            bool isSuccess = true,
+            string? errorMessage = null,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var auditLog = new AuditLog
+                {
+                    ActorId = _currentUserService?.UserId,
+                    ActorUsername = !string.IsNullOrWhiteSpace(_currentUserService?.Username)
+                        ? _currentUserService.Username
+                        : "Hệ thống",
+                    ActorRole = _currentUserService?.Role ?? "Admin",
+                    Source = "WebAdmin",
+                    ActionType = actionType,
+                    TargetEntity = targetEntity,
+                    TargetId = targetId,
+                    TargetDisplay = targetDisplay,
+                    Reason = reason,
+                    IsSuccess = isSuccess,
+                    ErrorMessage = errorMessage,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
+                _logger.LogInformation("Đã ghi vết AuditLog: {Action} trên {Entity} ({Display}) bởi {User}",
+                    actionType, targetEntity, targetDisplay, auditLog.ActorUsername);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi ghi nhật ký kiểm toán cho {Action} trên {Entity}: {Message}",
+                    actionType, targetEntity, ex.Message);
+            }
         }
     }
 }

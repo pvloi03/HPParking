@@ -6,9 +6,11 @@ using HPParking.Api.DTOs.Lanes;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -18,18 +20,30 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Lane> _laneRepo;
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Device> _deviceRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<LaneService> _logger;
 
         public LaneService(
             IRepository<Lane> laneRepo,
             IRepository<Gate> gateRepo,
             IRepository<Device> deviceRepo,
-            ILogger<LaneService> logger)
+            ILogger<LaneService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _laneRepo = laneRepo;
             _gateRepo = gateRepo;
             _deviceRepo = deviceRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public LaneService(
+            IRepository<Lane> laneRepo,
+            IRepository<Gate> gateRepo,
+            IRepository<Device> deviceRepo,
+            ILogger<LaneService> logger)
+            : this(laneRepo, gateRepo, deviceRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<LaneDto>> GetLanesPagedAsync(LaneFilterQuery query, CancellationToken cancellationToken = default)
@@ -236,6 +250,17 @@ namespace HPParking.Api.Services.Implementations
             await _laneRepo.AddAsync(lane, cancellationToken);
             _logger.LogInformation("Đã tạo mới làn xe: {Name} (Code: {Code}) thuộc cổng {GateName} - ID: {Id}", lane.Name, lane.Code, gate.Name, lane.Id);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Lane",
+                    targetId: lane.Id,
+                    targetDisplay: $"{lane.Name} ({lane.Code})",
+                    reason: $"Tạo mới làn xe '{lane.Name}' (Mã: {lane.Code}) thuộc cổng '{gate.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             var dto = lane.Adapt<LaneDto>();
             dto.GateName = gate.Name;
             return dto;
@@ -301,6 +326,17 @@ namespace HPParking.Api.Services.Implementations
             await _laneRepo.UpdateAsync(lane, cancellationToken);
             _logger.LogInformation("Đã cập nhật làn xe {Id}: {Name} (Code: {Code})", lane.Id, lane.Name, lane.Code);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Lane",
+                    targetId: lane.Id,
+                    targetDisplay: $"{lane.Name} ({lane.Code})",
+                    reason: $"Cập nhật thông tin làn xe '{lane.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             var dto = lane.Adapt<LaneDto>();
             dto.GateName = gate.Name;
             return dto;
@@ -325,6 +361,19 @@ namespace HPParking.Api.Services.Implementations
             {
                 await _laneRepo.DeleteAsync(id, softDelete: false, cancellationToken);
                 _logger.LogInformation("Đã xóa vĩnh viễn làn xe {Id}: {Name} ({Code}) khỏi cơ sở dữ liệu", id, lane.Name, lane.Code);
+            }
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Lane",
+                    targetId: lane.Id,
+                    targetDisplay: $"{lane.Name} ({lane.Code})",
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn làn xe '{lane.Name}' khỏi hệ thống."
+                        : $"Chuyển làn xe '{lane.Name}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
             }
 
             return true;
@@ -389,6 +438,17 @@ namespace HPParking.Api.Services.Implementations
 
             lane.IsDeleted = false;
             lane.DeletedAt = null;
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Lane",
+                    targetId: lane.Id,
+                    targetDisplay: $"{lane.Name} ({lane.Code})",
+                    reason: $"Khôi phục làn xe '{lane.Name}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
 
             var dto = lane.Adapt<LaneDto>();
             if (gate != null)

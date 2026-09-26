@@ -90,6 +90,8 @@ builder.Services.AddScoped<IGateService, GateService>();
 builder.Services.AddScoped<ILaneService, LaneService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IParkingSessionService, ParkingSessionService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 // Đăng ký dịch vụ Nhập/Xuất Excel chuẩn hóa ClosedXML (ADR 0023)

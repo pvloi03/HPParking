@@ -34,11 +34,8 @@ namespace HPParking.Core.Models.Entities
         public string? TargetDisplay { get; set; }
 
         // =========================================================================
-        // --- CHI TIẾT THAY ĐỔI DỮ LIỆU (DIFF & REASON) ---
+        // --- CHI TIẾT & LÝ DO THỰC HIỆN (REASON) ---
         // =========================================================================
-        public string? OldValues { get; set; }
-        public string? NewValues { get; set; }
-        public List<string> ChangedProperties { get; set; } = new List<string>();
         public string? Reason { get; set; }
 
         // =========================================================================

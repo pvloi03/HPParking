@@ -4,9 +4,11 @@ using HPParking.Api.DTOs.Companies;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -17,6 +19,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Department> _departmentRepo;
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Client> _clientRepo;
+        private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<CompanyService> _logger;
 
         public CompanyService(
@@ -24,13 +27,25 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Department> departmentRepo,
             IRepository<Gate> gateRepo,
             IRepository<Client> clientRepo,
-            ILogger<CompanyService> logger)
+            ILogger<CompanyService> logger,
+            IAuditLogService? auditLogService = null)
         {
             _companyRepo = companyRepo;
             _departmentRepo = departmentRepo;
             _gateRepo = gateRepo;
             _clientRepo = clientRepo;
+            _auditLogService = auditLogService;
             _logger = logger;
+        }
+
+        public CompanyService(
+            IRepository<Company> companyRepo,
+            IRepository<Department> departmentRepo,
+            IRepository<Gate> gateRepo,
+            IRepository<Client> clientRepo,
+            ILogger<CompanyService> logger)
+            : this(companyRepo, departmentRepo, gateRepo, clientRepo, logger, null)
+        {
         }
 
         public async Task<PagedResult<CompanyDto>> GetCompaniesPagedAsync(CompanyFilterQuery query, CancellationToken cancellationToken = default)
@@ -106,6 +121,17 @@ namespace HPParking.Api.Services.Implementations
 
             await _companyRepo.AddAsync(company, cancellationToken);
             _logger.LogInformation("Đã tạo mới công ty: {Name} (Code: {Code}) - ID: {Id}", company.Name, company.Code, company.Id);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Create,
+                    targetEntity: "Company",
+                    targetId: company.Id,
+                    targetDisplay: $"{company.Name} ({company.Code})",
+                    reason: $"Tạo mới công ty '{company.Name}' (Mã: {company.Code}).",
+                    cancellationToken: cancellationToken);
+            }
 
             return company.Adapt<CompanyDto>();
         }
@@ -183,6 +209,17 @@ namespace HPParking.Api.Services.Implementations
             await _companyRepo.UpdateAsync(company, cancellationToken);
             _logger.LogInformation("Đã cập nhật công ty {Id}: {Name} (Code: {Code})", company.Id, company.Name, company.Code);
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Update,
+                    targetEntity: "Company",
+                    targetId: company.Id,
+                    targetDisplay: $"{company.Name} ({company.Code})",
+                    reason: $"Cập nhật thông tin công ty '{company.Name}'.",
+                    cancellationToken: cancellationToken);
+            }
+
             return company.Adapt<CompanyDto>();
         }
 
@@ -243,6 +280,19 @@ namespace HPParking.Api.Services.Implementations
                 _logger.LogInformation("Đã XÓA CỨNG công ty {Id}: {Name}", id, company.Name);
             }
 
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: hardDelete ? AuditActionType.PermanentDelete : AuditActionType.Delete,
+                    targetEntity: "Company",
+                    targetId: company.Id,
+                    targetDisplay: $"{company.Name} ({company.Code})",
+                    reason: hardDelete
+                        ? $"Xóa vĩnh viễn công ty '{company.Name}' khỏi hệ thống."
+                        : $"Chuyển công ty '{company.Name}' vào thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return true;
         }
 
@@ -277,6 +327,18 @@ namespace HPParking.Api.Services.Implementations
             company.UpdatedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Đã KHÔI PHỤC công ty {Id}: {Name} ({Code}) từ thùng rác.", company.Id, company.Name, company.Code);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Restore,
+                    targetEntity: "Company",
+                    targetId: company.Id,
+                    targetDisplay: $"{company.Name} ({company.Code})",
+                    reason: $"Khôi phục công ty '{company.Name}' từ thùng rác.",
+                    cancellationToken: cancellationToken);
+            }
+
             return company.Adapt<CompanyDto>();
         }
     }

@@ -15,6 +15,7 @@ import { ClientsPage } from '@/pages/ClientsPage';
 import { VehiclesPage } from '@/pages/VehiclesPage';
 import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
 import { UsersPage } from '@/pages/UsersPage';
+import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
@@ -74,6 +75,14 @@ export const router = createBrowserRouter([
       {
         path: 'parking-sessions',
         element: <ParkingSessionsPage />,
+      },
+      {
+        path: 'audit-logs',
+        element: (
+          <RoleGuard allowedRoles={[UserRole.Admin]}>
+            <AuditLogsPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'users',
