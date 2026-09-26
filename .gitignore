@@ -1,7 +1,18 @@
 # .NET
+*docs/
+*adr
+*.Tests
+*dist/
+*scripts/
+AGENTS.md
+CONTEXT.md
+*.md
+.codegraph/
+appsettings.json
+node_modules/
 bin/
 obj/
-App.config
+*app.config
 Libs/
 Resources/
 .claude/
