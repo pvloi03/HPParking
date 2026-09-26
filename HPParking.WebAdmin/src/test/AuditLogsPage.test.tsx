@@ -13,6 +13,7 @@ vi.mock('@/api/auditApi', async (importOriginal) => {
     auditApi: {
       getPaged: vi.fn(),
       getById: vi.fn(),
+      exportExcel: vi.fn(),
     },
   };
 });
@@ -113,5 +114,54 @@ describe('AuditLogsPage Component', () => {
 
     // Kiểm tra Dialog chi tiết mở lên
     expect(await screen.findByText('Chi Tiết Nhật Ký Kiểm Toán')).toBeInTheDocument();
+  });
+
+  it('hiển thị nút Xuất Excel và gọi auditApi.exportExcel khi người dùng bấm vào', async () => {
+    vi.mocked(auditApi.getPaged).mockResolvedValue(mockPagedLogs);
+    const mockBlob = new Blob(['excel data'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    vi.mocked(auditApi.exportExcel).mockResolvedValue(mockBlob);
+
+    // Mock URL.createObjectURL and URL.revokeObjectURL
+    const originalCreateObjectURL = window.URL.createObjectURL;
+    const originalRevokeObjectURL = window.URL.revokeObjectURL;
+    window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    window.URL.revokeObjectURL = vi.fn();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AuditLogsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const exportBtn = await screen.findByRole('button', { name: /Xuất Excel/i });
+    expect(exportBtn).toBeInTheDocument();
+
+    fireEvent.click(exportBtn);
+
+    expect(auditApi.exportExcel).toHaveBeenCalled();
+
+    window.URL.createObjectURL = originalCreateObjectURL;
+    window.URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  it('chứa các tùy chọn lọc theo Đối tượng và hành động Đồng bộ FaceID', async () => {
+    vi.mocked(auditApi.getPaged).mockResolvedValue(mockPagedLogs);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AuditLogsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // Kiểm tra select thực thể
+    const targetEntitySelect = await screen.findByRole('combobox', { name: /Lọc theo thực thể/i });
+    expect(targetEntitySelect).toBeInTheDocument();
+
+    // Kiểm tra select loại hành động có tùy chọn Đồng bộ FaceID
+    expect(screen.getByText('Đồng bộ FaceID')).toBeInTheDocument();
   });
 });

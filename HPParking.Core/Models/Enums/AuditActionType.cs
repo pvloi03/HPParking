@@ -16,6 +16,7 @@ namespace HPParking.Core.Models.Enums
         Export = 9,             // Xuất dữ liệu / báo cáo
         ManualOverride = 10,    // Can thiệp thủ công / mở barie khẩn cấp
         PermanentDelete = 11,   // Xóa vĩnh viễn dữ liệu khỏi CSDL
-        Restore = 12            // Khôi phục dữ liệu từ thùng rác
+        Restore = 12,           // Khôi phục dữ liệu từ thùng rác
+        FaceIdSync = 13         // Đồng bộ nhận diện khuôn mặt FaceID lên thiết bị
     }
 }

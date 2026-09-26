@@ -70,4 +70,15 @@ export const auditApi = {
     );
     return response.data.data;
   },
+
+  exportExcel: async (query?: AuditLogFilterQuery): Promise<Blob> => {
+    const response = await apiClient.get<Blob>(
+      '/v1/excel/reports/audit-logs/export',
+      {
+        params: query,
+        responseType: 'blob',
+      }
+    );
+    return response.data;
+  },
 };

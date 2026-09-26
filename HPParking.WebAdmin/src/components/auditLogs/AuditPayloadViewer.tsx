@@ -63,9 +63,10 @@ export function AuditPayloadViewer({
     }
   };
 
-  const actionBadge = log?.actionType
-    ? AUDIT_ACTION_BADGES[log.actionType] || { label: 'Khác', variant: 'outline' }
-    : { label: 'Sự kiện', variant: 'outline' };
+  const actionBadge: { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' } =
+    log?.actionType
+      ? AUDIT_ACTION_BADGES[log.actionType] || { label: 'Khác', variant: 'outline' }
+      : { label: 'Sự kiện', variant: 'outline' };
 
   const actionLabel = log?.actionType
     ? AUDIT_ACTION_LABELS[log.actionType] || 'Không xác định'
@@ -81,7 +82,7 @@ export function AuditPayloadViewer({
                 Chi Tiết Nhật Ký Kiểm Toán
               </DialogTitle>
               {log && (
-                <Badge variant={actionBadge.variant as any} className="text-xs">
+                <Badge variant={actionBadge.variant} className="text-xs">
                   {actionBadge.label}
                 </Badge>
               )}

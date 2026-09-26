@@ -10,13 +10,16 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { AuditPayloadViewer } from '@/components/auditLogs/AuditPayloadViewer';
-import { auditApi } from '@/api/auditApi';
+import { auditApi, extractErrorMessage } from '@/api/auditApi';
+import { downloadBlob } from '@/utils/downloadBlob';
+import { toast } from 'sonner';
 import {
   AuditActionType,
   AUDIT_ACTION_BADGES,
@@ -32,9 +35,11 @@ export function AuditLogsPage() {
   // Bộ lọc
   const [searchKeyword, setSearchKeyword] = useState('');
   const [actionTypeFilter, setActionTypeFilter] = useState<AuditActionType | 'all'>('all');
+  const [targetEntityFilter, setTargetEntityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   // Dialog xem chi tiết
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
@@ -49,6 +54,7 @@ export function AuditLogsPage() {
       pageSize,
       searchKeyword,
       actionTypeFilter,
+      targetEntityFilter,
       statusFilter,
       fromDate,
       toDate,
@@ -59,19 +65,43 @@ export function AuditLogsPage() {
         pageSize,
         actorUsername: searchKeyword.trim() || undefined,
         actionType: actionTypeFilter === 'all' ? undefined : actionTypeFilter,
+        targetEntity: targetEntityFilter === 'all' ? undefined : targetEntityFilter,
         isSuccess: statusFilter === 'all' ? undefined : statusFilter,
-        fromDate: fromDate ? new Date(fromDate).toISOString() : undefined,
-        toDate: toDate ? new Date(toDate + 'T23:59:59.999Z').toISOString() : undefined,
+        fromDate: fromDate ? new Date(`${fromDate}T00:00:00`).toISOString() : undefined,
+        toDate: toDate ? new Date(`${toDate}T23:59:59.999`).toISOString() : undefined,
       }),
   });
 
   const handleResetFilters = () => {
     setSearchKeyword('');
     setActionTypeFilter('all');
+    setTargetEntityFilter('all');
     setStatusFilter('all');
     setFromDate('');
     setToDate('');
     setPageIndex(1);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      toast.info('Đang khởi tạo tệp Excel sổ cái kiểm toán...');
+      const blob = await auditApi.exportExcel({
+        actorUsername: searchKeyword.trim() || undefined,
+        actionType: actionTypeFilter === 'all' ? undefined : actionTypeFilter,
+        targetEntity: targetEntityFilter === 'all' ? undefined : targetEntityFilter,
+        isSuccess: statusFilter === 'all' ? undefined : statusFilter,
+        fromDate: fromDate ? new Date(`${fromDate}T00:00:00`).toISOString() : undefined,
+        toDate: toDate ? new Date(`${toDate}T23:59:59.999`).toISOString() : undefined,
+      });
+      const fileName = `nhat_ky_kiem_toan_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      downloadBlob(blob, fileName);
+      toast.success('Xuất báo cáo Excel sổ cái kiểm toán thành công!');
+    } catch (error) {
+      toast.error(extractErrorMessage(error) || 'Xuất báo cáo Excel thất bại');
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
   const handleOpenDetail = (item: AuditLogDto) => {
@@ -230,6 +260,31 @@ export function AuditLogsPage() {
         <option value={AuditActionType.ManualOverride}>Can thiệp</option>
         <option value={AuditActionType.PermanentDelete}>Xóa vĩnh viễn</option>
         <option value={AuditActionType.Restore}>Khôi phục</option>
+        <option value={AuditActionType.FaceIdSync}>Đồng bộ FaceID</option>
+      </select>
+
+      {/* Lọc theo thực thể tác động */}
+      <select
+        value={targetEntityFilter}
+        onChange={(e) => {
+          setTargetEntityFilter(e.target.value);
+          setPageIndex(1);
+        }}
+        aria-label="Lọc theo thực thể"
+        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+      >
+        <option value="all">Tất cả thực thể</option>
+        <option value="Client">Khách hàng (Client)</option>
+        <option value="Vehicle">Phương tiện (Vehicle)</option>
+        <option value="User">Tài khoản (User)</option>
+        <option value="Company">Công ty (Company)</option>
+        <option value="Department">Phòng ban (Department)</option>
+        <option value="Contractor">Nhà thầu (Contractor)</option>
+        <option value="Gate">Cổng (Gate)</option>
+        <option value="Lane">Làn xe (Lane)</option>
+        <option value="Device">Thiết bị (Device)</option>
+        <option value="Reports">Báo cáo (Reports)</option>
+        <option value="Auth">Xác thực (Auth)</option>
       </select>
 
       {/* Lọc kết quả */}
@@ -279,6 +334,7 @@ export function AuditLogsPage() {
       {/* Đặt lại bộ lọc */}
       {(searchKeyword ||
         actionTypeFilter !== 'all' ||
+        targetEntityFilter !== 'all' ||
         statusFilter !== 'all' ||
         fromDate ||
         toDate) && (
@@ -308,6 +364,19 @@ export function AuditLogsPage() {
           <p className="text-sm text-muted-foreground mt-1">
             Vết sự kiện kiểm toán hệ thống bất biến (Immutable Audit Trail), ghi nhận mọi hoạt động đăng nhập, thay đổi và tác vụ quản trị.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel || (data?.items?.length === 0 && !isLoading)}
+            className="h-9 gap-1.5"
+            title="Xuất danh sách sổ cái kiểm toán ra Excel"
+          >
+            <Download className="h-4 w-4" />
+            {isExportingExcel ? 'Đang xuất...' : 'Xuất Excel'}
+          </Button>
         </div>
       </div>
 

@@ -20,18 +20,15 @@ namespace HPParking.Api.Services.Implementations
     public class UserService : IUserService
     {
         private readonly IRepository<User> _userRepo;
-        private readonly IRepository<AuditLog> _auditLogRepo;
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<UserService> _logger;
 
         public UserService(
             IRepository<User> userRepo,
-            IRepository<AuditLog> auditLogRepo,
             ILogger<UserService> logger,
             IAuditLogService? auditLogService = null)
         {
             _userRepo = userRepo;
-            _auditLogRepo = auditLogRepo;
             _auditLogService = auditLogService;
             _logger = logger;
         }
@@ -39,8 +36,9 @@ namespace HPParking.Api.Services.Implementations
         public UserService(
             IRepository<User> userRepo,
             IRepository<AuditLog> auditLogRepo,
-            ILogger<UserService> logger)
-            : this(userRepo, auditLogRepo, logger, null)
+            ILogger<UserService> logger,
+            IAuditLogService? auditLogService = null)
+            : this(userRepo, logger, auditLogService)
         {
         }
 
@@ -139,17 +137,6 @@ namespace HPParking.Api.Services.Implementations
                     reason: $"Tạo mới tài khoản người dùng '{user.Username}' ({user.FullName}) với vai trò {user.Role}.",
                     cancellationToken: cancellationToken);
             }
-            else
-            {
-                var auditLog = CreateAudit(
-                    user.Username,
-                    user.Role.ToString(),
-                    AuditActionType.Create,
-                    user.Id,
-                    user.FullName,
-                    $"Tạo mới tài khoản người dùng '{user.Username}' ({user.FullName}) với vai trò {user.Role}.");
-                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
-            }
 
             return user.Adapt<UserDto>();
         }
@@ -182,17 +169,6 @@ namespace HPParking.Api.Services.Implementations
                     targetDisplay: $"{user.FullName} ({user.Username})",
                     reason: $"Cập nhật thông tin tài khoản '{user.Username}': Vai trò={user.Role}, Trạng thái={user.IsActive}.",
                     cancellationToken: cancellationToken);
-            }
-            else
-            {
-                var auditLog = CreateAudit(
-                    user.Username,
-                    user.Role.ToString(),
-                    AuditActionType.Update,
-                    user.Id,
-                    user.FullName,
-                    $"Cập nhật thông tin tài khoản '{user.Username}': Vai trò={user.Role}, Trạng thái={user.IsActive}.");
-                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
             }
 
             return user.Adapt<UserDto>();
@@ -258,17 +234,6 @@ namespace HPParking.Api.Services.Implementations
                         : $"Chuyển tài khoản người dùng '{user.Username}' vào thùng rác.",
                     cancellationToken: cancellationToken);
             }
-            else
-            {
-                var auditLog = CreateAudit(
-                    user.Username,
-                    user.Role.ToString(),
-                    permanent ? AuditActionType.PermanentDelete : AuditActionType.Delete,
-                    user.Id,
-                    user.FullName,
-                    $"Xóa tài khoản người dùng '{user.Username}' (Vĩnh viễn: {permanent}).");
-                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
-            }
 
             return true;
         }
@@ -308,17 +273,6 @@ namespace HPParking.Api.Services.Implementations
                         reason: $"Khôi phục tài khoản người dùng '{user.Username}' từ thùng rác.",
                         cancellationToken: cancellationToken);
                 }
-                else
-                {
-                    var auditLog = CreateAudit(
-                        user.Username,
-                        user.Role.ToString(),
-                        AuditActionType.Restore,
-                        user.Id,
-                        user.FullName,
-                        $"Khôi phục tài khoản người dùng '{user.Username}' từ thùng rác.");
-                    await _auditLogRepo.AddAsync(auditLog, cancellationToken);
-                }
             }
 
             return success;
@@ -347,17 +301,6 @@ namespace HPParking.Api.Services.Implementations
                     targetDisplay: $"{user.FullName} ({user.Username})",
                     reason: $"Đặt lại mật khẩu cho tài khoản người dùng '{user.Username}'.",
                     cancellationToken: cancellationToken);
-            }
-            else
-            {
-                var auditLog = CreateAudit(
-                    user.Username,
-                    user.Role.ToString(),
-                    AuditActionType.ChangePassword,
-                    user.Id,
-                    user.FullName,
-                    $"Đặt lại mật khẩu cho tài khoản người dùng '{user.Username}'.");
-                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
             }
 
             return true;
@@ -409,41 +352,8 @@ namespace HPParking.Api.Services.Implementations
                     reason: $"Chuyển trạng thái hoạt động tài khoản '{user.Username}' thành {(user.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")}.",
                     cancellationToken: cancellationToken);
             }
-            else
-            {
-                var auditLog = CreateAudit(
-                    user.Username,
-                    user.Role.ToString(),
-                    AuditActionType.Update,
-                    user.Id,
-                    user.FullName,
-                    $"Chuyển trạng thái hoạt động tài khoản '{user.Username}' thành {(user.IsActive ? "Đang hoạt động" : "Ngừng hoạt động")}.");
-                await _auditLogRepo.AddAsync(auditLog, cancellationToken);
-            }
 
             return user.Adapt<UserDto>();
-        }
-
-        private static AuditLog CreateAudit(
-            string username,
-            string role,
-            AuditActionType actionType,
-            string targetId,
-            string? targetDisplay,
-            string reason)
-        {
-            return new AuditLog
-            {
-                ActorUsername = username,
-                ActorRole = role,
-                ActionType = actionType,
-                TargetEntity = "User",
-                TargetId = targetId,
-                TargetDisplay = targetDisplay,
-                Reason = reason,
-                IsSuccess = true,
-                Source = "WebAdmin"
-            };
         }
     }
 }

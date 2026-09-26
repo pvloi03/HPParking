@@ -337,8 +337,6 @@ namespace HPParking.Api.Services.Implementations
                 throw new NotFoundException("Không tìm thấy thông tin khách hàng cần cập nhật.", ErrorCodes.CLIENT_NOT_FOUND);
             }
 
-            var oldClientDto = client.Adapt<ClientDto>();
-
             var cleanPhone = request.PhoneNumber.Trim();
             if (!string.Equals(client.PhoneNumber, cleanPhone, StringComparison.OrdinalIgnoreCase))
             {
@@ -923,7 +921,7 @@ namespace HPParking.Api.Services.Implementations
             if (_auditLogService != null)
             {
                 await _auditLogService.LogActivityAsync(
-                    HPParking.Core.Models.Enums.AuditActionType.ManualOverride,
+                    HPParking.Core.Models.Enums.AuditActionType.FaceIdSync,
                     "Client",
                     client.Id,
                     client.Name,

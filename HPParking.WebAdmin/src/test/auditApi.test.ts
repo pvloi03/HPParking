@@ -93,4 +93,29 @@ describe('auditApi', () => {
       expect(result.reason).toBe('Cập nhật loại phương tiện sang ô tô tải');
     });
   });
+
+  describe('exportExcel', () => {
+    it('gọi đúng endpoint GET /v1/excel/reports/audit-logs/export với responseType blob', async () => {
+      const mockBlob = new Blob(['mock excel content'], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: mockBlob,
+      });
+
+      const query = {
+        targetEntity: 'Client',
+        actionType: AuditActionType.Create,
+      };
+
+      const result = await auditApi.exportExcel(query);
+
+      expect(apiClient.get).toHaveBeenCalledWith('/v1/excel/reports/audit-logs/export', {
+        params: query,
+        responseType: 'blob',
+      });
+      expect(result).toBe(mockBlob);
+    });
+  });
 });

@@ -13,6 +13,7 @@ export const AuditActionType = {
   ManualOverride: 10,
   PermanentDelete: 11,
   Restore: 12,
+  FaceIdSync: 13,
 } as const;
 
 export type AuditActionType =
@@ -31,6 +32,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditActionType | number, string> = {
   [AuditActionType.ManualOverride]: 'Can thiệp thủ công',
   [AuditActionType.PermanentDelete]: 'Xóa vĩnh viễn',
   [AuditActionType.Restore]: 'Khôi phục',
+  [AuditActionType.FaceIdSync]: 'Đồng bộ FaceID',
 };
 
 export const AUDIT_ACTION_BADGES: Record<
@@ -49,6 +51,7 @@ export const AUDIT_ACTION_BADGES: Record<
   [AuditActionType.ManualOverride]: { label: 'Can thiệp', variant: 'destructive' },
   [AuditActionType.PermanentDelete]: { label: 'Xóa vĩnh viễn', variant: 'destructive' },
   [AuditActionType.Restore]: { label: 'Khôi phục', variant: 'secondary' },
+  [AuditActionType.FaceIdSync]: { label: 'Đồng bộ FaceID', variant: 'outline' },
 };
 
 export interface AuditLogDto {
