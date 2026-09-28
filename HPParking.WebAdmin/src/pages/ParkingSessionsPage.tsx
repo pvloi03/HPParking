@@ -116,18 +116,11 @@ export function ParkingSessionsPage() {
   });
 
   const sessions = data?.items || [];
-  const pagination = data?.pagination || {
-    pageIndex: 1,
-    pageSize: DEFAULT_PAGE_SIZE,
-    totalCount: 0,
-    totalPages: 1,
-    hasPreviousPage: false,
-    hasNextPage: false,
-  };
+  const totalCount = data?.pagination?.totalCount ?? 0;
 
   // Thao tác xuất Excel ClosedXML
   const handleExportExcel = async () => {
-    if (pagination.totalCount === 0) {
+    if (totalCount === 0) {
       toast.warning('Không có bản ghi nào để xuất báo cáo trong khoảng thời gian đã chọn!');
       return;
     }
@@ -484,7 +477,7 @@ export function ParkingSessionsPage() {
       <DataTable
         data={sessions}
         columns={columns}
-        pagination={pagination}
+        pagination={data?.pagination}
         onPageChange={setPageIndex}
         isLoading={isLoading}
         searchKeyword={plateNumber}
