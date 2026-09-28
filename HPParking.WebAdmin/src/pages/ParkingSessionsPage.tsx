@@ -34,11 +34,12 @@ import {
   type ParkingSessionDto,
 } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export function ParkingSessionsPage() {
   // State phân trang & bộ lọc
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [plateNumber, setPlateNumber] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>('');
@@ -117,7 +118,7 @@ export function ParkingSessionsPage() {
   const sessions = data?.items || [];
   const pagination = data?.pagination || {
     pageIndex: 1,
-    pageSize: 15,
+    pageSize: DEFAULT_PAGE_SIZE,
     totalCount: 0,
     totalPages: 1,
     hasPreviousPage: false,

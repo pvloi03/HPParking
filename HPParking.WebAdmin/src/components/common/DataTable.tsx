@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/pagination';
 import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import { cn } from '@/lib/utils';
-import type { PaginationMetadata } from '@/types/masterData';
+import { DEFAULT_PAGE_SIZE, type PaginationMetadata } from '@/types/masterData';
 
 export interface ColumnDef<T> {
   header: string;
@@ -54,7 +54,7 @@ export interface DataTableActions<T> {
 interface DataTableProps<T> {
   data: T[];
   columns: ColumnDef<T>[];
-  pagination: PaginationMetadata;
+  pagination?: PaginationMetadata | null;
   onPageChange: (pageIndex: number) => void;
   isLoading?: boolean;
   searchKeyword: string;
@@ -108,6 +108,15 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   onSelectedRowIdsChange,
   bulkActions,
 }: DataTableProps<T>) {
+  const paginationMeta: PaginationMetadata = pagination || {
+    pageIndex: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalCount: data.length,
+    totalPages: Math.max(1, Math.ceil(data.length / DEFAULT_PAGE_SIZE)),
+    hasPreviousPage: false,
+    hasNextPage: false,
+  };
+
   const hasActions = Boolean(actions?.onView || actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
 
   // Logic chọn tất cả / chọn một phần checkbox
@@ -228,7 +237,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   };
 
   const renderPaginationItems = () => {
-    const { pageIndex, totalPages } = pagination;
+    const { pageIndex, totalPages } = paginationMeta;
     const items: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
 
     if (totalPages <= 7) {
@@ -346,7 +355,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
               </div>
             ) : (
               <span className="text-xs text-muted-foreground font-medium">
-                Tổng cộng: <strong className="text-foreground font-semibold">{pagination.totalCount}</strong> bản ghi
+                Tổng cộng: <strong className="text-foreground font-semibold">{paginationMeta.totalCount}</strong> bản ghi
               </span>
             )}
           </div>
@@ -630,20 +639,20 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
       )}
 
       {/* PAGINATION CONTROLS */}
-      {pagination.totalPages > 1 && (
+      {paginationMeta.totalPages > 1 && (
         <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-2 text-xs text-muted-foreground w-full">
           <div>
-            Hiển thị trang <strong>{pagination.pageIndex}</strong> /{' '}
-            <strong>{pagination.totalPages}</strong> (Tổng cộng{' '}
-            <strong>{pagination.totalCount}</strong> bản ghi)
+            Hiển thị trang <strong>{paginationMeta.pageIndex}</strong> /{' '}
+            <strong>{paginationMeta.totalPages}</strong> (Tổng cộng{' '}
+            <strong>{paginationMeta.totalCount}</strong> bản ghi)
           </div>
 
           <Pagination className="mx-0 w-auto justify-end">
             <PaginationContent className="gap-1 flex-wrap justify-center">
               <PaginationItem>
                 <PaginationPrevious
-                  onClick={() => onPageChange(pagination.pageIndex - 1)}
-                  disabled={!pagination.hasPreviousPage || isLoading}
+                  onClick={() => onPageChange(paginationMeta.pageIndex - 1)}
+                  disabled={!paginationMeta.hasPreviousPage || isLoading}
                 />
               </PaginationItem>
 
@@ -658,7 +667,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                 return (
                   <PaginationItem key={item}>
                     <PaginationLink
-                      isActive={item === pagination.pageIndex}
+                      isActive={item === paginationMeta.pageIndex}
                       onClick={() => onPageChange(item)}
                       disabled={isLoading}
                     >
@@ -670,8 +679,8 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
 
               <PaginationItem>
                 <PaginationNext
-                  onClick={() => onPageChange(pagination.pageIndex + 1)}
-                  disabled={!pagination.hasNextPage || isLoading}
+                  onClick={() => onPageChange(paginationMeta.pageIndex + 1)}
+                  disabled={!paginationMeta.hasNextPage || isLoading}
                 />
               </PaginationItem>
             </PaginationContent>

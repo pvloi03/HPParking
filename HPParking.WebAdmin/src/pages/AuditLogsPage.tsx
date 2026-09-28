@@ -33,11 +33,12 @@ import {
   AUDIT_ACTION_LABELS,
   type AuditLogDto,
 } from '@/types/auditLog';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export function AuditLogsPage() {
   // Phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
 
   // Bộ lọc
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -398,16 +399,7 @@ export function AuditLogsPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={setPageIndex}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

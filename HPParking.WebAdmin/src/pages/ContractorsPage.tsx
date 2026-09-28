@@ -12,10 +12,11 @@ import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { contractorsApi, extractErrorMessage } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import type {
-  ContractorDto,
-  CreateContractorRequest,
-  UpdateContractorRequest,
+import {
+  DEFAULT_PAGE_SIZE,
+  type ContractorDto,
+  type CreateContractorRequest,
+  type UpdateContractorRequest,
 } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -25,7 +26,7 @@ export function ContractorsPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
 
@@ -230,16 +231,7 @@ export function ContractorsPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

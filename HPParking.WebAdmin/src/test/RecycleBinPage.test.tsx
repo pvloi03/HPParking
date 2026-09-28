@@ -98,7 +98,7 @@ describe('RecycleBinPage Component', () => {
       items: [],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 0,
         totalPages: 0,
         hasPreviousPage: false,
@@ -162,7 +162,7 @@ describe('RecycleBinPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,
@@ -194,7 +194,7 @@ describe('RecycleBinPage Component', () => {
       items: [],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 0,
         totalPages: 0,
         hasPreviousPage: false,
@@ -216,7 +216,7 @@ describe('RecycleBinPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,

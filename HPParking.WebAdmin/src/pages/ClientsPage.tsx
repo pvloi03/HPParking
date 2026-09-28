@@ -38,6 +38,7 @@ import type {
   UpdateClientRequest,
 } from '@/types/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export function ClientsPage() {
   const queryClient = useQueryClient();
@@ -45,7 +46,7 @@ export function ClientsPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [companyFilter, setCompanyFilter] = useState<string>('all');
@@ -584,16 +585,7 @@ export function ClientsPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

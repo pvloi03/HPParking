@@ -33,6 +33,7 @@ import {
   type UpdateUserRequest,
   type ResetPasswordRequest,
 } from '@/types/user';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export function UsersPage() {
   const queryClient = useQueryClient();
@@ -40,7 +41,7 @@ export function UsersPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -374,16 +375,7 @@ export function UsersPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

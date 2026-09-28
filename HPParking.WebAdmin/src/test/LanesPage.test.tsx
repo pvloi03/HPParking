@@ -80,7 +80,7 @@ describe('LanesPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,

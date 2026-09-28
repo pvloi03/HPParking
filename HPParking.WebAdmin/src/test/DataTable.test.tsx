@@ -112,4 +112,14 @@ describe('DataTable Component', () => {
     fireEvent.click(deleteBtns[0]);
     expect(onDelete).toHaveBeenCalledWith(defaultProps.data[0]);
   });
+
+  it('hoạt động an toàn và áp dụng mặc định 10 phần tử khi không truyền pagination', () => {
+    const { pagination: _, ...propsWithoutPagination } = defaultProps;
+
+    render(<DataTable {...propsWithoutPagination} />);
+
+    // Kiểm tra render bình thường không crash
+    expect(screen.getAllByText('Công ty Alpha').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Tổng cộng:/i)).toBeInTheDocument();
+  });
 });

@@ -29,7 +29,7 @@ import { extractErrorMessage } from '@/api/clientApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { UserRole } from '@/types/user';
 import { cn } from '@/lib/utils';
-import type { PaginationMetadata } from '@/types/masterData';
+import { DEFAULT_PAGE_SIZE, type PaginationMetadata } from '@/types/masterData';
 
 type EntityType =
   | 'all'
@@ -69,7 +69,7 @@ export function RecycleBinPage() {
 
   const [selectedEntity, setSelectedEntity] = useState<EntityType>('all');
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
@@ -780,16 +780,7 @@ export function RecycleBinPage() {
       <DataTable
         data={data?.items || []}
         columns={getColumns()}
-        pagination={
-          (data?.pagination as PaginationMetadata) || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination as PaginationMetadata | undefined}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

@@ -61,7 +61,7 @@ describe('AuditLogsPage Component', () => {
     ],
     pagination: {
       pageIndex: 1,
-      pageSize: 15,
+      pageSize: 10,
       totalCount: 2,
       totalPages: 1,
       hasPreviousPage: false,

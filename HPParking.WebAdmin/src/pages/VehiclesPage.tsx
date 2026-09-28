@@ -26,6 +26,7 @@ import {
   type CreateVehicleRequest,
   type UpdateVehicleRequest,
 } from '@/types/vehicle';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export function VehiclesPage() {
@@ -34,7 +35,7 @@ export function VehiclesPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -306,16 +307,7 @@ export function VehiclesPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

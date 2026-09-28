@@ -12,10 +12,11 @@ import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { companiesApi, extractErrorMessage } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import type {
-  CompanyDto,
-  CreateCompanyRequest,
-  UpdateCompanyRequest,
+import {
+  DEFAULT_PAGE_SIZE,
+  type CompanyDto,
+  type CreateCompanyRequest,
+  type UpdateCompanyRequest,
 } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -25,7 +26,7 @@ export function CompaniesPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
 
@@ -224,16 +225,7 @@ export function CompaniesPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
