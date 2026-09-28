@@ -27,6 +27,9 @@ import {
 import { contractorsApi } from '@/api/masterDataApi';
 import { clientApi } from '@/api/clientApi';
 import type { ContractorDto } from '@/types/masterData';
+import type { ClientDto } from '@/types/client';
+import { formatDateTimeVi } from '@/utils/formatters';
+import { createEmptyPagedResult } from '@/utils/pagination';
 
 export interface ContractorDetailDialogProps {
   open: boolean;
@@ -59,22 +62,12 @@ export function ContractorDetailDialog({
     queryKey: ['contractor-workers', contractorId],
     queryFn: () =>
       contractorId
-        ? clientApi.getPaged({ contractorId, pageSize: 20, isActive: true })
-        : Promise.resolve({ items: [], pagination: { totalCount: 0, totalPages: 0, pageIndex: 1, pageSize: 20, hasNextPage: false, hasPreviousPage: false } }),
+        ? clientApi.getPaged({ contractorId, pageSize: 20 })
+        : Promise.resolve(createEmptyPagedResult<ClientDto>(20)),
     enabled: Boolean(open && contractorId && (activeTab === 'workers' || activeTab === 'info')),
   });
 
   const workers = workersData?.items || [];
-
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-    } catch {
-      return '—';
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,7 +220,7 @@ export function ContractorDetailDialog({
                       Thời gian tạo bản ghi
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(contractor.createdAt)}
+                      {formatDateTimeVi(contractor.createdAt)}
                     </span>
                   </div>
 
@@ -238,7 +231,7 @@ export function ContractorDetailDialog({
                       Cập nhật lần cuối
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(contractor.updatedAt)}
+                      {formatDateTimeVi(contractor.updatedAt)}
                     </span>
                   </div>
                 </div>

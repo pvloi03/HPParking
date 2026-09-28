@@ -28,6 +28,9 @@ import {
 import { departmentsApi } from '@/api/masterDataApi';
 import { clientApi } from '@/api/clientApi';
 import type { DepartmentDto, CompanyDto } from '@/types/masterData';
+import type { ClientDto } from '@/types/client';
+import { formatDateTimeVi } from '@/utils/formatters';
+import { createEmptyPagedResult } from '@/utils/pagination';
 
 export interface DepartmentDetailDialogProps {
   open: boolean;
@@ -69,8 +72,8 @@ export function DepartmentDetailDialog({
     queryKey: ['department-members', departmentId],
     queryFn: () =>
       departmentId
-        ? clientApi.getPaged({ departmentId, pageSize: 20, isActive: true })
-        : Promise.resolve({ items: [], pagination: { totalCount: 0, totalPages: 0, pageIndex: 1, pageSize: 20, hasNextPage: false, hasPreviousPage: false } }),
+        ? clientApi.getPaged({ departmentId, pageSize: 20 })
+        : Promise.resolve(createEmptyPagedResult<ClientDto>(20)),
     enabled: Boolean(open && departmentId && (activeTab === 'members' || activeTab === 'info')),
   });
 
@@ -79,16 +82,6 @@ export function DepartmentDetailDialog({
     department?.companyName ||
     (department?.companyId ? companyMap.get(department.companyId) : undefined) ||
     'Chưa liên kết công ty';
-
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-    } catch {
-      return '—';
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -252,7 +245,7 @@ export function DepartmentDetailDialog({
                       Thời gian tạo bản ghi
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(department.createdAt)}
+                      {formatDateTimeVi(department.createdAt)}
                     </span>
                   </div>
 
@@ -263,7 +256,7 @@ export function DepartmentDetailDialog({
                       Cập nhật lần cuối
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(department.updatedAt)}
+                      {formatDateTimeVi(department.updatedAt)}
                     </span>
                   </div>
                 </div>

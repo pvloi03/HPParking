@@ -26,8 +26,10 @@ import {
   ArrowLeftRight,
 } from 'lucide-react';
 import { gatesApi, lanesApi } from '@/api/infrastructureApi';
-import { LaneDirection, type GateDto } from '@/types/infrastructure';
+import { LaneDirection, type GateDto, type LaneDto } from '@/types/infrastructure';
 import type { CompanyDto } from '@/types/masterData';
+import { formatDateTimeVi } from '@/utils/formatters';
+import { createEmptyPagedResult } from '@/utils/pagination';
 
 export interface GateDetailDialogProps {
   open: boolean;
@@ -68,8 +70,8 @@ export function GateDetailDialog({
     queryKey: ['gate-lanes', gateId],
     queryFn: () =>
       gateId
-        ? lanesApi.getPaged({ gateId, pageSize: 50, isActive: true })
-        : Promise.resolve({ items: [], pagination: { totalCount: 0, totalPages: 0, pageIndex: 1, pageSize: 50, hasNextPage: false, hasPreviousPage: false } }),
+        ? lanesApi.getPaged({ gateId, pageSize: 50 })
+        : Promise.resolve(createEmptyPagedResult<LaneDto>(50)),
     enabled: Boolean(open && gateId && (activeTab === 'lanes' || activeTab === 'info')),
   });
 
@@ -78,16 +80,6 @@ export function GateDetailDialog({
     gate?.companyName ||
     (gate?.companyId ? companyMap.get(gate.companyId) : undefined) ||
     'Chưa liên kết công ty';
-
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-    } catch {
-      return '—';
-    }
-  };
 
   const getDirectionBadge = (dir?: number) => {
     switch (dir) {
@@ -243,7 +235,7 @@ export function GateDetailDialog({
                       Thời gian tạo bản ghi
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(gate.createdAt)}
+                      {formatDateTimeVi(gate.createdAt)}
                     </span>
                   </div>
 
@@ -254,7 +246,7 @@ export function GateDetailDialog({
                       Cập nhật lần cuối
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(gate.updatedAt)}
+                      {formatDateTimeVi(gate.updatedAt)}
                     </span>
                   </div>
                 </div>

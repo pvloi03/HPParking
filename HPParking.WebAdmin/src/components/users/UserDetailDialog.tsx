@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { usersApi } from '@/api/userApi';
 import { USER_ROLE_BADGES, type UserDto } from '@/types/user';
+import { formatDateTimeVi } from '@/utils/formatters';
 
 export interface UserDetailDialogProps {
   open: boolean;
@@ -53,15 +54,7 @@ export function UserDetailDialog({
     enabled: Boolean(open && userId),
   });
 
-  const formatDate = (isoString?: string | null) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-    } catch {
-      return '—';
-    }
-  };
+
 
   const roleBadge = user?.role ? USER_ROLE_BADGES[user.role] : null;
 
@@ -193,7 +186,7 @@ export function UserDetailDialog({
                   <div>
                     <span className="text-[11px] text-muted-foreground block">Đăng nhập gần nhất:</span>
                     <span className="font-medium text-foreground">
-                      {formatDate(user.lastLoginAt)}
+                      {formatDateTimeVi(user.lastLoginAt)}
                     </span>
                   </div>
                 </div>
@@ -203,7 +196,7 @@ export function UserDetailDialog({
                   <div>
                     <span className="text-[11px] text-muted-foreground block">Đăng xuất gần nhất:</span>
                     <span className="font-medium text-foreground">
-                      {formatDate(user.lastLogoutAt)}
+                      {formatDateTimeVi(user.lastLogoutAt)}
                     </span>
                   </div>
                 </div>
@@ -218,7 +211,7 @@ export function UserDetailDialog({
                   Thời điểm khởi tạo tài khoản
                 </span>
                 <span className="text-xs text-foreground mt-0.5 block">
-                  {formatDate(user.createdAt)}
+                  {formatDateTimeVi(user.createdAt)}
                 </span>
               </div>
 
@@ -228,7 +221,7 @@ export function UserDetailDialog({
                   Cập nhật hồ sơ lần cuối
                 </span>
                 <span className="text-xs text-foreground mt-0.5 block">
-                  {formatDate(user.updatedAt)}
+                  {formatDateTimeVi(user.updatedAt)}
                 </span>
               </div>
 

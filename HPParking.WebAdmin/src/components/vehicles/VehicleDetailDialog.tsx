@@ -31,7 +31,9 @@ import { vehicleApi } from '@/api/vehicleApi';
 import { clientApi } from '@/api/clientApi';
 import { parkingSessionApi } from '@/api/parkingSessionApi';
 import { VehicleType, type VehicleDto } from '@/types/vehicle';
-import { ParkingSessionStatus } from '@/types/parkingSession';
+import { ParkingSessionStatus, type ParkingSessionDto } from '@/types/parkingSession';
+import { formatDateTimeVi } from '@/utils/formatters';
+import { createEmptyPagedResult } from '@/utils/pagination';
 
 export interface VehicleDetailDialogProps {
   open: boolean;
@@ -76,21 +78,11 @@ export function VehicleDetailDialog({
             plateNumber: vehicle.plateNumber,
             pageSize: 5,
           })
-        : Promise.resolve({ items: [], pagination: { totalCount: 0, totalPages: 0, pageIndex: 1, pageSize: 5, hasNextPage: false, hasPreviousPage: false } }),
+        : Promise.resolve(createEmptyPagedResult<ParkingSessionDto>(5)),
     enabled: Boolean(open && vehicle?.plateNumber && (activeTab === 'history' || activeTab === 'info')),
   });
 
   const recentSessions = sessionHistoryData?.items || [];
-
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-    } catch {
-      return '—';
-    }
-  };
 
   const getVehicleTypeBadge = (type?: number) => {
     switch (type) {
@@ -307,7 +299,7 @@ export function VehicleDetailDialog({
                       Thời điểm đăng ký phương tiện
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(vehicle.createdAt)}
+                      {formatDateTimeVi(vehicle.createdAt)}
                     </span>
                   </div>
 
@@ -317,7 +309,7 @@ export function VehicleDetailDialog({
                       Cập nhật lần cuối
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(vehicle.updatedAt)}
+                      {formatDateTimeVi(vehicle.updatedAt)}
                     </span>
                   </div>
 
@@ -359,7 +351,7 @@ export function VehicleDetailDialog({
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-foreground">
-                            Phiên: {formatDate(session.inTime || session.createdAt)}
+                            Phiên: {formatDateTimeVi(session.inTime || session.createdAt)}
                           </span>
                           {getSessionStatusBadge(session.status)}
                         </div>
@@ -369,7 +361,7 @@ export function VehicleDetailDialog({
                             <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
                             <div>
                               <span className="text-foreground font-medium block">Lượt vào:</span>
-                              <span>{formatDate(session.inTime)}</span>
+                              <span>{formatDateTimeVi(session.inTime)}</span>
                               {session.inLaneName && (
                                 <span className="block text-[10px] text-muted-foreground/80">
                                   Làn: {session.inLaneName}
@@ -382,7 +374,7 @@ export function VehicleDetailDialog({
                             <ArrowUpRight className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
                             <div>
                               <span className="text-foreground font-medium block">Lượt ra:</span>
-                              <span>{session.outTime ? formatDate(session.outTime) : '—'}</span>
+                              <span>{formatDateTimeVi(session.outTime)}</span>
                               {session.outLaneName && (
                                 <span className="block text-[10px] text-muted-foreground/80">
                                   Làn: {session.outLaneName}

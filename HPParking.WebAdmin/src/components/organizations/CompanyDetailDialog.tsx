@@ -26,7 +26,10 @@ import {
 } from 'lucide-react';
 import { companiesApi, departmentsApi } from '@/api/masterDataApi';
 import { gatesApi } from '@/api/infrastructureApi';
-import type { CompanyDto } from '@/types/masterData';
+import type { CompanyDto, DepartmentDto } from '@/types/masterData';
+import type { GateDto } from '@/types/infrastructure';
+import { formatDateTimeVi } from '@/utils/formatters';
+import { createEmptyPagedResult } from '@/utils/pagination';
 
 export interface CompanyDetailDialogProps {
   open: boolean;
@@ -59,8 +62,8 @@ export function CompanyDetailDialog({
     queryKey: ['company-departments', companyId],
     queryFn: () =>
       companyId
-        ? departmentsApi.getPaged({ companyId, pageSize: 50, isActive: true })
-        : Promise.resolve({ items: [], pagination: { totalCount: 0, totalPages: 0, pageIndex: 1, pageSize: 50, hasNextPage: false, hasPreviousPage: false } }),
+        ? departmentsApi.getPaged({ companyId, pageSize: 50 })
+        : Promise.resolve(createEmptyPagedResult<DepartmentDto>(50)),
     enabled: Boolean(open && companyId && (activeTab === 'departments' || activeTab === 'info')),
   });
 
@@ -69,23 +72,13 @@ export function CompanyDetailDialog({
     queryKey: ['company-gates', companyId],
     queryFn: () =>
       companyId
-        ? gatesApi.getPaged({ companyId, pageSize: 50, isActive: true })
-        : Promise.resolve({ items: [], pagination: { totalCount: 0, totalPages: 0, pageIndex: 1, pageSize: 50, hasNextPage: false, hasPreviousPage: false } }),
+        ? gatesApi.getPaged({ companyId, pageSize: 50 })
+        : Promise.resolve(createEmptyPagedResult<GateDto>(50)),
     enabled: Boolean(open && companyId && (activeTab === 'gates' || activeTab === 'info')),
   });
 
   const departments = departmentsData?.items || [];
   const gates = gatesData?.items || [];
-
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return '—';
-    try {
-      const d = new Date(isoString);
-      return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN');
-    } catch {
-      return '—';
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -236,7 +229,7 @@ export function CompanyDetailDialog({
                       Thời gian tạo bản ghi
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(company.createdAt)}
+                      {formatDateTimeVi(company.createdAt)}
                     </span>
                   </div>
 
@@ -247,7 +240,7 @@ export function CompanyDetailDialog({
                       Cập nhật lần cuối
                     </span>
                     <span className="text-xs text-foreground mt-0.5 block">
-                      {formatDate(company.updatedAt)}
+                      {formatDateTimeVi(company.updatedAt)}
                     </span>
                   </div>
                 </div>
