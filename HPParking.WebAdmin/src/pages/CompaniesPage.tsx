@@ -137,7 +137,7 @@ export function CompaniesPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} công ty vào thùng rác (${failed} bản ghi không thể xóa do có phòng ban, cổng hoặc khách hàng trực thuộc).`
+          `Đã chuyển ${succeeded}/${results.length} công ty vào thùng rác (${failed} bản ghi không thể xóa do có phòng ban, cổng hoặc nhân sự trực thuộc).`
         );
       } else {
         toast.success(`Đã chuyển thành công ${succeeded} công ty vào thùng rác.`);

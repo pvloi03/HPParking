@@ -190,7 +190,7 @@ export function AvatarUploadField({
           {displaySrc ? (
             <img
               src={displaySrc}
-              alt="Avatar khách hàng"
+              alt="Avatar nhân sự"
               className="h-full w-full object-cover"
             />
           ) : (

@@ -92,7 +92,7 @@ describe('AuditLogsPage Component', () => {
     vi.mocked(auditApi.getPaged).mockResolvedValue(mockPagedLogs);
     vi.mocked(auditApi.getById).mockResolvedValue({
       ...mockPagedLogs.items[0],
-      reason: 'Đăng ký khách hàng mới',
+      reason: 'Đăng ký nhân sự mới',
       errorMessage: null,
     });
 

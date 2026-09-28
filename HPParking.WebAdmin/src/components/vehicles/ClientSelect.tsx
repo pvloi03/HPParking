@@ -64,7 +64,7 @@ export function ClientSelect({
           </div>
           {filteredClients.length === 0 ? (
             <div className="py-4 text-center text-xs text-muted-foreground">
-              Không tìm thấy khách hàng nào khớp
+              Không tìm thấy nhân sự nào khớp
             </div>
           ) : (
             filteredClients.map((client) => (

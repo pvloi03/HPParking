@@ -286,7 +286,7 @@ export function AuditLogsPage() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Tất cả thực thể</SelectItem>
-          <SelectItem value="Client">Khách hàng (Client)</SelectItem>
+          <SelectItem value="Client">Nhân sự (Client)</SelectItem>
           <SelectItem value="Vehicle">Phương tiện (Vehicle)</SelectItem>
           <SelectItem value="User">Tài khoản (User)</SelectItem>
           <SelectItem value="Company">Công ty (Company)</SelectItem>

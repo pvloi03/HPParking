@@ -37,7 +37,7 @@ const vehicleSchema = z.object({
     .min(4, 'Biển số xe phải có ít nhất 4 ký tự')
     .max(20, 'Biển số xe không được quá 20 ký tự'),
   type: z.number().int().min(1).max(4),
-  clientId: z.string().trim().min(1, 'Vui lòng chọn khách hàng chủ sở hữu phương tiện'),
+  clientId: z.string().trim().min(1, 'Vui lòng chọn nhân sự chủ sở hữu phương tiện'),
   note: z.string().trim().optional(),
   isActive: z.boolean(),
 });
@@ -146,7 +146,7 @@ export function VehicleFormDialog({
           <DialogDescription>
             {isEditing
               ? 'Chỉnh sửa biển số, phân loại phương tiện và ghi chú.'
-              : 'Gán phương tiện cho khách hàng chủ sở hữu để phục vụ nhận diện xe ra vào.'}
+              : 'Gán phương tiện cho nhân sự chủ sở hữu để phục vụ nhận diện xe ra vào.'}
           </DialogDescription>
         </DialogHeader>
 

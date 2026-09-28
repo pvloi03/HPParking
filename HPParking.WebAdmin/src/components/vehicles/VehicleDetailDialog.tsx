@@ -285,7 +285,7 @@ export function VehicleDetailDialog({
                   ) : (
                     <div className="p-3 rounded-lg border border-dashed border-border text-center">
                       <span className="text-xs text-muted-foreground italic">
-                        Phương tiện chưa gán chủ sở hữu cụ thể (Xe vãng lai hoặc chưa liên kết khách hàng).
+                        Phương tiện chưa gán chủ sở hữu cụ thể (Xe vãng lai hoặc chưa liên kết nhân sự).
                       </span>
                     </div>
                   )}

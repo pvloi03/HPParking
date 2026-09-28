@@ -50,7 +50,7 @@ export interface ParkingSessionDto {
 }
 
 /**
- * DTO chi tiết phiên đỗ xe kèm thông tin khách hàng và định dạng thời lượng (ParkingSessionDetailDto.cs)
+ * DTO chi tiết phiên đỗ xe kèm thông tin nhân sự và định dạng thời lượng (ParkingSessionDetailDto.cs)
  */
 export interface ParkingSessionDetailDto extends ParkingSessionDto {
   durationFormatted?: string;

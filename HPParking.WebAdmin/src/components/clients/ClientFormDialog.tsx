@@ -281,7 +281,7 @@ export function ClientFormDialog({
             initialData.address ||
             '';
 
-          // Nếu khách hàng đã tồn tại và đã có avatar thì giữ nguyên avatar hiện tại
+          // Nếu nhân sự đã tồn tại và đã có avatar thì giữ nguyên avatar hiện tại
           if (initialData.avatar) {
             setSelectedAvatarFile(null);
           } else if (cccdAvatarFile) {
@@ -472,11 +472,11 @@ export function ClientFormDialog({
             <DialogTitle className="text-base font-bold">
               {isEditing
                 ? isFromHn212
-                  ? 'Cập Nhật Hồ Sơ Khách Hàng (Từ Thẻ CCCD)'
-                  : 'Cập Nhật Hồ Sơ Khách Hàng'
+                  ? 'Cập Nhật Hồ Sơ Nhân Sự (Từ Thẻ CCCD)'
+                  : 'Cập Nhật Hồ Sơ Nhân Sự'
                 : isFromHn212
-                  ? 'Đăng Ký Khách Hàng (Từ Thẻ CCCD)'
-                  : 'Đăng Ký Khách Hàng Mới'}
+                  ? 'Đăng Ký Nhân Sự (Từ Thẻ CCCD)'
+                  : 'Đăng Ký Nhân Sự Mới'}
             </DialogTitle>
           </div>
           <DialogDescription>
@@ -674,7 +674,7 @@ export function ClientFormDialog({
             <div className="space-y-1">
               {/* Phân loại đối tượng */}
               <label className="text-xs font-semibold text-foreground flex items-center h-5">
-                <span>Loại khách hàng <span className="text-destructive">*</span></span>
+                <span>Loại nhân sự <span className="text-destructive">*</span></span>
               </label>
               <Select
                 value={String(selectedType)}
@@ -694,7 +694,7 @@ export function ClientFormDialog({
                 }}
               >
                 <SelectTrigger className="text-xs bg-background h-9">
-                  <SelectValue placeholder="Chọn loại khách hàng" />
+                  <SelectValue placeholder="Chọn loại nhân sự" />
                 </SelectTrigger>
                 <SelectContent>
                   {CLIENT_TYPE_OPTIONS.map((opt) => (
@@ -846,7 +846,7 @@ export function ClientFormDialog({
               </Button>
             </div>
 
-            {/* Danh sách xe hiện có (chỉ hiển thị khi cập nhật khách hàng) */}
+            {/* Danh sách xe hiện có (chỉ hiển thị khi cập nhật nhân sự) */}
             {isEditing && existingVehicles.length > 0 && (
               <div className="space-y-2">
                 <span className="text-[11px] font-semibold text-muted-foreground block">
@@ -1037,7 +1037,7 @@ export function ClientFormDialog({
                       Chưa thêm phương tiện nào
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      Bấm nút bên dưới để nhập biển số và loại phương tiện gán cho khách hàng này.
+                      Bấm nút bên dưới để nhập biển số và loại phương tiện gán cho nhân sự này.
                     </p>
                   </div>
                   <Button
@@ -1087,7 +1087,7 @@ export function ClientFormDialog({
             {/* Chi tiết Từ ngày - Đến ngày */}
             {expiredEnable ? (
               <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                ✓ Khách hàng được ra vào tự do (không áp dụng thời hạn hết hạn, bỏ qua giới hạn ngày vào/ra).
+                ✓ Nhân sự được ra vào tự do (không áp dụng thời hạn hết hạn, bỏ qua giới hạn ngày vào/ra).
               </p>
             ) : (
               <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2.5">
@@ -1124,7 +1124,7 @@ export function ClientFormDialog({
               <label className="text-xs font-semibold text-foreground">Ghi chú bổ sung</label>
               <Input
                 {...register('note')}
-                placeholder="VD: Khách hàng thân thiết, nhà thầu dự án mở rộng xưởng B..."
+                placeholder="VD: Cán bộ nhân viên kỹ thuật, nhà thầu dự án mở rộng xưởng B..."
                 className="text-xs"
               />
               {errors.note && (
@@ -1139,7 +1139,7 @@ export function ClientFormDialog({
                   Kích hoạt hồ sơ
                 </span>
                 <span className="text-[11px] text-muted-foreground block">
-                  Cho phép khách hàng ra vào bãi đỗ xe và sử dụng quyền gửi xe
+                  Cho phép nhân sự ra vào bãi đỗ xe và sử dụng quyền gửi xe
                 </span>
               </div>
               <button

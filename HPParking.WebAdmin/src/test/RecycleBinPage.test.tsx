@@ -110,7 +110,7 @@ describe('RecycleBinPage Component', () => {
 
     expect(screen.getByText('Thùng Rác Hệ Thống')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Tất cả/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Khách hàng/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Nhân sự/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Phương tiện/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Công ty/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Phòng ban/i })).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('RecycleBinPage Component', () => {
     renderComponent();
 
     expect(screen.getByRole('tab', { name: /Tất cả/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Khách hàng/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Nhân sự/i })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Tài khoản/i })).not.toBeInTheDocument();
     expect(usersApi.getPaged).not.toHaveBeenCalled();
   });

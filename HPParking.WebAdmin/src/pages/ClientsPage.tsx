@@ -238,7 +238,7 @@ export function ClientsPage() {
       ? departments.filter((d) => d.companyId === companyFilter)
       : departments;
 
-  // TanStack Query v5: Lấy danh sách khách hàng với placeholderData: keepPreviousData
+  // TanStack Query v5: Lấy danh sách nhân sự với placeholderData: keepPreviousData
   const { data, isLoading } = useQuery({
     queryKey: [
       'clients',
@@ -261,7 +261,7 @@ export function ClientsPage() {
     placeholderData: keepPreviousData,
   });
 
-  // Mutation: Thêm mới khách hàng
+  // Mutation: Thêm mới nhân sự
   const createMutation = useMutation({
     mutationFn: async ({
       payload,
@@ -275,7 +275,7 @@ export function ClientsPage() {
         try {
           await clientApi.uploadAvatar(newClient.id, avatarFile);
         } catch {
-          toast.warning('Tạo khách hàng thành công nhưng tải ảnh đại diện thất bại.');
+          toast.warning('Tạo nhân sự thành công nhưng tải ảnh đại diện thất bại.');
         }
       }
       return newClient;
@@ -292,10 +292,10 @@ export function ClientsPage() {
         );
       } else if (total > 0) {
         toast.success(
-          `Đã thêm mới khách hàng "${newClient.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
+          `Đã thêm mới nhân sự "${newClient.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
         );
       } else {
-        toast.success(`Đã thêm mới khách hàng "${newClient.name}" thành công.`);
+        toast.success(`Đã thêm mới nhân sự "${newClient.name}" thành công.`);
       }
 
       setIsFormOpen(false);
@@ -307,7 +307,7 @@ export function ClientsPage() {
     },
   });
 
-  // Mutation: Cập nhật khách hàng
+  // Mutation: Cập nhật nhân sự
   const updateMutation = useMutation({
     mutationFn: async ({
       id,
@@ -340,10 +340,10 @@ export function ClientsPage() {
         );
       } else if (total > 0) {
         toast.success(
-          `Đã cập nhật khách hàng "${updated.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
+          `Đã cập nhật nhân sự "${updated.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
         );
       } else {
-        toast.success(`Đã cập nhật khách hàng "${updated.name}" thành công.`);
+        toast.success(`Đã cập nhật nhân sự "${updated.name}" thành công.`);
       }
 
       setIsFormOpen(false);
@@ -356,11 +356,11 @@ export function ClientsPage() {
     },
   });
 
-  // Mutation: Xóa mềm khách hàng (Chuyển vào thùng rác)
+  // Mutation: Xóa mềm nhân sự (Chuyển vào thùng rác)
   const deleteMutation = useMutation({
     mutationFn: (id: string) => clientApi.delete(id, false),
     onSuccess: () => {
-      toast.success('Đã chuyển khách hàng vào thùng rác thành công');
+      toast.success('Đã chuyển nhân sự vào thùng rác thành công');
       setDeleteCandidate(null);
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
     },
@@ -381,10 +381,10 @@ export function ClientsPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} khách hàng vào thùng rác (${failed} bản ghi không thể xóa do ràng buộc dữ liệu xe/lượt đỗ).`
+          `Đã chuyển ${succeeded}/${results.length} nhân sự vào thùng rác (${failed} bản ghi không thể xóa do ràng buộc dữ liệu xe/lượt đỗ).`
         );
       } else {
-        toast.success(`Đã chuyển thành công ${succeeded} khách hàng vào thùng rác.`);
+        toast.success(`Đã chuyển thành công ${succeeded} nhân sự vào thùng rác.`);
       }
       setSelectedRowIds([]);
       setIsBulkDeleteOpen(false);
@@ -440,7 +440,7 @@ export function ClientsPage() {
   // Định nghĩa các cột
   const columns: ColumnDef<ClientDto>[] = [
     {
-      header: 'Khách hàng',
+      header: 'Nhân sự',
       cell: (item) => (
         <div
           className="flex items-center gap-2.5 cursor-pointer group"
@@ -448,12 +448,12 @@ export function ClientsPage() {
             setDetailClientId(item.id);
             setIsDetailOpen(true);
           }}
-          title="Nhấn để xem hồ sơ chi tiết khách hàng"
+          title="Nhấn để xem hồ sơ chi tiết nhân sự"
         >
           <Avatar className="h-9 w-9 border border-border/80 shrink-0 group-hover:ring-2 group-hover:ring-blue-500 transition-all">
             <AvatarImage
               src={formatAvatarUrl(item.avatar, item.updatedAt || item.createdAt)}
-              alt={item.name || 'Khách hàng'}
+              alt={item.name || 'Nhân sự'}
               className="object-cover"
             />
             <AvatarFallback className="font-bold text-[11px] text-blue-600 dark:text-blue-400 bg-muted">
@@ -464,7 +464,7 @@ export function ClientsPage() {
                 .map((n) => n[0])
                 .slice(-2)
                 .join('')
-                .toUpperCase() || 'KH'}
+                .toUpperCase() || 'NS'}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
@@ -478,7 +478,7 @@ export function ClientsPage() {
         </div>
       ),
       className: 'min-w-[190px]',
-      mobileLabel: 'Khách hàng',
+      mobileLabel: 'Nhân sự',
     },
     {
       header: 'Thông tin liên hệ',
@@ -543,10 +543,10 @@ export function ClientsPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-foreground">
-                Quản Lý Hồ Sơ Khách Hàng &amp; FaceID
+                Quản Lý Hồ Sơ Nhân Sự
               </h1>
               <p className="text-xs text-muted-foreground">
-                Hồ sơ định danh khách hàng, số điện thoại Single Source of Truth, ảnh avatar và đồng bộ khuôn mặt sinh trắc học.
+                Hồ sơ định danh nhân sự, số điện thoại Single Source of Truth, ảnh avatar và đồng bộ khuôn mặt sinh trắc học.
               </p>
             </div>
           </div>
@@ -674,13 +674,13 @@ export function ClientsPage() {
         onAddNew={
           canWrite
             ? () => {
-                setSelectedClient(null);
-                setHn212CardData(null);
-                setIsFormOpen(true);
-              }
+              setSelectedClient(null);
+              setHn212CardData(null);
+              setIsFormOpen(true);
+            }
             : undefined
         }
-        addNewLabel="Thêm mới khách hàng"
+        addNewLabel="Thêm mới nhân sự"
         onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
@@ -691,22 +691,22 @@ export function ClientsPage() {
           },
           onEdit: canWrite
             ? (item) => {
-                setSelectedClient(item);
-                setHn212CardData(null);
-                setIsFormOpen(true);
-              }
+              setSelectedClient(item);
+              setHn212CardData(null);
+              setIsFormOpen(true);
+            }
             : undefined,
           onDelete: canWrite
             ? (item) => {
-                setDeleteCandidate(item);
-              }
+              setDeleteCandidate(item);
+            }
             : undefined,
         }}
-        emptyTitle="Không có khách hàng nào"
-        emptyDescription="Chưa có hồ sơ khách hàng hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+        emptyTitle="Không có nhân sự nào"
+        emptyDescription="Chưa có hồ sơ nhân sự hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
       />
 
-      {/* Modal Xem Chi Tiết Khách Hàng */}
+      {/* Modal Xem Chi Tiết Nhân Sự */}
       <ClientDetailDialog
         open={isDetailOpen}
         onOpenChange={(open) => {
@@ -724,7 +724,7 @@ export function ClientsPage() {
         }}
       />
 
-      {/* Modal Form Thêm/Sửa Khách Hàng */}
+      {/* Modal Form Thêm/Sửa Nhân Sự */}
       <ClientFormDialog
         open={isFormOpen}
         onOpenChange={(open) => {
@@ -753,12 +753,12 @@ export function ClientsPage() {
         }}
       />
 
-      {/* Confirm Xóa Mềm Đơn Lẻ Khách Hàng */}
+      {/* Confirm Xóa Mềm Đơn Lẻ Nhân Sự */}
       <ConfirmDialog
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
-        title="Xác Nhận Xóa Khách Hàng (Xóa Mềm)"
-        description={`Bạn có chắc chắn muốn chuyển khách hàng "${deleteCandidate?.name || 'này'}" vào thùng rác không? Dữ liệu này có thể được khôi phục sau tại mục Thùng Rác Hệ Thống. Lưu ý: Hệ thống sẽ từ chối xóa nếu khách hàng vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
+        title="Xác Nhận Xóa Nhân Sự (Xóa Mềm)"
+        description={`Bạn có chắc chắn muốn chuyển nhân sự "${deleteCandidate?.name || 'này'}" vào thùng rác không? Dữ liệu này có thể được khôi phục sau tại mục Thùng Rác Hệ Thống. Lưu ý: Hệ thống sẽ từ chối xóa nếu nhân sự vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"
@@ -772,12 +772,12 @@ export function ClientsPage() {
         }}
       />
 
-      {/* Confirm Xóa Mềm Hàng Loạt Khách Hàng */}
+      {/* Confirm Xóa Mềm Hàng Loạt Nhân Sự */}
       <ConfirmDialog
         open={isBulkDeleteOpen}
         onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
         title="Xác Nhận Xóa Mềm Hàng Loạt"
-        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} khách hàng đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
+        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} nhân sự đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
         confirmText={`Chuyển Vào Thùng Rác (${selectedRowIds.length})`}
         cancelText="Hủy Bỏ"
         variant="destructive"

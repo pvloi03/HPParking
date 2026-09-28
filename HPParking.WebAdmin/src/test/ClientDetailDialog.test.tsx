@@ -81,7 +81,7 @@ describe('ClientDetailDialog Component', () => {
     });
   });
 
-  it('hiển thị đầy đủ thông tin cá nhân của khách hàng khi mở dialog', async () => {
+  it('hiển thị đầy đủ thông tin cá nhân của nhân sự khi mở dialog', async () => {
     vi.mocked(clientApi.getById).mockResolvedValueOnce(mockClientDetail);
 
     render(

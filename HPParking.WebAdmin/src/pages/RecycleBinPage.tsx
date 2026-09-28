@@ -53,7 +53,7 @@ interface EntityConfig {
 
 const ENTITY_CONFIGS: EntityConfig[] = [
   { id: 'all', label: 'Tất cả', icon: Layers, description: 'Toàn bộ bản ghi đã bị xóa trong hệ thống' },
-  { id: 'clients', label: 'Khách hàng', icon: Users, description: 'Hồ sơ định danh khách hàng & FaceID' },
+  { id: 'clients', label: 'Nhân sự', icon: Users, description: 'Hồ sơ định danh nhân sự & FaceID' },
   { id: 'vehicles', label: 'Phương tiện', icon: Car, description: 'Biển số xe & quyền sở hữu' },
   { id: 'companies', label: 'Công ty', icon: Building, description: 'Danh mục công ty & đơn vị gốc' },
   { id: 'departments', label: 'Phòng ban', icon: Building2, description: 'Phòng ban trực thuộc công ty' },
@@ -474,7 +474,7 @@ export function RecycleBinPage() {
       case 'clients':
         return [
           {
-            header: 'Mã khách hàng',
+            header: 'Mã nhân sự',
             accessorKey: 'code',
             cell: (item: any) => (
               <span className="font-mono text-xs font-semibold">{item.code || '—'}</span>
@@ -488,7 +488,7 @@ export function RecycleBinPage() {
             ),
           },
           {
-            header: 'Loại khách hàng',
+            header: 'Loại nhân sự',
             cell: (item: any) => {
               const types = ['Cán bộ NV', 'Nhà thầu', 'Khách vãng lai', 'VIP', 'Khác'];
               return (

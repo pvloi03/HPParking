@@ -76,7 +76,7 @@ export function VehiclesPage() {
     }
   };
 
-  // Query: Lấy danh sách khách hàng để ánh xạ chủ sở hữu và chọn trong Form
+  // Query: Lấy danh sách nhân sự để ánh xạ chủ sở hữu và chọn trong Form
   const { data: clientsData } = useQuery({
     queryKey: ['clients-all'],
     queryFn: () => clientApi.getPaged({ pageIndex: 1, pageSize: 200, isActive: true }),
@@ -298,7 +298,7 @@ export function VehiclesPage() {
                 Quản Lý Phương Tiện &amp; Biển Số Xe
               </h1>
               <p className="text-xs text-muted-foreground">
-                Đăng ký biển số xe chuẩn hóa, phân loại ô tô/xe máy và gán quyền sở hữu với hồ sơ khách hàng.
+                Đăng ký biển số xe chuẩn hóa, phân loại ô tô/xe máy và gán quyền sở hữu với hồ sơ nhân sự.
               </p>
             </div>
           </div>

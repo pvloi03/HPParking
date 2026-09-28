@@ -161,7 +161,7 @@ export function DepartmentsPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} phòng ban vào thùng rác (${failed} bản ghi không thể xóa do có khách hàng trực thuộc).`
+          `Đã chuyển ${succeeded}/${results.length} phòng ban vào thùng rác (${failed} bản ghi không thể xóa do có nhân sự trực thuộc).`
         );
       } else {
         toast.success(`Đã chuyển thành công ${succeeded} phòng ban vào thùng rác.`);
@@ -395,7 +395,7 @@ export function DepartmentsPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xác Nhận Xóa Phòng Ban"
-        description={`Bạn có chắc chắn muốn chuyển phòng ban "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu phòng ban này vẫn còn nhân sự hoặc khách hàng trực thuộc.`}
+        description={`Bạn có chắc chắn muốn chuyển phòng ban "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu phòng ban này vẫn còn nhân sự trực thuộc.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"

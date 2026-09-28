@@ -63,7 +63,7 @@ describe('ClientsPage Component', () => {
     });
   });
 
-  it('hiển thị danh sách khách hàng và nút đồng bộ FaceID từ API', async () => {
+  it('hiển thị danh sách nhân sự và nút đồng bộ FaceID từ API', async () => {
     vi.mocked(companiesApi.getPaged).mockResolvedValueOnce({
       items: [],
       pagination: {
@@ -136,7 +136,7 @@ describe('ClientsPage Component', () => {
     );
 
     expect(
-      screen.getByText(/Quản Lý Hồ Sơ Khách Hàng & FaceID/i)
+      screen.getByText(/Quản Lý Hồ Sơ Nhân Sự/i)
     ).toBeInTheDocument();
 
     await waitFor(() => {
@@ -198,12 +198,12 @@ describe('ClientsPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('KH_NO_NAME').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('KH').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('NS').length).toBeGreaterThan(0);
       expect(screen.getAllByText('0999888777').length).toBeGreaterThan(0);
     });
   });
 
-  it('ẩn hoàn toàn nút Thêm mới khách hàng và Nhập Excel khi đăng nhập vai trò Viewer', async () => {
+  it('ẩn hoàn toàn nút Thêm mới nhân sự và Nhập Excel khi đăng nhập vai trò Viewer', async () => {
     useAuthStore.setState({
       user: {
         id: 'u-viewer',
@@ -237,7 +237,7 @@ describe('ClientsPage Component', () => {
     );
 
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: /Thêm mới khách hàng/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Thêm mới nhân sự/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Nhập Excel/i })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Xuất Excel/i })).toBeInTheDocument();
     });

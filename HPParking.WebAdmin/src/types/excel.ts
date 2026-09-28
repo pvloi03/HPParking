@@ -38,6 +38,6 @@ export const EXCEL_ENTITY_LABELS: Record<ExcelEntity, string> = {
   gates: 'Cổng kiểm soát',
   lanes: 'Làn xe kiểm soát',
   devices: 'Thiết bị ngoại vi',
-  clients: 'Hồ sơ khách hàng',
+  clients: 'Hồ sơ nhân sự',
   vehicles: 'Phương tiện & Biển số xe',
 };

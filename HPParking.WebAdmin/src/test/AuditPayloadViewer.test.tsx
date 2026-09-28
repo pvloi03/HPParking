@@ -41,7 +41,7 @@ describe('AuditPayloadViewer Component', () => {
     targetDisplay: 'Nguyễn Văn Test',
     isSuccess: true,
     createdAt: '2026-09-26T10:00:00Z',
-    reason: 'Khách hàng cập nhật số điện thoại mới',
+    reason: 'Nhân sự cập nhật số điện thoại mới',
     errorMessage: null,
   };
 
@@ -63,7 +63,7 @@ describe('AuditPayloadViewer Component', () => {
     expect(screen.getByText('Nguyễn Văn Test')).toBeInTheDocument();
 
     // Kiểm tra hiển thị lý do
-    expect(screen.getByText('Khách hàng cập nhật số điện thoại mới')).toBeInTheDocument();
+    expect(screen.getByText('Nhân sự cập nhật số điện thoại mới')).toBeInTheDocument();
   });
 
   it('xử lý hiển thị phù hợp khi sự kiện là Đăng nhập', async () => {

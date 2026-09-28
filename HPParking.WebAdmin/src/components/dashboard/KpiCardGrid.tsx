@@ -44,7 +44,7 @@ export function KpiCardGrid({ data, isLoading }: KpiCardGridProps) {
 
   const kpis = [
     {
-      title: 'Khách Hàng',
+      title: 'Nhân Sự',
       value: data.totalClients.toLocaleString(),
       subtext: `Đã kích hoạt: ${data.activeClients.toLocaleString()}`,
       icon: Users,

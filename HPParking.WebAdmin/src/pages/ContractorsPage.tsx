@@ -136,7 +136,7 @@ export function ContractorsPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} nhà thầu vào thùng rác (${failed} bản ghi không thể xóa do có khách hàng trực thuộc).`
+          `Đã chuyển ${succeeded}/${results.length} nhà thầu vào thùng rác (${failed} bản ghi không thể xóa do có nhân sự trực thuộc).`
         );
       } else {
         toast.success(`Đã chuyển thành công ${succeeded} nhà thầu vào thùng rác.`);
@@ -334,7 +334,7 @@ export function ContractorsPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xác Nhận Xóa Nhà Thầu"
-        description={`Bạn có chắc chắn muốn chuyển nhà thầu "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu nhà thầu này vẫn còn khách hàng/nhân sự trực thuộc.`}
+        description={`Bạn có chắc chắn muốn chuyển nhà thầu "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu nhà thầu này vẫn còn nhân sự trực thuộc.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"

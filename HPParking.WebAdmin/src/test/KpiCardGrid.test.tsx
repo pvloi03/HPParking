@@ -22,7 +22,7 @@ describe('KpiCardGrid Component', () => {
   it('hiển thị đầy đủ 5 chỉ số KPIs khi có dữ liệu', () => {
     render(<KpiCardGrid data={mockKpiData} isLoading={false} />);
 
-    expect(screen.getByText('Khách Hàng')).toBeInTheDocument();
+    expect(screen.getByText('Nhân Sự')).toBeInTheDocument();
     expect(screen.getByText('250')).toBeInTheDocument();
 
     expect(screen.getByText('Phương Tiện')).toBeInTheDocument();

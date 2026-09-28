@@ -72,7 +72,7 @@ describe('HN212 Smart Reader Integration', () => {
       );
 
       // Kiểm tra tiêu đề hiển thị đúng chế độ tự động từ CCCD
-      expect(screen.getByText(/Đăng Ký Khách Hàng \(Từ Thẻ CCCD\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Đăng Ký Nhân Sự \(Từ Thẻ CCCD\)/i)).toBeInTheDocument();
 
       // Kiểm tra banner thông báo
       expect(
@@ -123,8 +123,8 @@ describe('HN212 Smart Reader Integration', () => {
         />
       );
 
-      // Tiêu đề là Cập nhật hồ sơ khách hàng
-      expect(screen.getByText(/Cập Nhật Hồ Sơ Khách Hàng \(Từ Thẻ CCCD\)/i)).toBeInTheDocument();
+      // Tiêu đề là Cập nhật hồ sơ nhân sự
+      expect(screen.getByText(/Cập Nhật Hồ Sơ Nhân Sự \(Từ Thẻ CCCD\)/i)).toBeInTheDocument();
 
       // Họ tên được cập nhật từ thẻ CCCD mới đọc
       const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam') as HTMLInputElement;
@@ -159,7 +159,7 @@ describe('HN212 Smart Reader Integration', () => {
       );
 
       // Avatar hiện tại vẫn là ảnh cũ của client
-      const avatarImg = screen.getByAltText('Avatar khách hàng');
+      const avatarImg = screen.getByAltText('Avatar nhân sự');
       expect(avatarImg).toHaveAttribute('src', 'https://example.com/client-avatar.jpg');
 
       // Có nút để chọn ảnh từ CCCD
