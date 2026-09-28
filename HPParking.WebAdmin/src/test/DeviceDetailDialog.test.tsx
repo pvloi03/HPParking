@@ -107,7 +107,7 @@ describe('DeviceDetailDialog Component', () => {
       expect(screen.getAllByText('Camera Biển Số Cổng Chính Vào').length).toBeGreaterThan(0);
       expect(screen.getAllByText('CAM_LPR_IN_01').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Camera Giám Sát').length).toBeGreaterThan(0);
-      expect(screen.getByText('Đang hoạt động')).toBeInTheDocument();
+      expect(screen.getByText('Đã kích hoạt')).toBeInTheDocument();
       expect(screen.getByText(/192.168.1.120:8000/i)).toBeInTheDocument();
       expect(screen.getByText('admin_cam')).toBeInTheDocument();
       expect(screen.getByText('Đã thiết lập mật khẩu')).toBeInTheDocument();

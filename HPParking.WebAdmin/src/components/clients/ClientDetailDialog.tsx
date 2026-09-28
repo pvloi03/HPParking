@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import {
   User,
   Phone,
@@ -40,6 +40,7 @@ import {
 } from '@/types/client';
 import { VehicleType } from '@/types/vehicle';
 import type { CompanyDto, DepartmentDto, ContractorDto } from '@/types/masterData';
+import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
 
 export interface ClientDetailDialogProps {
   open: boolean;
@@ -403,16 +404,8 @@ export function ClientDetailDialog({
                       </div>
 
                       <div className="p-2.5 rounded-lg bg-muted/30 border border-border/40">
-                        <span className="text-[11px] text-muted-foreground block mb-0.5">Trạng thái hồ sơ:</span>
-                        <span className="inline-flex items-center gap-1.5 font-semibold">
-                          <span
-                            className={`h-2 w-2 rounded-full ${client.isActive ? 'bg-emerald-500' : 'bg-neutral-400'
-                              }`}
-                          />
-                          <span className={client.isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}>
-                            {client.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                          </span>
-                        </span>
+                        <span className="text-[11px] text-muted-foreground block mb-1">Trạng thái hồ sơ:</span>
+                        <ActiveStatusBadge isActive={client.isActive} />
                       </div>
 
                       <div className="col-span-1 sm:col-span-2 p-2.5 rounded-lg bg-muted/30 border border-border/40">
@@ -605,14 +598,7 @@ export function ClientDetailDialog({
                               </div>
                             </div>
 
-                            <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${v.isActive
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : 'bg-muted text-muted-foreground'
-                                }`}
-                            >
-                              {v.isActive ? 'Đang hoạt động' : 'Tạm dừng'}
-                            </span>
+                            <ActiveStatusBadge isActive={v.isActive} className="text-[10px]" />
                           </div>
 
                           {v.note && (

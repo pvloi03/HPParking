@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import {
   Users,
   Trash2,
   Loader2,
   CreditCard,
-  Phone,
-  Mail,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -480,23 +480,15 @@ export function ClientsPage() {
       mobileLabel: 'Khách hàng',
     },
     {
-      header: 'Liên Hệ',
+      header: 'Thông tin liên hệ',
       cell: (item) => (
-        <div className="flex flex-col gap-1 text-xs">
-          <div className="flex items-center gap-1.5 text-foreground">
-            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="font-mono text-xs">{item.phoneNumber || '—'}</span>
-          </div>
-          {item.email ? (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="truncate max-w-[200px] text-xs">{item.email}</span>
-            </div>
-          ) : null}
-        </div>
+        <ContactInfoCell
+          phoneNumber={item.phoneNumber}
+          email={item.email}
+        />
       ),
       className: 'min-w-[180px]',
-      mobileLabel: 'Liên Hệ',
+      mobileLabel: 'Liên hệ',
     },
     {
       header: 'Đơn vị trực thuộc',
@@ -532,14 +524,7 @@ export function ClientsPage() {
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'success' : 'secondary'}
-          className='text-[12px]'
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-max',
       mobileLabel: 'Trạng thái',
     },
@@ -831,10 +816,10 @@ export function ClientsPage() {
               </p>
             </div>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/80 border border-border text-[11px] text-muted-foreground font-medium">
+            <Badge variant="secondary" className="gap-2 px-3 py-1 text-[11px] text-muted-foreground font-medium bg-muted/80">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
               <span>Đầu đọc HN212 đang xử lý</span>
-            </div>
+            </Badge>
           </div>
         </div>
       )}

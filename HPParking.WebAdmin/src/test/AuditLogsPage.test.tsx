@@ -162,6 +162,9 @@ describe('AuditLogsPage Component', () => {
     expect(targetEntitySelect).toBeInTheDocument();
 
     // Kiểm tra select loại hành động có tùy chọn Đồng bộ FaceID
-    expect(screen.getByText('Đồng bộ FaceID')).toBeInTheDocument();
+    const actionSelect = await screen.findByRole('combobox', { name: /Lọc loại hành động/i });
+    expect(actionSelect).toBeInTheDocument();
+    fireEvent.keyDown(actionSelect, { key: 'ArrowDown' });
+    expect(await screen.findByText('Đồng bộ FaceID')).toBeInTheDocument();
   });
 });

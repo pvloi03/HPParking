@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/toaster';
 import { router } from '@/routes';
 import { authApi } from '@/api/authApi';
 import { useAuthStore } from '@/stores/authStore';
@@ -36,7 +36,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster />
     </QueryClientProvider>
   );
 }

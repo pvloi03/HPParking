@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import {
   Car,
   Bike,
@@ -18,6 +18,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
@@ -347,21 +354,25 @@ export function ParkingSessionsPage() {
           </div>
 
           {/* 2. Lọc theo trạng thái */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+          <div className="min-w-[190px]">
+            <Select
+              value={statusFilter || 'all'}
+              onValueChange={(val) => {
+                setStatusFilter(val === 'all' ? '' : val);
                 setPageIndex(1);
               }}
-              className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring text-foreground cursor-pointer"
             >
-              <option value="">-- Tất cả trạng thái --</option>
-              <option value={ParkingSessionStatus.Active}>Đang trong bãi (Active)</option>
-              <option value={ParkingSessionStatus.Completed}>Đã hoàn thành (Completed)</option>
-              <option value={ParkingSessionStatus.UnmatchedOut}>Ra không vào / Lệch biển</option>
-              <option value={ParkingSessionStatus.Cancelled}>Đã hủy bỏ (Cancelled)</option>
-            </select>
+              <SelectTrigger aria-label="Lọc theo trạng thái" className="w-full h-9 text-xs">
+                <SelectValue placeholder="Tất cả trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">-- Tất cả trạng thái --</SelectItem>
+                <SelectItem value={String(ParkingSessionStatus.Active)}>Đang trong bãi (Active)</SelectItem>
+                <SelectItem value={String(ParkingSessionStatus.Completed)}>Đã hoàn thành (Completed)</SelectItem>
+                <SelectItem value={String(ParkingSessionStatus.UnmatchedOut)}>Ra không vào / Lệch biển</SelectItem>
+                <SelectItem value={String(ParkingSessionStatus.Cancelled)}>Đã hủy bỏ (Cancelled)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 3. Từ ngày */}

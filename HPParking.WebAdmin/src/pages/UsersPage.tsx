@@ -1,18 +1,25 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import {
   UserCog,
   KeyRound,
   Trash2,
   User as UserIcon,
-  Phone,
-  Mail,
   Clock,
   Edit,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { UserFormDialog } from '@/components/users/UserFormDialog';
@@ -244,23 +251,10 @@ export function UsersPage() {
     {
       header: 'Thông tin liên hệ',
       cell: (item) => (
-        <div className="space-y-0.5 text-xs">
-          {item.email ? (
-            <div className="flex items-center gap-1 text-muted-foreground truncate" title={item.email}>
-              <Mail className="h-3 w-3 shrink-0" />
-              <span className="truncate">{item.email}</span>
-            </div>
-          ) : null}
-          {item.phoneNumber ? (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Phone className="h-3 w-3 shrink-0" />
-              <span>{item.phoneNumber}</span>
-            </div>
-          ) : null}
-          {!item.email && !item.phoneNumber && (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
+        <ContactInfoCell
+          phoneNumber={item.phoneNumber}
+          email={item.email}
+        />
       ),
       className: 'w-48',
       mobileLabel: 'Liên hệ',
@@ -299,18 +293,9 @@ export function UsersPage() {
                 ? 'Nhấn để tạm khóa tài khoản'
                 : 'Nhấn để kích hoạt tài khoản'
             }
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
-              item.isActive
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 hover:ring-1 hover:ring-emerald-400'
-                : 'bg-muted text-muted-foreground hover:ring-1 hover:ring-muted-foreground'
-            } ${isSelf ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+            className={isSelf ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}
           >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                item.isActive ? 'bg-emerald-500' : 'bg-muted-foreground'
-              }`}
-            />
-            <span>{item.isActive ? 'Hoạt động' : 'Đã khóa'}</span>
+            <ActiveStatusBadge isActive={item.isActive} />
           </button>
         );
       },
@@ -414,20 +399,23 @@ export function UsersPage() {
         }}
         extraFilters={
           <div className="flex items-center gap-1.5">
-            <select
-              value={roleFilter}
-              onChange={(e) => {
-                const val = e.target.value;
+            <Select
+              value={String(roleFilter)}
+              onValueChange={(val) => {
                 setRoleFilter(val === 'all' ? 'all' : (Number(val) as UserRole));
                 setPageIndex(1);
               }}
-              className="h-9 px-2.5 rounded-lg border border-border bg-background text-xs text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-600"
             >
-              <option value="all">Tất cả vai trò</option>
-              <option value={UserRole.Admin}>Quản trị viên (Admin)</option>
-              <option value={UserRole.Manager}>Quản lý (Manager)</option>
-              <option value={UserRole.Viewer}>Người xem (Viewer)</option>
-            </select>
+              <SelectTrigger className="h-9 w-[190px] text-xs">
+                <SelectValue placeholder="Tất cả vai trò" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả vai trò</SelectItem>
+                <SelectItem value={String(UserRole.Admin)}>Quản trị viên (Admin)</SelectItem>
+                <SelectItem value={String(UserRole.Manager)}>Quản lý (Manager)</SelectItem>
+                <SelectItem value={String(UserRole.Viewer)}>Người xem (Viewer)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         }
         onAddNew={() => {

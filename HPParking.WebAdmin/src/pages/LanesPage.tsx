@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import {
   Route,
   Trash2,
@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -279,17 +280,7 @@ export function LanesPage() {
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },

@@ -143,7 +143,7 @@ describe('ClientsPage Component', () => {
       expect(screen.getAllByText('KH_HOANG_NAM').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Hoàng Nam').length).toBeGreaterThan(0);
       expect(screen.getAllByText('0988111222').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Đang hoạt động').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Đã kích hoạt').length).toBeGreaterThan(0);
     });
   });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import {
   Dialog,
   DialogContent,
@@ -232,15 +233,7 @@ export function DeviceDetailDialog({
 
                 <div className="flex items-center gap-2 flex-wrap">
                   {getDeviceTypeBadge(device.type)}
-                  <Badge
-                    variant={device.isActive ? 'default' : 'secondary'}
-                    className={`text-xs font-semibold py-0.5 px-2 ${device.isActive
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-muted text-muted-foreground'
-                      }`}
-                  >
-                    {device.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                  </Badge>
+                  <ActiveStatusBadge isActive={device.isActive} />
                 </div>
               </div>
             </div>

@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Camera, RefreshCw, X, AlertCircle, Scan } from 'lucide-react';
 import { hn212Service, base64ToFile } from '@/services/hn212Service';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 
 interface Hn212CameraDialogProps {
   open: boolean;

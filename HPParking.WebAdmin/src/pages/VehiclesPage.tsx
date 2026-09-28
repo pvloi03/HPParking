@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Car, Trash2, Bike, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import {
   Select,
   SelectContent,
@@ -274,14 +275,7 @@ export function VehiclesPage() {
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          className='text-[11px]'
-          variant={item.isActive ? 'success' : 'secondary'}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },

@@ -64,7 +64,7 @@ describe('DataTable Component', () => {
     const onStatusFilterChange = vi.fn();
     render(<DataTable {...defaultProps} onStatusFilterChange={onStatusFilterChange} />);
 
-    const activeBtn = screen.getByRole('button', { name: /đang hoạt động/i });
+    const activeBtn = screen.getByRole('button', { name: /đã kích hoạt/i });
     fireEvent.click(activeBtn);
 
     expect(onStatusFilterChange).toHaveBeenCalledWith(true);

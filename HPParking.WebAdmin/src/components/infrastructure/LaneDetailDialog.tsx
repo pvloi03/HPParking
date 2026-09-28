@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import {
   Route,
   DoorOpen,
@@ -188,16 +189,7 @@ export function LaneDetailDialog({
                 </div>
                 <div className="flex items-center gap-2">
                   {getDirectionBadge(detail.direction)}
-                  <Badge
-                    variant={detail.isActive ? 'default' : 'secondary'}
-                    className={
-                      detail.isActive
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs'
-                        : 'bg-muted text-muted-foreground text-xs'
-                    }
-                  >
-                    {detail.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-                  </Badge>
+                  <ActiveStatusBadge isActive={detail.isActive} />
                 </div>
               </div>
 

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Building, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import {
   Select,
   SelectContent,
@@ -204,9 +206,12 @@ export function DepartmentsPage() {
       header: 'Công ty trực thuộc',
       accessorKey: 'companyName',
       cell: (item) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+        <Badge
+          variant="secondary"
+          className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-900"
+        >
           {item.companyName || '—'}
-        </span>
+        </Badge>
       ),
       className: 'min-w-[160px]',
       mobileLabel: 'Công ty',
@@ -221,24 +226,14 @@ export function DepartmentsPage() {
     {
       header: 'Số điện thoại',
       accessorKey: 'phoneNumber',
-      cell: (item) => item.phoneNumber || <span className="text-muted-foreground">—</span>,
+      cell: (item) => <ContactInfoCell phoneNumber={item.phoneNumber} />,
       className: 'w-36',
       mobileLabel: 'SĐT',
     },
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, type ChangeEvent } from 'react';
 import { Camera, Trash2, Upload, User, CheckCircle2, AlertTriangle, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Hn212CameraDialog } from './Hn212CameraDialog';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
 import { hn212Service, type Hn212FaceCompareResult } from '@/services/hn212Service';
@@ -214,30 +215,26 @@ export function AvatarUploadField({
           </span>
 
           {activeCompareResult ? (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-all animate-in fade-in',
-                activeCompareResult.isMatch
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800'
-                  : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800'
-              )}
+            <Badge
+              variant={activeCompareResult.isMatch ? 'success' : 'destructive'}
+              className="gap-1 text-[11px] font-semibold px-2 py-0.5"
               title={activeCompareResult.message || (activeCompareResult.isMatch ? 'Khuôn mặt khớp' : 'Khuôn mặt không khớp')}
             >
               {activeCompareResult.isMatch ? (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
               ) : (
-                <AlertTriangle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               )}
               <span>
                 {activeCompareResult.isMatch
                   ? `Khớp CCCD: ${activeCompareResult.score}%`
                   : `Không khớp CCCD: ${activeCompareResult.score}%`}
               </span>
-            </span>
+            </Badge>
           ) : (
-            <span className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">
+            <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-1.5 py-0.5 font-medium">
               Tối đa 5MB
-            </span>
+            </Badge>
           )}
         </div>
         <p className="text-[11px] text-muted-foreground">

@@ -25,7 +25,7 @@ vi.mock('@/utils/downloadBlob', () => ({
   downloadBlob: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
+vi.mock('@/hooks/use-toast', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),

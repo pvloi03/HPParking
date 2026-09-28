@@ -19,7 +19,14 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { AuditPayloadViewer } from '@/components/auditLogs/AuditPayloadViewer';
 import { auditApi, extractErrorMessage } from '@/api/auditApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from '@/hooks/use-toast';
 import {
   AuditActionType,
   AUDIT_ACTION_BADGES,
@@ -237,71 +244,78 @@ export function AuditLogsPage() {
   const extraFilters = (
     <div className="flex flex-wrap items-center gap-2">
       {/* Lọc loại hành động */}
-      <select
-        value={actionTypeFilter}
-        onChange={(e) => {
-          const val = e.target.value;
+      <Select
+        value={String(actionTypeFilter)}
+        onValueChange={(val) => {
           setActionTypeFilter(val === 'all' ? 'all' : (Number(val) as AuditActionType));
           setPageIndex(1);
         }}
-        aria-label="Lọc loại hành động"
-        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
       >
-        <option value="all">Tất cả hành động</option>
-        <option value={AuditActionType.Login}>Đăng nhập</option>
-        <option value={AuditActionType.Logout}>Đăng xuất</option>
-        <option value={AuditActionType.Create}>Thêm mới</option>
-        <option value={AuditActionType.Update}>Cập nhật</option>
-        <option value={AuditActionType.Delete}>Xóa</option>
-        <option value={AuditActionType.ChangePassword}>Đổi mật khẩu</option>
-        <option value={AuditActionType.ChangeRole}>Đổi vai trò</option>
-        <option value={AuditActionType.LicenseUpdate}>Bản quyền</option>
-        <option value={AuditActionType.Export}>Xuất dữ liệu</option>
-        <option value={AuditActionType.ManualOverride}>Can thiệp</option>
-        <option value={AuditActionType.PermanentDelete}>Xóa vĩnh viễn</option>
-        <option value={AuditActionType.Restore}>Khôi phục</option>
-        <option value={AuditActionType.FaceIdSync}>Đồng bộ FaceID</option>
-      </select>
+        <SelectTrigger aria-label="Lọc loại hành động" className="h-9 w-[170px] text-xs">
+          <SelectValue placeholder="Tất cả hành động" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tất cả hành động</SelectItem>
+          <SelectItem value={String(AuditActionType.Login)}>Đăng nhập</SelectItem>
+          <SelectItem value={String(AuditActionType.Logout)}>Đăng xuất</SelectItem>
+          <SelectItem value={String(AuditActionType.Create)}>Thêm mới</SelectItem>
+          <SelectItem value={String(AuditActionType.Update)}>Cập nhật</SelectItem>
+          <SelectItem value={String(AuditActionType.Delete)}>Xóa</SelectItem>
+          <SelectItem value={String(AuditActionType.ChangePassword)}>Đổi mật khẩu</SelectItem>
+          <SelectItem value={String(AuditActionType.ChangeRole)}>Đổi vai trò</SelectItem>
+          <SelectItem value={String(AuditActionType.LicenseUpdate)}>Bản quyền</SelectItem>
+          <SelectItem value={String(AuditActionType.Export)}>Xuất dữ liệu</SelectItem>
+          <SelectItem value={String(AuditActionType.ManualOverride)}>Can thiệp</SelectItem>
+          <SelectItem value={String(AuditActionType.PermanentDelete)}>Xóa vĩnh viễn</SelectItem>
+          <SelectItem value={String(AuditActionType.Restore)}>Khôi phục</SelectItem>
+          <SelectItem value={String(AuditActionType.FaceIdSync)}>Đồng bộ FaceID</SelectItem>
+        </SelectContent>
+      </Select>
 
       {/* Lọc theo thực thể tác động */}
-      <select
+      <Select
         value={targetEntityFilter}
-        onChange={(e) => {
-          setTargetEntityFilter(e.target.value);
+        onValueChange={(val) => {
+          setTargetEntityFilter(val);
           setPageIndex(1);
         }}
-        aria-label="Lọc theo thực thể"
-        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
       >
-        <option value="all">Tất cả thực thể</option>
-        <option value="Client">Khách hàng (Client)</option>
-        <option value="Vehicle">Phương tiện (Vehicle)</option>
-        <option value="User">Tài khoản (User)</option>
-        <option value="Company">Công ty (Company)</option>
-        <option value="Department">Phòng ban (Department)</option>
-        <option value="Contractor">Nhà thầu (Contractor)</option>
-        <option value="Gate">Cổng (Gate)</option>
-        <option value="Lane">Làn xe (Lane)</option>
-        <option value="Device">Thiết bị (Device)</option>
-        <option value="Reports">Báo cáo (Reports)</option>
-        <option value="Auth">Xác thực (Auth)</option>
-      </select>
+        <SelectTrigger aria-label="Lọc theo thực thể" className="h-9 w-[180px] text-xs">
+          <SelectValue placeholder="Tất cả thực thể" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tất cả thực thể</SelectItem>
+          <SelectItem value="Client">Khách hàng (Client)</SelectItem>
+          <SelectItem value="Vehicle">Phương tiện (Vehicle)</SelectItem>
+          <SelectItem value="User">Tài khoản (User)</SelectItem>
+          <SelectItem value="Company">Công ty (Company)</SelectItem>
+          <SelectItem value="Department">Phòng ban (Department)</SelectItem>
+          <SelectItem value="Contractor">Nhà thầu (Contractor)</SelectItem>
+          <SelectItem value="Gate">Cổng (Gate)</SelectItem>
+          <SelectItem value="Lane">Làn xe (Lane)</SelectItem>
+          <SelectItem value="Device">Thiết bị (Device)</SelectItem>
+          <SelectItem value="Reports">Báo cáo (Reports)</SelectItem>
+          <SelectItem value="Auth">Xác thực (Auth)</SelectItem>
+        </SelectContent>
+      </Select>
 
       {/* Lọc kết quả */}
-      <select
+      <Select
         value={statusFilter === 'all' ? 'all' : statusFilter ? 'success' : 'failed'}
-        onChange={(e) => {
-          const val = e.target.value;
+        onValueChange={(val) => {
           setStatusFilter(val === 'all' ? 'all' : val === 'success');
           setPageIndex(1);
         }}
-        aria-label="Lọc kết quả thực hiện"
-        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
       >
-        <option value="all">Tất cả kết quả</option>
-        <option value="success">Thành công</option>
-        <option value="failed">Thất bại</option>
-      </select>
+        <SelectTrigger aria-label="Lọc kết quả thực hiện" className="h-9 w-[150px] text-xs">
+          <SelectValue placeholder="Tất cả kết quả" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Tất cả kết quả</SelectItem>
+          <SelectItem value="success">Thành công</SelectItem>
+          <SelectItem value="failed">Thất bại</SelectItem>
+        </SelectContent>
+      </Select>
 
       {/* Lọc từ ngày */}
       <div className="flex items-center gap-1">
