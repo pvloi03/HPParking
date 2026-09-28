@@ -4,10 +4,8 @@ import { toast } from '@/hooks/use-toast';
 import {
   UserCog,
   KeyRound,
-  Trash2,
   User as UserIcon,
   Clock,
-  Edit,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +21,7 @@ import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { UserFormDialog } from '@/components/users/UserFormDialog';
+import { UserDetailDialog } from '@/components/users/UserDetailDialog';
 import { ResetPasswordDialog } from '@/components/users/ResetPasswordDialog';
 import { usersApi, extractErrorMessage } from '@/api/userApi';
 import { useAuthStore } from '@/stores/authStore';
@@ -49,6 +48,7 @@ export function UsersPage() {
   // State Modal Form & Actions
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [resetPasswordCandidate, setResetPasswordCandidate] = useState<UserDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<UserDto | null>(null);
 
@@ -303,51 +303,6 @@ export function UsersPage() {
       className: 'w-32',
       mobileLabel: 'Trạng thái',
     },
-    {
-      header: 'Thao tác',
-      cell: (item) => {
-        const isSelf = currentUser?.id === item.id;
-        return (
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setResetPasswordCandidate(item)}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer"
-              title="Đặt lại mật khẩu"
-            >
-              <KeyRound className="h-4 w-4 text-amber-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedUser(item);
-                setIsFormOpen(true);
-              }}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 cursor-pointer"
-              title="Chỉnh sửa tài khoản"
-            >
-              <Edit className="h-4 w-4 text-blue-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isSelf}
-              onClick={() => setDeleteCandidate(item)}
-              className={`h-8 w-8 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer ${
-                isSelf ? 'opacity-40 cursor-not-allowed' : ''
-              }`}
-              title={isSelf ? 'Bạn không thể tự xóa tài khoản của chính mình' : 'Xóa vào thùng rác'}
-            >
-              <Trash2 className="h-4 w-4 text-rose-600" />
-            </Button>
-          </div>
-        );
-      },
-      className: 'w-32 text-right',
-      mobileLabel: 'Thao tác',
-    },
   ];
 
   return (
@@ -410,6 +365,26 @@ export function UsersPage() {
             </Select>
           </div>
         }
+        actions={{
+          onView: (item) => setDetailUserId(item.id),
+          extraActions: (item) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setResetPasswordCandidate(item)}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer min-h-[36px] min-w-[36px]"
+              title="Đặt lại mật khẩu"
+            >
+              <KeyRound className="h-4 w-4 text-amber-600" />
+            </Button>
+          ),
+          onEdit: (item) => {
+            setSelectedUser(item);
+            setIsFormOpen(true);
+          },
+          onDelete: (item) => setDeleteCandidate(item),
+          canDelete: (item) => item.username !== currentUser?.username,
+        }}
         onAddNew={() => {
           setSelectedUser(null);
           setIsFormOpen(true);
@@ -417,6 +392,20 @@ export function UsersPage() {
         addNewLabel="Thêm mới tài khoản"
         emptyTitle="Không có tài khoản nào"
         emptyDescription="Chưa có dữ liệu tài khoản hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Tài Khoản */}
+      <UserDetailDialog
+        open={Boolean(detailUserId)}
+        onOpenChange={(open) => !open && setDetailUserId(null)}
+        userId={detailUserId}
+        onEdit={(item) => {
+          setSelectedUser(item);
+          setIsFormOpen(true);
+        }}
+        onResetPassword={(item) => {
+          setResetPasswordCandidate(item);
+        }}
       />
 
       {/* Modal Form Thêm / Sửa */}

@@ -40,6 +40,7 @@ export interface ColumnDef<T> {
 
 export interface DataTableActions<T> {
   onView?: (item: T) => void;
+  extraActions?: (item: T) => React.ReactNode;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   onHardDelete?: (item: T) => void;
@@ -117,7 +118,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
     hasNextPage: false,
   };
 
-  const hasActions = Boolean(actions?.onView || actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
+  const hasActions = Boolean(actions?.onView || actions?.extraActions || actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
 
   // Logic chọn tất cả / chọn một phần checkbox
   const isAllSelected = data.length > 0 && data.every((item) => selectedRowIds.includes(item.id));
@@ -196,6 +197,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
             <FileText className="h-4 w-4" />
           </Button>
         )}
+        {actions?.extraActions?.(item)}
         {actions?.onEdit && (actions.canEdit ? actions.canEdit(item) : true) && (
           <Button
             variant="ghost"

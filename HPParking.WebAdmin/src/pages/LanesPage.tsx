@@ -414,6 +414,7 @@ export function LanesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailLaneId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedLane(item);

@@ -15,6 +15,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { GateFormDialog } from '@/components/infrastructure/GateFormDialog';
+import { GateDetailDialog } from '@/components/infrastructure/GateDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { gatesApi, extractErrorMessage } from '@/api/infrastructureApi';
 import { companiesApi } from '@/api/masterDataApi';
@@ -52,6 +53,7 @@ export function GatesPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedGate, setSelectedGate] = useState<GateDto | null>(null);
+  const [detailGateId, setDetailGateId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<GateDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -321,6 +323,7 @@ export function GatesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailGateId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedGate(item);
@@ -335,6 +338,22 @@ export function GatesPage() {
         }}
         emptyTitle="Không có cổng kiểm soát nào"
         emptyDescription="Chưa có dữ liệu cổng kiểm soát hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Cổng */}
+      <GateDetailDialog
+        open={Boolean(detailGateId)}
+        onOpenChange={(open) => !open && setDetailGateId(null)}
+        gateId={detailGateId}
+        companies={companies}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedGate(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa Cổng */}

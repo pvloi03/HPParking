@@ -15,6 +15,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog';
+import { VehicleDetailDialog } from '@/components/vehicles/VehicleDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { vehicleApi, extractErrorMessage } from '@/api/vehicleApi';
 import { clientApi } from '@/api/clientApi';
@@ -53,6 +54,7 @@ export function VehiclesPage() {
   // State Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleDto | null>(null);
+  const [detailVehicleId, setDetailVehicleId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<VehicleDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -384,6 +386,7 @@ export function VehiclesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailVehicleId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedVehicle(item);
@@ -398,6 +401,21 @@ export function VehiclesPage() {
         }}
         emptyTitle="Không có phương tiện nào"
         emptyDescription="Chưa có dữ liệu phương tiện hoặc không có biển số nào khớp với từ khóa tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Phương Tiện */}
+      <VehicleDetailDialog
+        open={Boolean(detailVehicleId)}
+        onOpenChange={(open) => !open && setDetailVehicleId(null)}
+        vehicleId={detailVehicleId}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedVehicle(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa Phương tiện */}

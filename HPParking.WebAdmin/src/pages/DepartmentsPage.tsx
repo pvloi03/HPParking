@@ -16,6 +16,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DepartmentFormDialog } from '@/components/organizations/DepartmentFormDialog';
+import { DepartmentDetailDialog } from '@/components/organizations/DepartmentDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import {
   departmentsApi,
@@ -56,6 +57,7 @@ export function DepartmentsPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDto | null>(null);
+  const [detailDepartmentId, setDetailDepartmentId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<DepartmentDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -335,6 +337,7 @@ export function DepartmentsPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailDepartmentId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedDepartment(item);
@@ -349,6 +352,22 @@ export function DepartmentsPage() {
         }}
         emptyTitle="Không có phòng ban nào"
         emptyDescription="Chưa có phòng ban hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Phòng Ban */}
+      <DepartmentDetailDialog
+        open={Boolean(detailDepartmentId)}
+        onOpenChange={(open) => !open && setDetailDepartmentId(null)}
+        departmentId={detailDepartmentId}
+        companies={companies}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedDepartment(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa */}

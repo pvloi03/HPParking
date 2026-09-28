@@ -78,4 +78,54 @@ describe('UsersPage Component', () => {
       expect(screen.getAllByText('Quản trị viên').length).toBeGreaterThan(0);
     });
   });
+
+  it('mở modal UserDetailDialog khi click nút Xem chi tiết của một tài khoản', async () => {
+    const mockUser = {
+      id: 'user-02',
+      username: 'manager_test',
+      fullName: 'Trần Quản Lý',
+      email: 'manager@hpparking.vn',
+      phoneNumber: '0988111222',
+      role: UserRole.Manager,
+      isActive: true,
+      lastLoginAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    vi.mocked(usersApi.getPaged).mockResolvedValue({
+      items: [mockUser],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 10,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(usersApi.getById).mockResolvedValue(mockUser);
+
+    const { fireEvent } = await import('@testing-library/react');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <UsersPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('manager_test').length).toBeGreaterThan(0);
+    });
+
+    const viewButtons = screen.getAllByRole('button', { name: /Xem chi tiết/i });
+    expect(viewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(viewButtons[0]);
+
+    await waitFor(() => {
+      expect(usersApi.getById).toHaveBeenCalledWith('user-02');
+    });
+  });
 });

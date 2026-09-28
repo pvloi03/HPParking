@@ -13,6 +13,7 @@ vi.mock('@/api/vehicleApi', async (importOriginal) => {
     ...actual,
     vehicleApi: {
       getPaged: vi.fn(),
+      getById: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -110,6 +111,81 @@ describe('VehiclesPage Component', () => {
       expect(screen.getAllByText('Ô tô').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Trần Văn Bảo').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Xe giám đốc').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('mở modal VehicleDetailDialog khi click nút Xem chi tiết của một phương tiện', async () => {
+    const mockVeh = {
+      id: 'veh-2',
+      plateNumber: '15B12345',
+      type: VehicleType.Motorbike,
+      ownerClientId: 'client-1',
+      note: 'Xe nhân viên kỹ thuật',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    vi.mocked(clientApi.getPaged).mockResolvedValue({
+      items: [
+        {
+          id: 'client-1',
+          code: 'KH_01',
+          name: 'Trần Văn Bảo',
+          birthDay: '',
+          address: 'Hà Nội',
+          type: 0,
+          avatar: '',
+          gender: 1,
+          phoneNumber: '0977888999',
+          isActive: true,
+          expired: { enable: false, startDay: '', endDay: '' },
+          createdAt: '',
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 200,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(vehicleApi.getPaged).mockResolvedValue({
+      items: [mockVeh],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 10,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(vehicleApi.getById).mockResolvedValue(mockVeh);
+
+    const { fireEvent } = await import('@testing-library/react');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <VehiclesPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('15B12345').length).toBeGreaterThan(0);
+    });
+
+    const viewButtons = screen.getAllByRole('button', { name: /Xem chi tiết/i });
+    expect(viewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(viewButtons[0]);
+
+    await waitFor(() => {
+      expect(vehicleApi.getById).toHaveBeenCalledWith('veh-2');
     });
   });
 });

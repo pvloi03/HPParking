@@ -8,6 +8,7 @@ import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ContractorFormDialog } from '@/components/organizations/ContractorFormDialog';
+import { ContractorDetailDialog } from '@/components/organizations/ContractorDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { contractorsApi, extractErrorMessage } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
@@ -43,6 +44,7 @@ export function ContractorsPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorDto | null>(null);
+  const [detailContractorId, setDetailContractorId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<ContractorDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -276,6 +278,7 @@ export function ContractorsPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailContractorId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedContractor(item);
@@ -290,6 +293,21 @@ export function ContractorsPage() {
         }}
         emptyTitle="Không có nhà thầu nào"
         emptyDescription="Chưa có nhà thầu hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Nhà Thầu */}
+      <ContractorDetailDialog
+        open={Boolean(detailContractorId)}
+        onOpenChange={(open) => !open && setDetailContractorId(null)}
+        contractorId={detailContractorId}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedContractor(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa */}

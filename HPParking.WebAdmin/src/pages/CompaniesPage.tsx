@@ -8,6 +8,7 @@ import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { CompanyFormDialog } from '@/components/organizations/CompanyFormDialog';
+import { CompanyDetailDialog } from '@/components/organizations/CompanyDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { companiesApi, extractErrorMessage } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
@@ -43,6 +44,7 @@ export function CompaniesPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyDto | null>(null);
+  const [detailCompanyId, setDetailCompanyId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<CompanyDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -270,6 +272,7 @@ export function CompaniesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailCompanyId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedCompany(item);
@@ -284,6 +287,21 @@ export function CompaniesPage() {
         }}
         emptyTitle="Không có công ty nào"
         emptyDescription="Chưa có dữ liệu công ty hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Công Ty */}
+      <CompanyDetailDialog
+        open={Boolean(detailCompanyId)}
+        onOpenChange={(open) => !open && setDetailCompanyId(null)}
+        companyId={detailCompanyId}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedCompany(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa */}

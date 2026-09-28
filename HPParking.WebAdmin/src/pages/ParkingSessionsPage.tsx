@@ -139,7 +139,7 @@ export function ParkingSessionsPage() {
 
       const fileName = `lich_su_do_xe_${fromDate || 'tat_ca'}_${toDate || 'tat_ca'}.xlsx`;
       downloadBlob(blob, fileName);
-      toast.success(`Xuất báo cáo Excel thành công! (${pagination.totalCount} bản ghi)`);
+      toast.success(`Xuất báo cáo Excel thành công! (${totalCount} bản ghi)`);
     } catch (err) {
       toast.error(extractErrorMessage(err));
     } finally {
