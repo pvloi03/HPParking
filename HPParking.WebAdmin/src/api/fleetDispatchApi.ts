@@ -4,13 +4,13 @@ import type { FleetTripDto, FleetTripFilterQuery } from '@/types/fleetDispatch';
 
 export const fleetDispatchApi = {
   async getActiveTrips(): Promise<FleetTripDto[]> {
-    const res = await apiClient.get<ApiResponse<FleetTripDto[]>>('/api/v1/fleet-dispatch/active');
+    const res = await apiClient.get<ApiResponse<FleetTripDto[]>>('/v1/fleet-dispatch/active');
     return res.data.data;
   },
 
   async getTripHistory(query?: FleetTripFilterQuery): Promise<PagedResult<FleetTripDto>> {
     const res = await apiClient.get<ApiResponse<PagedResult<FleetTripDto>>>(
-      '/api/v1/fleet-dispatch/history',
+      '/v1/fleet-dispatch/history',
       {
         params: query,
       }
@@ -19,7 +19,7 @@ export const fleetDispatchApi = {
   },
 
   async getById(id: string): Promise<FleetTripDto> {
-    const res = await apiClient.get<ApiResponse<FleetTripDto>>(`/api/v1/fleet-dispatch/${id}`);
+    const res = await apiClient.get<ApiResponse<FleetTripDto>>(`/v1/fleet-dispatch/${id}`);
     return res.data.data;
   },
 };
