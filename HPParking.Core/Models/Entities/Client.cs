@@ -1,3 +1,4 @@
+using HPParking.Core.Constants;
 using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Enums;
 using MongoDB.Bson;
@@ -47,7 +48,7 @@ namespace HPParking.Core.Models.Entities
         /// <summary>
         /// Danh sách chế độ xác thực người: ["Card"], ["FaceId"], hoặc ["None"]
         /// </summary>
-        public List<string> AuthMethods { get; set; } = [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+        public List<string> AuthMethods { get; set; } = [AuthMethodConstants.FaceId];
 
         /// <summary>
         /// CỜ XÁC THỰC XE: Có bắt buộc đối soát biển số xe khi qua cổng hay không.
