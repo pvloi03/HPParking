@@ -46,6 +46,7 @@ describe('VehicleDetailDialog Component', () => {
     plateNumber: '15A-999.88',
     type: VehicleType.Car,
     ownerClientId: 'client-1',
+    isShared: false,
     isActive: true,
     note: 'Xe giám đốc lưu ý ưu tiên làn',
     createdAt: '2026-05-01T08:00:00Z',

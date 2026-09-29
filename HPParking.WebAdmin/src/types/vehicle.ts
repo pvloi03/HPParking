@@ -24,6 +24,8 @@ export interface VehicleDto {
   plateNumber: string;
   type: VehicleType;
   ownerClientId?: string;
+  isShared: boolean;
+  assignedRouteId?: string;
   isActive: boolean;
   note?: string;
   createdAt: string;
@@ -34,6 +36,8 @@ export interface VehicleFilterQuery extends PaginationQuery {
   keyword?: string;
   type?: VehicleType;
   ownerClientId?: string;
+  isShared?: boolean;
+  assignedRouteId?: string;
   isActive?: boolean;
   onlyDeleted?: boolean;
 }
@@ -42,6 +46,8 @@ export interface CreateVehicleRequest {
   clientId?: string;
   plateNumber: string;
   type: VehicleType;
+  isShared?: boolean;
+  assignedRouteId?: string;
   isActive: boolean;
   note?: string;
 }
@@ -49,6 +55,8 @@ export interface CreateVehicleRequest {
 export interface UpdateVehicleRequest {
   plateNumber: string;
   type: VehicleType;
+  isShared?: boolean;
+  assignedRouteId?: string;
   isActive: boolean;
   note?: string;
 }

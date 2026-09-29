@@ -1,3 +1,4 @@
+using HPParking.Core.Helpers;
 using System;
 
 namespace HPParking.Services.Controller
@@ -22,6 +23,11 @@ namespace HPParking.Services.Controller
         public int InOutState { get; set; }
         public string? ControllerIp { get; set; }
 
+        /// <summary>
+        /// Sự kiện kích hoạt từ cảm biến AUX IN / Radar sóng milimet (ZKTeco AUX IN event 220 hoặc Sensor Loop 100)
+        /// </summary>
+        public bool IsRadarTrigger => EventType == 220 || EventType == 100;
+
         public static RealtimeLog? Parse(string? log, string controllerIp)
         {
             if (string.IsNullOrWhiteSpace(log)) return null;
@@ -36,10 +42,13 @@ namespace HPParking.Services.Controller
             if (!int.TryParse(data[5], out int inOutState)) return null;
             if (!int.TryParse(data[6], out int verifyMode)) return null;
 
+            string rawCard = data[2]?.Trim() ?? "";
+            string normalizedCard = CardHelper.NormalizeCardCode(rawCard);
+
             return new RealtimeLog
             {
                 Time = DateTime.Now,
-                CardNo = data[2]?.Trim(),
+                CardNo = string.IsNullOrEmpty(normalizedCard) ? rawCard : normalizedCard,
                 DoorId = doorId,
                 EventType = eventType,
                 InOutState = inOutState,

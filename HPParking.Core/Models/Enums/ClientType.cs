@@ -17,7 +17,7 @@ namespace HPParking.Core.Models.Enums
         // Khách VIP / Ban giám đốc
         VIP = 3,
 
-        // Khác
-        Other = 4
+        // Khách đến thăm
+        Guest = 4
     }
 }

@@ -1,3 +1,5 @@
+using HPParking.Core.Constants;
+using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
@@ -766,6 +768,9 @@ namespace HPParking.Forms
                     }
 
                     _clientExist.PhoneNumber = newPhone;
+                    _clientExist.CardCode = CardHelper.NormalizeCardCode(newPhone);
+                    _clientExist.AuthMethods = [AuthMethodConstants.FaceId, AuthMethodConstants.Card];
+                    _clientExist.VerifyVehiclePlate = !string.IsNullOrWhiteSpace(normalizedPlate);
                     _clientExist.Note = txtDescription.Text;
                     _clientExist.IsActive = true;
                     _clientExist.Expired = new Expired
@@ -979,6 +984,9 @@ namespace HPParking.Forms
                     Gender = rbMale.Checked ? 0 : 1,
                     Avatar = createdFilePath ?? "",
                     PhoneNumber = newPhone,
+                    CardCode = CardHelper.NormalizeCardCode(newPhone),
+                    AuthMethods = [AuthMethodConstants.FaceId, AuthMethodConstants.Card],
+                    VerifyVehiclePlate = !string.IsNullOrWhiteSpace(normalizedPlate),
                     Type = ClientType.VIP,
                     Note = txtDescription.Text,
                     IsActive = true,

@@ -23,7 +23,10 @@ namespace HPParking.Services.Parking
         IRepository<Department>? departmentRepository = null,
         IRepository<Contractor>? contractorRepository = null,
         IRepository<Company>? companyRepository = null,
-        IRepository<Vehicle>? vehicleRepository = null) : IParkingWorkflowService
+        IRepository<Vehicle>? vehicleRepository = null,
+        IRepository<Card>? cardRepository = null,
+        IRepository<VehicleDispatchTrip>? tripRepository = null,
+        IRepository<GateRouteConfig>? gateRouteRepository = null) : IParkingWorkflowService
     {
         private readonly IRepository<Client> _clientRepository = clientRepository;
         private readonly IRepository<ParkingSession> _sessionRepository = sessionRepository;
@@ -33,6 +36,9 @@ namespace HPParking.Services.Parking
         private readonly IRepository<Contractor>? _contractorRepository = contractorRepository;
         private readonly IRepository<Company>? _companyRepository = companyRepository;
         private readonly IRepository<Vehicle>? _vehicleRepository = vehicleRepository;
+        private readonly IRepository<Card>? _cardRepository = cardRepository;
+        private readonly IRepository<VehicleDispatchTrip>? _tripRepository = tripRepository;
+        private readonly IRepository<GateRouteConfig>? _gateRouteRepository = gateRouteRepository;
 
         private async Task<string> GetDepartmentNameAsync(Client client)
         {
@@ -64,6 +70,15 @@ namespace HPParking.Services.Parking
                             return dept.Name;
                     }
                     return "Khách VIP / Ban giám đốc";
+
+                case ClientType.Guest:
+                    if (!string.IsNullOrWhiteSpace(client.ContractorId) && _contractorRepository != null)
+                    {
+                        var contractor = await _contractorRepository.GetByIdAsync(client.ContractorId);
+                        if (contractor != null && !string.IsNullOrWhiteSpace(contractor.Name))
+                            return contractor.Name;
+                    }
+                    return "Khách đến thăm";
 
                 case ClientType.Employee:
                 default:
@@ -150,17 +165,217 @@ namespace HPParking.Services.Parking
 
         private bool IsClientExpired(Client client)
         {
-            // Nếu được đánh dấu ra vào thoải mái thì không chặn hết hạn
             if (client.Expired.Enable) return false;
 
             DateTime now = DateTime.Now;
-            // Chưa đến ngày bắt đầu (chỉ chặn nếu sang trước ngày StartDay)
             if (client.Expired.StartDay.Date > now.Date) return true;
-
-            // Đã quá ngày kết thúc (chỉ chặn khi đã sang ngày hôm sau của EndDay)
             if (client.Expired.EndDay.Date < now.Date) return true;
 
             return false;
+        }
+
+        /// <summary>
+        /// Xử lý điều vận xe công vụ / xe dùng chung qua lại giữa các nhà máy theo SLA
+        /// </summary>
+        private async Task<ProcessResult> ProcessSharedVehicleTripAsync(
+            LaneRuntimeContext context,
+            Card vehicleCard,
+            RealtimeLog data,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            var vehicle = await _vehicleRepository!.GetByIdAsync(vehicleCard.VehicleId!);
+            if (vehicle == null || !vehicle.IsActive)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ClientNotFound,
+                    Message = "Phương tiện công vụ gắn với thẻ này không tồn tại hoặc đã bị vô hiệu hóa."
+                };
+            }
+
+            string currentGateId = context.Lane?.GateId ?? "";
+            bool isEntry = context.Direction == LaneDirection.In;
+
+            // Chụp ảnh camera lưu vết
+            Bitmap? plateImage = null;
+            Bitmap? overviewImage = null;
+            LprResult? lprResult = null;
+
+            if (context.Cameras != null)
+            {
+                var (plateSuccess, pImg, overviewSuccess, oImg) =
+                    await CaptureCamerasParallelAsync(context.Cameras, capturePlateCamera: true);
+                plateImage = pImg;
+                overviewImage = oImg;
+
+                if (plateSuccess && plateImage != null)
+                {
+                    lprResult = await Task.Run(() => _lprService.Recognize(plateImage));
+                }
+            }
+
+            // Tìm chuyến đang chạy
+            VehicleDispatchTrip? activeTrip = null;
+            if (_tripRepository != null)
+            {
+                activeTrip = await _tripRepository.FindOneAsync(t =>
+                    t.VehicleId == vehicle.Id &&
+                    t.Status != TripStatus.Completed &&
+                    !t.IsDeleted);
+            }
+
+            GateRouteConfig? assignedRoute = null;
+            if (_gateRouteRepository != null && !string.IsNullOrEmpty(vehicle.AssignedRouteId))
+            {
+                assignedRoute = await _gateRouteRepository.GetByIdAsync(vehicle.AssignedRouteId);
+            }
+
+            DateTime now = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now;
+
+            if (activeTrip == null)
+            {
+                // Bắt đầu một chuyến điều vận mới
+                int travelMinutes = 15;
+                int stayMinutes = 15;
+
+                if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
+                {
+                    var firstStep = assignedRoute.GateSteps.OrderBy(s => s.StepIndex).First();
+                    travelMinutes = firstStep.MaxTravelMinutes;
+                    stayMinutes = firstStep.MaxStayMinutes;
+                }
+
+                activeTrip = new VehicleDispatchTrip
+                {
+                    VehicleId = vehicle.Id,
+                    PlateNumber = vehicle.PlateNumber,
+                    CardId = vehicleCard.Id,
+                    CardNumber = vehicleCard.CardNumber,
+                    OriginGateId = currentGateId,
+                    CurrentGateId = currentGateId,
+                    AssignedRouteId = vehicle.AssignedRouteId,
+                    CurrentStepIndex = 1,
+                    Status = isEntry ? TripStatus.WorkingAtGate : TripStatus.InTransit,
+                    StartTime = now,
+                    LastExitTime = !isEntry ? now : null,
+                    LastEntryTime = isEntry ? now : null,
+                    NextDeadline = now.AddMinutes(isEntry ? stayMinutes : travelMinutes),
+                    LastDriverImagePath = "",
+                };
+
+                if (_tripRepository != null)
+                {
+                    await _tripRepository.AddAsync(activeTrip);
+                }
+            }
+            else
+            {
+                // Cập nhật chuyến đang chạy
+                activeTrip.CurrentGateId = currentGateId;
+                if (isEntry)
+                {
+                    activeTrip.LastEntryTime = now;
+                    bool isReturnOrigin = (!string.IsNullOrEmpty(activeTrip.OriginGateId) &&
+                                          activeTrip.OriginGateId == currentGateId &&
+                                          activeTrip.CurrentStepIndex > 1);
+
+                    if (isReturnOrigin)
+                    {
+                        activeTrip.Status = TripStatus.Completed;
+                    }
+                    else
+                    {
+                        activeTrip.Status = TripStatus.WorkingAtGate;
+                        int stayMinutes = 15;
+                        if (assignedRoute != null)
+                        {
+                            var currentStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
+                            if (currentStep != null) stayMinutes = currentStep.MaxStayMinutes;
+                        }
+                        activeTrip.NextDeadline = now.AddMinutes(stayMinutes);
+                    }
+                }
+                else
+                {
+                    activeTrip.LastExitTime = now;
+                    activeTrip.CurrentStepIndex++;
+                    activeTrip.Status = TripStatus.InTransit;
+                    int travelMinutes = 15;
+                    if (assignedRoute != null)
+                    {
+                        var nextStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
+                        if (nextStep != null) travelMinutes = nextStep.MaxTravelMinutes;
+                    }
+                    activeTrip.NextDeadline = now.AddMinutes(travelMinutes);
+                }
+
+                if (_tripRepository != null)
+                {
+                    await _tripRepository.UpdateAsync(activeTrip);
+                }
+            }
+
+            // Mở Barrier
+            if (!BarrierOpen(context))
+            {
+                bool handledManually = onBarrierOpenFailed?.Invoke(context) ?? false;
+                if (!handledManually)
+                {
+                    plateImage?.Dispose();
+                    overviewImage?.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.BarrierFailed,
+                        Message = "Không thể mở barrier cho xe công vụ. Vui lòng kiểm tra thiết bị.",
+                        Vehicle = vehicle,
+                        DepartmentName = "Xe công vụ / Điều vận",
+                        LprResult = lprResult
+                    };
+                }
+            }
+
+            // Lưu ảnh ngầm
+            Bitmap? plateSave = plateImage != null ? (Bitmap)plateImage.Clone() : null;
+            Bitmap? overviewSave = overviewImage != null ? (Bitmap)overviewImage.Clone() : null;
+            plateImage?.Dispose();
+            overviewImage?.Dispose();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using (plateSave)
+                    using (overviewSave)
+                    {
+                        string overviewPath = overviewSave != null
+                            ? _imageStorageService.SaveImage(overviewSave, isEntry ? "ImageIn" : "ImageOut", "ToanCanh", imageBasePath)
+                            : "";
+
+                        if (activeTrip != null && !string.IsNullOrEmpty(overviewPath))
+                        {
+                            activeTrip.LastDriverImagePath = overviewPath;
+                            if (_tripRepository != null)
+                            {
+                                await _tripRepository.UpdateAsync(activeTrip);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[SharedVehicleTrip Image Error] {ex.Message}");
+                }
+            });
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Vehicle = vehicle,
+                DepartmentName = "Xe công vụ liên nhà máy",
+                LprResult = lprResult,
+                Message = $"Xe công vụ {vehicle.PlateNumber} - Chặng {activeTrip?.CurrentStepIndex} ({activeTrip?.Status})"
+            };
         }
 
         public async Task<ProcessResult> ProcessEntryAsync(
@@ -170,9 +385,27 @@ namespace HPParking.Services.Parking
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
             Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
         {
-            ParkingSession? parking = null;
-            string phone = (data.CardNo?.StartsWith("0") ?? false) ? data.CardNo : $"0{data.CardNo}";
-            var client = await _clientRepository.FindOneAsync(x => x.PhoneNumber == phone);
+            // 1. Phân nhánh Thẻ Xe Công Vụ
+            if (_cardRepository != null && !string.IsNullOrWhiteSpace(data.CardNo))
+            {
+                var vehicleCard = await _cardRepository.FindOneAsync(c =>
+                    c.CardNumber == data.CardNo &&
+                    c.TargetType == CardTargetType.Vehicle &&
+                    !c.IsDeleted);
+
+                if (vehicleCard != null && !string.IsNullOrEmpty(vehicleCard.VehicleId) && _vehicleRepository != null)
+                {
+                    return await ProcessSharedVehicleTripAsync(context, vehicleCard, data, imageBasePath, onBarrierOpenFailed);
+                }
+            }
+
+            // 2. Tìm kiếm nhân sự/khách hàng qua CardCode hoặc PhoneNumber
+            string cardOrPhone = data.CardNo ?? "";
+            string phone = cardOrPhone.StartsWith("0") ? cardOrPhone : $"0{cardOrPhone}";
+            var client = await _clientRepository.FindOneAsync(x =>
+                (x.CardCode == cardOrPhone || x.PhoneNumber == phone || x.PhoneNumber == cardOrPhone) &&
+                !x.IsDeleted);
+
             if (client == null)
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
 
@@ -210,7 +443,7 @@ namespace HPParking.Services.Parking
 
             LaneCamera cameras = context.Cameras;
 
-            // 0. Lấy danh sách xe đã đăng ký của khách hàng (nếu có)
+            // Lấy danh sách xe đã đăng ký của khách hàng (nếu có)
             List<Vehicle> clientVehicles = [];
             if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
             {
@@ -218,10 +451,10 @@ namespace HPParking.Services.Parking
                 clientVehicles = vehicles?.ToList() ?? [];
             }
 
-            bool isVipWithoutVehicle = (client.Type == ClientType.VIP && clientVehicles.Count == 0);
+            // Khối xác thực biển số: Quyết định dựa trên cờ VerifyVehiclePlate của Client (bỏ hoàn toàn hardcode VIP)
+            bool requirePlateVerification = client.VerifyVehiclePlate;
 
-            // Các client type còn lại bắt buộc phải đăng ký biển số xe mới được cho vào bãi
-            if (!isVipWithoutVehicle && client.Type != ClientType.VIP && _vehicleRepository != null && clientVehicles.Count == 0)
+            if (requirePlateVerification && _vehicleRepository != null && clientVehicles.Count == 0)
             {
                 return new ProcessResult
                 {
@@ -236,16 +469,17 @@ namespace HPParking.Services.Parking
                 ? string.Join("; ", clientVehicles.Select(v => v.PlateNumber).Where(p => !string.IsNullOrWhiteSpace(p)))
                 : "";
 
-            // Khách VIP chưa đăng ký xe -> Không kích hoạt chụp ảnh Camera Biển Số
-            var (plateSuccess, plateImage, overviewSuccess, overviewImage) = await CaptureCamerasParallelAsync(cameras, capturePlateCamera: !isVipWithoutVehicle);
+            // Nếu không yêu cầu xác thực xe -> Không kích hoạt chụp ảnh Camera Biển Số (tiết kiệm tài nguyên)
+            var (plateSuccess, plateImage, overviewSuccess, overviewImage) =
+                await CaptureCamerasParallelAsync(cameras, capturePlateCamera: requirePlateVerification);
 
             string recognizedPlate = "";
             LprResult? lprResult = null;
             Vehicle? matchedVehicle = null;
 
-            if (isVipWithoutVehicle)
+            if (!requirePlateVerification)
             {
-                recognizedPlate = "";
+                recognizedPlate = defaultPlate;
             }
             else if (!plateSuccess || plateImage == null)
             {
@@ -322,9 +556,8 @@ namespace HPParking.Services.Parking
                 }
             }
 
-            if (!isVipWithoutVehicle)
+            if (requirePlateVerification)
             {
-                // Đối soát biển số đăng ký với biển số xe thực tế: Chặn cứng nếu danh sách xe có khai báo mà không khớp
                 string actualPlate = (recognizedPlate ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
                 matchedVehicle = clientVehicles.FirstOrDefault(v =>
                     (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() == actualPlate);
@@ -365,19 +598,17 @@ namespace HPParking.Services.Parking
                 }
             }
 
-            // Chuẩn bị bản ghi gửi xe để trả về cho UI ngay lập tức
             DateTime timeIn = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now;
-            parking = new ParkingSession
+            var parking = new ParkingSession
             {
                 PersonId = client.Id,
-                PlateNumber = isVipWithoutVehicle ? "" : (matchedVehicle?.PlateNumber ?? recognizedPlate ?? ""),
+                PlateNumber = !requirePlateVerification ? defaultPlate : (matchedVehicle?.PlateNumber ?? recognizedPlate ?? ""),
                 VehicleType = matchedVehicle?.Type ?? VehicleType.Car,
                 InTime = timeIn,
                 InLaneName = context.Lane.Name,
                 Status = ParkingSessionStatus.Active
             };
 
-            // Lưu dữ liệu ngầm - clone để lưu trữ
             Bitmap? plateSave = plateImage != null ? (Bitmap)plateImage.Clone() : null;
             Bitmap? overviewSave = overviewImage != null ? (Bitmap)overviewImage.Clone() : null;
             plateImage?.Dispose();
@@ -427,8 +658,27 @@ namespace HPParking.Services.Parking
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
             Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
         {
-            string phone = (data.CardNo?.StartsWith("0") ?? false) ? data.CardNo : $"0{data.CardNo}";
-            var client = await _clientRepository.FindOneAsync(x => x.PhoneNumber == phone);
+            // 1. Phân nhánh Thẻ Xe Công Vụ
+            if (_cardRepository != null && !string.IsNullOrWhiteSpace(data.CardNo))
+            {
+                var vehicleCard = await _cardRepository.FindOneAsync(c =>
+                    c.CardNumber == data.CardNo &&
+                    c.TargetType == CardTargetType.Vehicle &&
+                    !c.IsDeleted);
+
+                if (vehicleCard != null && !string.IsNullOrEmpty(vehicleCard.VehicleId) && _vehicleRepository != null)
+                {
+                    return await ProcessSharedVehicleTripAsync(context, vehicleCard, data, imageBasePath, onBarrierOpenFailed);
+                }
+            }
+
+            // 2. Tìm kiếm nhân sự/khách hàng qua CardCode hoặc PhoneNumber
+            string cardOrPhone = data.CardNo ?? "";
+            string phone = cardOrPhone.StartsWith("0") ? cardOrPhone : $"0{cardOrPhone}";
+            var client = await _clientRepository.FindOneAsync(x =>
+                (x.CardCode == cardOrPhone || x.PhoneNumber == phone || x.PhoneNumber == cardOrPhone) &&
+                !x.IsDeleted);
+
             if (client == null)
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy khách hàng." };
 
@@ -455,7 +705,6 @@ namespace HPParking.Services.Parking
                     DepartmentName = departmentName
                 };
 
-            // Lấy danh sách xe đã đăng ký của khách hàng (nếu có)
             List<Vehicle> clientVehicles = [];
             if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
             {
@@ -480,17 +729,18 @@ namespace HPParking.Services.Parking
                     ParkingSession = parking
                 };
 
-            bool isVipWithoutVehicle = (client.Type == ClientType.VIP && clientVehicles.Count == 0);
+            // Khối xác thực biển số: Quyết định theo VerifyVehiclePlate của Client
+            bool requirePlateVerification = client.VerifyVehiclePlate;
 
-            // Khách VIP chưa đăng ký xe -> Không kích hoạt chụp ảnh Camera Biển Số
-            var (plateSuccess, plateImage, overviewSuccess, overviewImage) = await CaptureCamerasParallelAsync(context.Cameras, capturePlateCamera: !isVipWithoutVehicle);
+            var (plateSuccess, plateImage, overviewSuccess, overviewImage) =
+                await CaptureCamerasParallelAsync(context.Cameras, capturePlateCamera: requirePlateVerification);
 
             string exitPlate = "";
             LprResult? lprResult = null;
 
-            if (isVipWithoutVehicle)
+            if (!requirePlateVerification)
             {
-                exitPlate = "";
+                exitPlate = parking.PlateNumber ?? "";
             }
             else if (!plateSuccess || plateImage == null)
             {
@@ -569,9 +819,8 @@ namespace HPParking.Services.Parking
                 }
             }
 
-            if (!isVipWithoutVehicle)
+            if (requirePlateVerification)
             {
-                // Chặn cứng an ninh tuyệt đối nếu biển số xe ra không khớp với biển số xe lúc vào
                 string cleanExitPlate = (exitPlate ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
                 string cleanInPlate = (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
                 if (cleanExitPlate != cleanInPlate)

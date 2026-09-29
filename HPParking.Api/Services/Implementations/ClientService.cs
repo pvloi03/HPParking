@@ -235,6 +235,11 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            var cleanCardCode = HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
+            var authMethods = (request.AuthMethods != null && request.AuthMethods.Count > 0)
+                ? request.AuthMethods
+                : [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+
             // 5. Tạo thực thể Client
             var client = new Client
             {
@@ -249,6 +254,9 @@ namespace HPParking.Api.Services.Implementations
                 Email = request.Email?.Trim(),
                 Gender = request.Gender,
                 PhoneNumber = cleanPhone,
+                CardCode = cleanCardCode,
+                AuthMethods = authMethods,
+                VerifyVehiclePlate = request.VerifyVehiclePlate,
                 IsActive = request.IsActive,
                 Expired = request.Expired ?? new(),
                 Note = request.Note,
@@ -278,41 +286,45 @@ namespace HPParking.Api.Services.Implementations
             var detailDto = client.Adapt<ClientDetailDto>();
             detailDto.Vehicles = vehicleDtos;
 
-            // 6. Tự động nạp thông tin Khách hàng (User & Thẻ) lên toàn bộ FaceID active
-            try
+            // 6. Tự động nạp thông tin Khách hàng (User & Thẻ) lên toàn bộ FaceID active nếu có bật FaceId
+            if (client.AuthMethods.Contains(HPParking.Core.Constants.AuthMethodConstants.FaceId))
             {
-                var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
-                if (terminals.Count > 0)
+                try
                 {
-                    var pushResults = await ExecuteParallelFaceIdActionAsync(
-                        terminals,
-                        t => _faceIdService.PushUserAsync(
-                            t,
-                            client.Code,
-                            client.Name,
-                            client.Gender == 1,
-                            client.PhoneNumber,
-                            null,
-                            cancellationToken),
-                        cancellationToken);
-
-                    detailDto.FaceIdTerminals = pushResults.Select(r => new TerminalClientStatusDto
+                    var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                    if (terminals.Count > 0)
                     {
-                        DeviceIp = r.DeviceIp,
-                        DeviceName = r.DeviceName,
-                        IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
-                        UserExists = r.IsSuccess,
-                        HasFace = false,
-                        CardCount = r.IsSuccess ? 1 : 0,
-                        Cards = r.IsSuccess ? new List<string> { client.PhoneNumber } : new(),
-                        ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
-                        Timestamp = r.Timestamp
-                    }).ToList();
+                        string faceCardCode = string.IsNullOrWhiteSpace(client.CardCode) ? client.PhoneNumber : client.CardCode;
+                        var pushResults = await ExecuteParallelFaceIdActionAsync(
+                            terminals,
+                            t => _faceIdService.PushUserAsync(
+                                t,
+                                client.Code,
+                                client.Name,
+                                client.Gender == 1,
+                                faceCardCode,
+                                null,
+                                cancellationToken),
+                            cancellationToken);
+
+                        detailDto.FaceIdTerminals = pushResults.Select(r => new TerminalClientStatusDto
+                        {
+                            DeviceIp = r.DeviceIp,
+                            DeviceName = r.DeviceName,
+                            IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
+                            UserExists = r.IsSuccess,
+                            HasFace = false,
+                            CardCount = r.IsSuccess ? 1 : 0,
+                            Cards = r.IsSuccess ? new List<string> { faceCardCode } : new(),
+                            ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
+                            Timestamp = r.Timestamp
+                        }).ToList();
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Lỗi nạp FaceID tự động khi tạo khách hàng {Id}: {Message}", client.Id, ex.Message);
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi nạp FaceID tự động khi tạo khách hàng {Id}: {Message}", client.Id, ex.Message);
+                }
             }
 
             if (_auditLogService != null)
@@ -415,6 +427,11 @@ namespace HPParking.Api.Services.Implementations
             var isPhoneChanged = !string.Equals(client.PhoneNumber, cleanPhone, StringComparison.OrdinalIgnoreCase);
             var isNameOrGenderChanged = !string.Equals(client.Name, request.Name.Trim(), StringComparison.Ordinal) || client.Gender != request.Gender;
 
+            var cleanCardCode = HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
+            var authMethods = (request.AuthMethods != null && request.AuthMethods.Count > 0)
+                ? request.AuthMethods
+                : [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+
             client.Code = cleanCode;
             client.Name = request.Name.Trim();
             client.BirthDay = request.BirthDay;
@@ -426,6 +443,9 @@ namespace HPParking.Api.Services.Implementations
             client.Email = request.Email?.Trim();
             client.Gender = request.Gender;
             client.PhoneNumber = cleanPhone;
+            client.CardCode = cleanCardCode;
+            client.AuthMethods = authMethods;
+            client.VerifyVehiclePlate = request.VerifyVehiclePlate;
             client.IsActive = request.IsActive;
             client.Expired = request.Expired ?? new();
             client.Note = request.Note;

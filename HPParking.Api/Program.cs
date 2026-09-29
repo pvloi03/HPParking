@@ -101,6 +101,13 @@ builder.Services.AddScoped<IClientExcelService, ClientExcelService>();
 builder.Services.AddScoped<IMasterDataExcelService, MasterDataExcelService>();
 builder.Services.AddScoped<IReportExcelService, ReportExcelService>();
 
+// Đăng ký dịch vụ Quản lý Thẻ, Tuyến đường xe công vụ và Email cảnh báo SLA
+builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
+builder.Services.AddScoped<ICardService, CardService>();
+builder.Services.AddScoped<IGateRouteService, GateRouteService>();
+builder.Services.AddScoped<IFleetDispatchService, FleetDispatchService>();
+builder.Services.AddHostedService<HPParking.Api.Services.Background.VehicleTransitWatcherService>();
+
 // Cấu hình Mapster Object Mapping
 builder.Services.RegisterMapsterConfiguration();
 

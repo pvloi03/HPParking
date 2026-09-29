@@ -8,6 +8,8 @@ namespace HPParking.Api.DTOs.Vehicles
         public string PlateNumber { get; set; } = string.Empty;
         public VehicleType Type { get; set; } = VehicleType.Car;
         public string? OwnerClientId { get; set; }
+        public bool IsShared { get; set; } = false;
+        public string? AssignedRouteId { get; set; }
         public bool IsActive { get; set; } = true;
         public string? Note { get; set; }
     }

@@ -17,6 +17,9 @@ import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
+import { CardsPage } from '@/pages/CardsPage';
+import { GateRoutesPage } from '@/pages/GateRoutesPage';
+import { FleetDispatchPage } from '@/pages/FleetDispatchPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -75,6 +78,18 @@ export const router = createBrowserRouter([
       {
         path: 'vehicles',
         element: <VehiclesPage />,
+      },
+      {
+        path: 'cards',
+        element: <CardsPage />,
+      },
+      {
+        path: 'gate-routes',
+        element: <GateRoutesPage />,
+      },
+      {
+        path: 'fleet-dispatch',
+        element: <FleetDispatchPage />,
       },
       {
         path: 'parking-sessions',

@@ -32,6 +32,9 @@ import {
   Trash2,
   Bike,
   Info,
+  CreditCard,
+  ScanFace,
+  Radio,
 } from 'lucide-react';
 import { AvatarUploadField } from './AvatarUploadField';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
@@ -56,10 +59,13 @@ export const CLIENT_TYPE_OPTIONS = [
   { value: ClientType.Contractor, label: 'Nhân sự nhà thầu' },
   { value: ClientType.Visitor, label: 'Khách vãng lai' },
   { value: ClientType.VIP, label: 'Khách VIP' },
-  { value: ClientType.Other, label: 'Khác' },
+  { value: ClientType.Guest, label: 'Khách đến thăm' },
 ];
 
 const clientSchema = z.object({
+  cardCode: z.string().trim().optional(),
+  authMethods: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất một phương thức xác thực'),
+  verifyVehiclePlate: z.boolean(),
   code: z
     .string()
     .trim()
@@ -212,6 +218,9 @@ export function ClientFormDialog({
       code: '',
       name: '',
       phoneNumber: '',
+      cardCode: '',
+      authMethods: ['FaceId'],
+      verifyVehiclePlate: true,
       type: ClientType.Employee,
       gender: 1, // 1: Nam
       birthDay: '1995-01-01',
@@ -233,6 +242,8 @@ export function ClientFormDialog({
   const selectedCompanyId = watch('companyId');
   const selectedDepartmentId = watch('departmentId');
   const selectedContractorId = watch('contractorId');
+  const selectedAuthMethods = watch('authMethods') || ['FaceId'];
+  const cardCodeInput = watch('cardCode') || '';
   const expiredEnable = watch('expiredEnable');
   const isActive = watch('isActive');
 
@@ -294,6 +305,9 @@ export function ClientFormDialog({
             code: cccdCode,
             name: cccdName,
             phoneNumber: initialData.phoneNumber || '',
+            cardCode: initialData.cardCode || '',
+            authMethods: initialData.authMethods && initialData.authMethods.length > 0 ? initialData.authMethods : ['FaceId'],
+            verifyVehiclePlate: initialData.verifyVehiclePlate ?? true,
             type: initialData.type ?? ClientType.Employee,
             gender: genderVal,
             birthDay: parsedDob || '1995-01-01',
@@ -314,6 +328,9 @@ export function ClientFormDialog({
             code: initialData.code || '',
             name: initialData.name || '',
             phoneNumber: initialData.phoneNumber || '',
+            cardCode: initialData.cardCode || '',
+            authMethods: initialData.authMethods && initialData.authMethods.length > 0 ? initialData.authMethods : ['FaceId'],
+            verifyVehiclePlate: initialData.verifyVehiclePlate ?? true,
             type: initialData.type ?? ClientType.Employee,
             gender: initialData.gender ?? 1,
             birthDay: toDateInputValue(initialData.birthDay) || '1995-01-01',
@@ -436,7 +453,7 @@ export function ClientFormDialog({
           ? formData.departmentId
           : undefined,
       contractorId:
-        formData.type === ClientType.Contractor &&
+        (formData.type === ClientType.Contractor || formData.type === ClientType.Guest) &&
           formData.contractorId &&
           formData.contractorId !== 'none'
           ? formData.contractorId
@@ -445,6 +462,9 @@ export function ClientFormDialog({
       email: formData.email?.trim() || undefined,
       gender: formData.gender,
       phoneNumber: formData.phoneNumber.trim(),
+      cardCode: formData.cardCode?.trim() || undefined,
+      authMethods: formData.authMethods,
+      verifyVehiclePlate: formData.verifyVehiclePlate,
       isActive: formData.isActive,
       note: formData.note?.trim() || undefined,
       expired: {
@@ -779,13 +799,13 @@ export function ClientFormDialog({
               </div>
             )}
 
-            {/* Chỉ hiển thị chọn Nhà thầu khi chọn Nhân sự nhà thầu */}
-            {selectedType === ClientType.Contractor && (
+            {/* Hiển thị chọn Nhà thầu khi chọn Nhân sự nhà thầu hoặc Khách đến thăm */}
+            {(selectedType === ClientType.Contractor || selectedType === ClientType.Guest) && (
               <div className="space-y-1 pt-2 border-t border-border/50 animate-in fade-in-50 duration-200">
                 <label className="text-xs font-medium text-foreground flex items-center justify-between h-5">
                   <span>Nhà thầu đối tác</span>
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                    ★ Dành riêng cho đối tượng Nhà thầu
+                    {selectedType === ClientType.Contractor ? '★ Bắt buộc cho đối tượng Nhà thầu' : 'Tùy chọn: Gán với nhà thầu hoặc để trống'}
                   </span>
                 </label>
                 <Select
@@ -810,7 +830,7 @@ export function ClientFormDialog({
             )}
 
             {/* Ghi chú thông tin khi chọn các loại khách khác */}
-            {selectedType !== ClientType.Employee && selectedType !== ClientType.Contractor && (
+            {selectedType !== ClientType.Employee && selectedType !== ClientType.Contractor && selectedType !== ClientType.Guest && (
               <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60 text-[11px] text-muted-foreground flex items-center gap-2 pt-2 border-t animate-in fade-in-50 duration-200">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                 <span>
@@ -820,13 +840,163 @@ export function ClientFormDialog({
             )}
           </div>
 
-          {/* 3. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ (TÙY CHỌN) */}
+          {/* 3. KHỐI PHƯƠNG THỨC XÁC THỰC RA / VÀO & ĐỐI SOÁT XE */}
+          <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
+            <div className="flex items-center gap-2 pb-1 border-b border-border/60">
+              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                3. Phương thức xác thực ra / vào & Đối soát xe
+              </span>
+            </div>
+
+            {/* Phương thức xác thực người dùng (AuthMethods) */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Phương thức xác thực người <span className="text-destructive">*</span></span>
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  (Hệ thống tự động kích hoạt thiết bị tương ứng)
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. Thẻ từ RFID */}
+                <label
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                    selectedAuthMethods.includes('Card')
+                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
+                      : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAuthMethods.includes('Card')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const next = selectedAuthMethods.filter((m) => m !== 'None').concat('Card');
+                        setValue('authMethods', next, { shouldValidate: true, shouldDirty: true });
+                      } else {
+                        const next = selectedAuthMethods.filter((m) => m !== 'Card');
+                        setValue('authMethods', next.length > 0 ? next : ['FaceId'], { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <CreditCard className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Thẻ từ RFID</span>
+                  </div>
+                </label>
+
+                {/* 2. Nhận diện FaceID */}
+                <label
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                    selectedAuthMethods.includes('FaceId')
+                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
+                      : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAuthMethods.includes('FaceId')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const next = selectedAuthMethods.filter((m) => m !== 'None').concat('FaceId');
+                        setValue('authMethods', next, { shouldValidate: true, shouldDirty: true });
+                      } else {
+                        const next = selectedAuthMethods.filter((m) => m !== 'FaceId');
+                        setValue('authMethods', next.length > 0 ? next : ['Card'], { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <ScanFace className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Khuôn mặt FaceID</span>
+                  </div>
+                </label>
+
+                {/* 3. Làn tự do (None) */}
+                <label
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
+                    selectedAuthMethods.includes('None')
+                      ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 font-medium text-amber-900 dark:text-amber-300'
+                      : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAuthMethods.includes('None')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setValue('authMethods', ['None'], { shouldValidate: true, shouldDirty: true });
+                      } else {
+                        setValue('authMethods', ['FaceId'], { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-amber-600 focus:ring-amber-500"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Radio className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Làn tự do (None)</span>
+                  </div>
+                </label>
+              </div>
+              {errors.authMethods && (
+                <p className="text-[11px] text-destructive">{errors.authMethods.message}</p>
+              )}
+            </div>
+
+            {/* Mã thẻ định danh (Live preview 10 chữ số) */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
+                <span>Mã thẻ định danh RFID / Wiegand (10 số)</span>
+                {cardCodeInput && cardCodeInput.trim() && (
+                  <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                    Chuẩn hóa: {cardCodeInput.trim().padStart(10, '0')}
+                  </span>
+                )}
+              </label>
+              <Input
+                {...register('cardCode')}
+                placeholder="VD: 12345 (Tự động đệm: 0000012345) hoặc quẹt thẻ"
+                className="text-xs font-mono h-9"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Dùng chung cho đầu đọc thẻ RFID tại bốt trạm và mã Wiegand nạp vào thiết bị FaceID.
+              </p>
+            </div>
+
+            {/* CỜ XÁC THỰC ĐỐI CHIẾU XE (VERIFYVEHICLEPLATE) */}
+            <div className="pt-2 border-t border-border/60">
+              <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
+                <input
+                  type="checkbox"
+                  {...register('verifyVehiclePlate')}
+                  className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
+                />
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Car className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="text-xs font-semibold text-foreground">
+                      Bắt buộc xác thực đối chiếu biển số xe khi qua cổng
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    - <strong>Có tích chọn (Mặc định):</strong> Bắt buộc đăng ký xe và camera OCR đối soát biển số xe. Nếu biển số sai sẽ bị chặn.<br />
+                    - <strong>Bỏ tích:</strong> Miễn đối soát xe. Barrier sẽ mở ngay khi nhận diện Thẻ/FaceID hợp lệ (phù hợp cho VIP, khách thăm, lãnh đạo hoặc người đi bộ).
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* 4. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ (TÙY CHỌN) */}
           <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between pb-1 border-b border-border/60">
               <div className="flex items-center gap-2">
                 <Car className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                  3. Phương tiện đăng ký (Tùy chọn)
+                  4. Phương tiện đăng ký (Tùy chọn)
                 </span>
                 {(existingVehicles.length > 0 || pendingVehicles.length > 0) && (
                   <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">
