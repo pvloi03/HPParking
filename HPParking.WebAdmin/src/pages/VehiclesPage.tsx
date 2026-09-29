@@ -249,6 +249,13 @@ export function VehiclesPage() {
     {
       header: 'Chủ sở hữu',
       cell: (item) => {
+        if (item.isShared) {
+          return (
+            <Badge className="bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 text-[11px] font-medium">
+              Xe dùng chung / Công vụ
+            </Badge>
+          );
+        }
         const owner = item.ownerClientId ? clientMap.get(item.ownerClientId) : null;
         if (!owner) {
           return <span className="text-muted-foreground text-xs">—</span>;

@@ -1,16 +1,16 @@
 import type { PaginationQuery } from './masterData';
 
 export const CardTargetType = {
-  Person: 'Person',
-  Vehicle: 'Vehicle',
+  Person: 1,
+  Vehicle: 2,
 } as const;
 export type CardTargetType = (typeof CardTargetType)[keyof typeof CardTargetType];
 
 export const CardStatus = {
-  Available: 'Available',
-  InUse: 'InUse',
-  Locked: 'Locked',
-  Lost: 'Lost',
+  Available: 0,
+  InUse: 1,
+  Locked: 2,
+  Lost: 3,
 } as const;
 export type CardStatus = (typeof CardStatus)[keyof typeof CardStatus];
 

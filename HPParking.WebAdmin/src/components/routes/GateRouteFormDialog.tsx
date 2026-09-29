@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,8 +20,23 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Route, Plus, Trash2, Save, Clock, ArrowDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Route,
+  Plus,
+  Trash2,
+  Save,
+  Clock,
+  ArrowDown,
+  Truck,
+  Search,
+  Car,
+  Bike,
+} from 'lucide-react';
 import { gatesApi } from '@/api/infrastructureApi';
+import { vehicleApi } from '@/api/vehicleApi';
+import { VehicleType } from '@/types/vehicle';
 import type {
   GateRouteDto,
   CreateGateRouteRequest,
@@ -35,25 +50,39 @@ const stepSchema = z.object({
   maxStayMinutes: z.number().int().min(0, 'Thời gian dừng đỗ không được âm'),
 });
 
-const gateRouteSchema = z.object({
-  routeCode: z
-    .string()
-    .trim()
-    .min(2, 'Mã tuyến tối thiểu 2 ký tự')
-    .max(50, 'Mã tuyến tối đa 50 ký tự'),
-  routeName: z
-    .string()
-    .trim()
-    .min(2, 'Tên tuyến tối thiểu 2 ký tự')
-    .max(200, 'Tên tuyến tối đa 200 ký tự'),
-  description: z.string().trim().optional(),
-  isClosedLoop: z.boolean(),
-  alertEmailsText: z.string().trim().optional(),
-  isActive: z.boolean(),
-  gateSteps: z
-    .array(stepSchema)
-    .min(1, 'Tuyến đường phải có ít nhất 1 chặng cổng'),
-});
+const gateRouteSchema = z
+  .object({
+    routeCode: z
+      .string()
+      .trim()
+      .min(2, 'Mã tuyến tối thiểu 2 ký tự')
+      .max(50, 'Mã tuyến tối đa 50 ký tự'),
+    routeName: z
+      .string()
+      .trim()
+      .min(2, 'Tên tuyến tối thiểu 2 ký tự')
+      .max(200, 'Tên tuyến tối đa 200 ký tự'),
+    description: z.string().trim().optional(),
+    isClosedLoop: z.boolean(),
+    alertEmailsText: z.string().trim().optional(),
+    isDefault: z.boolean().optional(),
+    defaultTravelMinutes: z.number().int().min(1, 'Thời gian tối thiểu 1 phút').optional(),
+    defaultStayMinutes: z.number().int().min(1, 'Thời gian tối thiểu 1 phút').optional(),
+    isActive: z.boolean(),
+    gateSteps: z.array(stepSchema),
+  })
+  .refine(
+    (data) => {
+      if (!data.isDefault && (!data.gateSteps || data.gateSteps.length === 0)) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Tuyến đường cố định phải có ít nhất 1 chặng cổng',
+      path: ['gateSteps'],
+    }
+  );
 
 type GateRouteFormData = z.infer<typeof gateRouteSchema>;
 
@@ -74,12 +103,23 @@ export function GateRouteFormDialog({
 }: GateRouteFormDialogProps) {
   const isEditing = Boolean(initialData);
 
+  const [applyToAllShared, setApplyToAllShared] = useState(false);
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
+  const [vehicleSearch, setVehicleSearch] = useState('');
+
   const { data: gatesData } = useQuery({
     queryKey: ['gates-all-select'],
     queryFn: () => gatesApi.getPaged({ pageIndex: 1, pageSize: 200, isActive: true }),
     enabled: open,
   });
   const gates = gatesData?.items || [];
+
+  const { data: sharedVehiclesData, isLoading: isLoadingVehicles } = useQuery({
+    queryKey: ['vehicles-shared-all'],
+    queryFn: () => vehicleApi.getPaged({ pageIndex: 1, pageSize: 500, isShared: true, isActive: true }),
+    enabled: open,
+  });
+  const sharedVehicles = sharedVehiclesData?.items || [];
 
   const {
     register,
@@ -112,6 +152,8 @@ export function GateRouteFormDialog({
   const isActive = watch('isActive');
   const isClosedLoop = watch('isClosedLoop');
 
+  const isDefaultRoute = Boolean(initialData?.isDefault || initialData?.routeCode === 'DEFAULT');
+
   useEffect(() => {
     if (open) {
       if (initialData) {
@@ -121,6 +163,9 @@ export function GateRouteFormDialog({
           description: initialData.description || '',
           isClosedLoop: initialData.isClosedLoop ?? true,
           alertEmailsText: (initialData.alertEmails || []).join(', '),
+          isDefault: Boolean(initialData.isDefault || initialData.routeCode === 'DEFAULT'),
+          defaultTravelMinutes: initialData.defaultTravelMinutes || 15,
+          defaultStayMinutes: initialData.defaultStayMinutes || 15,
           isActive: initialData.isActive,
           gateSteps:
             initialData.gateSteps && initialData.gateSteps.length > 0
@@ -130,8 +175,21 @@ export function GateRouteFormDialog({
                   maxTravelMinutes: s.maxTravelMinutes,
                   maxStayMinutes: s.maxStayMinutes,
                 }))
+              : isDefaultRoute
+              ? []
               : [{ gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 }],
         });
+
+        // Điền trước các xe đã gán tuyến này
+        const existingVehicleIds =
+          initialData.assignedVehicleIds && initialData.assignedVehicleIds.length > 0
+            ? initialData.assignedVehicleIds
+            : sharedVehicles
+                .filter((v) => v.assignedRouteId === initialData.id)
+                .map((v) => v.id);
+
+        setSelectedVehicleIds(existingVehicleIds);
+        setApplyToAllShared(false);
       } else {
         reset({
           routeCode: '',
@@ -139,17 +197,65 @@ export function GateRouteFormDialog({
           description: '',
           isClosedLoop: true,
           alertEmailsText: '',
+          isDefault: false,
+          defaultTravelMinutes: 15,
+          defaultStayMinutes: 15,
           isActive: true,
           gateSteps: [
             { gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 },
           ],
         });
+        setSelectedVehicleIds([]);
+        setApplyToAllShared(false);
       }
+      setVehicleSearch('');
     }
-  }, [open, initialData, reset]);
+  }, [open, initialData, isDefaultRoute, reset, sharedVehicles.length]);
+
+  const filteredVehicles = useMemo(() => {
+    if (!vehicleSearch.trim()) return sharedVehicles;
+    const query = vehicleSearch.trim().toLowerCase();
+    return sharedVehicles.filter(
+      (v) =>
+        v.plateNumber?.toLowerCase().includes(query) ||
+        v.cardCode?.toLowerCase().includes(query) ||
+        v.note?.toLowerCase().includes(query)
+    );
+  }, [sharedVehicles, vehicleSearch]);
+
+  const areAllFilteredSelected = useMemo(() => {
+    if (filteredVehicles.length === 0) return false;
+    return filteredVehicles.every((v) => selectedVehicleIds.includes(v.id));
+  }, [filteredVehicles, selectedVehicleIds]);
+
+  const isSomeFilteredSelected = useMemo(() => {
+    if (filteredVehicles.length === 0) return false;
+    return (
+      filteredVehicles.some((v) => selectedVehicleIds.includes(v.id)) &&
+      !areAllFilteredSelected
+    );
+  }, [filteredVehicles, selectedVehicleIds, areAllFilteredSelected]);
+
+  const toggleSelectAllFiltered = () => {
+    if (areAllFilteredSelected) {
+      const filteredIds = new Set(filteredVehicles.map((v) => v.id));
+      setSelectedVehicleIds((prev) => prev.filter((id) => !filteredIds.has(id)));
+    } else {
+      const combined = new Set([...selectedVehicleIds, ...filteredVehicles.map((v) => v.id)]);
+      setSelectedVehicleIds(Array.from(combined));
+    }
+  };
+
+  const toggleVehicle = (vehicleId: string) => {
+    setSelectedVehicleIds((prev) =>
+      prev.includes(vehicleId)
+        ? prev.filter((id) => id !== vehicleId)
+        : [...prev, vehicleId]
+    );
+  };
 
   const onFormSubmit = async (formData: GateRouteFormData) => {
-    const formattedSteps = formData.gateSteps.map((s, idx) => ({
+    const formattedSteps = (formData.gateSteps || []).map((s, idx) => ({
       gateId: s.gateId,
       stepIndex: idx + 1,
       maxTravelMinutes: Number(s.maxTravelMinutes),
@@ -163,6 +269,11 @@ export function GateRouteFormDialog({
           .filter((e) => e.length > 0)
       : [];
 
+    const vehiclePayload = {
+      applyToAllSharedVehicles: applyToAllShared,
+      assignedVehicleIds: applyToAllShared ? [] : selectedVehicleIds,
+    };
+
     if (isEditing) {
       const payload: UpdateGateRouteRequest = {
         routeCode: formData.routeCode.trim().toUpperCase(),
@@ -170,8 +281,12 @@ export function GateRouteFormDialog({
         description: formData.description || undefined,
         isClosedLoop: formData.isClosedLoop,
         alertEmails: emails,
+        isDefault: formData.isDefault,
+        defaultTravelMinutes: formData.defaultTravelMinutes,
+        defaultStayMinutes: formData.defaultStayMinutes,
         isActive: formData.isActive,
         gateSteps: formattedSteps,
+        ...vehiclePayload,
       };
       await onSubmit(payload);
     } else {
@@ -181,8 +296,12 @@ export function GateRouteFormDialog({
         description: formData.description || undefined,
         isClosedLoop: formData.isClosedLoop,
         alertEmails: emails,
+        isDefault: formData.isDefault,
+        defaultTravelMinutes: formData.defaultTravelMinutes,
+        defaultStayMinutes: formData.defaultStayMinutes,
         isActive: formData.isActive,
         gateSteps: formattedSteps,
+        ...vehiclePayload,
       };
       await onSubmit(payload);
     }
@@ -217,7 +336,13 @@ export function GateRouteFormDialog({
                 placeholder="VD: ROUTE-01"
                 className="uppercase font-mono text-xs"
                 autoFocus={!isEditing}
+                disabled={isDefaultRoute}
               />
+              {isDefaultRoute && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  Mã tuyến mặc định được bảo vệ, không thể thay đổi.
+                </p>
+              )}
               {errors.routeCode && (
                 <p className="text-[11px] text-destructive">{errors.routeCode.message}</p>
               )}
@@ -237,6 +362,51 @@ export function GateRouteFormDialog({
               )}
             </div>
           </div>
+
+          {/* Cấu hình SLA Mặc Định (Tuyến tự do) */}
+          {isDefaultRoute && (
+            <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-bold text-foreground">
+                  Cấu hình SLA Tuyến Tự Do Mặc Định
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Áp dụng cho mọi xe công vụ di chuyển tự do giữa các nhà máy. Cập nhật mốc SLA bên dưới sẽ tự động áp dụng khi xe quẹt thẻ qua trạm.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">
+                    Thời gian di chuyển tối đa giữa các cổng (phút) <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    {...register('defaultTravelMinutes', { valueAsNumber: true })}
+                    className="text-xs font-mono"
+                  />
+                  {errors.defaultTravelMinutes && (
+                    <p className="text-[11px] text-destructive">{errors.defaultTravelMinutes.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground">
+                    Thời gian làm việc tối đa tại mỗi điểm (phút) <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    {...register('defaultStayMinutes', { valueAsNumber: true })}
+                    className="text-xs font-mono"
+                  />
+                  {errors.defaultStayMinutes && (
+                    <p className="text-[11px] text-destructive">{errors.defaultStayMinutes.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Mô tả */}
           <div className="space-y-1">
@@ -260,168 +430,352 @@ export function GateRouteFormDialog({
             />
           </div>
 
-          {/* Danh sách các chặng cổng (gateSteps) */}
-          <div className="space-y-2 pt-2 border-t border-border">
-            <div className="flex items-center justify-between">
+          {/* Danh sách các chặng cổng (gateSteps) - Chỉ áp dụng cho tuyến cố định */}
+          {!isDefaultRoute ? (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-foreground block">
+                    Danh sách chặng cổng ({fields.length}) <span className="text-destructive">*</span>
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block">
+                    Xe phải đến các cổng theo đúng thứ tự chặng đã định cấu hình
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 cursor-pointer"
+                  onClick={() =>
+                    append({
+                      gateId: '',
+                      stepIndex: fields.length + 1,
+                      maxTravelMinutes: 15,
+                      maxStayMinutes: 30,
+                    })
+                  }
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Thêm chặng
+                </Button>
+              </div>
+
+              {errors.gateSteps && (
+                <p className="text-[11px] text-destructive">{errors.gateSteps.message}</p>
+              )}
+
+              <div className="space-y-2.5">
+                {fields.map((field, idx) => (
+                  <div
+                    key={field.id}
+                    className="p-3 rounded-lg border border-border bg-muted/20 relative space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px]">
+                          {idx + 1}
+                        </span>
+                        Chặng {idx + 1}
+                      </span>
+
+                      {fields.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => remove(idx)}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                          title="Xóa chặng này"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {/* Chọn cổng */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-foreground">
+                          Cổng đến <span className="text-destructive">*</span>
+                        </label>
+                        <Select
+                          value={watch(`gateSteps.${idx}.gateId`)}
+                          onValueChange={(val) =>
+                            setValue(`gateSteps.${idx}.gateId`, val, { shouldValidate: true })
+                          }
+                        >
+                          <SelectTrigger className="text-xs h-8">
+                            <SelectValue placeholder="-- Chọn cổng --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {gates.map((g) => (
+                              <SelectItem key={g.id} value={g.id} className="text-xs">
+                                {g.name} ({g.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors.gateSteps?.[idx]?.gateId && (
+                          <p className="text-[10px] text-destructive">
+                            {errors.gateSteps[idx]?.gateId?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Max travel minutes */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          Tối đa di chuyển (phút)
+                        </label>
+                        <Input
+                          type="number"
+                          min={1}
+                          {...register(`gateSteps.${idx}.maxTravelMinutes`, { valueAsNumber: true })}
+                          className="text-xs h-8"
+                        />
+                        {errors.gateSteps?.[idx]?.maxTravelMinutes && (
+                          <p className="text-[10px] text-destructive">
+                            {errors.gateSteps[idx]?.maxTravelMinutes?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Max stay minutes */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          Tối đa lưu lại (phút)
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          {...register(`gateSteps.${idx}.maxStayMinutes`, { valueAsNumber: true })}
+                          className="text-xs h-8"
+                        />
+                        {errors.gateSteps?.[idx]?.maxStayMinutes && (
+                          <p className="text-[10px] text-destructive">
+                            {errors.gateSteps[idx]?.maxStayMinutes?.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {idx < fields.length - 1 && (
+                      <div className="flex justify-center pt-1 text-muted-foreground/50">
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-lg border border-dashed border-amber-300 dark:border-amber-900 bg-amber-50/20 text-xs text-muted-foreground flex items-center gap-2">
+              <Route className="h-4 w-4 text-amber-500 shrink-0" />
+              <span>
+                Tuyến tự do mặc định không ràng buộc các chặng cổng cố định. Phương tiện được phép di chuyển qua lại tự do giữa mọi cổng kiểm soát trong hệ thống theo thời gian SLA cấu hình ở trên.
+              </span>
+            </div>
+          )}
+
+          {/* Vòng lặp khép kín - chỉ cho tuyến cố định */}
+          {!isDefaultRoute && (
+            <div className="pt-2 border-t border-border flex items-center justify-between">
               <div>
                 <span className="text-xs font-semibold text-foreground block">
-                  Danh sách chặng cổng ({fields.length}) <span className="text-destructive">*</span>
+                  Hành trình khép kín (Closed loop)
                 </span>
                 <span className="text-[11px] text-muted-foreground block">
-                  Xe phải đến các cổng theo đúng thứ tự chặng đã định cấu hình
+                  Xe phải quay trở lại nhà máy xuất phát ban đầu để kết thúc chuyến
                 </span>
               </div>
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 cursor-pointer"
-                onClick={() =>
-                  append({
-                    gateId: '',
-                    stepIndex: fields.length + 1,
-                    maxTravelMinutes: 15,
-                    maxStayMinutes: 30,
-                  })
-                }
+                onClick={() => setValue('isClosedLoop', !isClosedLoop, { shouldDirty: true })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isClosedLoop ? 'bg-blue-600' : 'bg-muted'
+                }`}
               >
-                <Plus className="h-3.5 w-3.5" />
-                Thêm chặng
-              </Button>
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    isClosedLoop ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          {/* Gán phương tiện dùng chung */}
+          <div className="pt-3 border-t border-border space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <Truck className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-foreground block">
+                    Gán phương tiện dùng chung áp dụng tuyến này
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block">
+                    Các phương tiện được gán sẽ tự động tuân theo lộ trình kiểm soát của tuyến này
+                  </span>
+                </div>
+              </div>
+              {applyToAllShared ? (
+                <Badge variant="default" className="bg-blue-600 text-white text-[10px] h-5">
+                  Tất cả ({sharedVehicles.length} xe)
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[10px] h-5">
+                  Đã chọn: {selectedVehicleIds.length}/{sharedVehicles.length} xe
+                </Badge>
+              )}
             </div>
 
-            {errors.gateSteps && (
-              <p className="text-[11px] text-destructive">{errors.gateSteps.message}</p>
-            )}
+            {/* Thẻ chuyển đổi: Áp dụng cho tất cả */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/20">
+              <div className="space-y-0.5">
+                <span className="text-xs font-medium text-foreground block">
+                  Áp dụng cho tất cả xe dùng chung
+                </span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Tự động gán toàn bộ xe dùng chung/xe công vụ ({sharedVehicles.length} xe) vào tuyến này
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApplyToAllShared(!applyToAllShared)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  applyToAllShared ? 'bg-blue-600' : 'bg-muted'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    applyToAllShared ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
 
-            <div className="space-y-2.5">
-              {fields.map((field, idx) => (
-                <div
-                  key={field.id}
-                  className="p-3 rounded-lg border border-border bg-muted/20 relative space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px]">
-                        {idx + 1}
+            {/* Danh sách chọn 1 hoặc nhiều xe cụ thể khi không chọn 'Áp dụng cho tất cả' */}
+            {!applyToAllShared && (
+              <div className="space-y-2 rounded-lg border border-border bg-background p-3">
+                {/* Thanh công cụ tìm kiếm và chọn tất cả */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/70">
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
+                      <Checkbox
+                        checked={areAllFilteredSelected}
+                        indeterminate={isSomeFilteredSelected}
+                        onCheckedChange={toggleSelectAllFiltered}
+                      />
+                      <span>
+                        Chọn tất cả ({filteredVehicles.length} xe{filteredVehicles.length < sharedVehicles.length ? ' đang lọc' : ''})
                       </span>
-                      Chặng {idx + 1}
-                    </span>
+                    </label>
+                  </div>
 
-                    {fields.length > 1 && (
+                  <div className="relative flex-1 sm:max-w-[220px]">
+                    <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Tìm biển số, mã thẻ..."
+                      value={vehicleSearch}
+                      onChange={(e) => setVehicleSearch(e.target.value)}
+                      className="text-xs h-7 pl-8 pr-7"
+                    />
+                    {vehicleSearch && (
                       <button
                         type="button"
-                        onClick={() => remove(idx)}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                        title="Xóa chặng này"
+                        onClick={() => setVehicleSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        ✕
                       </button>
                     )}
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {/* Chọn cổng */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-foreground">
-                        Cổng đến <span className="text-destructive">*</span>
-                      </label>
-                      <Select
-                        value={watch(`gateSteps.${idx}.gateId`)}
-                        onValueChange={(val) =>
-                          setValue(`gateSteps.${idx}.gateId`, val, { shouldValidate: true })
-                        }
-                      >
-                        <SelectTrigger className="text-xs h-8">
-                          <SelectValue placeholder="-- Chọn cổng --" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {gates.map((g) => (
-                            <SelectItem key={g.id} value={g.id} className="text-xs">
-                              {g.name} ({g.code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.gateSteps?.[idx]?.gateId && (
-                        <p className="text-[10px] text-destructive">
-                          {errors.gateSteps[idx]?.gateId?.message}
-                        </p>
-                      )}
+                {/* Danh sách xe */}
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
+                  {isLoadingVehicles ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground">
+                      Đang tải danh sách phương tiện...
                     </div>
+                  ) : sharedVehicles.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground">
+                      Chưa có phương tiện dùng chung nào được thiết lập trong hệ thống.
+                    </div>
+                  ) : filteredVehicles.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground">
+                      Không tìm thấy phương tiện nào phù hợp với từ khóa "{vehicleSearch}".
+                    </div>
+                  ) : (
+                    filteredVehicles.map((vehicle) => {
+                      const isSelected = selectedVehicleIds.includes(vehicle.id);
+                      const isAssignedOtherRoute =
+                        vehicle.assignedRouteId &&
+                        vehicle.assignedRouteId !== initialData?.id;
+                      const isCurrentRoute =
+                        Boolean(initialData && vehicle.assignedRouteId === initialData.id);
 
-                    {/* Max travel minutes */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        Tối đa di chuyển (phút)
-                      </label>
-                      <Input
-                        type="number"
-                        min={1}
-                        {...register(`gateSteps.${idx}.maxTravelMinutes`, { valueAsNumber: true })}
-                        className="text-xs h-8"
-                      />
-                      {errors.gateSteps?.[idx]?.maxTravelMinutes && (
-                        <p className="text-[10px] text-destructive">
-                          {errors.gateSteps[idx]?.maxTravelMinutes?.message}
-                        </p>
-                      )}
-                    </div>
+                      return (
+                        <div
+                          key={vehicle.id}
+                          onClick={() => toggleVehicle(vehicle.id)}
+                          className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors pt-2 ${
+                            isSelected
+                              ? 'bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60'
+                              : 'hover:bg-muted/40 border border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleVehicle(vehicle.id)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex items-center gap-1.5">
+                              {vehicle.type === VehicleType.Motorbike ? (
+                                <span className="p-1 rounded bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400">
+                                  <Bike className="h-3.5 w-3.5" />
+                                </span>
+                              ) : (
+                                <span className="p-1 rounded bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                                  <Car className="h-3.5 w-3.5" />
+                                </span>
+                              )}
+                              <span className="font-mono text-xs font-bold text-foreground">
+                                {vehicle.plateNumber}
+                              </span>
+                            </div>
 
-                    {/* Max stay minutes */}
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        Tối đa lưu lại (phút)
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        {...register(`gateSteps.${idx}.maxStayMinutes`, { valueAsNumber: true })}
-                        className="text-xs h-8"
-                      />
-                      {errors.gateSteps?.[idx]?.maxStayMinutes && (
-                        <p className="text-[10px] text-destructive">
-                          {errors.gateSteps[idx]?.maxStayMinutes?.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                            {vehicle.cardCode && (
+                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+                                Thẻ: {vehicle.cardCode}
+                              </span>
+                            )}
+                          </div>
 
-                  {idx < fields.length - 1 && (
-                    <div className="flex justify-center pt-1 text-muted-foreground/50">
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isCurrentRoute && (
+                              <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50">
+                                Tuyến hiện tại
+                              </Badge>
+                            )}
+                            {isAssignedOtherRoute && (
+                              <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50">
+                                Gán tuyến khác
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Vòng lặp khép kín */}
-          <div className="pt-2 border-t border-border flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-foreground block">
-                Hành trình khép kín (Closed loop)
-              </span>
-              <span className="text-[11px] text-muted-foreground block">
-                Xe phải quay trở lại nhà máy xuất phát ban đầu để kết thúc chuyến
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setValue('isClosedLoop', !isClosedLoop, { shouldDirty: true })}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isClosedLoop ? 'bg-blue-600' : 'bg-muted'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                  isClosedLoop ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
+              </div>
+            )}
           </div>
 
           {/* Trạng thái hoạt động */}

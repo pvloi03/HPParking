@@ -44,11 +44,14 @@ namespace HPParking.Services.Controller
 
             string rawCard = data[2]?.Trim() ?? "";
             string normalizedCard = CardHelper.NormalizeCardCode(rawCard);
+            string finalCard = CardHelper.IsValidCardCode(rawCard)
+                ? (string.IsNullOrEmpty(normalizedCard) ? rawCard : normalizedCard)
+                : string.Empty;
 
             return new RealtimeLog
             {
                 Time = DateTime.Now,
-                CardNo = string.IsNullOrEmpty(normalizedCard) ? rawCard : normalizedCard,
+                CardNo = finalCard,
                 DoorId = doorId,
                 EventType = eventType,
                 InOutState = inOutState,

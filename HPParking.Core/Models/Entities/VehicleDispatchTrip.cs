@@ -1,7 +1,9 @@
 using HPParking.Core.Models.Common;
+using HPParking.Core.Models.Enums;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
+using System.Collections.Generic;
 
 namespace HPParking.Core.Models.Entities
 {
@@ -13,6 +15,40 @@ namespace HPParking.Core.Models.Entities
         OverdueTransit = 3,   // Quá hạn thời gian di chuyển (vi phạm trốn việc)
         OverdueStay = 4,      // Quá hạn thời gian dừng đỗ (vi phạm chiếm dụng xe)
         Completed = 5         // Hoàn thành chuyến đi quay về cổng xuất phát
+    }
+
+    /// <summary>
+    /// Thông tin ghi nhận trạng thái quá hạn SLA tại mốc kiểm soát
+    /// </summary>
+    public class SlaOverdueInfo
+    {
+        public bool IsOverdue { get; set; } = false;
+        public double OverdueSeconds { get; set; } = 0;
+    }
+
+    /// <summary>
+    /// Mốc kiểm soát ghi nhận mỗi lần xe quẹt qua cổng (Vào hoặc Ra)
+    /// </summary>
+    public class TripCheckpoint
+    {
+        public int StepIndex { get; set; }
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string GateId { get; set; } = string.Empty;
+
+        public string GateName { get; set; } = string.Empty;
+
+        [BsonRepresentation(BsonType.String)]
+        public LaneDirection Direction { get; set; } = LaneDirection.In;
+
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        public string? ImagePath { get; set; }
+        public string? PlateDetected { get; set; }
+        public bool IsRouteCompliant { get; set; } = true;
+        public string? Note { get; set; }
+        public SlaOverdueInfo SlaOverdue { get; set; } = new();
     }
 
     /// <summary>
@@ -79,6 +115,12 @@ namespace HPParking.Core.Models.Entities
         public DateTime StartTime { get; set; } = DateTime.UtcNow;
 
         /// <summary>
+        /// Thời điểm kết thúc chuyến đi (khi quay về Cổng xuất phát hoàn tất)
+        /// </summary>
+        [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
+        public DateTime? EndTime { get; set; }
+
+        /// <summary>
         /// Thời điểm quẹt thẻ RA gần nhất
         /// </summary>
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
@@ -111,5 +153,10 @@ namespace HPParking.Core.Models.Entities
         /// Đường dẫn ảnh tài xế chụp lúc qua cổng gần nhất
         /// </summary>
         public string? LastDriverImagePath { get; set; }
+
+        /// <summary>
+        /// Toàn bộ lịch sử các mốc trạm kiểm soát đã đi qua trong chuyến
+        /// </summary>
+        public List<TripCheckpoint> Checkpoints { get; set; } = [];
     }
 }

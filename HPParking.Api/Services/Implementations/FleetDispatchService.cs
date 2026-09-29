@@ -5,11 +5,6 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using MongoDB.Driver;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -34,9 +29,9 @@ namespace HPParking.Api.Services.Implementations
             var filter = Builders<VehicleDispatchTrip>.Filter.And(
                 Builders<VehicleDispatchTrip>.Filter.Eq(x => x.IsDeleted, false),
                 Builders<VehicleDispatchTrip>.Filter.In(x => x.Status, [
-                    TripStatus.InTransit, 
-                    TripStatus.WorkingAtGate, 
-                    TripStatus.OverdueTransit, 
+                    TripStatus.InTransit,
+                    TripStatus.WorkingAtGate,
+                    TripStatus.OverdueTransit,
                     TripStatus.OverdueStay
                 ])
             );
@@ -54,9 +49,9 @@ namespace HPParking.Api.Services.Implementations
         }
 
         public async Task<PagedResult<FleetTripDto>> GetTripHistoryPagedAsync(
-            PaginationQuery query, 
-            string? vehicleId = null, 
-            TripStatus? status = null, 
+            PaginationQuery query,
+            string? vehicleId = null,
+            TripStatus? status = null,
             CancellationToken cancellationToken = default)
         {
             var filter = Builders<VehicleDispatchTrip>.Filter.Eq(x => x.IsDeleted, false);
@@ -71,14 +66,14 @@ namespace HPParking.Api.Services.Implementations
                 filter &= Builders<VehicleDispatchTrip>.Filter.Eq(x => x.Status, status.Value);
             }
 
-            var allTrips = await _tripRepo.FindAsync(filter);
-            var tripList = allTrips.OrderByDescending(x => x.StartTime).ToList();
-
-            var totalItems = tripList.Count;
-            var pagedItems = tripList
-                .Skip((query.PageIndex - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .ToList();
+            var sort = Builders<VehicleDispatchTrip>.Sort.Descending(x => x.StartTime);
+            var totalItems = (int)await _tripRepo.CountAsync(filter, cancellationToken);
+            var pagedItems = await _tripRepo.FindAsync(
+                filter,
+                sort: sort,
+                skip: (query.PageIndex - 1) * query.PageSize,
+                limit: query.PageSize,
+                cancellationToken: cancellationToken);
 
             var dtoList = new List<FleetTripDto>();
             foreach (var trip in pagedItems)
@@ -86,12 +81,12 @@ namespace HPParking.Api.Services.Implementations
                 dtoList.Add(await MapToDtoAsync(trip));
             }
 
-            return new PagedResult<FleetTripDto>(dtoList, totalItems, query.PageIndex, query.PageSize);
+            return new PagedResult<FleetTripDto>(dtoList, query.PageIndex, query.PageSize, totalItems);
         }
 
         public async Task<FleetTripDto> GetTripByIdAsync(string id, CancellationToken cancellationToken = default)
         {
-            var trip = await _tripRepo.GetByIdAsync(id) 
+            var trip = await _tripRepo.GetByIdAsync(id)
                 ?? throw new NotFoundException($"Không tìm thấy chuyến đi với ID: {id}");
 
             if (trip.IsDeleted)
@@ -125,13 +120,17 @@ namespace HPParking.Api.Services.Implementations
 
             var now = DateTime.UtcNow;
             double remainingSeconds = 0;
-            bool isOverdue = false;
+            bool isCurrentlyOverdue = false;
 
             if (trip.NextDeadline.HasValue)
             {
                 remainingSeconds = (trip.NextDeadline.Value - now).TotalSeconds;
-                isOverdue = remainingSeconds < 0;
+                isCurrentlyOverdue = remainingSeconds < 0;
             }
+
+            // Chuyến xe được ghi nhận vi phạm nếu chặng hiện tại đang quá hạn hoặc bất kỳ checkpoint nào trước đó bị quá hạn
+            bool hasOverdueCheckpoint = trip.Checkpoints?.Any(c => c.SlaOverdue?.IsOverdue == true) ?? false;
+            bool isOverdue = isCurrentlyOverdue || hasOverdueCheckpoint;
 
             return new FleetTripDto
             {
@@ -149,6 +148,7 @@ namespace HPParking.Api.Services.Implementations
                 CurrentStepIndex = trip.CurrentStepIndex,
                 Status = trip.Status,
                 StartTime = trip.StartTime,
+                EndTime = trip.EndTime,
                 LastExitTime = trip.LastExitTime,
                 LastEntryTime = trip.LastEntryTime,
                 NextDeadline = trip.NextDeadline,
@@ -156,6 +156,23 @@ namespace HPParking.Api.Services.Implementations
                 IsOverdue = isOverdue,
                 IsAlertSent = trip.IsAlertSent,
                 LastDriverImagePath = trip.LastDriverImagePath,
+                Checkpoints = trip.Checkpoints?.Select(c => new TripCheckpointDto
+                {
+                    StepIndex = c.StepIndex,
+                    GateId = c.GateId ?? string.Empty,
+                    GateName = c.GateName ?? string.Empty,
+                    Direction = c.Direction,
+                    Timestamp = c.Timestamp,
+                    ImagePath = c.ImagePath,
+                    PlateDetected = c.PlateDetected ?? string.Empty,
+                    IsRouteCompliant = c.IsRouteCompliant,
+                    Note = c.Note,
+                    SlaOverdue = new SlaOverdueInfoDto
+                    {
+                        IsOverdue = c.SlaOverdue?.IsOverdue ?? false,
+                        OverdueSeconds = c.SlaOverdue?.OverdueSeconds ?? 0
+                    }
+                }).ToList() ?? [],
                 CreatedAt = trip.CreatedAt,
                 UpdatedAt = trip.UpdatedAt
             };

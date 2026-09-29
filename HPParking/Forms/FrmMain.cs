@@ -8,7 +8,6 @@ using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Controller;
 using HPParking.Services.Devices;
-using HPParking.Services.HN212;
 using HPParking.Services.License;
 using HPParking.Services.Parking;
 using HPParking.UI;
@@ -31,9 +30,6 @@ namespace HPParking.Forms
         private readonly IRepository<Gate> _gateRepository;
         private readonly LicenseManager _licenseManager;
 
-        private readonly IHn212Client _hn212Client;
-        private readonly IRepository<Client> _clientRepository;
-        private FrmRegisterClient? _activeFrmRegisterClient;
         private readonly DeviceOrchestrator _deviceOrchestrator = new();
         private readonly IParkingWorkflowService _workflowService;
         private readonly IServerHealthService _serverHealthService;
@@ -47,51 +43,27 @@ namespace HPParking.Forms
         private CancellationTokenSource? _healthCheckCts;
 
         private readonly IRepository<Device> _deviceRepository;
-        private readonly IRepository<Vehicle> _vehicleRepository;
 
         public FrmMain(
             IRepository<Lane> laneRepository,
             IRepository<Company> companyRepository,
             IRepository<Gate> gateRepository,
-            IRepository<Client> clientRepository,
             IRepository<Device> deviceRepository,
             LicenseManager licenseManager,
             IParkingWorkflowService workflowService,
-            IHn212Client hn212Client,
-            IServerHealthService serverHealthService,
-            IRepository<Vehicle> vehicleRepository)
+            IServerHealthService serverHealthService)
         {
             InitializeComponent();
-
-            // Đăng ký nhận phím tắt phím F1
-            KeyPreview = true;
-            KeyDown += FrmMain_KeyDown;
 
             _laneRepository = laneRepository;
             _companyRepository = companyRepository;
             _gateRepository = gateRepository;
-            _clientRepository = clientRepository;
             _deviceRepository = deviceRepository;
             _licenseManager = licenseManager;
             _workflowService = workflowService;
-            _hn212Client = hn212Client;
             _serverHealthService = serverHealthService;
-            _vehicleRepository = vehicleRepository;
 
-            // Đăng ký nhận sự kiện thẻ CCCD HN212
-            _hn212Client.CardStatusChanged += OnCardStatusChanged;
-            _hn212Client.CardScanned += OnCardScanned;
             _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
-        }
-
-        private void FrmMain_KeyDown(object? sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.F1)
-            {
-                e.Handled = true;
-                using FrmLogin loginForm = new(_currentGate?.Id, _currentGate?.Code);
-                loginForm.ShowDialog(this);
-            }
         }
 
         private async void FrmMain_Load(object sender, EventArgs e)
@@ -99,9 +71,6 @@ namespace HPParking.Forms
             try
             {
                 using var waitScope = new WaitCursorScope(this);
-
-                // Chạy kết nối ngầm tới HN212Reader khi mở App
-                await _hn212Client.StartAsync();
 
                 // 3. KIỂM TRA LICENSE BẢN QUYỀN 
                 lbdayExpiryDate.Cursor = Cursors.Hand;
@@ -168,37 +137,6 @@ namespace HPParking.Forms
             }
         }
 
-        private void OnCardStatusChanged(string status, string message)
-        {
-            if (IsDisposed) return;
-            if (status == "Present" || status == "Reading")
-            {
-                BeginInvoke(new Action(EnsureRegisterClientFormOpen));
-            }
-        }
-
-        private void OnCardScanned(CardDataDto card)
-        {
-            if (IsDisposed) return;
-            BeginInvoke(new Action(EnsureRegisterClientFormOpen));
-        }
-
-        private void EnsureRegisterClientFormOpen()
-        {
-            if (_activeFrmRegisterClient == null || _activeFrmRegisterClient.IsDisposed)
-            {
-                _activeFrmRegisterClient = new FrmRegisterClient(_hn212Client, _clientRepository, _laneRepository, _deviceRepository, _vehicleRepository);
-                _activeFrmRegisterClient.Show(this);
-            }
-            else
-            {
-                if (!_activeFrmRegisterClient.Visible)
-                {
-                    _activeFrmRegisterClient.Show(this);
-                }
-                _activeFrmRegisterClient.BringToFront();
-            }
-        }
 
         private void Controller_OnStatusChanged(string controllerIp, bool isConnected, string message)
         {
@@ -357,6 +295,15 @@ namespace HPParking.Forms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                 }
+                else if (result.Status == ProcessStatus.ConfirmRequired)
+                {
+                    UpdateUI(context, result);
+                    MessageBox.Show(
+                        this, result.Message,
+                        "Cảnh báo vi phạm lộ trình",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
                 else if (!string.IsNullOrEmpty(result.Message))
                 {
                     MessageBox.Show(this, result.Message, "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -392,6 +339,17 @@ namespace HPParking.Forms
                 ui.LblPlateRegistered.Text = $"Biển số đăng ký: {result.RegisteredPlate}";
                 ui.LblIdentityCard.Text = $"Số CCCD: {result.Client.Code}";
             }
+            else if (result.Vehicle != null)
+            {
+                ui.LblFullName.Text = $"Xe công vụ: {result.Vehicle.PlateNumber}";
+                string departmentFullText = !string.IsNullOrWhiteSpace(result.DepartmentName)
+                    ? result.DepartmentName
+                    : "Xe công vụ / Điều vận";
+                tooltip.SetToolTip(ui.LblDepartment, departmentFullText);
+                ui.LblDepartment.Text = departmentFullText;
+                ui.LblPlateRegistered.Text = $"Biển số đăng ký: {result.Vehicle.PlateNumber}";
+                ui.LblIdentityCard.Text = $"Loại xe: {result.Vehicle.Type}";
+            }
 
             if (result.LprResult != null)
             {
@@ -419,10 +377,33 @@ namespace HPParking.Forms
                     ui.LblTimeOut.Text = "Ngày ra:";
                 }
             }
+            else if (result.DispatchTrip != null)
+            {
+                var trip = result.DispatchTrip;
+                if (context.Direction == LaneDirection.In)
+                {
+                    ui.LblTimeIn.Text = $"Ngày vào: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
+                    ui.LblTimeOut.Text = trip.LastExitTime.HasValue
+                        ? $"Ngày ra: {trip.LastExitTime.Value.ToLocalTime():HH:mm:ss dd/MM/yyyy}"
+                        : "Ngày ra:";
+                }
+                else
+                {
+                    ui.LblTimeIn.Text = trip.LastEntryTime.HasValue
+                        ? $"Ngày vào: {trip.LastEntryTime.Value.ToLocalTime():HH:mm:ss dd/MM/yyyy}"
+                        : "Ngày vào:";
+                    ui.LblTimeOut.Text = $"Ngày ra: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
+                }
+            }
             else if (context.Direction == LaneDirection.In)
             {
                 ui.LblTimeIn.Text = $"Ngày vào: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
                 ui.LblTimeOut.Text = "Ngày ra:";
+            }
+            else
+            {
+                ui.LblTimeIn.Text = "Ngày vào:";
+                ui.LblTimeOut.Text = $"Ngày ra: {DateTime.Now:HH:mm:ss dd/MM/yyyy}";
             }
 
             try
@@ -669,19 +650,15 @@ namespace HPParking.Forms
             }
         }
 
-        private async void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
+        private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             _healthCheckCts?.Cancel();
             _healthCheckCts?.Dispose();
             lbServer.Click -= lbServer_Click;
-            KeyDown -= FrmMain_KeyDown;
-            _hn212Client.CardStatusChanged -= OnCardStatusChanged;
-            _hn212Client.CardScanned -= OnCardScanned;
             _deviceOrchestrator.OnControllerStatusChanged -= Controller_OnStatusChanged;
             _deviceOrchestrator.OnCardSwiped -= OnCardSwiped;
             _clockTimer?.Stop();
             _clockTimer?.Dispose();
-            await _hn212Client.StopAsync();
             _deviceOrchestrator.Dispose();
         }
     }

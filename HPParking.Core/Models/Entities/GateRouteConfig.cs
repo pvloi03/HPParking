@@ -79,6 +79,21 @@ namespace HPParking.Core.Models.Entities
         public List<string> AlertEmails { get; set; } = [];
 
         /// <summary>
+        /// Đánh dấu là tuyến mặc định (Tuyến tự do / Free-roam không theo chặng cố định)
+        /// </summary>
+        public bool IsDefault { get; set; } = false;
+
+        /// <summary>
+        /// Thời gian di chuyển mặc định giữa các cổng (phút) nếu là tuyến tự do hoặc chặng không cấu hình
+        /// </summary>
+        public int DefaultTravelMinutes { get; set; } = 15;
+
+        /// <summary>
+        /// Thời gian dừng đỗ làm việc mặc định tại mỗi cổng (phút) nếu là tuyến tự do hoặc chặng không cấu hình
+        /// </summary>
+        public int DefaultStayMinutes { get; set; } = 15;
+
+        /// <summary>
         /// Trạng thái hoạt động của tuyến
         /// </summary>
         public bool IsActive { get; set; } = true;

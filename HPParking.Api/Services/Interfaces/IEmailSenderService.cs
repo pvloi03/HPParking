@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace HPParking.Api.Services.Interfaces
 {
     /// <summary>
@@ -13,10 +9,10 @@ namespace HPParking.Api.Services.Interfaces
         /// Gửi email HTML với tùy chọn đính kèm ảnh
         /// </summary>
         Task<bool> SendEmailAsync(
-            IEnumerable<string> toEmails, 
-            string subject, 
-            string htmlBody, 
-            string? attachmentPath = null, 
+            IEnumerable<string> toEmails,
+            string subject,
+            string htmlBody,
+            string? attachmentPath = null,
             CancellationToken cancellationToken = default);
     }
 }

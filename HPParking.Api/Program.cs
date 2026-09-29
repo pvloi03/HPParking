@@ -119,7 +119,6 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 
 builder.Services.AddFluentValidationAutoValidation();
@@ -307,6 +306,8 @@ var app = builder.Build();
 
 // Khởi tạo tài khoản Quản trị viên mặc định (nếu CSDL chưa có Admin)
 await DbSeeder.SeedAdminUserAsync(app.Services);
+// Khởi tạo tuyến đường mặc định (Tuyến tự do SLA) nếu chưa có
+await DbSeeder.SeedDefaultGateRouteAsync(app.Services);
 
 // 1. Trace Context (Gắn W3C traceparent và TraceIdentifier ngay tại cửa ngõ đầu tiên)
 app.UseMiddleware<TraceIdMiddleware>();

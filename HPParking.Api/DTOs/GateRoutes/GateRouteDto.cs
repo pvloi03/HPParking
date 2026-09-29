@@ -1,6 +1,5 @@
 using HPParking.Api.DTOs.Common;
 using HPParking.Core.Models.Entities;
-using System.Collections.Generic;
 
 namespace HPParking.Api.DTOs.GateRoutes
 {
@@ -12,7 +11,11 @@ namespace HPParking.Api.DTOs.GateRoutes
         public List<RouteGateStep> GateSteps { get; set; } = [];
         public bool IsClosedLoop { get; set; } = true;
         public List<string> AlertEmails { get; set; } = [];
+        public bool IsDefault { get; set; } = false;
+        public int DefaultTravelMinutes { get; set; } = 15;
+        public int DefaultStayMinutes { get; set; } = 15;
         public bool IsActive { get; set; } = true;
+        public List<string> AssignedVehicleIds { get; set; } = [];
     }
 
     public class CreateGateRouteRequest
@@ -23,7 +26,13 @@ namespace HPParking.Api.DTOs.GateRoutes
         public List<RouteGateStep> GateSteps { get; set; } = [];
         public bool IsClosedLoop { get; set; } = true;
         public List<string> AlertEmails { get; set; } = [];
+        public bool IsDefault { get; set; } = false;
+        public int DefaultTravelMinutes { get; set; } = 15;
+        public int DefaultStayMinutes { get; set; } = 15;
         public bool IsActive { get; set; } = true;
+
+        public bool ApplyToAllSharedVehicles { get; set; } = false;
+        public List<string>? AssignedVehicleIds { get; set; }
     }
 
     public class UpdateGateRouteRequest
@@ -34,6 +43,12 @@ namespace HPParking.Api.DTOs.GateRoutes
         public List<RouteGateStep> GateSteps { get; set; } = [];
         public bool IsClosedLoop { get; set; } = true;
         public List<string> AlertEmails { get; set; } = [];
+        public bool IsDefault { get; set; } = false;
+        public int DefaultTravelMinutes { get; set; } = 15;
+        public int DefaultStayMinutes { get; set; } = 15;
         public bool IsActive { get; set; } = true;
+
+        public bool ApplyToAllSharedVehicles { get; set; } = false;
+        public List<string>? AssignedVehicleIds { get; set; }
     }
 }

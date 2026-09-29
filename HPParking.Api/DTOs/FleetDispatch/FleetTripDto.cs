@@ -1,6 +1,6 @@
 using HPParking.Api.DTOs.Common;
 using HPParking.Core.Models.Entities;
-using System;
+using HPParking.Core.Models.Enums;
 
 namespace HPParking.Api.DTOs.FleetDispatch
 {
@@ -23,8 +23,30 @@ namespace HPParking.Api.DTOs.FleetDispatch
         public DateTime? LastEntryTime { get; set; }
         public DateTime? NextDeadline { get; set; }
         public double RemainingSeconds { get; set; }
+        public DateTime? EndTime { get; set; }
         public bool IsOverdue { get; set; }
         public bool IsAlertSent { get; set; }
         public string? LastDriverImagePath { get; set; }
+        public List<TripCheckpointDto> Checkpoints { get; set; } = [];
+    }
+
+    public class TripCheckpointDto
+    {
+        public int StepIndex { get; set; }
+        public string GateId { get; set; } = string.Empty;
+        public string GateName { get; set; } = string.Empty;
+        public LaneDirection Direction { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string? ImagePath { get; set; }
+        public string PlateDetected { get; set; } = string.Empty;
+        public bool IsRouteCompliant { get; set; } = true;
+        public string? Note { get; set; }
+        public SlaOverdueInfoDto SlaOverdue { get; set; } = new();
+    }
+
+    public class SlaOverdueInfoDto
+    {
+        public bool IsOverdue { get; set; } = false;
+        public double OverdueSeconds { get; set; } = 0;
     }
 }

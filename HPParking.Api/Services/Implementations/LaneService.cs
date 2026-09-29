@@ -10,7 +10,6 @@ using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations

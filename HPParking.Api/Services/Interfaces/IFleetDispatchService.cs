@@ -1,9 +1,6 @@
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.FleetDispatch;
 using HPParking.Core.Models.Entities;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Interfaces
 {

@@ -10,7 +10,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations

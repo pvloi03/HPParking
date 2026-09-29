@@ -6,10 +6,6 @@ using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using MongoDB.Driver;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -30,10 +26,10 @@ namespace HPParking.Api.Services.Implementations
         }
 
         public async Task<PagedResult<CardDto>> GetCardsPagedAsync(
-            PaginationQuery query, 
-            string? search = null, 
-            CardTargetType? targetType = null, 
-            CardStatus? status = null, 
+            PaginationQuery query,
+            string? search = null,
+            CardTargetType? targetType = null,
+            CardStatus? status = null,
             CancellationToken cancellationToken = default)
         {
             var filter = Builders<Card>.Filter.Eq(x => x.IsDeleted, false);
@@ -54,28 +50,49 @@ namespace HPParking.Api.Services.Implementations
                 filter &= Builders<Card>.Filter.Eq(x => x.Status, status.Value);
             }
 
-            var allCards = await _cardRepo.FindAsync(filter);
-            var cardList = allCards.OrderByDescending(x => x.CreatedAt).ToList();
+            var sort = Builders<Card>.Sort.Descending(x => x.CreatedAt);
+            var totalCount = await _cardRepo.CountAsync(filter, onlyDeleted: false, cancellationToken);
+            var pagedCards = await _cardRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: false, cancellationToken);
 
-            var totalItems = cardList.Count;
-            var pagedItems = cardList
-                .Skip((query.PageIndex - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .ToList();
+            // Tối ưu Batch Loading thông tin Client và Vehicle để xóa bỏ triệt để N+1 Database Round-trips
+            var clientIds = pagedCards.Where(c => !string.IsNullOrWhiteSpace(c.ClientId)).Select(c => c.ClientId!).Distinct().ToList();
+            var vehicleIds = pagedCards.Where(c => !string.IsNullOrWhiteSpace(c.VehicleId)).Select(c => c.VehicleId!).Distinct().ToList();
 
-            var dtoList = new List<CardDto>();
-            foreach (var card in pagedItems)
+            var clientDict = new Dictionary<string, string>();
+            if (clientIds.Count > 0)
             {
-                var dto = await MapToDtoAsync(card);
-                dtoList.Add(dto);
+                var clients = await _clientRepo.FindAsync(c => clientIds.Contains(c.Id) && !c.IsDeleted, cancellationToken: cancellationToken);
+                clientDict = clients.ToDictionary(c => c.Id, c => c.Name);
             }
 
-            return new PagedResult<CardDto>(dtoList, totalItems, query.PageIndex, query.PageSize);
+            var vehicleDict = new Dictionary<string, string>();
+            if (vehicleIds.Count > 0)
+            {
+                var vehicles = await _vehicleRepo.FindAsync(v => vehicleIds.Contains(v.Id) && !v.IsDeleted, cancellationToken: cancellationToken);
+                vehicleDict = vehicles.ToDictionary(v => v.Id, v => v.PlateNumber);
+            }
+
+            var dtoList = pagedCards.Select(card => new CardDto
+            {
+                Id = card.Id,
+                CardNumber = card.CardNumber,
+                TargetType = card.TargetType,
+                ClientId = card.ClientId,
+                ClientName = card.ClientId != null && clientDict.TryGetValue(card.ClientId, out var cName) ? cName : null,
+                VehicleId = card.VehicleId,
+                PlateNumber = card.VehicleId != null && vehicleDict.TryGetValue(card.VehicleId, out var pNum) ? pNum : null,
+                Status = card.Status,
+                Note = card.Note,
+                CreatedAt = card.CreatedAt,
+                UpdatedAt = card.UpdatedAt
+            }).ToList();
+
+            return new PagedResult<CardDto>(dtoList, query.PageIndex, query.PageSize, totalCount);
         }
 
         public async Task<CardDto> GetByIdAsync(string id, CancellationToken cancellationToken = default)
         {
-            var card = await _cardRepo.GetByIdAsync(id) 
+            var card = await _cardRepo.GetByIdAsync(id)
                 ?? throw new NotFoundException($"Không tìm thấy thẻ với ID: {id}");
 
             if (card.IsDeleted)
@@ -104,21 +121,80 @@ namespace HPParking.Api.Services.Implementations
                 Note = request.Note
             };
 
+            if (card.TargetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(card.ClientId))
+            {
+                card.Status = CardStatus.InUse;
+                var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
+                if (client != null)
+                {
+                    client.CardCode = normalizedCard;
+                    await _clientRepo.UpdateAsync(client, cancellationToken);
+                }
+            }
+            else if (card.TargetType == CardTargetType.Vehicle && !string.IsNullOrWhiteSpace(card.VehicleId))
+            {
+                card.Status = CardStatus.InUse;
+                var oldCards = await _cardRepo.FindAsync(c => c.VehicleId == card.VehicleId && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken: cancellationToken);
+                foreach (var oc in oldCards)
+                {
+                    oc.VehicleId = null;
+                    oc.Status = CardStatus.Available;
+                    await _cardRepo.UpdateAsync(oc, cancellationToken);
+                }
+            }
+
             await _cardRepo.AddAsync(card, cancellationToken);
             return await MapToDtoAsync(card);
         }
 
         public async Task<CardDto> UpdateAsync(string id, UpdateCardRequest request, CancellationToken cancellationToken = default)
         {
-            var card = await _cardRepo.GetByIdAsync(id, cancellationToken) 
+            var card = await _cardRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy thẻ với ID: {id}");
 
             if (card.IsDeleted)
                 throw new NotFoundException($"Thẻ ID: {id} đã bị xóa.");
 
+            var newClientId = request.TargetType == CardTargetType.Person ? request.ClientId : null;
+            var newVehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null;
+
+            if (card.ClientId != newClientId)
+            {
+                if (!string.IsNullOrWhiteSpace(card.ClientId))
+                {
+                    var oldClient = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
+                    if (oldClient != null && oldClient.CardCode == card.CardNumber)
+                    {
+                        oldClient.CardCode = string.Empty;
+                        await _clientRepo.UpdateAsync(oldClient, cancellationToken);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(newClientId))
+                {
+                    var newClient = await _clientRepo.GetByIdAsync(newClientId, cancellationToken);
+                    if (newClient != null)
+                    {
+                        newClient.CardCode = card.CardNumber;
+                        await _clientRepo.UpdateAsync(newClient, cancellationToken);
+                    }
+                }
+            }
+
+            if (card.VehicleId != newVehicleId && !string.IsNullOrWhiteSpace(newVehicleId))
+            {
+                var oldCards = await _cardRepo.FindAsync(c => c.VehicleId == newVehicleId && c.Id != id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken: cancellationToken);
+                foreach (var oc in oldCards)
+                {
+                    oc.VehicleId = null;
+                    oc.Status = CardStatus.Available;
+                    await _cardRepo.UpdateAsync(oc, cancellationToken);
+                }
+            }
+
             card.TargetType = request.TargetType;
-            card.ClientId = request.TargetType == CardTargetType.Person ? request.ClientId : null;
-            card.VehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null;
+            card.ClientId = newClientId;
+            card.VehicleId = newVehicleId;
             card.Status = request.Status;
             card.Note = request.Note;
 
@@ -128,8 +204,36 @@ namespace HPParking.Api.Services.Implementations
 
         public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
         {
-            var card = await _cardRepo.GetByIdAsync(id, cancellationToken) 
+            var card = await _cardRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy thẻ với ID: {id}");
+
+            // Universal Restrict Deletion (Quy tắc 1 - ADR 0030/0031):
+            // Tuyệt đối không xóa thẻ khi thẻ đang được gán cho nhân sự hoặc phương tiện
+            if (!string.IsNullOrWhiteSpace(card.ClientId))
+            {
+                var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
+                if (client != null && !client.IsDeleted)
+                {
+                    throw new ConflictException(
+                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được gán cho nhân sự '{client.Name}'. Vui lòng gỡ thẻ khỏi hồ sơ nhân sự trước khi xóa.");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(card.VehicleId))
+            {
+                var vehicle = await _vehicleRepo.GetByIdAsync(card.VehicleId, cancellationToken);
+                if (vehicle != null && !vehicle.IsDeleted)
+                {
+                    throw new ConflictException(
+                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được cắm trên xe công vụ '{vehicle.PlateNumber}'. Vui lòng gỡ thẻ khỏi phương tiện trước khi xóa.");
+                }
+            }
+
+            if (card.Status == CardStatus.InUse)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa thẻ '{card.CardNumber}' đang ở trạng thái 'Đang sử dụng'. Vui lòng đưa thẻ về trạng thái 'Trong kho' trước khi xóa.");
+            }
 
             await _cardRepo.DeleteAsync(id, softDelete: true, cancellationToken: cancellationToken);
         }

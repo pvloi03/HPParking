@@ -12,5 +12,6 @@ namespace HPParking.Api.DTOs.Vehicles
         public string? AssignedRouteId { get; set; }
         public bool IsActive { get; set; } = true;
         public string? Note { get; set; }
+        public string? CardCode { get; set; }
     }
 }

@@ -27,6 +27,7 @@ namespace HPParking.Services.Parking
         public string RegisteredPlate => Vehicle?.PlateNumber ?? (!string.IsNullOrEmpty(ParkingSession?.PlateNumber) ? ParkingSession.PlateNumber : "");
         public string DepartmentName { get; set; } = "";
         public ParkingSession? ParkingSession { get; set; }
+        public VehicleDispatchTrip? DispatchTrip { get; set; }
         public LprResult? LprResult { get; set; }
         public Bitmap? OverviewImage { get; set; }
     }

@@ -1,5 +1,4 @@
 using HPParking.Api.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 
 namespace HPParking.Api.Services.Implementations

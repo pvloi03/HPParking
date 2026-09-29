@@ -5,10 +5,6 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using MongoDB.Driver;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -29,9 +25,9 @@ namespace HPParking.Api.Services.Implementations
         }
 
         public async Task<PagedResult<GateRouteDto>> GetRoutesPagedAsync(
-            PaginationQuery query, 
-            string? search = null, 
-            bool? isActive = null, 
+            PaginationQuery query,
+            string? search = null,
+            bool? isActive = null,
             CancellationToken cancellationToken = default)
         {
             var filter = Builders<GateRouteConfig>.Filter.Eq(x => x.IsDeleted, false);
@@ -49,28 +45,41 @@ namespace HPParking.Api.Services.Implementations
                 filter &= Builders<GateRouteConfig>.Filter.Eq(x => x.IsActive, isActive.Value);
             }
 
-            var allRoutes = await _routeRepo.FindAsync(filter);
-            var routeList = allRoutes.OrderByDescending(x => x.CreatedAt).ToList();
+            var sort = Builders<GateRouteConfig>.Sort.Descending(x => x.CreatedAt);
+            var totalCount = await _routeRepo.CountAsync(filter, onlyDeleted: false, cancellationToken);
+            var pagedRoutes = await _routeRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: false, cancellationToken);
 
-            var totalItems = routeList.Count;
-            var pagedItems = routeList
-                .Skip((query.PageIndex - 1) * query.PageSize)
-                .Take(query.PageSize)
-                .Select(MapToDto)
-                .ToList();
+            var routeIds = pagedRoutes.Select(x => x.Id).Where(x => !string.IsNullOrEmpty(x)).ToList();
+            var assignedVehicles = routeIds.Count > 0
+                ? await _vehicleRepo.FindAsync(v => v.AssignedRouteId != null && routeIds.Contains(v.AssignedRouteId) && !v.IsDeleted, cancellationToken)
+                : [];
+            var assignedGroup = assignedVehicles.GroupBy(v => v.AssignedRouteId!).ToDictionary(g => g.Key, g => g.Select(v => v.Id).ToList());
 
-            return new PagedResult<GateRouteDto>(pagedItems, totalItems, query.PageIndex, query.PageSize);
+            var pagedItems = pagedRoutes.Select(r =>
+            {
+                var dto = MapToDto(r);
+                if (assignedGroup.TryGetValue(r.Id, out var vIds))
+                {
+                    dto.AssignedVehicleIds = vIds;
+                }
+                return dto;
+            }).ToList();
+
+            return new PagedResult<GateRouteDto>(pagedItems, query.PageIndex, query.PageSize, totalCount);
         }
 
         public async Task<GateRouteDto> GetByIdAsync(string id, CancellationToken cancellationToken = default)
         {
-            var route = await _routeRepo.GetByIdAsync(id) 
+            var route = await _routeRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy tuyến đường với ID: {id}");
 
             if (route.IsDeleted)
                 throw new NotFoundException($"Tuyến đường ID: {id} đã bị xóa.");
 
-            return MapToDto(route);
+            var assignedVehicles = await _vehicleRepo.FindAsync(v => v.AssignedRouteId == id && !v.IsDeleted, cancellationToken);
+            var dto = MapToDto(route);
+            dto.AssignedVehicleIds = assignedVehicles.Select(v => v.Id).ToList();
+            return dto;
         }
 
         public async Task<GateRouteDto> CreateAsync(CreateGateRouteRequest request, CancellationToken cancellationToken = default)
@@ -83,7 +92,9 @@ namespace HPParking.Api.Services.Implementations
             if (existing != null)
                 throw new ConflictException($"Mã tuyến {code} đã tồn tại trong hệ thống.");
 
-            var steps = await ValidateAndEnrichStepsAsync(request.GateSteps);
+            var steps = request.IsDefault && (request.GateSteps == null || request.GateSteps.Count == 0)
+                ? []
+                : await ValidateAndEnrichStepsAsync(request.GateSteps);
 
             var route = new GateRouteConfig
             {
@@ -93,16 +104,49 @@ namespace HPParking.Api.Services.Implementations
                 GateSteps = steps,
                 IsClosedLoop = request.IsClosedLoop,
                 AlertEmails = request.AlertEmails ?? [],
+                IsDefault = request.IsDefault,
+                DefaultTravelMinutes = request.DefaultTravelMinutes > 0 ? request.DefaultTravelMinutes : 15,
+                DefaultStayMinutes = request.DefaultStayMinutes > 0 ? request.DefaultStayMinutes : 15,
                 IsActive = request.IsActive
             };
 
             await _routeRepo.AddAsync(route, cancellationToken);
-            return MapToDto(route);
+
+            var assignedVehicleIds = new List<string>();
+            if (request.ApplyToAllSharedVehicles)
+            {
+                var sharedVehicles = await _vehicleRepo.FindAsync(v => v.IsShared && !v.IsDeleted, cancellationToken);
+                foreach (var v in sharedVehicles)
+                {
+                    v.AssignedRouteId = route.Id;
+                    v.UpdatedAt = DateTime.UtcNow;
+                    await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                    assignedVehicleIds.Add(v.Id);
+                }
+            }
+            else if (request.AssignedVehicleIds != null && request.AssignedVehicleIds.Count > 0)
+            {
+                foreach (var vId in request.AssignedVehicleIds.Distinct())
+                {
+                    var v = await _vehicleRepo.GetByIdAsync(vId, cancellationToken);
+                    if (v != null && !v.IsDeleted && v.IsShared)
+                    {
+                        v.AssignedRouteId = route.Id;
+                        v.UpdatedAt = DateTime.UtcNow;
+                        await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                        assignedVehicleIds.Add(v.Id);
+                    }
+                }
+            }
+
+            var dto = MapToDto(route);
+            dto.AssignedVehicleIds = assignedVehicleIds;
+            return dto;
         }
 
         public async Task<GateRouteDto> UpdateAsync(string id, UpdateGateRouteRequest request, CancellationToken cancellationToken = default)
         {
-            var route = await _routeRepo.GetByIdAsync(id, cancellationToken) 
+            var route = await _routeRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy tuyến đường với ID: {id}");
 
             if (route.IsDeleted)
@@ -116,7 +160,9 @@ namespace HPParking.Api.Services.Implementations
             if (existing != null)
                 throw new ConflictException($"Mã tuyến {code} đã được sử dụng bởi tuyến khác.");
 
-            var steps = await ValidateAndEnrichStepsAsync(request.GateSteps);
+            var steps = (route.IsDefault || request.IsDefault) && (request.GateSteps == null || request.GateSteps.Count == 0)
+                ? []
+                : await ValidateAndEnrichStepsAsync(request.GateSteps);
 
             route.RouteCode = code;
             route.RouteName = request.RouteName.Trim();
@@ -124,16 +170,73 @@ namespace HPParking.Api.Services.Implementations
             route.GateSteps = steps;
             route.IsClosedLoop = request.IsClosedLoop;
             route.AlertEmails = request.AlertEmails ?? [];
+            if (request.DefaultTravelMinutes > 0) route.DefaultTravelMinutes = request.DefaultTravelMinutes;
+            if (request.DefaultStayMinutes > 0) route.DefaultStayMinutes = request.DefaultStayMinutes;
             route.IsActive = request.IsActive;
 
             await _routeRepo.UpdateAsync(route, cancellationToken);
-            return MapToDto(route);
+
+            var assignedVehicleIds = new List<string>();
+            if (request.ApplyToAllSharedVehicles)
+            {
+                var sharedVehicles = await _vehicleRepo.FindAsync(v => v.IsShared && !v.IsDeleted, cancellationToken);
+                foreach (var v in sharedVehicles)
+                {
+                    v.AssignedRouteId = route.Id;
+                    v.UpdatedAt = DateTime.UtcNow;
+                    await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                    assignedVehicleIds.Add(v.Id);
+                }
+            }
+            else if (request.AssignedVehicleIds != null)
+            {
+                var targetIds = request.AssignedVehicleIds.Distinct().ToHashSet();
+                // 1. Gỡ tuyến khỏi các phương tiện từng được gán nhưng nay bị bỏ chọn
+                var currentAssigned = await _vehicleRepo.FindAsync(v => v.AssignedRouteId == id && !v.IsDeleted, cancellationToken);
+                foreach (var v in currentAssigned)
+                {
+                    if (!targetIds.Contains(v.Id))
+                    {
+                        v.AssignedRouteId = null;
+                        v.UpdatedAt = DateTime.UtcNow;
+                        await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                    }
+                }
+
+                // 2. Gán tuyến cho các phương tiện được chỉ định
+                foreach (var vId in targetIds)
+                {
+                    var v = await _vehicleRepo.GetByIdAsync(vId, cancellationToken);
+                    if (v != null && !v.IsDeleted && v.IsShared)
+                    {
+                        if (v.AssignedRouteId != id)
+                        {
+                            v.AssignedRouteId = id;
+                            v.UpdatedAt = DateTime.UtcNow;
+                            await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                        }
+                        assignedVehicleIds.Add(v.Id);
+                    }
+                }
+            }
+            else
+            {
+                var currentAssigned = await _vehicleRepo.FindAsync(v => v.AssignedRouteId == id && !v.IsDeleted, cancellationToken);
+                assignedVehicleIds = currentAssigned.Select(v => v.Id).ToList();
+            }
+
+            var dto = MapToDto(route);
+            dto.AssignedVehicleIds = assignedVehicleIds;
+            return dto;
         }
 
         public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
         {
-            var route = await _routeRepo.GetByIdAsync(id, cancellationToken) 
+            var route = await _routeRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy tuyến đường với ID: {id}");
+
+            if (route.IsDefault || route.RouteCode == "DEFAULT")
+                throw new BadRequestException("Không thể xóa tuyến đường mặc định của hệ thống.");
 
             // Referential Integrity: Chặn xóa tuyến nếu còn xe đang được phân công tuyến này
             var assignedVehicles = await _vehicleRepo.FindAsync(v => v.AssignedRouteId == id && !v.IsDeleted, cancellationToken);
@@ -156,7 +259,7 @@ namespace HPParking.Api.Services.Implementations
                 if (string.IsNullOrWhiteSpace(step.GateId))
                     throw new BadRequestException($"Chặng thứ {index} chưa chọn cổng kiểm soát.");
 
-                var gate = await _gateRepo.GetByIdAsync(step.GateId) 
+                var gate = await _gateRepo.GetByIdAsync(step.GateId)
                     ?? throw new BadRequestException($"Không tìm thấy Cổng với ID: {step.GateId} ở chặng thứ {index}");
 
                 enriched.Add(new RouteGateStep
@@ -184,6 +287,9 @@ namespace HPParking.Api.Services.Implementations
                 GateSteps = route.GateSteps,
                 IsClosedLoop = route.IsClosedLoop,
                 AlertEmails = route.AlertEmails,
+                IsDefault = route.IsDefault,
+                DefaultTravelMinutes = route.DefaultTravelMinutes,
+                DefaultStayMinutes = route.DefaultStayMinutes,
                 IsActive = route.IsActive,
                 CreatedAt = route.CreatedAt,
                 UpdatedAt = route.UpdatedAt

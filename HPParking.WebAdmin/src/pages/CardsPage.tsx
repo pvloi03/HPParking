@@ -34,6 +34,8 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { cardApi } from '@/api/cardApi';
+import { clientApi } from '@/api/clientApi';
+import { vehicleApi } from '@/api/vehicleApi';
 import {
   CardTargetType,
   CardStatus,
@@ -42,6 +44,7 @@ import {
   normalizeCardCode,
 } from '@/types/card';
 import { usePermissions } from '@/hooks/usePermissions';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 const createCardSchema = z.object({
   cardNumber: z
@@ -50,13 +53,10 @@ const createCardSchema = z.object({
     .min(1, 'Vui lòng nhập mã thẻ')
     .max(10, 'Mã thẻ tối đa 10 chữ số')
     .regex(/^\d+$/, 'Mã thẻ chỉ được chứa các chữ số 0-9'),
-  targetType: z.enum([CardTargetType.Person, CardTargetType.Vehicle]),
-  status: z.enum([
-    CardStatus.Available,
-    CardStatus.InUse,
-    CardStatus.Locked,
-    CardStatus.Lost,
-  ]),
+  targetType: z.number().int().min(1).max(2),
+  clientId: z.string().optional(),
+  vehicleId: z.string().optional(),
+  status: z.number().int().min(0).max(3),
   note: z.string().trim().optional(),
 });
 
@@ -67,7 +67,7 @@ export function CardsPage() {
   const { canWrite } = usePermissions();
 
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [targetTypeFilter, setTargetTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -82,9 +82,21 @@ export function CardsPage() {
         pageIndex,
         pageSize,
         search: searchKeyword.trim() || undefined,
-        targetType: targetTypeFilter !== 'all' ? (targetTypeFilter as CardTargetType) : undefined,
-        status: statusFilter !== 'all' ? (statusFilter as CardStatus) : undefined,
+        targetType: targetTypeFilter !== 'all' ? (Number(targetTypeFilter) as CardTargetType) : undefined,
+        status: statusFilter !== 'all' ? (Number(statusFilter) as CardStatus) : undefined,
       }),
+  });
+
+  const { data: clientsData } = useQuery({
+    queryKey: ['activeClientsForCards'],
+    queryFn: () => clientApi.getPaged({ pageSize: 500, isActive: true }),
+    enabled: isCreateOpen,
+  });
+
+  const { data: vehiclesData } = useQuery({
+    queryKey: ['activeVehiclesForCards'],
+    queryFn: () => vehicleApi.getPaged({ pageSize: 500 }),
+    enabled: isCreateOpen,
   });
 
   const createMutation = useMutation({
@@ -94,6 +106,8 @@ export function CardsPage() {
       setIsCreateOpen(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     },
     onError: (err: any) => {
       const res = err.response?.data;
@@ -113,6 +127,8 @@ export function CardsPage() {
       toast.success('Đã xóa thẻ định danh khỏi hệ thống');
       setDeleteCandidate(null);
       queryClient.invalidateQueries({ queryKey: ['cards'] });
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     },
     onError: (err: any) => {
       const res = err.response?.data;
@@ -138,6 +154,8 @@ export function CardsPage() {
     defaultValues: {
       cardNumber: '',
       targetType: CardTargetType.Person,
+      clientId: '',
+      vehicleId: '',
       status: CardStatus.Available,
       note: '',
     },
@@ -146,13 +164,19 @@ export function CardsPage() {
   const watchedCardNumber = watch('cardNumber');
   const watchedTargetType = watch('targetType');
   const watchedStatus = watch('status');
+  const watchedClientId = watch('clientId');
+  const watchedVehicleId = watch('vehicleId');
 
   const handleCreateSubmit = async (data: CreateCardFormData) => {
     const padded = normalizeCardCode(data.cardNumber);
+    const targetType = Number(data.targetType) as CardTargetType;
+    const status = data.status !== undefined ? (Number(data.status) as CardStatus) : undefined;
     const payload: CreateCardRequest = {
       cardNumber: padded,
-      targetType: data.targetType,
-      status: data.status,
+      targetType,
+      clientId: targetType === CardTargetType.Person && data.clientId ? data.clientId : undefined,
+      vehicleId: targetType === CardTargetType.Vehicle && data.vehicleId ? data.vehicleId : undefined,
+      status,
       note: data.note || undefined,
     };
     await createMutation.mutateAsync(payload);
@@ -281,8 +305,8 @@ export function CardsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">Tất cả đối tượng</SelectItem>
-                <SelectItem value={CardTargetType.Person} className="text-xs">Thẻ nhân sự</SelectItem>
-                <SelectItem value={CardTargetType.Vehicle} className="text-xs">Thẻ xe công vụ</SelectItem>
+                <SelectItem value={String(CardTargetType.Person)} className="text-xs">Thẻ nhân sự</SelectItem>
+                <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">Thẻ xe công vụ</SelectItem>
               </SelectContent>
             </Select>
 
@@ -292,10 +316,10 @@ export function CardsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">Tất cả trạng thái</SelectItem>
-                <SelectItem value={CardStatus.InUse} className="text-xs">Đang sử dụng</SelectItem>
-                <SelectItem value={CardStatus.Available} className="text-xs">Trong kho</SelectItem>
-                <SelectItem value={CardStatus.Locked} className="text-xs">Tạm khóa</SelectItem>
-                <SelectItem value={CardStatus.Lost} className="text-xs">Báo mất</SelectItem>
+                <SelectItem value={String(CardStatus.InUse)} className="text-xs">Đang sử dụng</SelectItem>
+                <SelectItem value={String(CardStatus.Available)} className="text-xs">Trong kho</SelectItem>
+                <SelectItem value={String(CardStatus.Locked)} className="text-xs">Tạm khóa</SelectItem>
+                <SelectItem value={String(CardStatus.Lost)} className="text-xs">Báo mất</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -344,17 +368,23 @@ export function CardsPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground">Loại đối tượng</label>
                 <Select
-                  value={watchedTargetType}
-                  onValueChange={(val) => setValue('targetType', val as CardTargetType)}
+                  value={String(watchedTargetType)}
+                  onValueChange={(val) => {
+                    const parsed = Number(val) as CardTargetType;
+                    setValue('targetType', parsed);
+                    setValue('clientId', '');
+                    setValue('vehicleId', '');
+                    setValue('status', CardStatus.Available);
+                  }}
                 >
                   <SelectTrigger className="text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={CardTargetType.Person} className="text-xs">
+                    <SelectItem value={String(CardTargetType.Person)} className="text-xs">
                       Thẻ người (Nhân sự)
                     </SelectItem>
-                    <SelectItem value={CardTargetType.Vehicle} className="text-xs">
+                    <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">
                       Thẻ xe công vụ
                     </SelectItem>
                   </SelectContent>
@@ -362,28 +392,105 @@ export function CardsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Trạng thái ban đầu</label>
+                <label className="text-xs font-semibold text-foreground">Trạng thái</label>
                 <Select
-                  value={watchedStatus}
-                  onValueChange={(val) => setValue('status', val as CardStatus)}
+                  value={String(watchedStatus)}
+                  onValueChange={(val) => setValue('status', Number(val) as CardStatus)}
                 >
                   <SelectTrigger className="text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={CardStatus.Available} className="text-xs">
+                    <SelectItem value={String(CardStatus.Available)} className="text-xs">
                       Trong kho (Chưa gán)
                     </SelectItem>
-                    <SelectItem value={CardStatus.InUse} className="text-xs">
+                    <SelectItem value={String(CardStatus.InUse)} className="text-xs">
                       Đang sử dụng
                     </SelectItem>
-                    <SelectItem value={CardStatus.Locked} className="text-xs">
+                    <SelectItem value={String(CardStatus.Locked)} className="text-xs">
                       Tạm khóa
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* Gán đối tượng tương ứng */}
+            {watchedTargetType === CardTargetType.Person && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-purple-600" />
+                    Gán cho Nhân sự (Khách hàng)
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Tùy chọn: Chọn người để gán thẻ ngay</span>
+                </label>
+                <Select
+                  value={watchedClientId || '__none__'}
+                  onValueChange={(val) => {
+                    if (val === '__none__') {
+                      setValue('clientId', '', { shouldDirty: true });
+                      setValue('status', CardStatus.Available, { shouldDirty: true });
+                    } else {
+                      setValue('clientId', val, { shouldDirty: true });
+                      setValue('status', CardStatus.InUse, { shouldDirty: true });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="-- Chưa gán (Lưu trong kho) --" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                      -- Chưa gán (Lưu trong kho) --
+                    </SelectItem>
+                    {(clientsData?.items || []).map((client: any) => (
+                      <SelectItem key={client.id} value={client.id} className="text-xs">
+                        {client.name} ({client.code}{client.phoneNumber ? ` - ${client.phoneNumber}` : ''})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {watchedTargetType === CardTargetType.Vehicle && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Car className="h-3.5 w-3.5 text-blue-600" />
+                    Gán cho Phương tiện (Xe công vụ / dùng chung)
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Tùy chọn: Chọn xe để gán thẻ ngay</span>
+                </label>
+                <Select
+                  value={watchedVehicleId || '__none__'}
+                  onValueChange={(val) => {
+                    if (val === '__none__') {
+                      setValue('vehicleId', '', { shouldDirty: true });
+                      setValue('status', CardStatus.Available, { shouldDirty: true });
+                    } else {
+                      setValue('vehicleId', val, { shouldDirty: true });
+                      setValue('status', CardStatus.InUse, { shouldDirty: true });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-xs h-9">
+                    <SelectValue placeholder="-- Chưa gán (Lưu trong kho) --" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                      -- Chưa gán (Lưu trong kho) --
+                    </SelectItem>
+                    {(vehiclesData?.items || []).map((vehicle: any) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id} className="text-xs font-mono">
+                        {vehicle.plateNumber} ({vehicle.isShared ? 'Xe dùng chung' : 'Xe cá nhân'}{vehicle.note ? ` - ${vehicle.note}` : ''})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground">Ghi chú</label>

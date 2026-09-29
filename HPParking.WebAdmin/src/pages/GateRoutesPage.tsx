@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
-import { Route, Plus, Edit2, Trash2, ArrowRight, Clock } from 'lucide-react';
+import { Route, Plus, Edit2, Trash2, ArrowRight, Clock, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -13,6 +13,7 @@ import type {
   UpdateGateRouteRequest,
   RouteGateStep,
 } from '@/types/gateRoute';
+import { Badge } from '@/components/ui/badge';
 
 export function GateRoutesPage() {
   const queryClient = useQueryClient();
@@ -31,6 +32,8 @@ export function GateRoutesPage() {
       toast.success('Đã tạo tuyến điều vận mới thành công');
       setIsFormOpen(false);
       queryClient.invalidateQueries({ queryKey: ['gateRoutes'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles-shared-all'] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || err.message || 'Lỗi khi tạo tuyến');
@@ -45,6 +48,8 @@ export function GateRoutesPage() {
       setIsFormOpen(false);
       setSelectedRoute(null);
       queryClient.invalidateQueries({ queryKey: ['gateRoutes'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      queryClient.invalidateQueries({ queryKey: ['vehicles-shared-all'] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || err.message || 'Lỗi khi cập nhật tuyến');
@@ -97,18 +102,6 @@ export function GateRoutesPage() {
         </Button>
       </div>
 
-      {/* Tuyến tự do mặc định Notice Card */}
-      <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
-        <Clock className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-        <div className="space-y-0.5">
-          <span className="font-semibold block">Tuyến Tự Do Mặc Định (Free-Roam SLA)</span>
-          <span className="text-[11px] leading-relaxed">
-            Áp dụng cho mọi xe công vụ không gán tuyến cố định: Xe được phép đi đến bất kỳ cổng/nhà máy nào với{' '}
-            <strong>tối đa 15 phút di chuyển</strong> và <strong>tối đa 15 phút làm việc</strong> tại điểm đến trước khi chuyển sang trạng thái vi phạm SLA.
-          </span>
-        </div>
-      </div>
-
       {/* Routes List */}
       {isLoading ? (
         <div className="py-12 text-center text-xs text-muted-foreground">Đang tải danh sách tuyến...</div>
@@ -131,7 +124,21 @@ export function GateRoutesPage() {
                     {route.routeCode}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground">{route.routeName}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-foreground">{route.routeName}</h3>
+                      {(route.isDefault || route.routeCode === 'DEFAULT') ? (
+                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-semibold">
+                          Mặc định (Tự do)
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] gap-1 font-normal text-muted-foreground">
+                          <Truck className="h-3 w-3" />
+                          {route.assignedVehicleIds && route.assignedVehicleIds.length > 0
+                            ? `${route.assignedVehicleIds.length} xe áp dụng`
+                            : 'Chưa gán xe'}
+                        </Badge>
+                      )}
+                    </div>
                     {route.description && (
                       <p className="text-xs text-muted-foreground mt-0.5">{route.description}</p>
                     )}
@@ -152,49 +159,73 @@ export function GateRoutesPage() {
                   >
                     <Edit2 className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
-                    onClick={() => setDeleteCandidate(route)}
-                    title="Xóa tuyến"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  {!(route.isDefault || route.routeCode === 'DEFAULT') && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive cursor-pointer"
+                      onClick={() => setDeleteCandidate(route)}
+                      title="Xóa tuyến"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              {/* Chặng Timeline */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                  Lộ trình di chuyển ({(route.gateSteps || []).length} chặng):
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {(route.gateSteps || []).map((step: RouteGateStep, idx: number) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-xs">
-                        <span className="w-4 h-4 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
-                          {step.stepIndex}
-                        </span>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-foreground">
-                            {step.gateName || `Cổng ID: ${step.gateId.slice(0, 8)}`}
+              {/* Chặng Timeline hoặc Cấu hình SLA Tự Do */}
+              {route.isDefault || route.routeCode === 'DEFAULT' ? (
+                <div className="rounded-md bg-amber-50/50 dark:bg-amber-950/20 p-2.5 border border-amber-200/60 dark:border-amber-900/40 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>SLA di chuyển tối đa:</span>
+                    <strong className="text-foreground font-mono">{route.defaultTravelMinutes ?? 15} phút</strong>
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>SLA dừng làm việc tối đa:</span>
+                    <strong className="text-foreground font-mono">{route.defaultStayMinutes ?? 15} phút</strong>
+                  </span>
+                  {route.alertEmails && route.alertEmails.length > 0 && (
+                    <>
+                      <span>•</span>
+                      <span>Email cảnh báo: <strong className="text-foreground">{route.alertEmails.join(', ')}</strong></span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Lộ trình di chuyển ({(route.gateSteps || []).length} chặng):
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(route.gateSteps || []).map((step: RouteGateStep, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-xs">
+                          <span className="w-4 h-4 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
+                            {step.stepIndex}
                           </span>
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <span>SLA: {step.maxTravelMinutes}p di chuyển</span>
-                            <span>•</span>
-                            <span>{step.maxStayMinutes}p dừng đỗ</span>
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-foreground">
+                              {step.gateName || `Cổng ID: ${step.gateId.slice(0, 8)}`}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <span>SLA: {step.maxTravelMinutes}p di chuyển</span>
+                              <span>•</span>
+                              <span>{step.maxStayMinutes}p dừng đỗ</span>
+                            </span>
+                          </div>
                         </div>
-                      </div>
 
-                      {idx < (route.gateSteps || []).length - 1 && (
-                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                      )}
-                    </div>
-                  ))}
+                        {idx < (route.gateSteps || []).length - 1 && (
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>

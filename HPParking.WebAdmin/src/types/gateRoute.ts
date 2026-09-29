@@ -17,7 +17,11 @@ export interface GateRouteDto {
   gateSteps: RouteGateStep[];
   isClosedLoop: boolean;
   alertEmails: string[];
+  isDefault?: boolean;
+  defaultTravelMinutes?: number;
+  defaultStayMinutes?: number;
   isActive: boolean;
+  assignedVehicleIds?: string[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -34,7 +38,12 @@ export interface CreateGateRouteRequest {
   gateSteps: RouteGateStep[];
   isClosedLoop: boolean;
   alertEmails?: string[];
+  isDefault?: boolean;
+  defaultTravelMinutes?: number;
+  defaultStayMinutes?: number;
   isActive: boolean;
+  applyToAllSharedVehicles?: boolean;
+  assignedVehicleIds?: string[];
 }
 
 export interface UpdateGateRouteRequest {
@@ -44,5 +53,10 @@ export interface UpdateGateRouteRequest {
   gateSteps: RouteGateStep[];
   isClosedLoop: boolean;
   alertEmails?: string[];
+  isDefault?: boolean;
+  defaultTravelMinutes?: number;
+  defaultStayMinutes?: number;
   isActive: boolean;
+  applyToAllSharedVehicles?: boolean;
+  assignedVehicleIds?: string[];
 }

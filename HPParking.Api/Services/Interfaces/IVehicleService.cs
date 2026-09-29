@@ -8,7 +8,7 @@ namespace HPParking.Api.Services.Interfaces
         Task<PagedResult<VehicleDto>> GetVehiclesPagedAsync(VehicleFilterQuery query, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<VehicleDto>> GetVehiclesByClientIdAsync(string clientId, CancellationToken cancellationToken = default);
         Task<VehicleDto> GetVehicleByIdAsync(string id, CancellationToken cancellationToken = default);
-        Task<VehicleDto> CreateVehicleAsync(string clientId, CreateVehicleRequest request, CancellationToken cancellationToken = default);
+        Task<VehicleDto> CreateVehicleAsync(string? clientId, CreateVehicleRequest request, CancellationToken cancellationToken = default);
         Task<VehicleDto> UpdateVehicleAsync(string id, UpdateVehicleRequest request, CancellationToken cancellationToken = default);
         Task<bool> DeleteVehicleAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default);
         Task<VehicleDto> RestoreVehicleAsync(string id, CancellationToken cancellationToken = default);

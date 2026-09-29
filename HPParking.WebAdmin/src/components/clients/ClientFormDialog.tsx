@@ -2,6 +2,9 @@ import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQuery } from '@tanstack/react-query';
+import { cardApi } from '@/api/cardApi';
+import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
 import {
   Dialog,
   DialogContent,
@@ -160,6 +163,40 @@ export function ClientFormDialog({
   const [existingVehicles, setExistingVehicles] = useState<VehicleDto[]>([]);
   const [, setIsLoadingVehicles] = useState(false);
   const [pendingVehicles, setPendingVehicles] = useState<PendingVehicleItem[]>([]);
+
+  // Tải danh sách thẻ có loại là Person
+  const { data: personCardsData, isLoading: isLoadingCards } = useQuery({
+    queryKey: ['availablePersonCards'],
+    queryFn: () => cardApi.getCards({ targetType: CardTargetType.Person, pageSize: 500 }),
+    enabled: open,
+  });
+
+  const availablePersonCards = useMemo(() => {
+    const list = personCardsData?.items || [];
+    return list.filter(
+      (c) =>
+        c.status === CardStatus.Available ||
+        c.cardNumber === initialData?.cardCode ||
+        c.clientId === initialData?.id
+    );
+  }, [personCardsData?.items, initialData?.cardCode, initialData?.id]);
+
+  const allPersonCardOptions = useMemo(() => {
+    const options = [...availablePersonCards];
+    if (
+      initialData?.cardCode &&
+      !options.some((c) => c.cardNumber === initialData.cardCode)
+    ) {
+      options.unshift({
+        id: 'current-card',
+        cardNumber: initialData.cardCode,
+        targetType: CardTargetType.Person,
+        status: CardStatus.InUse,
+        createdAt: '',
+      } as CardDto);
+    }
+    return options;
+  }, [availablePersonCards, initialData?.cardCode]);
 
   const handleAddVehicle = () => {
     setPendingVehicles((prev) => [
@@ -946,23 +983,52 @@ export function ClientFormDialog({
               )}
             </div>
 
-            {/* Mã thẻ định danh (Live preview 10 chữ số) */}
+            {/* Mã thẻ định danh Person */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
                 <span>Mã thẻ định danh RFID / Wiegand (10 số)</span>
                 {cardCodeInput && cardCodeInput.trim() && (
                   <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
-                    Chuẩn hóa: {cardCodeInput.trim().padStart(10, '0')}
+                    Mã thẻ: {cardCodeInput.trim()}
                   </span>
                 )}
               </label>
-              <Input
-                {...register('cardCode')}
-                placeholder="VD: 12345 (Tự động đệm: 0000012345) hoặc quẹt thẻ"
-                className="text-xs font-mono h-9"
-              />
+              <Select
+                value={cardCodeInput || '__none__'}
+                onValueChange={(val) => {
+                  setValue('cardCode', val === '__none__' ? '' : val, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }}
+              >
+                <SelectTrigger className="text-xs bg-background h-9">
+                  <SelectValue
+                    placeholder={
+                      isLoadingCards
+                        ? 'Đang tải danh sách thẻ...'
+                        : '-- Chọn thẻ định danh Person trong kho --'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                    -- Không gán thẻ từ (None) --
+                  </SelectItem>
+                  {allPersonCardOptions.map((card) => (
+                    <SelectItem
+                      key={card.id}
+                      value={card.cardNumber}
+                      className="text-xs font-mono"
+                    >
+                      {card.cardNumber} {card.note ? `(${card.note})` : ''}{' '}
+                      {card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-[10px] text-muted-foreground">
-                Dùng chung cho đầu đọc thẻ RFID tại bốt trạm và mã Wiegand nạp vào thiết bị FaceID.
+                Chọn thẻ từ kho thẻ có loại là Nhân sự (Person). Dùng chung cho đầu đọc thẻ RFID tại bốt trạm và mã Wiegand nạp vào thiết bị FaceID.
               </p>
             </div>
 

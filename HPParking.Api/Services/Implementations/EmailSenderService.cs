@@ -1,15 +1,7 @@
 using HPParking.Api.Services.Interfaces;
 using MailKit.Net.Smtp;
 using MailKit.Security;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using MimeKit;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -25,10 +17,10 @@ namespace HPParking.Api.Services.Implementations
         }
 
         public async Task<bool> SendEmailAsync(
-            IEnumerable<string> toEmails, 
-            string subject, 
-            string htmlBody, 
-            string? attachmentPath = null, 
+            IEnumerable<string> toEmails,
+            string subject,
+            string htmlBody,
+            string? attachmentPath = null,
             CancellationToken cancellationToken = default)
         {
             var recipientList = toEmails?.Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e.Trim()).Distinct().ToList();
@@ -77,6 +69,7 @@ namespace HPParking.Api.Services.Implementations
                 message.Body = builder.ToMessageBody();
 
                 using var client = new SmtpClient();
+                client.Timeout = 15000; // 15s timeout
                 // Với port 465 dùng SslOnConnect, port 587 dùng StartTls
                 var secureSocketOptions = port == 465 ? SecureSocketOptions.SslOnConnect : (enableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
 

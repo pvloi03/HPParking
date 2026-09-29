@@ -1,3 +1,4 @@
+using HPParking.Core.Helpers;
 using HPParking.Interfaces;
 using HPParking.SDK.CtrlSDK;
 using HPParking.Services.Devices;
@@ -274,7 +275,7 @@ namespace HPParking.Services.Controller
                         OnRadarTriggered?.Invoke(data);
                     }
 
-                    if (data.CardNo != "0" && !string.IsNullOrWhiteSpace(data.CardNo))
+                    if (CardHelper.IsValidCardCode(data.CardNo))
                     {
                         Debug.WriteLine($"[ControllerService CardSwiped] Thẻ: {data.CardNo} | Cổng: {data.DoorId} | IP: {data.ControllerIp} | InOutState: {data.InOutState}");
                         OnCardSwiped?.Invoke(data);

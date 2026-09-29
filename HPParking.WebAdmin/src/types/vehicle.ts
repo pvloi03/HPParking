@@ -28,6 +28,7 @@ export interface VehicleDto {
   assignedRouteId?: string;
   isActive: boolean;
   note?: string;
+  cardCode?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -50,6 +51,7 @@ export interface CreateVehicleRequest {
   assignedRouteId?: string;
   isActive: boolean;
   note?: string;
+  cardCode?: string;
 }
 
 export interface UpdateVehicleRequest {
@@ -59,4 +61,5 @@ export interface UpdateVehicleRequest {
   assignedRouteId?: string;
   isActive: boolean;
   note?: string;
+  cardCode?: string;
 }

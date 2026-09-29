@@ -30,7 +30,7 @@ namespace HPParking.Api.Services.Implementations
             string employeeNo,
             string name,
             bool isMale,
-            string phoneNumber,
+            string cardNumber,
             byte[]? faceImageBytes,
             CancellationToken cancellationToken = default)
         {
@@ -56,9 +56,9 @@ namespace HPParking.Api.Services.Implementations
                 }
 
                 // 2. Gán Thẻ CardInfo (tự động dọn thẻ cũ và gán thẻ mới)
-                if (!string.IsNullOrWhiteSpace(phoneNumber))
+                if (!string.IsNullOrWhiteSpace(cardNumber))
                 {
-                    var cleanCardResult = await CleanAndAssignCardInternalAsync(client, terminal, employeeNo, phoneNumber, cancellationToken);
+                    var cleanCardResult = await CleanAndAssignCardInternalAsync(client, terminal, employeeNo, cardNumber, cancellationToken);
                     if (!cleanCardResult.IsSuccess)
                     {
                         // Tuyệt đối không xóa User của khách hàng (No rollback), chỉ ghi nhận lỗi cho bước này
@@ -99,7 +99,7 @@ namespace HPParking.Api.Services.Implementations
         public async Task<FaceIdTerminalResultDto> DeleteUserAsync(
             FaceIdTerminalConfig terminal,
             string employeeNo,
-            string phoneNumber,
+            string cardNumber,
             CancellationToken cancellationToken = default)
         {
             var result = new FaceIdTerminalResultDto
@@ -115,9 +115,9 @@ namespace HPParking.Api.Services.Implementations
 
                 // Bước 1: Xóa toàn bộ Thẻ (CardInfo) của User
                 var userCards = await SearchUserCardsAsync(client, employeeNo, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(phoneNumber) && !userCards.Contains(phoneNumber))
+                if (!string.IsNullOrWhiteSpace(cardNumber) && !userCards.Contains(cardNumber))
                 {
-                    userCards.Add(phoneNumber);
+                    userCards.Add(cardNumber);
                 }
 
                 if (userCards.Count > 0)
@@ -615,7 +615,7 @@ namespace HPParking.Api.Services.Implementations
         private async Task<(bool Success, string? Error)> AssignCardAsync(
             HttpClient client,
             string employeeNo,
-            string phoneNumber,
+            string cardNumber,
             CancellationToken cancellationToken)
         {
             var cardPayload = new
@@ -623,7 +623,7 @@ namespace HPParking.Api.Services.Implementations
                 CardInfo = new
                 {
                     employeeNo,
-                    cardNo = phoneNumber,
+                    cardNo = cardNumber,
                     cardType = "normalCard"
                 }
             };
