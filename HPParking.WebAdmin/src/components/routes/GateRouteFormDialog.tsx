@@ -33,6 +33,7 @@ import {
   Search,
   Car,
   Bike,
+  MapPin,
 } from 'lucide-react';
 import { gatesApi } from '@/api/infrastructureApi';
 import { vehicleApi } from '@/api/vehicleApi';
@@ -508,11 +509,12 @@ export function GateRouteFormDialog({
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
                       {/* Chọn cổng */}
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium text-foreground">
-                          Cổng đến <span className="text-destructive">*</span>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>Cổng đến</span> <span className="text-destructive">*</span>
                         </label>
                         <Select
                           value={watch(`gateSteps.${idx}.gateId`)}
@@ -539,10 +541,10 @@ export function GateRouteFormDialog({
                       </div>
 
                       {/* Max travel minutes */}
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          Tối đa di chuyển (phút)
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>Tối đa di chuyển (phút)</span>
                         </label>
                         <Input
                           type="number"
@@ -558,10 +560,10 @@ export function GateRouteFormDialog({
                       </div>
 
                       {/* Max stay minutes */}
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          Tối đa lưu lại (phút)
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>Tối đa lưu lại (phút)</span>
                         </label>
                         <Input
                           type="number"
