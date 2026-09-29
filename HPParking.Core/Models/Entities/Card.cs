@@ -2,14 +2,18 @@ using HPParking.Core.Models.Common;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
+using System.Text.Json.Serialization;
+
 namespace HPParking.Core.Models.Entities
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum CardTargetType
     {
         Person = 1,   // Thẻ cấp cho Nhân sự (Client)
         Vehicle = 2   // Thẻ cắm cố định trên Xe công vụ / Xe dùng chung (Vehicle)
     }
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum CardStatus
     {
         Available = 0, // Trong kho (chưa gán)

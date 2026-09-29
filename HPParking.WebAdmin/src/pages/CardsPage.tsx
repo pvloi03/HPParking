@@ -96,7 +96,14 @@ export function CardsPage() {
       queryClient.invalidateQueries({ queryKey: ['cards'] });
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Lỗi khi tạo thẻ mới');
+      const res = err.response?.data;
+      let msg = res?.message;
+      if (!msg && res?.errors) {
+        msg = Array.isArray(res.errors)
+          ? res.errors.join('. ')
+          : Object.values(res.errors).flat().join('. ');
+      }
+      toast.error(msg || err.message || 'Lỗi khi tạo thẻ mới');
     },
   });
 
@@ -108,7 +115,14 @@ export function CardsPage() {
       queryClient.invalidateQueries({ queryKey: ['cards'] });
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || 'Lỗi khi xóa thẻ');
+      const res = err.response?.data;
+      let msg = res?.message;
+      if (!msg && res?.errors) {
+        msg = Array.isArray(res.errors)
+          ? res.errors.join('. ')
+          : Object.values(res.errors).flat().join('. ');
+      }
+      toast.error(msg || err.message || 'Lỗi khi xóa thẻ');
     },
   });
 
