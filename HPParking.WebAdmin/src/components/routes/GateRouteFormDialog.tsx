@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -153,6 +153,7 @@ export function GateRouteFormDialog({
   const isClosedLoop = watch('isClosedLoop');
 
   const isDefaultRoute = Boolean(initialData?.isDefault || initialData?.routeCode === 'DEFAULT');
+  const initializedRouteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -181,36 +182,50 @@ export function GateRouteFormDialog({
         });
 
         // Điền trước các xe đã gán tuyến này
-        const existingVehicleIds =
-          initialData.assignedVehicleIds && initialData.assignedVehicleIds.length > 0
-            ? initialData.assignedVehicleIds
-            : sharedVehicles
-                .filter((v) => v.assignedRouteId === initialData.id)
-                .map((v) => v.id);
+        if (initializedRouteIdRef.current !== initialData.id) {
+          const preAssigned = new Set<string>();
+          if (initialData.assignedVehicleIds && initialData.assignedVehicleIds.length > 0) {
+            initialData.assignedVehicleIds.forEach((id) => preAssigned.add(id));
+          }
+          sharedVehicles.forEach((v) => {
+            if (v.assignedRouteId && String(v.assignedRouteId) === String(initialData.id)) {
+              preAssigned.add(v.id);
+            }
+          });
 
-        setSelectedVehicleIds(existingVehicleIds);
-        setApplyToAllShared(false);
+          setSelectedVehicleIds(Array.from(preAssigned));
+          setApplyToAllShared(false);
+
+          if (sharedVehicles.length > 0 || (initialData.assignedVehicleIds && initialData.assignedVehicleIds.length > 0)) {
+            initializedRouteIdRef.current = initialData.id;
+          }
+        }
       } else {
-        reset({
-          routeCode: '',
-          routeName: '',
-          description: '',
-          isClosedLoop: true,
-          alertEmailsText: '',
-          isDefault: false,
-          defaultTravelMinutes: 15,
-          defaultStayMinutes: 15,
-          isActive: true,
-          gateSteps: [
-            { gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 },
-          ],
-        });
-        setSelectedVehicleIds([]);
-        setApplyToAllShared(false);
+        if (initializedRouteIdRef.current !== 'NEW') {
+          reset({
+            routeCode: '',
+            routeName: '',
+            description: '',
+            isClosedLoop: true,
+            alertEmailsText: '',
+            isDefault: false,
+            defaultTravelMinutes: 15,
+            defaultStayMinutes: 15,
+            isActive: true,
+            gateSteps: [
+              { gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 },
+            ],
+          });
+          setSelectedVehicleIds([]);
+          setApplyToAllShared(false);
+          initializedRouteIdRef.current = 'NEW';
+        }
       }
       setVehicleSearch('');
+    } else {
+      initializedRouteIdRef.current = null;
     }
-  }, [open, initialData, isDefaultRoute, reset, sharedVehicles.length]);
+  }, [open, initialData, isDefaultRoute, reset, sharedVehicles]);
 
   const filteredVehicles = useMemo(() => {
     if (!vehicleSearch.trim()) return sharedVehicles;
@@ -236,8 +251,9 @@ export function GateRouteFormDialog({
     );
   }, [filteredVehicles, selectedVehicleIds, areAllFilteredSelected]);
 
-  const toggleSelectAllFiltered = () => {
-    if (areAllFilteredSelected) {
+  const handleToggleSelectAll = (forceChecked?: boolean) => {
+    const shouldSelect = forceChecked !== undefined ? forceChecked : !areAllFilteredSelected;
+    if (!shouldSelect) {
       const filteredIds = new Set(filteredVehicles.map((v) => v.id));
       setSelectedVehicleIds((prev) => prev.filter((id) => !filteredIds.has(id)));
     } else {
@@ -246,12 +262,13 @@ export function GateRouteFormDialog({
     }
   };
 
-  const toggleVehicle = (vehicleId: string) => {
-    setSelectedVehicleIds((prev) =>
-      prev.includes(vehicleId)
-        ? prev.filter((id) => id !== vehicleId)
-        : [...prev, vehicleId]
-    );
+  const handleToggleVehicle = (vehicleId: string, forcedState?: boolean) => {
+    setSelectedVehicleIds((prev) => {
+      const isCurrentlySelected = prev.includes(vehicleId);
+      const nextState = forcedState !== undefined ? forcedState : !isCurrentlySelected;
+      if (nextState === isCurrentlySelected) return prev;
+      return nextState ? [...prev, vehicleId] : prev.filter((id) => id !== vehicleId);
+    });
   };
 
   const onFormSubmit = async (formData: GateRouteFormData) => {
@@ -662,17 +679,20 @@ export function GateRouteFormDialog({
               <div className="space-y-2 rounded-lg border border-border bg-background p-3">
                 {/* Thanh công cụ tìm kiếm và chọn tất cả */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border/70">
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none">
+                  <div
+                    className="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer select-none py-1 group"
+                    onClick={() => handleToggleSelectAll()}
+                  >
+                    <div className="pointer-events-none flex items-center">
                       <Checkbox
                         checked={areAllFilteredSelected}
                         indeterminate={isSomeFilteredSelected}
-                        onCheckedChange={toggleSelectAllFiltered}
+                        tabIndex={-1}
                       />
-                      <span>
-                        Chọn tất cả ({filteredVehicles.length} xe{filteredVehicles.length < sharedVehicles.length ? ' đang lọc' : ''})
-                      </span>
-                    </label>
+                    </div>
+                    <span className="group-hover:text-blue-600 transition-colors">
+                      Chọn tất cả ({filteredVehicles.length} xe{filteredVehicles.length < sharedVehicles.length ? ' đang lọc' : ''})
+                    </span>
                   </div>
 
                   <div className="relative flex-1 sm:max-w-[220px]">
@@ -722,18 +742,26 @@ export function GateRouteFormDialog({
                       return (
                         <div
                           key={vehicle.id}
-                          onClick={() => toggleVehicle(vehicle.id)}
-                          className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors pt-2 ${
+                          role="checkbox"
+                          aria-checked={isSelected}
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              handleToggleVehicle(vehicle.id);
+                            }
+                          }}
+                          onClick={() => handleToggleVehicle(vehicle.id)}
+                          className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors pt-2 select-none ${
                             isSelected
                               ? 'bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60'
                               : 'hover:bg-muted/40 border border-transparent'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
                             <Checkbox
                               checked={isSelected}
-                              onCheckedChange={() => toggleVehicle(vehicle.id)}
-                              onClick={(e) => e.stopPropagation()}
+                              tabIndex={-1}
                             />
                             <div className="flex items-center gap-1.5">
                               {vehicle.type === VehicleType.Motorbike ? (
@@ -757,7 +785,7 @@ export function GateRouteFormDialog({
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0 pointer-events-none">
                             {isCurrentRoute && (
                               <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50">
                                 Tuyến hiện tại
