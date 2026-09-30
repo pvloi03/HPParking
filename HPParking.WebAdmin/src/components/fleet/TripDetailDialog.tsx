@@ -117,7 +117,7 @@ export function TripDetailDialog({
                 </div>
                 <div>
                   <DialogTitle className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
-                    <span>Chi Tiết Hành Trình Xe Công Vụ</span>
+                    <span>Chi Tiết Hành Trình Phương Tiện Nội Bộ</span>
                     {trip && (
                       <span className="font-mono px-2 py-0.5 rounded bg-muted text-foreground text-sm font-semibold border border-border">
                         {trip.plateNumber}

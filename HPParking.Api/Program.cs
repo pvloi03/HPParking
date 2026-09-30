@@ -101,7 +101,7 @@ builder.Services.AddScoped<IClientExcelService, ClientExcelService>();
 builder.Services.AddScoped<IMasterDataExcelService, MasterDataExcelService>();
 builder.Services.AddScoped<IReportExcelService, ReportExcelService>();
 
-// Đăng ký dịch vụ Quản lý Thẻ, Tuyến đường xe công vụ và Email cảnh báo SLA
+// Đăng ký dịch vụ Quản lý Thẻ, Tuyến đường phương tiện nội bộ và Email cảnh báo SLA
 builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IGateRouteService, GateRouteService>();

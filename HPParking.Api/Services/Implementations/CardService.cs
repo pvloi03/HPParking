@@ -225,7 +225,7 @@ namespace HPParking.Api.Services.Implementations
                 if (vehicle != null && !vehicle.IsDeleted)
                 {
                     throw new ConflictException(
-                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được cắm trên xe công vụ '{vehicle.PlateNumber}'. Vui lòng gỡ thẻ khỏi phương tiện trước khi xóa.");
+                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được gán cho phương tiện nội bộ '{vehicle.PlateNumber}'. Vui lòng gỡ thẻ khỏi phương tiện trước khi xóa.");
                 }
             }
 

@@ -1,19 +1,11 @@
-import { useState, useMemo } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
 import type { ClientDto } from '@/types/client';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
+import { clientApi } from '@/api/clientApi';
 
 interface ClientSelectProps {
   value?: string;
   onValueChange: (clientId: string) => void;
-  clients: ClientDto[];
+  clients?: ClientDto[];
   placeholder?: string;
   disabled?: boolean;
 }
@@ -25,67 +17,33 @@ export function ClientSelect({
   placeholder = '-- Chọn chủ sở hữu phương tiện --',
   disabled = false,
 }: ClientSelectProps) {
-  const [search, setSearch] = useState('');
-
-  const filteredClients = useMemo(() => {
-    if (!search.trim()) return clients;
-    const q = search.toLowerCase().trim();
-    return clients.filter(
-      (c) =>
-        (c.name && c.name.toLowerCase().includes(q)) ||
-        (c.phoneNumber && c.phoneNumber.includes(q)) ||
-        (c.code && c.code.toLowerCase().includes(q))
-    );
-  }, [clients, search]);
-
   return (
-    <div className="space-y-1.5">
-      <Select
-        value={value || ''}
-        onValueChange={onValueChange}
-        disabled={disabled}
-      >
-        <SelectTrigger className="text-xs h-9">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent className="max-h-60">
-          <div className="p-1.5 border-b border-border sticky top-0 bg-popover z-10">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo tên, SĐT, CCCD/Mã..."
-                className="pl-7 h-7 text-xs"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-          {filteredClients.length === 0 ? (
-            <div className="py-4 text-center text-xs text-muted-foreground">
-              Không tìm thấy nhân sự nào khớp
-            </div>
-          ) : (
-            filteredClients.map((client) => (
-              <SelectItem key={client.id} value={client.id} className="text-xs py-1.5">
-                <div className="flex flex-col">
-                  <span className="font-semibold text-foreground">
-                    {client.name}{' '}
-                    <span className="font-mono font-normal text-muted-foreground">
-                      ({client.phoneNumber})
-                    </span>
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Mã/CCCD: {client.code}
-                    {client.address ? ` • ${client.address}` : ''}
-                  </span>
-                </div>
-              </SelectItem>
-            ))
-          )}
-        </SelectContent>
-      </Select>
-    </div>
+    <InfiniteSearchableSelect<ClientDto>
+      queryKey={['clients-infinite-select']}
+      fetchFn={(params) => clientApi.getPaged({ ...params, isActive: true })}
+      fetchById={(id) => clientApi.getById(String(id))}
+      value={value}
+      onValueChange={onValueChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      selectedItems={clients}
+      emptyMessage="Không tìm thấy nhân sự nào khớp"
+      renderItem={(client) => (
+        <div className="flex flex-col">
+          <span className="font-semibold text-foreground">
+            {client.name}{' '}
+            {client.phoneNumber && (
+              <span className="font-mono font-normal text-muted-foreground">
+                ({client.phoneNumber})
+              </span>
+            )}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            Mã/CCCD: {client.code}
+            {client.address ? ` • ${client.address}` : ''}
+          </span>
+        </div>
+      )}
+    />
   );
 }

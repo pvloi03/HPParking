@@ -341,10 +341,10 @@ namespace HPParking.Forms
             }
             else if (result.Vehicle != null)
             {
-                ui.LblFullName.Text = $"Xe công vụ: {result.Vehicle.PlateNumber}";
+                ui.LblFullName.Text = $"Phương tiện nội bộ: {result.Vehicle.PlateNumber}";
                 string departmentFullText = !string.IsNullOrWhiteSpace(result.DepartmentName)
                     ? result.DepartmentName
-                    : "Xe công vụ / Điều vận";
+                    : "Phương tiện nội bộ / Điều vận";
                 tooltip.SetToolTip(ui.LblDepartment, departmentFullText);
                 ui.LblDepartment.Text = departmentFullText;
                 ui.LblPlateRegistered.Text = $"Biển số đăng ký: {result.Vehicle.PlateNumber}";

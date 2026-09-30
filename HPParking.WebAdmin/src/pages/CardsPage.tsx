@@ -33,9 +33,12 @@ import {
 } from '@/components/ui/dialog';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import { cardApi } from '@/api/cardApi';
 import { clientApi } from '@/api/clientApi';
 import { vehicleApi } from '@/api/vehicleApi';
+import type { ClientDto } from '@/types/client';
+import type { VehicleDto } from '@/types/vehicle';
 import {
   CardTargetType,
   CardStatus,
@@ -85,18 +88,6 @@ export function CardsPage() {
         targetType: targetTypeFilter !== 'all' ? (Number(targetTypeFilter) as CardTargetType) : undefined,
         status: statusFilter !== 'all' ? (Number(statusFilter) as CardStatus) : undefined,
       }),
-  });
-
-  const { data: clientsData } = useQuery({
-    queryKey: ['activeClientsForCards'],
-    queryFn: () => clientApi.getPaged({ pageSize: 500, isActive: true }),
-    enabled: isCreateOpen,
-  });
-
-  const { data: vehiclesData } = useQuery({
-    queryKey: ['activeVehiclesForCards'],
-    queryFn: () => vehicleApi.getPaged({ pageSize: 500 }),
-    enabled: isCreateOpen,
   });
 
   const createMutation = useMutation({
@@ -161,7 +152,6 @@ export function CardsPage() {
     },
   });
 
-  const watchedCardNumber = watch('cardNumber');
   const watchedTargetType = watch('targetType');
   const watchedStatus = watch('status');
   const watchedClientId = watch('clientId');
@@ -202,7 +192,7 @@ export function CardsPage() {
           return isVehicle ? (
             <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30 text-[11px]">
               <Car className="h-3 w-3" />
-              <span>Xe công vụ</span>
+              <span>Phương tiện nội bộ</span>
             </Badge>
           ) : (
             <Badge variant="outline" className="gap-1 border-purple-300 text-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-950/30 text-[11px]">
@@ -306,7 +296,7 @@ export function CardsPage() {
               <SelectContent>
                 <SelectItem value="all" className="text-xs">Tất cả đối tượng</SelectItem>
                 <SelectItem value={String(CardTargetType.Person)} className="text-xs">Thẻ nhân sự</SelectItem>
-                <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">Thẻ xe công vụ</SelectItem>
+                <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">Thẻ phương tiện nội bộ</SelectItem>
               </SelectContent>
             </Select>
 
@@ -351,14 +341,6 @@ export function CardsPage() {
                 maxLength={10}
                 autoFocus
               />
-              {watchedCardNumber && (
-                <p className="text-[11px] text-muted-foreground">
-                  Chuẩn hóa lưu trữ:{' '}
-                  <strong className="text-indigo-600 font-mono font-bold">
-                    {normalizeCardCode(watchedCardNumber)}
-                  </strong>
-                </p>
-              )}
               {errors.cardNumber && (
                 <p className="text-[11px] text-destructive">{errors.cardNumber.message}</p>
               )}
@@ -385,7 +367,7 @@ export function CardsPage() {
                       Thẻ người (Nhân sự)
                     </SelectItem>
                     <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">
-                      Thẻ xe công vụ
+                      Thẻ phương tiện nội bộ
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -425,32 +407,20 @@ export function CardsPage() {
                   </span>
                   <span className="text-[10px] text-muted-foreground">Tùy chọn: Chọn người để gán thẻ ngay</span>
                 </label>
-                <Select
-                  value={watchedClientId || '__none__'}
+                <InfiniteSearchableSelect<ClientDto>
+                  queryKey={['activeClientsForCardsInfinite']}
+                  fetchFn={(params) => clientApi.getPaged({ ...params, isActive: true })}
+                  fetchById={(id) => clientApi.getById(String(id))}
+                  value={watchedClientId || ''}
                   onValueChange={(val) => {
-                    if (val === '__none__') {
-                      setValue('clientId', '', { shouldDirty: true });
-                      setValue('status', CardStatus.Available, { shouldDirty: true });
-                    } else {
-                      setValue('clientId', val, { shouldDirty: true });
-                      setValue('status', CardStatus.InUse, { shouldDirty: true });
-                    }
+                    setValue('clientId', val, { shouldDirty: true });
+                    setValue('status', val ? CardStatus.InUse : CardStatus.Available, { shouldDirty: true });
                   }}
-                >
-                  <SelectTrigger className="text-xs h-9">
-                    <SelectValue placeholder="-- Chưa gán (Lưu trong kho) --" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-56">
-                    <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                      -- Chưa gán (Lưu trong kho) --
-                    </SelectItem>
-                    {(clientsData?.items || []).map((client: any) => (
-                      <SelectItem key={client.id} value={client.id} className="text-xs">
-                        {client.name} ({client.code}{client.phoneNumber ? ` - ${client.phoneNumber}` : ''})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="-- Chưa gán (Lưu trong kho) --"
+                  allowClear={true}
+                  clearLabel="-- Chưa gán (Lưu trong kho) --"
+                  getLabel={(client) => `${client.name} (${client.code}${client.phoneNumber ? ` - ${client.phoneNumber}` : ''})`}
+                />
               </div>
             )}
 
@@ -459,36 +429,23 @@ export function CardsPage() {
                 <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Car className="h-3.5 w-3.5 text-blue-600" />
-                    Gán cho Phương tiện (Xe công vụ / dùng chung)
+                    Gán cho Phương tiện nội bộ (Xe dùng chung)
                   </span>
-                  <span className="text-[10px] text-muted-foreground">Tùy chọn: Chọn xe để gán thẻ ngay</span>
                 </label>
-                <Select
-                  value={watchedVehicleId || '__none__'}
+                <InfiniteSearchableSelect<VehicleDto>
+                  queryKey={['activeVehiclesForCardsInfinite']}
+                  fetchFn={(params) => vehicleApi.getPaged({ ...params, isActive: true })}
+                  fetchById={(id) => vehicleApi.getById(String(id))}
+                  value={watchedVehicleId || ''}
                   onValueChange={(val) => {
-                    if (val === '__none__') {
-                      setValue('vehicleId', '', { shouldDirty: true });
-                      setValue('status', CardStatus.Available, { shouldDirty: true });
-                    } else {
-                      setValue('vehicleId', val, { shouldDirty: true });
-                      setValue('status', CardStatus.InUse, { shouldDirty: true });
-                    }
+                    setValue('vehicleId', val, { shouldDirty: true });
+                    setValue('status', val ? CardStatus.InUse : CardStatus.Available, { shouldDirty: true });
                   }}
-                >
-                  <SelectTrigger className="text-xs h-9">
-                    <SelectValue placeholder="-- Chưa gán (Lưu trong kho) --" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-56">
-                    <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                      -- Chưa gán (Lưu trong kho) --
-                    </SelectItem>
-                    {(vehiclesData?.items || []).map((vehicle: any) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id} className="text-xs font-mono">
-                        {vehicle.plateNumber} ({vehicle.isShared ? 'Xe dùng chung' : 'Xe cá nhân'}{vehicle.note ? ` - ${vehicle.note}` : ''})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="-- Chưa gán (Lưu trong kho) --"
+                  allowClear={true}
+                  clearLabel="-- Chưa gán (Lưu trong kho) --"
+                  getLabel={(vehicle) => `${vehicle.plateNumber} (${vehicle.isShared ? 'Xe dùng chung' : 'Xe cá nhân'}${vehicle.note ? ` - ${vehicle.note}` : ''})`}
+                />
               </div>
             )}
 

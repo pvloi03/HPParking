@@ -20,6 +20,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Route, Save, Camera, Cpu, ScanFace } from 'lucide-react';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
+import { gatesApi } from '@/api/infrastructureApi';
 import {
   LaneDirection,
   DeviceType,
@@ -213,21 +215,16 @@ export function LaneFormDialog({
               <label className="text-xs font-semibold text-foreground">
                 Cổng kiểm soát <span className="text-destructive">*</span>
               </label>
-              <Select
+              <InfiniteSearchableSelect<GateDto>
+                queryKey={['gates-infinite-select']}
+                fetchFn={(params) => gatesApi.getPaged({ ...params, isActive: true })}
+                fetchById={(id) => gatesApi.getById(String(id))}
                 value={selectedGateId}
                 onValueChange={(val) => setValue('gateId', val, { shouldValidate: true })}
-              >
-                <SelectTrigger className="text-xs">
-                  <SelectValue placeholder="-- Chọn cổng --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {gates.map((g) => (
-                    <SelectItem key={g.id} value={g.id} className="text-xs">
-                      {g.name} ({g.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                selectedItems={gates}
+                placeholder="-- Chọn cổng trực thuộc --"
+                getLabel={(g) => `${g.name} (${g.code})`}
+              />
               {errors.gateId && (
                 <p className="text-[11px] text-destructive">{errors.gateId.message}</p>
               )}

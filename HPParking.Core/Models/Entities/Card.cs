@@ -7,7 +7,7 @@ namespace HPParking.Core.Models.Entities
     public enum CardTargetType
     {
         Person = 1,   // Thẻ cấp cho Nhân sự (Client)
-        Vehicle = 2   // Thẻ cắm cố định trên Xe công vụ / Xe dùng chung (Vehicle)
+        Vehicle = 2   // Thẻ cấp cho Phương tiện nội bộ / Xe dùng chung (Vehicle)
     }
 
     public enum CardStatus
@@ -30,7 +30,7 @@ namespace HPParking.Core.Models.Entities
         public string CardNumber { get; set; } = string.Empty;
 
         /// <summary>
-        /// Loại đối tượng sử dụng thẻ: Person (Nhân sự) hoặc Vehicle (Xe dùng chung)
+        /// Loại đối tượng sử dụng thẻ: Person (Nhân sự) hoặc Vehicle (Phương tiện nội bộ)
         /// </summary>
         [BsonRepresentation(BsonType.String)]
         public CardTargetType TargetType { get; set; } = CardTargetType.Person;
@@ -42,7 +42,7 @@ namespace HPParking.Core.Models.Entities
         public string? ClientId { get; set; }
 
         /// <summary>
-        /// Khóa ngoại liên kết Xe công vụ (nếu TargetType == Vehicle)
+        /// Khóa ngoại liên kết Phương tiện nội bộ (nếu TargetType == Vehicle)
         /// </summary>
         [BsonRepresentation(BsonType.ObjectId)]
         public string? VehicleId { get; set; }

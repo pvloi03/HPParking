@@ -1,8 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Car, Save, Truck, Route, CreditCard } from 'lucide-react';
 import { ClientSelect } from './ClientSelect';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import {
   VehicleType,
   normalizePlateNumber,
@@ -30,9 +30,10 @@ import {
   type UpdateVehicleRequest,
 } from '@/types/vehicle';
 import type { ClientDto } from '@/types/client';
+import type { GateRouteDto } from '@/types/gateRoute';
 import { gateRouteApi } from '@/api/gateRouteApi';
 import { cardApi } from '@/api/cardApi';
-import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
+import { CardTargetType, type CardDto } from '@/types/card';
 
 const vehicleSchema = z
   .object({
@@ -83,45 +84,6 @@ export function VehicleFormDialog({
 }: VehicleFormDialogProps) {
   const isEditing = Boolean(initialData);
 
-  const { data: gateRoutes = [] } = useQuery({
-    queryKey: ['gateRoutes'],
-    queryFn: () => gateRouteApi.getAll(),
-    enabled: open,
-  });
-
-  const { data: vehicleCardsData, isLoading: isLoadingCards } = useQuery({
-    queryKey: ['availableVehicleCards'],
-    queryFn: () => cardApi.getCards({ targetType: CardTargetType.Vehicle, pageSize: 500 }),
-    enabled: open,
-  });
-
-  const availableVehicleCards = useMemo(() => {
-    const list = vehicleCardsData?.items || [];
-    return list.filter(
-      (c) =>
-        c.status === CardStatus.Available ||
-        c.cardNumber === initialData?.cardCode ||
-        c.vehicleId === initialData?.id
-    );
-  }, [vehicleCardsData?.items, initialData?.cardCode, initialData?.id]);
-
-  const allVehicleCardOptions = useMemo(() => {
-    const options = [...availableVehicleCards];
-    if (
-      initialData?.cardCode &&
-      !options.some((c) => c.cardNumber === initialData.cardCode)
-    ) {
-      options.unshift({
-        id: 'current-card',
-        cardNumber: initialData.cardCode,
-        targetType: CardTargetType.Vehicle,
-        status: CardStatus.InUse,
-        createdAt: '',
-      } as CardDto);
-    }
-    return options;
-  }, [availableVehicleCards, initialData?.cardCode]);
-
   const {
     register,
     handleSubmit,
@@ -153,14 +115,13 @@ export function VehicleFormDialog({
 
   useEffect(() => {
     if (open) {
-      const defaultRoute = gateRoutes.find((r) => r.isDefault || r.routeCode === 'DEFAULT');
       if (initialData) {
         reset({
           plateNumber: initialData.plateNumber,
           type: initialData.type,
           clientId: initialData.isShared ? '' : (initialData.ownerClientId || ''),
           isShared: initialData.isShared ?? false,
-          assignedRouteId: initialData.assignedRouteId || (defaultRoute?.id || (gateRoutes[0]?.id ?? '')),
+          assignedRouteId: initialData.assignedRouteId || '',
           cardCode: initialData.cardCode || '',
           note: initialData.note || '',
           isActive: initialData.isActive,
@@ -171,14 +132,14 @@ export function VehicleFormDialog({
           type: VehicleType.Car,
           clientId: clients.length > 0 ? clients[0].id : '',
           isShared: false,
-          assignedRouteId: defaultRoute?.id || (gateRoutes[0]?.id ?? ''),
+          assignedRouteId: '',
           cardCode: '',
           note: '',
           isActive: true,
         });
       }
     }
-  }, [open, initialData, clients, gateRoutes, reset]);
+  }, [open, initialData, clients, reset]);
 
   const onFormSubmit = async (formData: VehicleFormData) => {
     const cleanedPlate = normalizePlateNumber(formData.plateNumber);
@@ -224,22 +185,22 @@ export function VehicleFormDialog({
           <DialogDescription>
             {isEditing
               ? 'Chỉnh sửa biển số, phân loại phương tiện, chế độ xe dùng chung và tuyến điều vận.'
-              : 'Gán phương tiện cho nhân sự hoặc thiết lập xe công vụ liên nhà máy.'}
+              : 'Gán phương tiện cho nhân sự hoặc thiết lập phương tiện nội bộ liên nhà máy.'}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3.5 py-1">
-          {/* Cấu hình Xe Công Vụ / Xe Dùng Chung */}
+          {/* Cấu hình Phương Tiện Nội Bộ / Xe Dùng Chung */}
           <div className="rounded-lg border border-border p-3 bg-muted/20 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Truck className="h-4 w-4 text-amber-500" />
                 <div>
                   <span className="text-xs font-semibold text-foreground block">
-                    Xe công vụ / Xe dùng chung liên nhà máy
+                    Phương tiện nội bộ / Xe dùng chung liên nhà máy
                   </span>
                   <span className="text-[11px] text-muted-foreground block">
-                    Xe được cấp phát di chuyển qua lại giữa các nhà máy/cổng theo SLA
+                    Phương tiện được cấp phát di chuyển qua lại giữa các nhà máy/cổng theo SLA
                   </span>
                 </div>
               </div>
@@ -250,10 +211,6 @@ export function VehicleFormDialog({
                   setValue('isShared', nextVal, { shouldDirty: true, shouldValidate: true });
                   if (nextVal) {
                     setValue('clientId', '', { shouldDirty: true, shouldValidate: true });
-                    if (!watch('assignedRouteId')) {
-                      const def = gateRoutes.find((r) => r.isDefault || r.routeCode === 'DEFAULT') || gateRoutes[0];
-                      if (def) setValue('assignedRouteId', def.id, { shouldDirty: true });
-                    }
                   } else if (!watch('clientId') && clients.length > 0) {
                     setValue('clientId', clients[0].id, { shouldDirty: true, shouldValidate: true });
                   }
@@ -277,7 +234,10 @@ export function VehicleFormDialog({
                     <Route className="h-3.5 w-3.5 text-blue-500" />
                     Tuyến đường gán trước
                   </label>
-                  <Select
+                  <InfiniteSearchableSelect<GateRouteDto>
+                    queryKey={['gateRoutes-infinite-select']}
+                    fetchFn={(params) => gateRouteApi.getRoutes({ ...params, isActive: true })}
+                    fetchById={(id) => gateRouteApi.getById(String(id))}
                     value={assignedRouteId || ''}
                     onValueChange={(val) =>
                       setValue('assignedRouteId', val, {
@@ -285,18 +245,11 @@ export function VehicleFormDialog({
                         shouldValidate: true,
                       })
                     }
-                  >
-                    <SelectTrigger className="text-xs h-9">
-                      <SelectValue placeholder="-- Chọn tuyến điều vận từ danh sách --" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {gateRoutes.map((route) => (
-                        <SelectItem key={route.id} value={route.id} className="text-xs">
-                          {route.routeCode} - {route.routeName} ({route.gateSteps?.length || 0} chặng)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="-- Chọn tuyến điều vận từ danh sách --"
+                    allowClear={true}
+                    clearLabel="-- Không gán tuyến --"
+                    getLabel={(route) => `${route.routeCode} - ${route.routeName} (${route.gateSteps?.length || 0} chặng)`}
+                  />
                 </div>
               </div>
             )}
@@ -393,42 +346,24 @@ export function VehicleFormDialog({
                 </span>
               )}
             </label>
-            <Select
-              value={selectedCardCode || '__none__'}
+            <InfiniteSearchableSelect<CardDto>
+              queryKey={['availableVehicleCardsInfinite']}
+              fetchFn={(params) => cardApi.getCards({ ...params, targetType: CardTargetType.Vehicle })}
+              value={selectedCardCode || ''}
+              getValue={(card) => card.cardNumber}
+              getLabel={(card) => `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`}
               onValueChange={(val) =>
-                setValue('cardCode', val === '__none__' ? '' : val, {
+                setValue('cardCode', val, {
                   shouldDirty: true,
                   shouldValidate: true,
                 })
               }
-            >
-              <SelectTrigger className="text-xs h-9">
-                <SelectValue
-                  placeholder={
-                    isLoadingCards
-                      ? 'Đang tải danh sách thẻ xe...'
-                      : '-- Chọn thẻ xe trong kho (Tùy chọn) --'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                  -- Không gán thẻ xe (None) --
-                </SelectItem>
-                {allVehicleCardOptions.map((card) => (
-                  <SelectItem
-                    key={card.id}
-                    value={card.cardNumber}
-                    className="text-xs font-mono"
-                  >
-                    {card.cardNumber} {card.note ? `(${card.note})` : ''}{' '}
-                    {card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="-- Chọn thẻ xe trong kho (Tùy chọn) --"
+              allowClear={true}
+              clearLabel="-- Không gán thẻ xe (None) --"
+            />
             <p className="text-[11px] text-muted-foreground">
-              Chọn thẻ từ kho thẻ có loại Phương tiện (Vehicle). Thường dùng cho xe công vụ hoặc xe dùng chung qua lại các cổng.
+              Chọn thẻ từ kho thẻ có loại Phương tiện (Vehicle). Thường dùng cho phương tiện nội bộ hoặc xe dùng chung qua lại các cổng.
             </p>
           </div>
 

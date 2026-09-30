@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace HPParking.Core.Models.Entities
 {
     /// <summary>
-    /// Chặng kiểm soát cổng trong lộ trình tuyến xe công vụ
+    /// Chặng kiểm soát cổng trong lộ trình tuyến phương tiện nội bộ
     /// </summary>
     public class RouteGateStep
     {
@@ -43,7 +43,7 @@ namespace HPParking.Core.Models.Entities
     }
 
     /// <summary>
-    /// Cấu hình Tuyến đường di chuyển xe công vụ đa cổng liên nhà máy
+    /// Cấu hình Tuyến đường di chuyển phương tiện nội bộ đa cổng liên nhà máy
     /// </summary>
     [BsonIgnoreExtraElements]
     public class GateRouteConfig : BaseEntity

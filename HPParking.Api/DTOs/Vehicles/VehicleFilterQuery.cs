@@ -35,7 +35,7 @@ namespace HPParking.Api.DTOs.Vehicles
         public bool? IsActive { get; set; }
 
         /// <summary>
-        /// Lọc theo xe dùng chung / xe công vụ
+        /// Lọc theo xe dùng chung / phương tiện nội bộ
         /// </summary>
         public bool? IsShared { get; set; }
 

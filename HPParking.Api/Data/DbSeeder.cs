@@ -66,7 +66,7 @@ namespace HPParking.Api.Data
                 {
                     RouteCode = "DEFAULT",
                     RouteName = "Tuyến tự do mặc định (Free-roam SLA)",
-                    Description = "Cấu hình thời gian di chuyển và làm việc mặc định cho xe công vụ chạy tự do giữa các cổng/nhà máy.",
+                    Description = "Cấu hình thời gian di chuyển và làm việc mặc định cho phương tiện nội bộ chạy tự do giữa các cổng/nhà máy.",
                     IsDefault = true,
                     DefaultTravelMinutes = 15,
                     DefaultStayMinutes = 15,

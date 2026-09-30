@@ -23,7 +23,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Lấy danh sách các xe công vụ đang trong chuyến đi (InTransit, WorkingAtGate, Overdue)
+        /// Lấy danh sách các phương tiện nội bộ đang trong chuyến đi (InTransit, WorkingAtGate, Overdue)
         /// </summary>
         [HttpGet("active")]
         [Authorize(Roles = "Viewer,Manager,Admin")]
@@ -31,7 +31,7 @@ namespace HPParking.Api.Controllers.V1
         public async Task<IActionResult> GetActiveTrips(CancellationToken cancellationToken)
         {
             var result = await _fleetService.GetActiveTripsAsync(cancellationToken);
-            return OkApiResponse(result, "Lấy danh sách xe đang điều vận thành công.");
+            return OkApiResponse(result, "Lấy danh sách phương tiện đang điều vận thành công.");
         }
 
         /// <summary>

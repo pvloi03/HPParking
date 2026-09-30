@@ -369,10 +369,10 @@ export function FleetDispatchPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Truck className="h-6 w-6 text-amber-600" />
-            Điều Vận Xe Công Vụ Thời Gian Thực
+            Điều Vận Phương Tiện Nội Bộ Thời Gian Thực
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Giám sát trực tiếp các chuyến xe dùng chung giữa các nhà máy, tự động phát hiện vi phạm SLA và tra cứu hồ sơ lịch sử hành trình.
+            Giám sát trực tiếp các chuyến phương tiện nội bộ giữa các nhà máy, tự động phát hiện vi phạm SLA và tra cứu hồ sơ lịch sử hành trình.
           </p>
         </div>
         <Button
@@ -496,8 +496,8 @@ export function FleetDispatchPage() {
           searchPlaceholder="Tìm biển số, mã thẻ, cổng..."
           onPageChange={() => {}}
           isLoading={isLoadingActive}
-          emptyTitle="Không có chuyến xe công vụ đang chạy"
-          emptyDescription="Khi xe quẹt thẻ xuất phát tại cổng, chuyến xe sẽ tự động hiển thị tại đây."
+          emptyTitle="Không có chuyến phương tiện nội bộ đang chạy"
+          emptyDescription="Khi phương tiện quẹt thẻ xuất phát tại cổng, chuyến xe sẽ tự động hiển thị tại đây."
         />
       )}
 

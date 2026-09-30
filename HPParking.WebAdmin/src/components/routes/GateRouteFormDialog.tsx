@@ -34,10 +34,13 @@ import {
   Car,
   Bike,
   MapPin,
+  Loader2,
 } from 'lucide-react';
 import { gatesApi } from '@/api/infrastructureApi';
 import { vehicleApi } from '@/api/vehicleApi';
-import { VehicleType } from '@/types/vehicle';
+import { VehicleType, type VehicleDto } from '@/types/vehicle';
+import { useInfiniteSelectQuery } from '@/hooks/useInfiniteSelectQuery';
+import { useIntersectionSentinel } from '@/hooks/useIntersectionSentinel';
 import type {
   GateRouteDto,
   CreateGateRouteRequest,
@@ -106,7 +109,6 @@ export function GateRouteFormDialog({
 
   const [applyToAllShared, setApplyToAllShared] = useState(false);
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
-  const [vehicleSearch, setVehicleSearch] = useState('');
 
   const { data: gatesData } = useQuery({
     queryKey: ['gates-all-select'],
@@ -115,12 +117,34 @@ export function GateRouteFormDialog({
   });
   const gates = gatesData?.items || [];
 
-  const { data: sharedVehiclesData, isLoading: isLoadingVehicles } = useQuery({
-    queryKey: ['vehicles-shared-all'],
-    queryFn: () => vehicleApi.getPaged({ pageIndex: 1, pageSize: 500, isShared: true, isActive: true }),
+  // Tải danh sách xe dùng chung theo trang vô tận (Server-side Infinite Scroll)
+  const {
+    items: sharedVehicles,
+    isLoading: isLoadingVehicles,
+    isFetchingNextPage: isFetchingMoreVehicles,
+    hasNextPage: hasMoreVehicles,
+    fetchNextPage: fetchMoreVehicles,
+    search: vehicleSearch,
+    setSearch: setVehicleSearch,
+    totalCount: totalSharedVehiclesCount,
+  } = useInfiniteSelectQuery<VehicleDto>({
+    queryKey: ['vehicles-shared-infinite'],
+    fetchFn: (params) =>
+      vehicleApi.getPaged({
+        ...params,
+        isShared: true,
+        isActive: true,
+      }),
+    pageSize: 20,
+    filters: { isShared: true, isActive: true },
     enabled: open,
   });
-  const sharedVehicles = sharedVehiclesData?.items || [];
+
+  const { sentinelRef: vehicleSentinelRef } = useIntersectionSentinel({
+    enabled: open && hasMoreVehicles && !isFetchingMoreVehicles,
+    onIntersect: fetchMoreVehicles,
+    rootMargin: '60px',
+  });
 
   const {
     register,
@@ -158,32 +182,35 @@ export function GateRouteFormDialog({
 
   useEffect(() => {
     if (open) {
-      if (initialData) {
-        reset({
-          routeCode: initialData.routeCode,
-          routeName: initialData.routeName,
-          description: initialData.description || '',
-          isClosedLoop: initialData.isClosedLoop ?? true,
-          alertEmailsText: (initialData.alertEmails || []).join(', '),
-          isDefault: Boolean(initialData.isDefault || initialData.routeCode === 'DEFAULT'),
-          defaultTravelMinutes: initialData.defaultTravelMinutes || 15,
-          defaultStayMinutes: initialData.defaultStayMinutes || 15,
-          isActive: initialData.isActive,
-          gateSteps:
-            initialData.gateSteps && initialData.gateSteps.length > 0
-              ? initialData.gateSteps.map((s, idx) => ({
-                  gateId: s.gateId,
-                  stepIndex: idx + 1,
-                  maxTravelMinutes: s.maxTravelMinutes,
-                  maxStayMinutes: s.maxStayMinutes,
-                }))
-              : isDefaultRoute
-              ? []
-              : [{ gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 }],
-        });
+      const currentTargetKey = initialData ? initialData.id : 'NEW';
+      if (initializedRouteIdRef.current !== currentTargetKey) {
+        initializedRouteIdRef.current = currentTargetKey;
 
-        // Điền trước các xe đã gán tuyến này
-        if (initializedRouteIdRef.current !== initialData.id) {
+        if (initialData) {
+          reset({
+            routeCode: initialData.routeCode,
+            routeName: initialData.routeName,
+            description: initialData.description || '',
+            isClosedLoop: initialData.isClosedLoop ?? true,
+            alertEmailsText: (initialData.alertEmails || []).join(', '),
+            isDefault: Boolean(initialData.isDefault || initialData.routeCode === 'DEFAULT'),
+            defaultTravelMinutes: initialData.defaultTravelMinutes || 15,
+            defaultStayMinutes: initialData.defaultStayMinutes || 15,
+            isActive: initialData.isActive,
+            gateSteps:
+              initialData.gateSteps && initialData.gateSteps.length > 0
+                ? initialData.gateSteps.map((s, idx) => ({
+                    gateId: s.gateId,
+                    stepIndex: idx + 1,
+                    maxTravelMinutes: s.maxTravelMinutes,
+                    maxStayMinutes: s.maxStayMinutes,
+                  }))
+                : isDefaultRoute
+                ? []
+                : [{ gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 }],
+          });
+
+          // Điền trước các xe đã gán tuyến này
           const preAssigned = new Set<string>();
           if (initialData.assignedVehicleIds && initialData.assignedVehicleIds.length > 0) {
             initialData.assignedVehicleIds.forEach((id) => preAssigned.add(id));
@@ -196,13 +223,7 @@ export function GateRouteFormDialog({
 
           setSelectedVehicleIds(Array.from(preAssigned));
           setApplyToAllShared(false);
-
-          if (sharedVehicles.length > 0 || (initialData.assignedVehicleIds && initialData.assignedVehicleIds.length > 0)) {
-            initializedRouteIdRef.current = initialData.id;
-          }
-        }
-      } else {
-        if (initializedRouteIdRef.current !== 'NEW') {
+        } else {
           reset({
             routeCode: '',
             routeName: '',
@@ -219,46 +240,34 @@ export function GateRouteFormDialog({
           });
           setSelectedVehicleIds([]);
           setApplyToAllShared(false);
-          initializedRouteIdRef.current = 'NEW';
         }
+        setVehicleSearch('');
       }
-      setVehicleSearch('');
     } else {
       initializedRouteIdRef.current = null;
     }
-  }, [open, initialData, isDefaultRoute, reset, sharedVehicles]);
-
-  const filteredVehicles = useMemo(() => {
-    if (!vehicleSearch.trim()) return sharedVehicles;
-    const query = vehicleSearch.trim().toLowerCase();
-    return sharedVehicles.filter(
-      (v) =>
-        v.plateNumber?.toLowerCase().includes(query) ||
-        v.cardCode?.toLowerCase().includes(query) ||
-        v.note?.toLowerCase().includes(query)
-    );
-  }, [sharedVehicles, vehicleSearch]);
+  }, [open, initialData, isDefaultRoute, reset, sharedVehicles, setVehicleSearch]);
 
   const areAllFilteredSelected = useMemo(() => {
-    if (filteredVehicles.length === 0) return false;
-    return filteredVehicles.every((v) => selectedVehicleIds.includes(v.id));
-  }, [filteredVehicles, selectedVehicleIds]);
+    if (sharedVehicles.length === 0) return false;
+    return sharedVehicles.every((v) => selectedVehicleIds.includes(v.id));
+  }, [sharedVehicles, selectedVehicleIds]);
 
   const isSomeFilteredSelected = useMemo(() => {
-    if (filteredVehicles.length === 0) return false;
+    if (sharedVehicles.length === 0) return false;
     return (
-      filteredVehicles.some((v) => selectedVehicleIds.includes(v.id)) &&
+      sharedVehicles.some((v) => selectedVehicleIds.includes(v.id)) &&
       !areAllFilteredSelected
     );
-  }, [filteredVehicles, selectedVehicleIds, areAllFilteredSelected]);
+  }, [sharedVehicles, selectedVehicleIds, areAllFilteredSelected]);
 
   const handleToggleSelectAll = (forceChecked?: boolean) => {
     const shouldSelect = forceChecked !== undefined ? forceChecked : !areAllFilteredSelected;
     if (!shouldSelect) {
-      const filteredIds = new Set(filteredVehicles.map((v) => v.id));
-      setSelectedVehicleIds((prev) => prev.filter((id) => !filteredIds.has(id)));
+      const currentIds = new Set(sharedVehicles.map((v) => v.id));
+      setSelectedVehicleIds((prev) => prev.filter((id) => !currentIds.has(id)));
     } else {
-      const combined = new Set([...selectedVehicleIds, ...filteredVehicles.map((v) => v.id)]);
+      const combined = new Set([...selectedVehicleIds, ...sharedVehicles.map((v) => v.id)]);
       setSelectedVehicleIds(Array.from(combined));
     }
   };
@@ -391,7 +400,7 @@ export function GateRouteFormDialog({
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Áp dụng cho mọi xe công vụ di chuyển tự do giữa các nhà máy. Cập nhật mốc SLA bên dưới sẽ tự động áp dụng khi xe quẹt thẻ qua trạm.
+                Áp dụng cho mọi phương tiện nội bộ di chuyển tự do giữa các nhà máy. Cập nhật mốc SLA bên dưới sẽ tự động áp dụng khi xe quẹt thẻ qua trạm.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -658,7 +667,7 @@ export function GateRouteFormDialog({
                   Áp dụng cho tất cả xe dùng chung
                 </span>
                 <span className="text-[11px] text-muted-foreground block">
-                  Tự động gán toàn bộ xe dùng chung/xe công vụ ({sharedVehicles.length} xe) vào tuyến này
+                  Tự động gán toàn bộ phương tiện nội bộ / dùng chung ({sharedVehicles.length} xe) vào tuyến này
                 </span>
               </div>
               <button
@@ -693,7 +702,7 @@ export function GateRouteFormDialog({
                       />
                     </div>
                     <span className="group-hover:text-blue-600 transition-colors">
-                      Chọn tất cả ({filteredVehicles.length} xe{filteredVehicles.length < sharedVehicles.length ? ' đang lọc' : ''})
+                      Chọn tất cả ({sharedVehicles.length} xe đang hiển thị)
                     </span>
                   </div>
 
@@ -719,89 +728,109 @@ export function GateRouteFormDialog({
                 </div>
 
                 {/* Danh sách xe */}
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
                   {isLoadingVehicles ? (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      Đang tải danh sách phương tiện...
+                    <div className="py-6 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-1.5">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span>Đang tải danh sách phương tiện...</span>
                     </div>
                   ) : sharedVehicles.length === 0 ? (
                     <div className="py-6 text-center text-xs text-muted-foreground">
-                      Chưa có phương tiện dùng chung nào được thiết lập trong hệ thống.
-                    </div>
-                  ) : filteredVehicles.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      Không tìm thấy phương tiện nào phù hợp với từ khóa "{vehicleSearch}".
+                      {vehicleSearch
+                        ? `Không tìm thấy phương tiện nào phù hợp với từ khóa "${vehicleSearch}".`
+                        : 'Chưa có phương tiện dùng chung nào được thiết lập trong hệ thống.'}
                     </div>
                   ) : (
-                    filteredVehicles.map((vehicle) => {
-                      const isSelected = selectedVehicleIds.includes(vehicle.id);
-                      const isAssignedOtherRoute =
-                        vehicle.assignedRouteId &&
-                        vehicle.assignedRouteId !== initialData?.id;
-                      const isCurrentRoute =
-                        Boolean(initialData && vehicle.assignedRouteId === initialData.id);
+                    <>
+                      {sharedVehicles.map((vehicle) => {
+                        const isSelected = selectedVehicleIds.includes(vehicle.id);
+                        const isAssignedOtherRoute =
+                          vehicle.assignedRouteId &&
+                          vehicle.assignedRouteId !== initialData?.id;
+                        const isCurrentRoute =
+                          Boolean(initialData && vehicle.assignedRouteId === initialData.id);
 
-                      return (
-                        <div
-                          key={vehicle.id}
-                          role="checkbox"
-                          aria-checked={isSelected}
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === ' ' || e.key === 'Enter') {
-                              e.preventDefault();
-                              handleToggleVehicle(vehicle.id);
-                            }
-                          }}
-                          onClick={() => handleToggleVehicle(vehicle.id)}
-                          className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors pt-2 select-none ${
-                            isSelected
-                              ? 'bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60'
-                              : 'hover:bg-muted/40 border border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
-                            <Checkbox
-                              checked={isSelected}
-                              tabIndex={-1}
-                            />
-                            <div className="flex items-center gap-1.5">
-                              {vehicle.type === VehicleType.Motorbike ? (
-                                <span className="p-1 rounded bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400">
-                                  <Bike className="h-3.5 w-3.5" />
+                        return (
+                          <div
+                            key={vehicle.id}
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === ' ' || e.key === 'Enter') {
+                                e.preventDefault();
+                                handleToggleVehicle(vehicle.id);
+                              }
+                            }}
+                            onClick={() => handleToggleVehicle(vehicle.id)}
+                            className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors pt-2 select-none ${
+                              isSelected
+                                ? 'bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60'
+                                : 'hover:bg-muted/40 border border-transparent'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pointer-events-none">
+                              <Checkbox
+                                checked={isSelected}
+                                tabIndex={-1}
+                              />
+                              <div className="flex items-center gap-1.5">
+                                {vehicle.type === VehicleType.Motorbike ? (
+                                  <span className="p-1 rounded bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400">
+                                    <Bike className="h-3.5 w-3.5" />
+                                  </span>
+                                ) : (
+                                  <span className="p-1 rounded bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                                    <Car className="h-3.5 w-3.5" />
+                                  </span>
+                                )}
+                                <span className="font-mono text-xs font-bold text-foreground">
+                                  {vehicle.plateNumber}
                                 </span>
-                              ) : (
-                                <span className="p-1 rounded bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
-                                  <Car className="h-3.5 w-3.5" />
+                              </div>
+
+                              {vehicle.cardCode && (
+                                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
+                                  Thẻ: {vehicle.cardCode}
                                 </span>
                               )}
-                              <span className="font-mono text-xs font-bold text-foreground">
-                                {vehicle.plateNumber}
-                              </span>
                             </div>
 
-                            {vehicle.cardCode && (
-                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-mono">
-                                Thẻ: {vehicle.cardCode}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0 pointer-events-none">
+                              {isCurrentRoute && (
+                                <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50">
+                                  Tuyến hiện tại
+                                </Badge>
+                              )}
+                              {isAssignedOtherRoute && (
+                                <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50">
+                                  Gán tuyến khác
+                                </Badge>
+                              )}
+                            </div>
                           </div>
+                        );
+                      })}
 
-                          <div className="flex items-center gap-1.5 shrink-0 pointer-events-none">
-                            {isCurrentRoute && (
-                              <Badge variant="outline" className="text-[9px] text-emerald-600 border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50">
-                                Tuyến hiện tại
-                              </Badge>
-                            )}
-                            {isAssignedOtherRoute && (
-                              <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50">
-                                Gán tuyến khác
-                              </Badge>
-                            )}
-                          </div>
+                      {/* Phần tử Sentinel kích hoạt tải thêm khi cuộn */}
+                      {hasMoreVehicles && (
+                        <div
+                          ref={vehicleSentinelRef}
+                          className="py-2.5 flex items-center justify-center text-xs text-muted-foreground border-t border-border/40"
+                        >
+                          {isFetchingMoreVehicles ? (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                              <span>Đang tải thêm phương tiện...</span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground/70">
+                              Cuộn xuống để tải thêm ({sharedVehicles.length}/{totalSharedVehiclesCount})
+                            </span>
+                          )}
                         </div>
-                      );
-                    })
+                      )}
+                    </>
                   )}
                 </div>
               </div>

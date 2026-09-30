@@ -23,7 +23,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Lấy danh sách thẻ có phân trang và lọc theo loại (Người / Xe công vụ), trạng thái
+        /// Lấy danh sách thẻ có phân trang và lọc theo loại (Người / Phương tiện nội bộ), trạng thái
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "Viewer,Manager,Admin")]

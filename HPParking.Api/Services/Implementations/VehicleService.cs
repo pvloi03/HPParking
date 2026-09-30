@@ -173,7 +173,7 @@ namespace HPParking.Api.Services.Implementations
                     targetId: vehicle.Id,
                     targetDisplay: vehicle.PlateNumber,
                     reason: request.IsShared
-                        ? $"Thêm xe công vụ dùng chung mới '{vehicle.PlateNumber}'."
+                        ? $"Thêm phương tiện nội bộ mới '{vehicle.PlateNumber}'."
                         : $"Thêm phương tiện mới '{vehicle.PlateNumber}' cho khách hàng '{client?.Name}'.",
                     cancellationToken: cancellationToken);
             }

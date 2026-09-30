@@ -52,13 +52,13 @@ namespace HPParking.Core.Models.Entities
     }
 
     /// <summary>
-    /// Thực thể ghi nhận hành trình chuyến đi của xe công vụ / xe dùng chung
+    /// Thực thể ghi nhận hành trình chuyến đi của phương tiện nội bộ / xe dùng chung
     /// </summary>
     [BsonIgnoreExtraElements]
     public class VehicleDispatchTrip : BaseEntity
     {
         /// <summary>
-        /// Khóa ngoại liên kết xe công vụ
+        /// Khóa ngoại liên kết phương tiện nội bộ
         /// </summary>
         [BsonRepresentation(BsonType.ObjectId)]
         public string VehicleId { get; set; } = string.Empty;

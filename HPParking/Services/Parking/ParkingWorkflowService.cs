@@ -186,7 +186,7 @@ namespace HPParking.Services.Parking
         }
 
         /// <summary>
-        /// Xử lý điều vận xe công vụ / xe dùng chung qua lại giữa các nhà máy theo SLA
+        /// Xử lý điều vận phương tiện nội bộ / xe dùng chung qua lại giữa các nhà máy theo SLA
         /// </summary>
         private async Task<ProcessResult> ProcessSharedVehicleTripAsync(
             LaneRuntimeContext context,
@@ -202,7 +202,7 @@ namespace HPParking.Services.Parking
                 return new ProcessResult
                 {
                     Status = ProcessStatus.ClientNotFound,
-                    Message = "Phương tiện công vụ gắn với thẻ này không tồn tại hoặc đã bị khóa."
+                    Message = "Phương tiện nội bộ gắn với thẻ này không tồn tại hoặc đã bị khóa."
                 };
             }
 
@@ -212,7 +212,7 @@ namespace HPParking.Services.Parking
             Gate? currentGate = !string.IsNullOrEmpty(currentGateId) ? await _gateRepository.GetByIdAsync(currentGateId) : null;
             string currentGateName = currentGate?.Name ?? (string.IsNullOrEmpty(currentGateId) ? "Cổng không xác định" : currentGateId);
 
-            // Tìm chuyến đang chạy của xe công vụ
+            // Tìm chuyến đang chạy của phương tiện nội bộ
             VehicleDispatchTrip? activeTrip = await _tripRepository.FindOneAsync(t =>
                 t.VehicleId == vehicle.Id &&
                 t.Status != TripStatus.Completed &&
@@ -241,7 +241,7 @@ namespace HPParking.Services.Parking
                 }
             }
 
-            // 1. XÁC THỰC BIỂN SỐ XE CÔNG VỤ NGHIÊM NGẶT
+            // 1. XÁC THỰC BIỂN SỐ PHƯƠNG TIỆN NỘI BỘ NGHIÊM NGẶT
             string registeredPlateNorm = (vehicle.PlateNumber ?? "")
                 .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
             string detectedPlateNorm = detectedPlate
@@ -280,7 +280,7 @@ namespace HPParking.Services.Parking
                     return new ProcessResult
                     {
                         Status = (!plateSuccess || plateImage == null) ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = manualCancelled ? "" : $"Không nhận diện được biển số xe công vụ {vehicle.PlateNumber} và không có biển số nhập tay.",
+                        Message = manualCancelled ? "" : $"Không thể nhận được biển số phương tiện {vehicle.PlateNumber} và không có biển số nhập tay.",
                         Vehicle = vehicle,
                         DepartmentName = "Không nhận diện được biển số",
                         LprResult = lprResult,
@@ -300,7 +300,7 @@ namespace HPParking.Services.Parking
                     Status = ProcessStatus.PlateMismatch,
                     Message = $"BIỂN SỐ KHÔNG ĐÚNG VỚI BIỂN SỐ ĐÃ ĐĂNG KÝ!",
                     Vehicle = vehicle,
-                    DepartmentName = "Cảnh báo sai biển số xe công vụ",
+                    DepartmentName = "Cảnh báo sai biển số phương tiện",
                     LprResult = lprResult,
                     DispatchTrip = activeTrip
                 };
@@ -330,7 +330,7 @@ namespace HPParking.Services.Parking
             int defaultStay = assignedRoute?.DefaultStayMinutes ?? 15;
 
             // 2. KIỂM TRA CHIỀU QUẸT VÀ LỘ TRÌNH ĐIỀU VẬN
-            // Nghiệp vụ: Xe công vụ đang ở cơ quan/bãi. Bắt đầu chuyến phải quẹt ở LÀN RA để đi làm việc!
+            // Nghiệp vụ: Phương tiện nội bộ đang ở cơ quan/bãi. Bắt đầu chuyến phải quẹt ở LÀN RA để đi làm việc!
             if (activeTrip == null)
             {
                 if (isEntry)
@@ -560,9 +560,9 @@ namespace HPParking.Services.Parking
                     return new ProcessResult
                     {
                         Status = ProcessStatus.BarrierFailed,
-                        Message = "Không thể mở barrier cho xe công vụ. Vui lòng kiểm tra thiết bị.",
+                        Message = "Không thể mở barrier cho phương tiện. Vui lòng kiểm tra thiết bị.",
                         Vehicle = vehicle,
-                        DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Xe công vụ / Điều vận",
+                        DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
                         LprResult = lprResult
                     };
                 }
@@ -607,7 +607,7 @@ namespace HPParking.Services.Parking
                 Vehicle = vehicle,
                 DepartmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})",
                 LprResult = lprResult,
-                Message = $"Xe công vụ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
+                Message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
                 DispatchTrip = activeTrip
             };
         }
@@ -630,14 +630,14 @@ namespace HPParking.Services.Parking
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = string.Empty };
             }
 
-            // 1. Phân nhánh Thẻ Xe Công Vụ / Thẻ định danh qua Card repository
+            // 1. Phân nhánh Thẻ Phương tiện nội bộ / Thẻ định danh qua Card repository
             var cardEntity = await _cardRepository.FindOneAsync(c =>
                 (c.CardNumber == normalizedCard || c.CardNumber == rawCard) &&
                 !c.IsDeleted);
 
             if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle)
             {
-                Debug.WriteLine($"[ProcessEntryAsync] Đã nhận diện Thẻ Xe Công Vụ: Card='{cardEntity.CardNumber}', VehicleId='{cardEntity.VehicleId}'");
+                Debug.WriteLine($"[ProcessEntryAsync] Đã nhận diện Thẻ Phương tiện nội bộ: Card='{cardEntity.CardNumber}', VehicleId='{cardEntity.VehicleId}'");
                 if (!string.IsNullOrEmpty(cardEntity.VehicleId))
                 {
                     return await ProcessSharedVehicleTripAsync(context, cardEntity, data, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
@@ -901,14 +901,14 @@ namespace HPParking.Services.Parking
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = string.Empty };
             }
 
-            // 1. Phân nhánh Thẻ Xe Công Vụ / Thẻ định danh qua Card repository
+            // 1. Phân nhánh Thẻ Phương tiện nội bộ / Thẻ định danh qua Card repository
             var cardEntity = await _cardRepository.FindOneAsync(c =>
                 (c.CardNumber == normalizedCard || c.CardNumber == rawCard) &&
                 !c.IsDeleted);
 
             if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle)
             {
-                Debug.WriteLine($"[ProcessExitAsync] Đã nhận diện Thẻ Xe Công Vụ: Card='{cardEntity.CardNumber}', VehicleId='{cardEntity.VehicleId}'");
+                Debug.WriteLine($"[ProcessExitAsync] Đã nhận diện Thẻ Phương tiện nội bộ: Card='{cardEntity.CardNumber}', VehicleId='{cardEntity.VehicleId}'");
                 if (!string.IsNullOrEmpty(cardEntity.VehicleId))
                 {
                     return await ProcessSharedVehicleTripAsync(context, cardEntity, data, imageBasePath, onBarrierOpenFailed, onManualPlateInput);

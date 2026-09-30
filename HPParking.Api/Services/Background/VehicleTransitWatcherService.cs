@@ -5,7 +5,7 @@ using HPParking.Core.Models.Entities;
 namespace HPParking.Api.Services.Background
 {
     /// <summary>
-    /// Background Service chạy ngầm định kỳ mỗi 60 giây để giám sát SLA lộ trình xe công vụ
+    /// Background Service chạy ngầm định kỳ mỗi 60 giây để giám sát SLA lộ trình phương tiện nội bộ
     /// Tự động phát hiện vi phạm quá hạn di chuyển (trốn việc) hoặc quá hạn dừng đỗ (chiếm dụng xe)
     /// và gửi email cảnh báo kèm ảnh tài xế cho Ban quản lý.
     /// </summary>
@@ -47,7 +47,7 @@ namespace HPParking.Api.Services.Background
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Lỗi xảy ra trong quá trình quét SLA xe công vụ: {Message}", ex.Message);
+                    _logger.LogError(ex, "Lỗi xảy ra trong quá trình quét SLA phương tiện nội bộ: {Message}", ex.Message);
                 }
             }
 
@@ -132,13 +132,13 @@ namespace HPParking.Api.Services.Background
                 {
                     trip.Status = TripStatus.OverdueTransit;
                     violationType = "QUÁ THỜI GIAN DI CHUYỂN GIỮA CÁC CỔNG";
-                    subject = $"[CẢNH BÁO SLA] Xe có biển số {trip.PlateNumber} quá hạn di chuyển";
+                    subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} quá hạn di chuyển";
                 }
                 else
                 {
                     trip.Status = TripStatus.OverdueStay;
                     violationType = "QUÁ HẠN DỪNG ĐỖ LÀM VIỆC TẠI CỔNG";
-                    subject = $"[CẢNH BÁO SLA] Xe có biển số {trip.PlateNumber} dừng đỗ quá hạn tại bãi";
+                    subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} dừng đỗ quá hạn tại bãi";
                 }
 
                 string emailBody = BuildSlaAlertEmailHtml(
@@ -279,7 +279,7 @@ namespace HPParking.Api.Services.Background
                       HPPARKING
                     </span>
                     <span style='font-size: 13px; font-weight: 500; color: #64748b; margin-left: 6px;'>
-                      | Giám sát điều vận xe
+                      | Giám sát điều vận phương tiện nội bộ
                     </span>
                   </td>
                   <td align='right'>
@@ -299,7 +299,7 @@ namespace HPParking.Api.Services.Background
                 {violationType}
               </div>
               <div style='font-size: 13.5px; color: #64748b; margin-top: 6px; line-height: 1.5;'>
-                Hệ thống giám sát điều vận HPParking ghi nhận xe sau đây đã vi phạm giới hạn thời gian (SLA):
+                Hệ thống giám sát điều vận HPParking ghi nhận phương tiện sau đây đã vi phạm giới hạn thời gian (SLA):
               </div>
             </td>
           </tr>
@@ -311,7 +311,7 @@ namespace HPParking.Api.Services.Background
                 <tr>
                   <td>
                     <div style='font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;'>
-                      Biển số xe công vụ
+                      Biển số phương tiện
                     </div>
                     <div style='font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 4px; font-family: monospace;'>
                       {trip.PlateNumber}

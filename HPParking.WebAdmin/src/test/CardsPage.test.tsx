@@ -18,13 +18,13 @@ vi.mock('@/api/cardApi', () => ({
 
 vi.mock('@/api/clientApi', () => ({
   clientApi: {
-    getClients: vi.fn(),
+    getPaged: vi.fn(),
   },
 }));
 
 vi.mock('@/api/vehicleApi', () => ({
   vehicleApi: {
-    getVehicles: vi.fn(),
+    getPaged: vi.fn(),
   },
 }));
 

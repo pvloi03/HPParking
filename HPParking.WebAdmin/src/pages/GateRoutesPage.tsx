@@ -83,7 +83,7 @@ export function GateRoutesPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Route className="h-6 w-6 text-blue-600" />
-            Tuyến Điều Vận Xe Công Vụ
+            Tuyến Điều Vận Phương Tiện Nội Bộ
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Quản lý lộ trình đa cổng liên nhà máy kèm cấu hình thời gian SLA tối đa di chuyển và dừng đỗ.
@@ -109,7 +109,7 @@ export function GateRoutesPage() {
         <div className="py-12 text-center border rounded-lg bg-card text-muted-foreground space-y-2">
           <Route className="h-8 w-8 mx-auto text-muted-foreground/60" />
           <p className="text-sm font-medium">Chưa có tuyến điều vận cố định nào</p>
-          <p className="text-xs">Tất cả xe công vụ sẽ áp dụng tuyến tự do mặc định (15 phút).</p>
+          <p className="text-xs">Tất cả phương tiện nội bộ sẽ áp dụng tuyến tự do mặc định (15 phút).</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3">
@@ -245,7 +245,7 @@ export function GateRoutesPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xóa Tuyến Điều Vận"
-        description={`Bạn có chắc chắn muốn xóa tuyến "${deleteCandidate?.routeName}" (${deleteCandidate?.routeCode}) không? Hành động này sẽ chuyển các xe công vụ đang gán tuyến này sang tuyến tự do mặc định.`}
+        description={`Bạn có chắc chắn muốn xóa tuyến "${deleteCandidate?.routeName}" (${deleteCandidate?.routeCode}) không? Hành động này sẽ chuyển các phương tiện nội bộ đang gán tuyến này sang tuyến tự do mặc định.`}
         confirmText="Xác Nhận Xóa"
         cancelText="Hủy Bỏ"
         variant="destructive"

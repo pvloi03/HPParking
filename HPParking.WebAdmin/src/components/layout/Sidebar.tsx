@@ -107,7 +107,7 @@ const menuConfig: MenuItem[] = [
   {
     type: 'group',
     group: {
-      title: 'Điều vận xe công vụ',
+      title: 'Điều vận phương tiện nội bộ',
       icon: Truck,
       children: [
         { title: 'Giám sát điều vận', href: '/fleet-dispatch', icon: Truck },
@@ -168,7 +168,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     'Tổ chức & đơn vị': true,
     'Nhân sự & phương tiện': true,
-    'Điều vận xe công vụ': true,
+    'Điều vận phương tiện nội bộ': true,
     'Hạ tầng': true,
     'Sổ cái & Kiểm toán': true,
   });

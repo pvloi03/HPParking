@@ -22,7 +22,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Lấy danh sách tuyến đường xe công vụ có phân trang và tìm kiếm
+        /// Lấy danh sách tuyến đường phương tiện nội bộ có phân trang và tìm kiếm
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "Viewer,Manager,Admin")]

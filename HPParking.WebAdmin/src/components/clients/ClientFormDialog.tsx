@@ -2,9 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQuery } from '@tanstack/react-query';
 import { cardApi } from '@/api/cardApi';
-import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
+import { CardTargetType, type CardDto } from '@/types/card';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +49,7 @@ import {
   type CreateVehicleRequest,
 } from '@/types/vehicle';
 import { vehicleApi } from '@/api/vehicleApi';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import {
   ClientType,
   type ClientDto,
@@ -163,40 +163,6 @@ export function ClientFormDialog({
   const [existingVehicles, setExistingVehicles] = useState<VehicleDto[]>([]);
   const [, setIsLoadingVehicles] = useState(false);
   const [pendingVehicles, setPendingVehicles] = useState<PendingVehicleItem[]>([]);
-
-  // Tải danh sách thẻ có loại là Person
-  const { data: personCardsData, isLoading: isLoadingCards } = useQuery({
-    queryKey: ['availablePersonCards'],
-    queryFn: () => cardApi.getCards({ targetType: CardTargetType.Person, pageSize: 500 }),
-    enabled: open,
-  });
-
-  const availablePersonCards = useMemo(() => {
-    const list = personCardsData?.items || [];
-    return list.filter(
-      (c) =>
-        c.status === CardStatus.Available ||
-        c.cardNumber === initialData?.cardCode ||
-        c.clientId === initialData?.id
-    );
-  }, [personCardsData?.items, initialData?.cardCode, initialData?.id]);
-
-  const allPersonCardOptions = useMemo(() => {
-    const options = [...availablePersonCards];
-    if (
-      initialData?.cardCode &&
-      !options.some((c) => c.cardNumber === initialData.cardCode)
-    ) {
-      options.unshift({
-        id: 'current-card',
-        cardNumber: initialData.cardCode,
-        targetType: CardTargetType.Person,
-        status: CardStatus.InUse,
-        createdAt: '',
-      } as CardDto);
-    }
-    return options;
-  }, [availablePersonCards, initialData?.cardCode]);
 
   const handleAddVehicle = () => {
     setPendingVehicles((prev) => [
@@ -898,11 +864,10 @@ export function ClientFormDialog({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {/* 1. Thẻ từ RFID */}
                 <label
-                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                    selectedAuthMethods.includes('Card')
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
-                      : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
-                  }`}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('Card')
+                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -926,11 +891,10 @@ export function ClientFormDialog({
 
                 {/* 2. Nhận diện FaceID */}
                 <label
-                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                    selectedAuthMethods.includes('FaceId')
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
-                      : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
-                  }`}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('FaceId')
+                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -954,11 +918,10 @@ export function ClientFormDialog({
 
                 {/* 3. Làn tự do (None) */}
                 <label
-                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${
-                    selectedAuthMethods.includes('None')
-                      ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 font-medium text-amber-900 dark:text-amber-300'
-                      : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
-                  }`}
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('None')
+                    ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 font-medium text-amber-900 dark:text-amber-300'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                    }`}
                 >
                   <input
                     type="checkbox"
@@ -986,49 +949,31 @@ export function ClientFormDialog({
             {/* Mã thẻ định danh Person */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
-                <span>Mã thẻ định danh RFID / Wiegand (10 số)</span>
+                <span>Mã thẻ định danh RFID</span>
                 {cardCodeInput && cardCodeInput.trim() && (
                   <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
                     Mã thẻ: {cardCodeInput.trim()}
                   </span>
                 )}
               </label>
-              <Select
-                value={cardCodeInput || '__none__'}
+              <InfiniteSearchableSelect<CardDto>
+                queryKey={['availablePersonCardsInfinite']}
+                fetchFn={(params) => cardApi.getCards({ ...params, targetType: CardTargetType.Person })}
+                value={cardCodeInput || ''}
+                getValue={(card) => card.cardNumber}
+                getLabel={(card) => `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`}
                 onValueChange={(val) => {
-                  setValue('cardCode', val === '__none__' ? '' : val, {
+                  setValue('cardCode', val, {
                     shouldDirty: true,
                     shouldValidate: true,
                   });
                 }}
-              >
-                <SelectTrigger className="text-xs bg-background h-9">
-                  <SelectValue
-                    placeholder={
-                      isLoadingCards
-                        ? 'Đang tải danh sách thẻ...'
-                        : '-- Chọn thẻ định danh Person trong kho --'
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                    -- Không gán thẻ từ (None) --
-                  </SelectItem>
-                  {allPersonCardOptions.map((card) => (
-                    <SelectItem
-                      key={card.id}
-                      value={card.cardNumber}
-                      className="text-xs font-mono"
-                    >
-                      {card.cardNumber} {card.note ? `(${card.note})` : ''}{' '}
-                      {card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="-- Chọn thẻ định danh Person trong kho --"
+                allowClear={true}
+                clearLabel="-- Không gán thẻ từ (None) --"
+              />
               <p className="text-[10px] text-muted-foreground">
-                Chọn thẻ từ kho thẻ có loại là Nhân sự (Person). Dùng chung cho đầu đọc thẻ RFID tại bốt trạm và mã Wiegand nạp vào thiết bị FaceID.
+                Chọn thẻ từ kho thẻ có loại là Nhân sự (Person).
               </p>
             </div>
 
