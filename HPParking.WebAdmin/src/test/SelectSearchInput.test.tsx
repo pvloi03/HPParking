@@ -83,9 +83,10 @@ describe('Select Search Input & Filtering Tests', () => {
     // Gõ tìm kiếm "Bích"
     fireEvent.change(input, { target: { value: 'Bích' } });
 
-    // Chờ debounce 300ms
+    // Chờ debounce 300ms và focus loop
     await new Promise((r) => setTimeout(r, 400));
 
+    expect(document.activeElement).toBe(input);
     expect(screen.getByText('Trần Thị Bích')).toBeDefined();
     expect(screen.queryByText('Nguyễn Văn An')).toBeNull();
   });

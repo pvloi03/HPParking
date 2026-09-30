@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -168,6 +168,33 @@ export function InfiniteSearchableSelect<T = any, TFilter = Record<string, any>>
     return 'Nhập từ khóa tìm kiếm...';
   }, [searchPlaceholder, items]);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isInputFocusedRef = useRef(false);
+
+  // Giữ vững focus trên ô tìm kiếm khi API trả về kết quả mới hoặc dropdown mở
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        if (inputRef.current) {
+          const active = document.activeElement;
+          const isRadixTarget =
+            !active ||
+            active === document.body ||
+            active.getAttribute('role') === 'listbox' ||
+            active.hasAttribute('data-radix-select-viewport');
+
+          if (isInputFocusedRef.current || search || isRadixTarget) {
+            inputRef.current.focus({ preventScroll: true });
+            isInputFocusedRef.current = true;
+          }
+        }
+      }, 10);
+      return () => clearTimeout(timer);
+    } else {
+      isInputFocusedRef.current = false;
+    }
+  }, [items, isOpen, isFetching, search]);
+
   const currentValue = value !== null && value !== undefined ? String(value) : '';
 
   return (
@@ -204,6 +231,7 @@ export function InfiniteSearchableSelect<T = any, TFilter = Record<string, any>>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <Input
+                ref={inputRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={computedSearchPlaceholder}
@@ -213,6 +241,26 @@ export function InfiniteSearchableSelect<T = any, TFilter = Record<string, any>>
                 onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
+                onFocus={() => {
+                  isInputFocusedRef.current = true;
+                }}
+                onBlur={(e) => {
+                  const related = e.relatedTarget as HTMLElement | null;
+                  if (
+                    related &&
+                    (related.getAttribute('role') === 'listbox' ||
+                      related.hasAttribute('data-radix-select-viewport'))
+                  ) {
+                    requestAnimationFrame(() => {
+                      if (isOpen && inputRef.current) {
+                        inputRef.current.focus({ preventScroll: true });
+                        isInputFocusedRef.current = true;
+                      }
+                    });
+                    return;
+                  }
+                  isInputFocusedRef.current = false;
+                }}
               />
               {isFetching && !isFetchingNextPage && (
                 <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin pointer-events-none" />

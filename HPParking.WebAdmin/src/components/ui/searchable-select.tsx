@@ -88,6 +88,30 @@ export function SearchableSelect<T = any>({
     customPlaceholder: searchPlaceholder,
   });
 
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const isInputFocusedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (showSearch) {
+      const timer = setTimeout(() => {
+        if (inputRef.current) {
+          const active = document.activeElement;
+          const isRadixTarget =
+            !active ||
+            active === document.body ||
+            active.getAttribute('role') === 'listbox' ||
+            active.hasAttribute('data-radix-select-viewport');
+
+          if (isInputFocusedRef.current || search || isRadixTarget) {
+            inputRef.current.focus({ preventScroll: true });
+            isInputFocusedRef.current = true;
+          }
+        }
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [filteredItems, showSearch, search]);
+
   // Trích xuất value
   const resolveValue = (item: any): string => {
     if (getValue) return getValue(item);
@@ -130,13 +154,17 @@ export function SearchableSelect<T = any>({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 
-        <SelectContent searchable={false} className={cn('max-h-60', contentClassName)}>
+        <SelectContent
+          searchable={false}
+          className={cn('max-h-60', contentClassName)}
+        >
           {/* Ô TÌM KIẾM: Tự động hiển thị khi danh sách > threshold (mặc định 10 phần tử) */}
           {showSearch && (
             <div className="p-1.5 border-b border-border sticky top-0 bg-popover z-10">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 <Input
+                  ref={inputRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={autoSearchPlaceholder}
@@ -146,6 +174,26 @@ export function SearchableSelect<T = any>({
                   onPointerDown={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
+                  onFocus={() => {
+                    isInputFocusedRef.current = true;
+                  }}
+                  onBlur={(e) => {
+                    const related = e.relatedTarget as HTMLElement | null;
+                    if (
+                      related &&
+                      (related.getAttribute('role') === 'listbox' ||
+                        related.hasAttribute('data-radix-select-viewport'))
+                    ) {
+                      requestAnimationFrame(() => {
+                        if (inputRef.current) {
+                          inputRef.current.focus({ preventScroll: true });
+                          isInputFocusedRef.current = true;
+                        }
+                      });
+                      return;
+                    }
+                    isInputFocusedRef.current = false;
+                  }}
                 />
               </div>
             </div>
