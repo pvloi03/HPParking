@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -168,6 +169,7 @@ export function ClientFormDialog({
 }: ClientFormDialogProps) {
   const isEditing = Boolean(initialData);
   const isFromHn212 = Boolean(hn212CardData);
+  const queryClient = useQueryClient();
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
 
   // Quản lý danh sách phương tiện hiện có và phương tiện thêm mới
@@ -274,6 +276,7 @@ export function ClientFormDialog({
     if (open) {
       setVehicleSectionError(null);
       setPendingVehicles([]);
+      queryClient.invalidateQueries({ queryKey: ['cards', 'available-person'] });
       if (initialData?.id) {
         setIsLoadingVehicles(true);
         vehicleApi
@@ -994,7 +997,7 @@ export function ClientFormDialog({
                 )}
               </label>
               <InfiniteSearchableSelect<CardDto>
-                queryKey={['availablePersonCardsInfinite', initialData?.id || 'new']}
+                queryKey={['cards', 'available-person', initialData?.id || 'new']}
                 fetchFn={(params) =>
                   cardApi.getCards({
                     ...params,

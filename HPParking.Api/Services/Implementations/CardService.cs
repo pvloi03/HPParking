@@ -5,6 +5,7 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HPParking.Api.Services.Implementations
@@ -57,49 +58,36 @@ namespace HPParking.Api.Services.Implementations
             {
                 if (targetType == CardTargetType.Vehicle)
                 {
-                    if (!string.IsNullOrWhiteSpace(assignedVehicleId))
+                    if (!string.IsNullOrWhiteSpace(assignedVehicleId) && ObjectId.TryParse(assignedVehicleId, out _))
                     {
                         filter &= Builders<Card>.Filter.Or(
                             Builders<Card>.Filter.Eq(x => x.VehicleId, null),
-                            Builders<Card>.Filter.Eq(x => x.VehicleId, string.Empty),
                             Builders<Card>.Filter.Eq(x => x.VehicleId, assignedVehicleId)
                         );
                     }
                     else
                     {
-                        filter &= Builders<Card>.Filter.Or(
-                            Builders<Card>.Filter.Eq(x => x.VehicleId, null),
-                            Builders<Card>.Filter.Eq(x => x.VehicleId, string.Empty)
-                        );
+                        filter &= Builders<Card>.Filter.Eq(x => x.VehicleId, null);
                     }
                 }
                 else if (targetType == CardTargetType.Person)
                 {
-                    if (!string.IsNullOrWhiteSpace(assignedClientId))
+                    if (!string.IsNullOrWhiteSpace(assignedClientId) && ObjectId.TryParse(assignedClientId, out _))
                     {
                         filter &= Builders<Card>.Filter.Or(
                             Builders<Card>.Filter.Eq(x => x.ClientId, null),
-                            Builders<Card>.Filter.Eq(x => x.ClientId, string.Empty),
                             Builders<Card>.Filter.Eq(x => x.ClientId, assignedClientId)
                         );
                     }
                     else
                     {
-                        filter &= Builders<Card>.Filter.Or(
-                            Builders<Card>.Filter.Eq(x => x.ClientId, null),
-                            Builders<Card>.Filter.Eq(x => x.ClientId, string.Empty)
-                        );
+                        filter &= Builders<Card>.Filter.Eq(x => x.ClientId, null);
                     }
                 }
                 else
                 {
-                    filter &= Builders<Card>.Filter.Or(
-                        Builders<Card>.Filter.Eq(x => x.ClientId, null),
-                        Builders<Card>.Filter.Eq(x => x.ClientId, string.Empty)
-                    ) & Builders<Card>.Filter.Or(
-                        Builders<Card>.Filter.Eq(x => x.VehicleId, null),
-                        Builders<Card>.Filter.Eq(x => x.VehicleId, string.Empty)
-                    );
+                    filter &= Builders<Card>.Filter.Eq(x => x.ClientId, null)
+                            & Builders<Card>.Filter.Eq(x => x.VehicleId, null);
                 }
             }
 

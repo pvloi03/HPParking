@@ -120,6 +120,7 @@ export function InfiniteSearchableSelect<T = any, TFilter = Record<string, any>>
     pageSize,
     selectedId: value,
     selectedItems,
+    getItemId: getValue,
     filters,
     enabled: true,
   });

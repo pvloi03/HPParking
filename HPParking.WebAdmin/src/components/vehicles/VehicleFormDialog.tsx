@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -83,6 +84,7 @@ export function VehicleFormDialog({
   isSubmitting = false,
 }: VehicleFormDialogProps) {
   const isEditing = Boolean(initialData);
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -115,6 +117,7 @@ export function VehicleFormDialog({
 
   useEffect(() => {
     if (open) {
+      queryClient.invalidateQueries({ queryKey: ['cards', 'available-vehicle'] });
       if (initialData) {
         reset({
           plateNumber: initialData.plateNumber,
@@ -347,7 +350,7 @@ export function VehicleFormDialog({
               )}
             </label>
             <InfiniteSearchableSelect<CardDto>
-              queryKey={['availableVehicleCardsInfinite', initialData?.id || 'new']}
+              queryKey={['cards', 'available-vehicle', initialData?.id || 'new']}
               fetchFn={(params) =>
                 cardApi.getCards({
                   ...params,
