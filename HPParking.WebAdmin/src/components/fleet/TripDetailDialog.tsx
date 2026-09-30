@@ -274,6 +274,9 @@ export function TripDetailDialog({
                               cp.direction === 1 ||
                               cp.direction === 'In' ||
                               cp.direction === '1';
+                            const hasOverview = hasImagePath(cp.overviewImagePath);
+                            const hasPlate = hasImagePath(cp.plateImagePath);
+                            const imageCount = (hasOverview ? 1 : 0) + (hasPlate ? 1 : 0);
 
                             return (
                               <tr
@@ -331,27 +334,22 @@ export function TripDetailDialog({
                                   {cp.note || '---'}
                                 </td>
                                 <td className="py-2 px-3 text-center">
-                                  {(() => {
-                                    const hasOverview = hasImagePath(cp.overviewImagePath);
-                                    const hasPlate = hasImagePath(cp.plateImagePath);
-                                    const imageCount = (hasOverview ? 1 : 0) + (hasPlate ? 1 : 0);
-                                    return imageCount > 0 ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => setPreviewCheckpoint(cp)}
-                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-accent text-foreground text-[11px] font-medium border border-border cursor-pointer transition-colors"
-                                        title="Xem ảnh camera mốc kiểm soát"
-                                      >
-                                        <Eye className="h-3 w-3 text-blue-500" />
-                                        <span>Xem ảnh</span>
-                                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                                          {imageCount}
-                                        </span>
-                                      </button>
-                                    ) : (
-                                      <span className="text-muted-foreground text-[11px]">---</span>
-                                    );
-                                  })()}
+                                  {imageCount > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPreviewCheckpoint(cp)}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-accent text-foreground text-[11px] font-medium border border-border cursor-pointer transition-colors"
+                                      title="Xem ảnh camera mốc kiểm soát"
+                                    >
+                                      <Eye className="h-3 w-3 text-blue-500" />
+                                      <span>Xem ảnh</span>
+                                      <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                        {imageCount}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted-foreground text-[11px]">---</span>
+                                  )}
                                 </td>
                               </tr>
                             );
