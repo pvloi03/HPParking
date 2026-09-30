@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -62,6 +62,18 @@ const vehicleSchema = z
       message: 'Vui lòng chọn nhân sự chủ sở hữu phương tiện cá nhân',
       path: ['clientId'],
     }
+  )
+  .refine(
+    (data) => {
+      if (data.isShared && (!data.assignedRouteId || data.assignedRouteId.trim() === '')) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Vui lòng chọn tuyến đường điều vận cho phương tiện nội bộ',
+      path: ['assignedRouteId'],
+    }
   );
 
 type VehicleFormData = z.infer<typeof vehicleSchema>;
@@ -85,6 +97,20 @@ export function VehicleFormDialog({
 }: VehicleFormDialogProps) {
   const isEditing = Boolean(initialData);
   const queryClient = useQueryClient();
+
+  // Truy vấn tuyến đường mặc định của hệ thống (isDefault hoặc RouteCode DEFAULT)
+  const { data: defaultRoute } = useQuery({
+    queryKey: ['gateRoutes', 'default'],
+    queryFn: async () => {
+      const res = await gateRouteApi.getRoutes({ pageSize: 50, isActive: true });
+      return (
+        res.items.find((r) => r.isDefault || r.routeCode?.toUpperCase() === 'DEFAULT') ||
+        res.items[0] ||
+        null
+      );
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const {
     register,
@@ -118,13 +144,15 @@ export function VehicleFormDialog({
   useEffect(() => {
     if (open) {
       queryClient.invalidateQueries({ queryKey: ['cards', 'available-vehicle'] });
+      const defaultRouteId = defaultRoute?.id || '';
+
       if (initialData) {
         reset({
           plateNumber: initialData.plateNumber,
           type: initialData.type,
           clientId: initialData.isShared ? '' : (initialData.ownerClientId || ''),
           isShared: initialData.isShared ?? false,
-          assignedRouteId: initialData.assignedRouteId || '',
+          assignedRouteId: initialData.assignedRouteId || (initialData.isShared ? defaultRouteId : ''),
           cardCode: initialData.cardCode || '',
           note: initialData.note || '',
           isActive: initialData.isActive,
@@ -135,14 +163,21 @@ export function VehicleFormDialog({
           type: VehicleType.Car,
           clientId: clients.length > 0 ? clients[0].id : '',
           isShared: false,
-          assignedRouteId: '',
+          assignedRouteId: defaultRouteId,
           cardCode: '',
           note: '',
           isActive: true,
         });
       }
     }
-  }, [open, initialData, clients, reset]);
+  }, [open, initialData, clients, reset, defaultRoute]);
+
+  // Luôn đảm bảo khi tuyến default tải xong mà xe nội bộ chưa có tuyến thì tự động điền sẵn
+  useEffect(() => {
+    if (open && isShared && !assignedRouteId && defaultRoute?.id) {
+      setValue('assignedRouteId', defaultRoute.id, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [open, isShared, assignedRouteId, defaultRoute, setValue]);
 
   const onFormSubmit = async (formData: VehicleFormData) => {
     const cleanedPlate = normalizePlateNumber(formData.plateNumber);
@@ -214,6 +249,9 @@ export function VehicleFormDialog({
                   setValue('isShared', nextVal, { shouldDirty: true, shouldValidate: true });
                   if (nextVal) {
                     setValue('clientId', '', { shouldDirty: true, shouldValidate: true });
+                    if (!watch('assignedRouteId') && defaultRoute?.id) {
+                      setValue('assignedRouteId', defaultRoute.id, { shouldDirty: true, shouldValidate: true });
+                    }
                   } else if (!watch('clientId') && clients.length > 0) {
                     setValue('clientId', clients[0].id, { shouldDirty: true, shouldValidate: true });
                   }
@@ -235,7 +273,7 @@ export function VehicleFormDialog({
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <Route className="h-3.5 w-3.5 text-blue-500" />
-                    Tuyến đường gán trước
+                    Tuyến đường gán trước <span className="text-destructive">*</span>
                   </label>
                   <InfiniteSearchableSelect<GateRouteDto>
                     queryKey={['gateRoutes-infinite-select']}
@@ -249,10 +287,12 @@ export function VehicleFormDialog({
                       })
                     }
                     placeholder="-- Chọn tuyến điều vận từ danh sách --"
-                    allowClear={true}
-                    clearLabel="-- Không gán tuyến --"
+                    selectedItems={defaultRoute ? [defaultRoute] : undefined}
                     getLabel={(route) => `${route.routeCode} - ${route.routeName} (${route.gateSteps?.length || 0} chặng)`}
                   />
+                  {errors.assignedRouteId && (
+                    <p className="text-[11px] text-destructive">{errors.assignedRouteId.message}</p>
+                  )}
                 </div>
               </div>
             )}
