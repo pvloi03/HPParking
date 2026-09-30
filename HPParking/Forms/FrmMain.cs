@@ -219,7 +219,7 @@ namespace HPParking.Forms
             {
                 case ServerHealthStatus.Online:
                     lbServer.Text = "MÁY CHỦ: ONLINE";
-                    lbServer.BackColor = Color.Gray;
+                    lbServer.BackColor = Color.Teal;
                     break;
 
                 case ServerHealthStatus.Warning:

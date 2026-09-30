@@ -180,17 +180,20 @@ export function useInfiniteSelectQuery<T, TFilter = Record<string, any>>({
   // Kết hợp và khử trùng lặp các items (pre-selected items đưa lên trước nếu chưa có)
   const items = useMemo(() => {
     const itemMap = new Map<string | number, T>();
+    const isSearching = Boolean(debouncedSearch && debouncedSearch.trim().length > 0);
 
-    // 1. Nếu có preselected items từ props
-    for (const item of initialSelectedItems) {
-      if (item) {
-        itemMap.set(getItemId(item), item);
+    // 1 & 2. Chỉ nạp preselected items và fetchedItem khi KHÔNG trong trạng thái tìm kiếm
+    // Khi đang tìm kiếm, chỉ hiển thị kết quả từ server (pagedItems) để tránh làm loãng hoặc sai lệch kết quả lọc
+    if (!isSearching) {
+      for (const item of initialSelectedItems) {
+        if (item) {
+          itemMap.set(getItemId(item), item);
+        }
       }
-    }
 
-    // 2. Nếu có item fetch riêng theo selectedId
-    if (fetchedItem) {
-      itemMap.set(getItemId(fetchedItem), fetchedItem);
+      if (fetchedItem) {
+        itemMap.set(getItemId(fetchedItem), fetchedItem);
+      }
     }
 
     // 3. Đưa các items nạp từ server vào map
@@ -201,7 +204,7 @@ export function useInfiniteSelectQuery<T, TFilter = Record<string, any>>({
     }
 
     return Array.from(itemMap.values());
-  }, [initialSelectedItems, fetchedItem, pagedItems, getItemId]);
+  }, [debouncedSearch, initialSelectedItems, fetchedItem, pagedItems, getItemId]);
 
   // Lấy tổng số bản ghi từ metadata trang đầu tiên
   const totalCount = useMemo(() => {

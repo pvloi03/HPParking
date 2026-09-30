@@ -243,4 +243,80 @@ describe('useInfiniteSelectQuery', () => {
       );
     });
   });
+
+  it('excludes non-matching initialSelectedItems when searching and restores them when search cleared', async () => {
+    const initial = [{ id: 'pre-1', name: 'Preselected Old Item' }];
+    const searchResult = [{ id: 's-1', name: 'Found New Item' }];
+
+    const mockFetch = vi.fn().mockImplementation((params) => {
+      if (params.search === 'new') {
+        return Promise.resolve({
+          items: searchResult,
+          pagination: {
+            pageIndex: 1,
+            pageSize: 10,
+            totalCount: 1,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+          },
+        });
+      }
+      return Promise.resolve({
+        items: [{ id: '1', name: 'Default Item' }],
+        pagination: {
+          pageIndex: 1,
+          pageSize: 10,
+          totalCount: 1,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      });
+    });
+
+    const { result } = renderHook(
+      () =>
+        useInfiniteSelectQuery<TestItem>({
+          queryKey: ['test-items-search-filter'],
+          fetchFn: mockFetch,
+          selectedItems: initial,
+          debounceMs: 50,
+        }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(result.current.items.map((i) => i.id)).toContain('pre-1');
+    });
+
+    // Bắt đầu tìm kiếm
+    act(() => {
+      result.current.setSearch('new');
+    });
+
+    await waitFor(() => {
+      expect(result.current.debouncedSearch).toBe('new');
+    });
+
+    // Khi đang tìm kiếm: danh sách CHỈ chứa kết quả tìm kiếm (Found New Item), không có Preselected Old Item
+    await waitFor(() => {
+      expect(result.current.items.map((i) => i.id)).toEqual(['s-1']);
+    });
+    expect(result.current.items.map((i) => i.id)).not.toContain('pre-1');
+
+    // Xóa tìm kiếm
+    act(() => {
+      result.current.setSearch('');
+    });
+
+    await waitFor(() => {
+      expect(result.current.debouncedSearch).toBe('');
+    });
+
+    // Sau khi xóa tìm kiếm: preselected item lại được phục hồi
+    await waitFor(() => {
+      expect(result.current.items.map((i) => i.id)).toContain('pre-1');
+    });
+  });
 });

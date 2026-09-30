@@ -182,31 +182,18 @@ export function VehicleFormDialog({
   const onFormSubmit = async (formData: VehicleFormData) => {
     const cleanedPlate = normalizePlateNumber(formData.plateNumber);
 
-    if (isEditing) {
-      const payload: UpdateVehicleRequest = {
-        clientId: formData.isShared ? undefined : (formData.clientId || undefined),
-        plateNumber: cleanedPlate,
-        type: formData.type as VehicleType,
-        isShared: formData.isShared,
-        assignedRouteId: formData.isShared && formData.assignedRouteId ? formData.assignedRouteId : undefined,
-        cardCode: formData.isShared ? (formData.cardCode?.trim() || undefined) : undefined,
-        isActive: formData.isActive,
-        note: formData.note || undefined,
-      };
-      await onSubmit(payload);
-    } else {
-      const payload: CreateVehicleRequest = {
-        clientId: formData.isShared ? undefined : (formData.clientId || undefined),
-        plateNumber: cleanedPlate,
-        type: formData.type as VehicleType,
-        isShared: formData.isShared,
-        assignedRouteId: formData.isShared && formData.assignedRouteId ? formData.assignedRouteId : undefined,
-        cardCode: formData.isShared ? (formData.cardCode?.trim() || undefined) : undefined,
-        isActive: formData.isActive,
-        note: formData.note || undefined,
-      };
-      await onSubmit(payload);
-    }
+    const payload: CreateVehicleRequest & UpdateVehicleRequest = {
+      clientId: formData.isShared ? undefined : (formData.clientId || undefined),
+      plateNumber: cleanedPlate,
+      type: formData.type as VehicleType,
+      isShared: formData.isShared,
+      assignedRouteId: formData.isShared && formData.assignedRouteId ? formData.assignedRouteId : undefined,
+      cardCode: formData.isShared ? (formData.cardCode?.trim() || undefined) : undefined,
+      isActive: formData.isActive,
+      note: formData.note || undefined,
+    };
+
+    await onSubmit(payload);
   };
 
   return (

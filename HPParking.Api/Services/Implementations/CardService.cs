@@ -56,33 +56,27 @@ namespace HPParking.Api.Services.Implementations
 
             if (unassignedOnly == true)
             {
-                if (targetType == CardTargetType.Vehicle)
+                FilterDefinition<Card> BuildSlotFilter(
+                    System.Linq.Expressions.Expression<Func<Card, string?>> fieldExpr,
+                    string? assignedId)
                 {
-                    if (!string.IsNullOrWhiteSpace(assignedVehicleId) && ObjectId.TryParse(assignedVehicleId, out _))
+                    if (!string.IsNullOrWhiteSpace(assignedId) && ObjectId.TryParse(assignedId, out _))
                     {
-                        filter &= Builders<Card>.Filter.Or(
-                            Builders<Card>.Filter.Eq(x => x.VehicleId, null),
-                            Builders<Card>.Filter.Eq(x => x.VehicleId, assignedVehicleId)
+                        return Builders<Card>.Filter.Or(
+                            Builders<Card>.Filter.Eq(fieldExpr, null),
+                            Builders<Card>.Filter.Eq(fieldExpr, assignedId)
                         );
                     }
-                    else
-                    {
-                        filter &= Builders<Card>.Filter.Eq(x => x.VehicleId, null);
-                    }
+                    return Builders<Card>.Filter.Eq(fieldExpr, null);
+                }
+
+                if (targetType == CardTargetType.Vehicle)
+                {
+                    filter &= BuildSlotFilter(x => x.VehicleId, assignedVehicleId);
                 }
                 else if (targetType == CardTargetType.Person)
                 {
-                    if (!string.IsNullOrWhiteSpace(assignedClientId) && ObjectId.TryParse(assignedClientId, out _))
-                    {
-                        filter &= Builders<Card>.Filter.Or(
-                            Builders<Card>.Filter.Eq(x => x.ClientId, null),
-                            Builders<Card>.Filter.Eq(x => x.ClientId, assignedClientId)
-                        );
-                    }
-                    else
-                    {
-                        filter &= Builders<Card>.Filter.Eq(x => x.ClientId, null);
-                    }
+                    filter &= BuildSlotFilter(x => x.ClientId, assignedClientId);
                 }
                 else
                 {

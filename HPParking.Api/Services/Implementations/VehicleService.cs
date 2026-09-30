@@ -270,6 +270,12 @@ namespace HPParking.Api.Services.Implementations
                 {
                     throw new NotFoundException("Không tìm thấy khách hàng để gắn phương tiện.", ErrorCodes.CLIENT_NOT_FOUND);
                 }
+
+                if (!client.IsActive)
+                {
+                    throw new BadRequestException("Không thể gán phương tiện cho khách hàng đang bị vô hiệu hóa.", ErrorCodes.CLIENT_DEACTIVATED);
+                }
+
                 vehicle.OwnerClientId = targetClientId;
             }
             else

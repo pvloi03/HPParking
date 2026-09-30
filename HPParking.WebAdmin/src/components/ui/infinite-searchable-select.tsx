@@ -168,7 +168,7 @@ export function InfiniteSearchableSelect<T = any, TFilter = Record<string, any>>
     return 'Nhập từ khóa tìm kiếm...';
   }, [searchPlaceholder, items]);
 
-  const currentValue = value !== null && value !== undefined && value !== '' ? String(value) : undefined;
+  const currentValue = value !== null && value !== undefined ? String(value) : '';
 
   return (
     <div className={cn('relative w-full', className)} id={id}>
@@ -210,6 +210,8 @@ export function InfiniteSearchableSelect<T = any, TFilter = Record<string, any>>
                 className="pl-8 pr-8 h-7 text-xs bg-background"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               />
               {isFetching && !isFetchingNextPage && (

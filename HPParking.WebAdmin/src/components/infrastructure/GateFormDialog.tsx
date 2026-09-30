@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -88,6 +88,11 @@ export function GateFormDialog({
   const selectedCompanyId = watch('companyId');
   const isActive = watch('isActive');
 
+  const selectedCompany = useMemo(
+    () => (selectedCompanyId && companies ? companies.find((c) => c.id === selectedCompanyId) : undefined),
+    [companies, selectedCompanyId]
+  );
+
   useEffect(() => {
     if (open) {
       if (initialData) {
@@ -151,7 +156,7 @@ export function GateFormDialog({
               fetchById={(id) => companiesApi.getById(String(id))}
               value={selectedCompanyId}
               onValueChange={(val) => setValue('companyId', val, { shouldValidate: true })}
-              selectedItems={companies}
+              selectedItems={selectedCompany ? [selectedCompany] : undefined}
               placeholder="-- Chọn công ty quản lý --"
               getLabel={(c) => `${c.name} (${c.code})`}
             />

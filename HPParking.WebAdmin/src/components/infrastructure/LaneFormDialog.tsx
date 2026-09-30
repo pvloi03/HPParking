@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -121,6 +121,11 @@ export function LaneFormDialog({
   const selectedFaceDevice = watch('faceDeviceId');
   const isActive = watch('isActive');
 
+  const selectedGate = useMemo(
+    () => (selectedGateId && gates ? gates.find((g) => g.id === selectedGateId) : undefined),
+    [gates, selectedGateId]
+  );
+
   // Lọc danh sách thiết bị theo từng loại
   const cameraDevices = devices.filter((d) => d.type === DeviceType.Camera);
   const controllerDevices = devices.filter((d) => d.type === DeviceType.Controller);
@@ -221,7 +226,7 @@ export function LaneFormDialog({
                 fetchById={(id) => gatesApi.getById(String(id))}
                 value={selectedGateId}
                 onValueChange={(val) => setValue('gateId', val, { shouldValidate: true })}
-                selectedItems={gates}
+                selectedItems={selectedGate ? [selectedGate] : undefined}
                 placeholder="-- Chọn cổng trực thuộc --"
                 getLabel={(g) => `${g.name} (${g.code})`}
               />

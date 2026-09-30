@@ -130,7 +130,7 @@ export function SearchableSelect<T = any>({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
 
-        <SelectContent className={cn('max-h-60', contentClassName)}>
+        <SelectContent searchable={false} className={cn('max-h-60', contentClassName)}>
           {/* Ô TÌM KIẾM: Tự động hiển thị khi danh sách > threshold (mặc định 10 phần tử) */}
           {showSearch && (
             <div className="p-1.5 border-b border-border sticky top-0 bg-popover z-10">
@@ -143,6 +143,8 @@ export function SearchableSelect<T = any>({
                   className="pl-8 h-7 text-xs bg-background"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>

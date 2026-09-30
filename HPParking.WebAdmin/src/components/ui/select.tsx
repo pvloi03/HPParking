@@ -147,16 +147,47 @@ const SelectContent = React.forwardRef<
       }
       const q = normalizeVietnamese(searchQuery);
 
-      const filtered = childrenArray.filter((child) => {
-        if (!React.isValidElement(child)) return true;
-        // Giữ lại Separator nếu cần
-        if (child.type === SelectSeparator) return true;
+      const filterElement = (node: React.ReactNode): React.ReactNode | null => {
+        if (!React.isValidElement(node)) return node;
 
-        const childProps = child.props as any;
-        const text = normalizeVietnamese(extractNodeText(child));
+        // Giữ lại Separator nếu cần
+        if (node.type === SelectSeparator) return node;
+
+        // Nếu là SelectGroup hoặc Fragment, lọc các con bên trong nó
+        if (node.type === SelectGroup || node.type === React.Fragment) {
+          const rawChildren = React.Children.toArray((node.props as any).children);
+          const filteredSub = rawChildren
+            .map((c) => filterElement(c))
+            .filter((c): c is React.ReactNode => c !== null);
+
+          // Kiểm tra xem trong sub-children có item nào (không tính label hoặc separator)
+          const hasActionableItems = filteredSub.some(
+            (c) =>
+              React.isValidElement(c) &&
+              c.type !== SelectLabel &&
+              c.type !== SelectSeparator
+          );
+          if (!hasActionableItems) return null;
+
+          return React.cloneElement(node, {}, filteredSub);
+        }
+
+        // Nếu là SelectLabel
+        if (node.type === SelectLabel) return node;
+
+        // Xử lý SelectItem thông thường
+        const childProps = node.props as any;
+        const text = normalizeVietnamese(extractNodeText(node));
         const val = normalizeVietnamese(String(childProps?.value ?? ''));
-        return text.includes(q) || val.includes(q);
-      });
+        if (text.includes(q) || val.includes(q)) {
+          return node;
+        }
+        return null;
+      };
+
+      const filtered = childrenArray
+        .map((child) => filterElement(child))
+        .filter((c): c is React.ReactNode => c !== null);
 
       if (filtered.length === 0) {
         return (
@@ -195,6 +226,8 @@ const SelectContent = React.forwardRef<
                   className="flex h-7 w-full rounded-md border border-input bg-background pl-8 pr-2 text-xs ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>

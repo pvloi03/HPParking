@@ -78,7 +78,6 @@ namespace HPParking.Forms
             lbStatusCtrl = new Label();
             lbdayExpiryDate = new Label();
             lbRealTime = new Label();
-            label3 = new Label();
             tlpMain.SuspendLayout();
             tlpTitleMoto.SuspendLayout();
             tlpTitleCar.SuspendLayout();
@@ -824,7 +823,6 @@ namespace HPParking.Forms
             pnlFooter.Controls.Add(lbStatusCtrl);
             pnlFooter.Controls.Add(lbdayExpiryDate);
             pnlFooter.Controls.Add(lbRealTime);
-            pnlFooter.Controls.Add(label3);
             pnlFooter.Dock = DockStyle.Fill;
             pnlFooter.Location = new System.Drawing.Point(11, 1009);
             pnlFooter.Margin = new Padding(11, 12, 11, 12);
@@ -834,11 +832,11 @@ namespace HPParking.Forms
             // 
             // lbServer
             // 
-            lbServer.BackColor = System.Drawing.Color.Gray;
+            lbServer.BackColor = System.Drawing.Color.Teal;
             lbServer.Dock = DockStyle.Left;
             lbServer.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             lbServer.ForeColor = System.Drawing.Color.White;
-            lbServer.Location = new System.Drawing.Point(1021, 0);
+            lbServer.Location = new System.Drawing.Point(766, 0);
             lbServer.Margin = new Padding(0);
             lbServer.Name = "lbServer";
             lbServer.Padding = new Padding(11, 0, 0, 0);
@@ -854,11 +852,11 @@ namespace HPParking.Forms
             lbStatusCtrl.Dock = DockStyle.Left;
             lbStatusCtrl.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             lbStatusCtrl.ForeColor = System.Drawing.Color.White;
-            lbStatusCtrl.Location = new System.Drawing.Point(792, 0);
+            lbStatusCtrl.Location = new System.Drawing.Point(523, 0);
             lbStatusCtrl.Margin = new Padding(0);
             lbStatusCtrl.Name = "lbStatusCtrl";
             lbStatusCtrl.Padding = new Padding(11, 0, 0, 0);
-            lbStatusCtrl.Size = new System.Drawing.Size(229, 29);
+            lbStatusCtrl.Size = new System.Drawing.Size(243, 29);
             lbStatusCtrl.TabIndex = 6;
             lbStatusCtrl.Tag = "201";
             lbStatusCtrl.Text = "BỘ ĐIỀU KHIỂN:";
@@ -866,10 +864,10 @@ namespace HPParking.Forms
             // 
             // lbdayExpiryDate
             // 
-            lbdayExpiryDate.BackColor = System.Drawing.Color.Peru;
+            lbdayExpiryDate.BackColor = System.Drawing.Color.Gray;
             lbdayExpiryDate.Dock = DockStyle.Left;
             lbdayExpiryDate.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            lbdayExpiryDate.Location = new System.Drawing.Point(566, 0);
+            lbdayExpiryDate.Location = new System.Drawing.Point(297, 0);
             lbdayExpiryDate.Margin = new Padding(0);
             lbdayExpiryDate.Name = "lbdayExpiryDate";
             lbdayExpiryDate.Padding = new Padding(11, 0, 0, 0);
@@ -883,7 +881,7 @@ namespace HPParking.Forms
             lbRealTime.BackColor = System.Drawing.Color.SteelBlue;
             lbRealTime.Dock = DockStyle.Left;
             lbRealTime.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            lbRealTime.Location = new System.Drawing.Point(269, 0);
+            lbRealTime.Location = new System.Drawing.Point(0, 0);
             lbRealTime.Margin = new Padding(0);
             lbRealTime.Name = "lbRealTime";
             lbRealTime.Padding = new Padding(11, 0, 0, 0);
@@ -891,19 +889,6 @@ namespace HPParking.Forms
             lbRealTime.TabIndex = 3;
             lbRealTime.Text = "HÔM NAY:";
             lbRealTime.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // label3
-            // 
-            label3.BackColor = System.Drawing.Color.Teal;
-            label3.Dock = DockStyle.Left;
-            label3.Font = new System.Drawing.Font("Microsoft Sans Serif", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
-            label3.Location = new System.Drawing.Point(0, 0);
-            label3.Margin = new Padding(0);
-            label3.Name = "label3";
-            label3.Size = new System.Drawing.Size(269, 29);
-            label3.TabIndex = 4;
-            label3.Text = "F1 - VÀO CẤU HÌNH KỸ THUẬT";
-            label3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // FrmMain
             // 
@@ -1000,7 +985,6 @@ namespace HPParking.Forms
         private PictureBox pbCarPlateImg;
         private Label lbdayExpiryDate;
         private Label lbRealTime;
-        private Label label3;
         private Label lbStatusCtrl;
         private Label lbServer;
     }

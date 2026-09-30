@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ClientDto } from '@/types/client';
 import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import { clientApi } from '@/api/clientApi';
@@ -17,6 +18,11 @@ export function ClientSelect({
   placeholder = '-- Chọn chủ sở hữu phương tiện --',
   disabled = false,
 }: ClientSelectProps) {
+  const selectedClient = useMemo(
+    () => (value && clients ? clients.find((c) => c.id === value) : undefined),
+    [clients, value]
+  );
+
   return (
     <InfiniteSearchableSelect<ClientDto>
       queryKey={['clients-infinite-select']}
@@ -26,7 +32,7 @@ export function ClientSelect({
       onValueChange={onValueChange}
       placeholder={placeholder}
       disabled={disabled}
-      selectedItems={clients}
+      selectedItems={selectedClient ? [selectedClient] : undefined}
       emptyMessage="Không tìm thấy nhân sự nào khớp"
       renderItem={(client) => (
         <div className="flex flex-col">
