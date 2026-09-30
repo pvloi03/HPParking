@@ -124,6 +124,11 @@ namespace HPParking.Api.Services.Implementations
             Client? client = null;
             if (!request.IsShared)
             {
+                if (!string.IsNullOrWhiteSpace(request.CardCode))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân không được gán thẻ định danh phương tiện. Thẻ định danh thuộc về khách hàng / nhân sự sở hữu.");
+                }
+
                 if (string.IsNullOrWhiteSpace(clientId))
                 {
                     throw new BadRequestException("Phương tiện cá nhân yêu cầu chỉ định chủ sở hữu (ClientId).", ErrorCodes.CLIENT_NOT_FOUND);
@@ -245,6 +250,33 @@ namespace HPParking.Api.Services.Implementations
             {
                 vehicle.AssignedRouteId = request.AssignedRouteId;
             }
+
+            // Xử lý cập nhật chủ sở hữu cho phương tiện cá nhân
+            if (!vehicle.IsShared)
+            {
+                if (!string.IsNullOrWhiteSpace(request.CardCode))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân không được gán thẻ định danh phương tiện. Thẻ định danh thuộc về khách hàng / nhân sự sở hữu.");
+                }
+
+                var targetClientId = request.ClientId ?? vehicle.OwnerClientId;
+                if (string.IsNullOrWhiteSpace(targetClientId))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân yêu cầu chỉ định chủ sở hữu (ClientId).", ErrorCodes.CLIENT_NOT_FOUND);
+                }
+
+                var client = await _clientRepo.GetByIdAsync(targetClientId, cancellationToken);
+                if (client == null || client.IsDeleted)
+                {
+                    throw new NotFoundException("Không tìm thấy khách hàng để gắn phương tiện.", ErrorCodes.CLIENT_NOT_FOUND);
+                }
+                vehicle.OwnerClientId = targetClientId;
+            }
+            else
+            {
+                vehicle.OwnerClientId = null;
+            }
+
             vehicle.IsActive = request.IsActive;
             vehicle.Note = request.Note;
             vehicle.UpdatedAt = DateTime.UtcNow;
@@ -252,7 +284,22 @@ namespace HPParking.Api.Services.Implementations
             await _vehicleRepo.UpdateAsync(vehicle, cancellationToken);
             _logger.LogInformation("Đã cập nhật phương tiện {Id}: {PlateNumber}", id, normalizedPlate);
 
-            if (_cardRepo != null && request.CardCode != null)
+            // Xử lý thẻ định danh phương tiện: Chỉ xe dùng chung/nội bộ mới được gán thẻ xe
+            if (!vehicle.IsShared)
+            {
+                // Nếu xe cá nhân từng có thẻ xe liên kết từ trước, tự động giải phóng thẻ
+                if (_cardRepo != null)
+                {
+                    var currentCard = await _cardRepo.FindOneAsync(c => c.VehicleId == id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
+                    if (currentCard != null)
+                    {
+                        currentCard.VehicleId = null;
+                        currentCard.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(currentCard, cancellationToken);
+                    }
+                }
+            }
+            else if (_cardRepo != null && request.CardCode != null)
             {
                 var normCard = string.IsNullOrWhiteSpace(request.CardCode) ? null : HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
                 var currentCard = await _cardRepo.FindOneAsync(c => c.VehicleId == id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);

@@ -184,11 +184,12 @@ export function VehicleFormDialog({
 
     if (isEditing) {
       const payload: UpdateVehicleRequest = {
+        clientId: formData.isShared ? undefined : (formData.clientId || undefined),
         plateNumber: cleanedPlate,
         type: formData.type as VehicleType,
         isShared: formData.isShared,
         assignedRouteId: formData.isShared && formData.assignedRouteId ? formData.assignedRouteId : undefined,
-        cardCode: formData.cardCode?.trim() || undefined,
+        cardCode: formData.isShared ? (formData.cardCode?.trim() || undefined) : undefined,
         isActive: formData.isActive,
         note: formData.note || undefined,
       };
@@ -200,7 +201,7 @@ export function VehicleFormDialog({
         type: formData.type as VehicleType,
         isShared: formData.isShared,
         assignedRouteId: formData.isShared && formData.assignedRouteId ? formData.assignedRouteId : undefined,
-        cardCode: formData.cardCode?.trim() || undefined,
+        cardCode: formData.isShared ? (formData.cardCode?.trim() || undefined) : undefined,
         isActive: formData.isActive,
         note: formData.note || undefined,
       };
@@ -252,8 +253,12 @@ export function VehicleFormDialog({
                     if (!watch('assignedRouteId') && defaultRoute?.id) {
                       setValue('assignedRouteId', defaultRoute.id, { shouldDirty: true, shouldValidate: true });
                     }
-                  } else if (!watch('clientId') && clients.length > 0) {
-                    setValue('clientId', clients[0].id, { shouldDirty: true, shouldValidate: true });
+                  } else {
+                    setValue('cardCode', '', { shouldDirty: true, shouldValidate: true });
+                    setValue('assignedRouteId', '', { shouldDirty: true, shouldValidate: true });
+                    if (!watch('clientId') && clients.length > 0) {
+                      setValue('clientId', clients[0].id, { shouldDirty: true, shouldValidate: true });
+                    }
                   }
                 }}
                 className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
@@ -309,13 +314,7 @@ export function VehicleFormDialog({
                 onValueChange={(val) => setValue('clientId', val, { shouldValidate: true })}
                 clients={clients}
                 placeholder="-- Chọn chủ sở hữu xe --"
-                disabled={isEditing}
               />
-              {isEditing && (
-                <p className="text-[11px] text-muted-foreground">
-                  Để chuyển quyền sở hữu xe, vui lòng liên hệ bộ phận hỗ trợ kỹ thuật.
-                </p>
-              )}
               {errors.clientId && (
                 <p className="text-[11px] text-destructive">{errors.clientId.message}</p>
               )}
@@ -376,48 +375,50 @@ export function VehicleFormDialog({
             </div>
           </div>
 
-          {/* Thẻ định danh phương tiện (Thẻ xe) */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <CreditCard className="h-3.5 w-3.5 text-indigo-500" />
-                Thẻ định danh phương tiện (Thẻ xe)
-              </span>
-              {selectedCardCode && selectedCardCode.trim() && (
-                <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
-                  Thẻ: {selectedCardCode.trim()}
+          {/* Thẻ định danh phương tiện (Thẻ xe) - Chỉ hiển thị cho phương tiện nội bộ / xe dùng chung */}
+          {isShared && (
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 text-indigo-500" />
+                  Thẻ định danh phương tiện (Thẻ xe)
                 </span>
-              )}
-            </label>
-            <InfiniteSearchableSelect<CardDto>
-              queryKey={['cards', 'available-vehicle', initialData?.id || 'new']}
-              fetchFn={(params) =>
-                cardApi.getCards({
-                  ...params,
-                  targetType: CardTargetType.Vehicle,
-                  unassignedOnly: true,
-                  assignedVehicleId: initialData?.id,
-                })
-              }
-              value={selectedCardCode || ''}
-              getValue={(card) => card.cardNumber}
-              getLabel={(card) =>
-                `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`
-              }
-              onValueChange={(val) =>
-                setValue('cardCode', val, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                })
-              }
-              placeholder="-- Chọn thẻ xe trong kho (Tùy chọn) --"
-              allowClear={true}
-              clearLabel="-- Không gán thẻ xe (None) --"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Chọn thẻ từ kho thẻ có loại Phương tiện (Vehicle). Thường dùng cho phương tiện nội bộ hoặc xe dùng chung qua lại các cổng.
-            </p>
-          </div>
+                {selectedCardCode && selectedCardCode.trim() && (
+                  <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                    Thẻ: {selectedCardCode.trim()}
+                  </span>
+                )}
+              </label>
+              <InfiniteSearchableSelect<CardDto>
+                queryKey={['cards', 'available-vehicle', initialData?.id || 'new']}
+                fetchFn={(params) =>
+                  cardApi.getCards({
+                    ...params,
+                    targetType: CardTargetType.Vehicle,
+                    unassignedOnly: true,
+                    assignedVehicleId: initialData?.id,
+                  })
+                }
+                value={selectedCardCode || ''}
+                getValue={(card) => card.cardNumber}
+                getLabel={(card) =>
+                  `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`
+                }
+                onValueChange={(val) =>
+                  setValue('cardCode', val, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                placeholder="-- Chọn thẻ xe trong kho (Tùy chọn) --"
+                allowClear={true}
+                clearLabel="-- Không gán thẻ xe (None) --"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Chọn thẻ từ kho thẻ có loại Phương tiện (Vehicle). Thường dùng cho phương tiện nội bộ hoặc xe dùng chung qua lại các cổng.
+              </p>
+            </div>
+          )}
 
           {/* Ghi chú */}
           <div className="space-y-1">

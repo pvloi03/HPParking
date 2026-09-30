@@ -55,6 +55,7 @@ export interface CreateVehicleRequest {
 }
 
 export interface UpdateVehicleRequest {
+  clientId?: string;
   plateNumber: string;
   type: VehicleType;
   isShared?: boolean;

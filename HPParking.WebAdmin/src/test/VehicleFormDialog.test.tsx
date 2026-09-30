@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog';
 import { cardApi } from '@/api/cardApi';
@@ -59,8 +59,15 @@ describe('VehicleFormDialog Unassigned Cards Filter Tests', () => {
     );
   };
 
-  it('gọi cardApi.getCards với targetType: 2 và unassignedOnly: true khi tạo mới phương tiện', async () => {
+  it('gọi cardApi.getCards với targetType: 2 và unassignedOnly: true khi tạo mới phương tiện dùng chung', async () => {
     renderDialog();
+
+    // Bật toggle Phương tiện nội bộ / xe dùng chung để hiển thị mục thẻ xe
+    const toggleButtons = screen.getAllByRole('button');
+    const sharedToggle = toggleButtons.find(b => b.className?.includes('rounded-full'));
+    if (sharedToggle) {
+      fireEvent.click(sharedToggle);
+    }
 
     await waitFor(() => {
       expect(cardApi.getCards).toHaveBeenCalledWith(

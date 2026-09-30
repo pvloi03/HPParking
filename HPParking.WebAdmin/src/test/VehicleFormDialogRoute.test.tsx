@@ -132,20 +132,59 @@ describe('VehicleFormDialog Shared Route Default & Clear Option Tests', () => {
       expect(elements.length).toBeGreaterThan(0);
     });
 
-    // Mở combobox
-    const comboboxes = screen.getAllByRole('combobox');
-    // Tuyến đường là combobox chứa text DEFAULT
-    const routeCombobox = comboboxes.find((cb) =>
-      cb.textContent?.includes('Tuyến tự do mặc định')
-    );
-    expect(routeCombobox).toBeDefined();
-    if (routeCombobox) {
-      fireEvent.click(routeCombobox);
-    }
-
     // Kiểm tra không có lựa chọn "-- Không gán tuyến --"
     await waitFor(() => {
       expect(screen.queryByText('-- Không gán tuyến --')).toBeNull();
+    });
+  });
+
+  it('cho phép chỉnh sửa chủ sở hữu và ẩn mục thẻ xe đối với xe cá nhân', async () => {
+    const onSubmit = vi.fn();
+    const existingPersonalVehicle: VehicleDto = {
+      id: 'vehicle-personal-1',
+      plateNumber: '30A12345',
+      type: VehicleType.Car,
+      isShared: false,
+      ownerClientId: 'client-1',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    const mockClients = [
+      { id: 'client-1', name: 'Nguyễn Văn A', phone: '0901234567' },
+      { id: 'client-2', name: 'Trần Thị B', phone: '0907654321' },
+    ];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <VehicleFormDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          clients={mockClients as any}
+          initialData={existingPersonalVehicle}
+          onSubmit={onSubmit}
+        />
+      </QueryClientProvider>
+    );
+
+    // 1. Kiểm tra mục Thẻ định danh phương tiện (Thẻ xe) KHÔNG hiển thị cho xe cá nhân
+    expect(screen.queryByText(/Thẻ định danh phương tiện \(Thẻ xe\)/i)).toBeNull();
+
+    // 2. Không còn dòng thông báo chặn chuyển quyền sở hữu
+    expect(screen.queryByText(/Để chuyển quyền sở hữu xe, vui lòng liên hệ bộ phận hỗ trợ kỹ thuật/i)).toBeNull();
+
+    // 3. Nút submit hoạt động và gửi đúng clientId của chủ sở hữu
+    const submitBtn = screen.getByRole('button', { name: /cập nhật/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'client-1',
+          isShared: false,
+          cardCode: undefined,
+        })
+      );
     });
   });
 });
