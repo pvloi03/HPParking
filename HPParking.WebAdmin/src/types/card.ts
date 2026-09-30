@@ -43,6 +43,9 @@ export interface CardFilterQuery extends PaginationQuery {
   search?: string;
   targetType?: CardTargetType;
   status?: CardStatus;
+  unassignedOnly?: boolean;
+  assignedClientId?: string;
+  assignedVehicleId?: string;
 }
 
 export interface CreateCardRequest {

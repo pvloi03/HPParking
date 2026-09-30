@@ -65,47 +65,58 @@ export const CLIENT_TYPE_OPTIONS = [
   { value: ClientType.Guest, label: 'Khách đến thăm' },
 ];
 
-const clientSchema = z.object({
-  cardCode: z.string().trim().optional(),
-  authMethods: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất một phương thức xác thực'),
-  verifyVehiclePlate: z.boolean(),
-  code: z
-    .string()
-    .trim()
-    .min(1, 'Số CCCD/Định danh cá nhân không được để trống')
-    .regex(/^[0-9]{9,12}$/, 'Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số'),
-  name: z
-    .string()
-    .trim()
-    .min(2, 'Họ và tên phải có ít nhất 2 ký tự')
-    .max(100, 'Họ và tên không được quá 100 ký tự'),
-  phoneNumber: z
-    .string()
-    .trim()
-    .regex(
-      /^(03|05|07|08|09)\d{8}$/,
-      'Số điện thoại di động không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)'
-    ),
-  type: z.number().int().min(0).max(4),
-  gender: z.number().int().min(0).max(1),
-  birthDay: z.string().min(1, 'Vui lòng chọn ngày tháng năm sinh'),
-  address: z.string().trim().optional(),
-  email: z
-    .string()
-    .trim()
-    .optional()
-    .refine((val) => !val || z.string().email().safeParse(val).success, {
-      message: 'Email không đúng định dạng',
-    }),
-  companyId: z.string().optional(),
-  departmentId: z.string().optional(),
-  contractorId: z.string().optional(),
-  note: z.string().trim().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
-  expiredEnable: z.boolean(),
-  expiredStartDay: z.string().optional(),
-  expiredEndDay: z.string().optional(),
-  isActive: z.boolean(),
-});
+const clientSchema = z
+  .object({
+    cardCode: z.string().trim().optional(),
+    authMethods: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất một phương thức xác thực'),
+    verifyVehiclePlate: z.boolean(),
+    code: z
+      .string()
+      .trim()
+      .min(1, 'Số CCCD/Định danh cá nhân không được để trống')
+      .regex(/^[0-9]{9,12}$/, 'Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số'),
+    name: z
+      .string()
+      .trim()
+      .min(2, 'Họ và tên phải có ít nhất 2 ký tự')
+      .max(100, 'Họ và tên không được quá 100 ký tự'),
+    phoneNumber: z
+      .string()
+      .trim()
+      .regex(
+        /^(03|05|07|08|09)\d{8}$/,
+        'Số điện thoại di động không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)'
+      ),
+    type: z.number().int().min(0).max(4),
+    gender: z.number().int().min(0).max(1),
+    birthDay: z.string().min(1, 'Vui lòng chọn ngày tháng năm sinh'),
+    address: z.string().trim().optional(),
+    email: z
+      .string()
+      .trim()
+      .optional()
+      .refine((val) => !val || z.string().email().safeParse(val).success, {
+        message: 'Email không đúng định dạng',
+      }),
+    companyId: z.string().optional(),
+    departmentId: z.string().optional(),
+    contractorId: z.string().optional(),
+    note: z.string().trim().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
+    expiredEnable: z.boolean(),
+    expiredStartDay: z.string().optional(),
+    expiredEndDay: z.string().optional(),
+    isActive: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    const isNonNoneAuth = data.authMethods.some((m) => m.toLowerCase() !== 'none');
+    if (isNonNoneAuth && (!data.cardCode || data.cardCode.trim() === '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Vui lòng gán thẻ định danh RFID cho nhân sự khi kích hoạt phương thức xác thực',
+        path: ['cardCode'],
+      });
+    }
+  });
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
@@ -163,8 +174,10 @@ export function ClientFormDialog({
   const [existingVehicles, setExistingVehicles] = useState<VehicleDto[]>([]);
   const [, setIsLoadingVehicles] = useState(false);
   const [pendingVehicles, setPendingVehicles] = useState<PendingVehicleItem[]>([]);
+  const [vehicleSectionError, setVehicleSectionError] = useState<string | null>(null);
 
   const handleAddVehicle = () => {
+    setVehicleSectionError(null);
     setPendingVehicles((prev) => [
       ...prev,
       {
@@ -247,6 +260,7 @@ export function ClientFormDialog({
   const selectedContractorId = watch('contractorId');
   const selectedAuthMethods = watch('authMethods') || ['FaceId'];
   const cardCodeInput = watch('cardCode') || '';
+  const verifyVehiclePlate = watch('verifyVehiclePlate');
   const expiredEnable = watch('expiredEnable');
   const isActive = watch('isActive');
 
@@ -258,6 +272,7 @@ export function ClientFormDialog({
 
   useEffect(() => {
     if (open) {
+      setVehicleSectionError(null);
       setPendingVehicles([]);
       if (initialData?.id) {
         setIsLoadingVehicles(true);
@@ -369,6 +384,9 @@ export function ClientFormDialog({
           code: cccdCode,
           name: cccdName,
           phoneNumber: '',
+          cardCode: '',
+          authMethods: ['FaceId'],
+          verifyVehiclePlate: true,
           type: ClientType.Employee,
           gender: genderVal,
           birthDay: parsedDob,
@@ -389,6 +407,9 @@ export function ClientFormDialog({
           code: '',
           name: '',
           phoneNumber: '',
+          cardCode: '',
+          authMethods: ['FaceId'],
+          verifyVehiclePlate: true,
           type: ClientType.Employee,
           gender: 1,
           birthDay: '1995-01-01',
@@ -408,6 +429,16 @@ export function ClientFormDialog({
   }, [open, initialData, hn212CardData, cccdAvatarFile, reset, defaultToday]);
 
   const onFormSubmit = async (formData: ClientFormData) => {
+    if (formData.verifyVehiclePlate) {
+      const totalVehicles = existingVehicles.length + pendingVehicles.length;
+      if (totalVehicles === 0) {
+        setVehicleSectionError(
+          'Vui lòng thêm ít nhất một phương tiện đăng ký khi kích hoạt xác thực đối chiếu xe.'
+        );
+        return;
+      }
+    }
+
     // Kiểm tra dữ liệu các phương tiện mới nếu có thêm
     let hasVehicleError = false;
     const validatedVehicles = pendingVehicles.map((v) => {
@@ -949,7 +980,13 @@ export function ClientFormDialog({
             {/* Mã thẻ định danh Person */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
-                <span>Mã thẻ định danh RFID</span>
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 text-indigo-500" />
+                  <span>Mã thẻ định danh RFID</span>
+                  {selectedAuthMethods.some((m) => m.toLowerCase() !== 'none') && (
+                    <span className="text-destructive font-bold">*</span>
+                  )}
+                </span>
                 {cardCodeInput && cardCodeInput.trim() && (
                   <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
                     Mã thẻ: {cardCodeInput.trim()}
@@ -957,11 +994,20 @@ export function ClientFormDialog({
                 )}
               </label>
               <InfiniteSearchableSelect<CardDto>
-                queryKey={['availablePersonCardsInfinite']}
-                fetchFn={(params) => cardApi.getCards({ ...params, targetType: CardTargetType.Person })}
+                queryKey={['availablePersonCardsInfinite', initialData?.id || 'new']}
+                fetchFn={(params) =>
+                  cardApi.getCards({
+                    ...params,
+                    targetType: CardTargetType.Person,
+                    unassignedOnly: true,
+                    assignedClientId: initialData?.id,
+                  })
+                }
                 value={cardCodeInput || ''}
                 getValue={(card) => card.cardNumber}
-                getLabel={(card) => `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`}
+                getLabel={(card) =>
+                  `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`
+                }
                 onValueChange={(val) => {
                   setValue('cardCode', val, {
                     shouldDirty: true,
@@ -972,6 +1018,9 @@ export function ClientFormDialog({
                 allowClear={true}
                 clearLabel="-- Không gán thẻ từ (None) --"
               />
+              {errors.cardCode && (
+                <p className="text-[11px] text-destructive font-medium">{errors.cardCode.message}</p>
+              )}
               <p className="text-[10px] text-muted-foreground">
                 Chọn thẻ từ kho thẻ có loại là Nhân sự (Person).
               </p>
@@ -982,7 +1031,13 @@ export function ClientFormDialog({
               <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
                 <input
                   type="checkbox"
-                  {...register('verifyVehiclePlate')}
+                  {...register('verifyVehiclePlate', {
+                    onChange: (e) => {
+                      if (!e.target.checked) {
+                        setVehicleSectionError(null);
+                      }
+                    },
+                  })}
                   className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
                 />
                 <div className="space-y-0.5 min-w-0">
@@ -1001,14 +1056,15 @@ export function ClientFormDialog({
             </div>
           </div>
 
-          {/* 4. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ (TÙY CHỌN) */}
+          {/* 4. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ */}
           <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between pb-1 border-b border-border/60">
               <div className="flex items-center gap-2">
                 <Car className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                  4. Phương tiện đăng ký (Tùy chọn)
+                  4. Phương tiện đăng ký {verifyVehiclePlate ? '(Bắt buộc)' : '(Tùy chọn)'}
                 </span>
+                {verifyVehiclePlate && <span className="text-destructive font-bold">*</span>}
                 {(existingVehicles.length > 0 || pendingVehicles.length > 0) && (
                   <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">
                     {existingVehicles.length + pendingVehicles.length} phương tiện
@@ -1026,6 +1082,13 @@ export function ClientFormDialog({
                 <span>Thêm phương tiện</span>
               </Button>
             </div>
+
+            {vehicleSectionError && (
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs flex items-center gap-2">
+                <Info className="h-4 w-4 shrink-0 text-red-600" />
+                <span>{vehicleSectionError}</span>
+              </div>
+            )}
 
             {/* Danh sách xe hiện có (chỉ hiển thị khi cập nhật nhân sự) */}
             {isEditing && existingVehicles.length > 0 && (

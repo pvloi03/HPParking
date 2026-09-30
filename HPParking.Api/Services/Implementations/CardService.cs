@@ -30,6 +30,9 @@ namespace HPParking.Api.Services.Implementations
             string? search = null,
             CardTargetType? targetType = null,
             CardStatus? status = null,
+            bool? unassignedOnly = null,
+            string? assignedClientId = null,
+            string? assignedVehicleId = null,
             CancellationToken cancellationToken = default)
         {
             var filter = Builders<Card>.Filter.Eq(x => x.IsDeleted, false);
@@ -48,6 +51,56 @@ namespace HPParking.Api.Services.Implementations
             if (status.HasValue)
             {
                 filter &= Builders<Card>.Filter.Eq(x => x.Status, status.Value);
+            }
+
+            if (unassignedOnly == true)
+            {
+                if (targetType == CardTargetType.Vehicle)
+                {
+                    if (!string.IsNullOrWhiteSpace(assignedVehicleId))
+                    {
+                        filter &= Builders<Card>.Filter.Or(
+                            Builders<Card>.Filter.Eq(x => x.VehicleId, null),
+                            Builders<Card>.Filter.Eq(x => x.VehicleId, string.Empty),
+                            Builders<Card>.Filter.Eq(x => x.VehicleId, assignedVehicleId)
+                        );
+                    }
+                    else
+                    {
+                        filter &= Builders<Card>.Filter.Or(
+                            Builders<Card>.Filter.Eq(x => x.VehicleId, null),
+                            Builders<Card>.Filter.Eq(x => x.VehicleId, string.Empty)
+                        );
+                    }
+                }
+                else if (targetType == CardTargetType.Person)
+                {
+                    if (!string.IsNullOrWhiteSpace(assignedClientId))
+                    {
+                        filter &= Builders<Card>.Filter.Or(
+                            Builders<Card>.Filter.Eq(x => x.ClientId, null),
+                            Builders<Card>.Filter.Eq(x => x.ClientId, string.Empty),
+                            Builders<Card>.Filter.Eq(x => x.ClientId, assignedClientId)
+                        );
+                    }
+                    else
+                    {
+                        filter &= Builders<Card>.Filter.Or(
+                            Builders<Card>.Filter.Eq(x => x.ClientId, null),
+                            Builders<Card>.Filter.Eq(x => x.ClientId, string.Empty)
+                        );
+                    }
+                }
+                else
+                {
+                    filter &= Builders<Card>.Filter.Or(
+                        Builders<Card>.Filter.Eq(x => x.ClientId, null),
+                        Builders<Card>.Filter.Eq(x => x.ClientId, string.Empty)
+                    ) & Builders<Card>.Filter.Or(
+                        Builders<Card>.Filter.Eq(x => x.VehicleId, null),
+                        Builders<Card>.Filter.Eq(x => x.VehicleId, string.Empty)
+                    );
+                }
             }
 
             var sort = Builders<Card>.Sort.Descending(x => x.CreatedAt);

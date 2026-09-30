@@ -44,6 +44,13 @@ namespace HPParking.Api.Validators.Clients
                 .Must(HPParking.Core.Constants.AuthMethodConstants.IsValid)
                 .WithMessage("Phương thức xác thực không hợp lệ. Nếu chọn 'None' (làn tự do) thì không được kết hợp cùng 'Card' hoặc 'FaceId'.");
 
+            When(x => x.AuthMethods != null && x.AuthMethods.Any(m => !string.Equals(m, HPParking.Core.Constants.AuthMethodConstants.None, StringComparison.OrdinalIgnoreCase)), () =>
+            {
+                RuleFor(x => x.CardCode)
+                    .NotEmpty()
+                    .WithMessage("Khi sử dụng phương thức xác thực (Thẻ/FaceID), bắt buộc phải gán thẻ định danh RFID.");
+            });
+
             When(x => x.Type == HPParking.Core.Models.Enums.ClientType.Contractor, () =>
             {
                 RuleFor(x => x.ContractorId)

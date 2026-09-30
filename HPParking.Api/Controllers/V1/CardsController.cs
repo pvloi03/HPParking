@@ -33,9 +33,12 @@ namespace HPParking.Api.Controllers.V1
             [FromQuery] string? search,
             [FromQuery] CardTargetType? targetType,
             [FromQuery] CardStatus? status,
+            [FromQuery] bool? unassignedOnly,
+            [FromQuery] string? assignedClientId,
+            [FromQuery] string? assignedVehicleId,
             CancellationToken cancellationToken)
         {
-            var result = await _cardService.GetCardsPagedAsync(query, search, targetType, status, cancellationToken);
+            var result = await _cardService.GetCardsPagedAsync(query, search, targetType, status, unassignedOnly, assignedClientId, assignedVehicleId, cancellationToken);
             return OkApiResponse(result, "Lấy danh sách thẻ thành công.");
         }
 

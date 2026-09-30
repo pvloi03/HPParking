@@ -243,6 +243,26 @@ namespace HPParking.Api.Services.Implementations
                 ? request.AuthMethods
                 : [HPParking.Core.Constants.AuthMethodConstants.FaceId];
 
+            if (!string.IsNullOrWhiteSpace(cleanCardCode))
+            {
+                var otherClient = await _clientRepo.FindOneAsync(c => c.CardCode == cleanCardCode && !c.IsDeleted, cancellationToken);
+                if (otherClient != null)
+                {
+                    throw new BadRequestException($"Mã thẻ '{cleanCardCode}' đang được sử dụng bởi khách hàng '{otherClient.Name}'.");
+                }
+
+                if (_cardRepo != null)
+                {
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (card != null && !string.IsNullOrWhiteSpace(card.ClientId))
+                    {
+                        var assignedClient = await _clientRepo.FindOneAsync(c => c.Id == card.ClientId && !c.IsDeleted, cancellationToken);
+                        var ownerName = assignedClient?.Name ?? card.ClientId;
+                        throw new BadRequestException($"Thẻ định danh '{cleanCardCode}' đã được gán cho nhân sự '{ownerName}'.");
+                    }
+                }
+            }
+
             // 5. Tạo thực thể Client
             var client = new Client
             {
@@ -447,6 +467,36 @@ namespace HPParking.Api.Services.Implementations
             var authMethods = (request.AuthMethods != null && request.AuthMethods.Count > 0)
                 ? request.AuthMethods
                 : [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+
+            if (isCardChanged && !string.IsNullOrWhiteSpace(cleanCardCode))
+            {
+                var otherClient = await _clientRepo.FindOneAsync(c => c.CardCode == cleanCardCode && c.Id != id && !c.IsDeleted, cancellationToken);
+                if (otherClient != null)
+                {
+                    throw new BadRequestException($"Mã thẻ '{cleanCardCode}' đang được sử dụng bởi khách hàng '{otherClient.Name}'.");
+                }
+
+                if (_cardRepo != null)
+                {
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (card != null && !string.IsNullOrWhiteSpace(card.ClientId) && card.ClientId != id)
+                    {
+                        var assignedClient = await _clientRepo.FindOneAsync(c => c.Id == card.ClientId && !c.IsDeleted, cancellationToken);
+                        var ownerName = assignedClient?.Name ?? card.ClientId;
+                        throw new BadRequestException($"Thẻ định danh '{cleanCardCode}' đã được gán cho nhân sự '{ownerName}'.");
+                    }
+                }
+            }
+
+            if (request.VerifyVehiclePlate)
+            {
+                var existingVehiclesCount = await _vehicleRepo.CountAsync(v => v.OwnerClientId == id && !v.IsDeleted, cancellationToken);
+                var newVehiclesCount = normalizedVehicles.Count;
+                if (existingVehiclesCount + newVehiclesCount == 0)
+                {
+                    throw new BadRequestException("Khi bật xác thực đối chiếu xe, bắt buộc khách hàng phải có ít nhất một phương tiện đăng ký.");
+                }
+            }
 
             client.Code = cleanCode;
             client.Name = request.Name.Trim();
@@ -1040,8 +1090,11 @@ namespace HPParking.Api.Services.Implementations
             {
                 try
                 {
-                    // 1. Fail-Fast Ping 600ms
-                    var isAlive = await _faceIdService.PingFastAsync(terminal.DeviceIp, 600, cancellationToken);
+                    // 1. Kiểm tra kết nối thiết bị với timeout 2000ms
+                    var targetIpWithPort = terminal.Port > 0 && terminal.Port != 80 && terminal.Port != 443
+                        ? $"{terminal.DeviceIp}:{terminal.Port}"
+                        : terminal.DeviceIp;
+                    var isAlive = await _faceIdService.PingFastAsync(targetIpWithPort, 2000, cancellationToken);
                     if (!isAlive)
                     {
                         return new FaceIdTerminalResultDto
@@ -1049,7 +1102,7 @@ namespace HPParking.Api.Services.Implementations
                             DeviceIp = terminal.DeviceIp,
                             DeviceName = terminal.DeviceName,
                             IsSuccess = false,
-                            ErrorMessage = $"Mất kết nối tới thiết bị [{terminal.DeviceIp}] (Ping timeout 600ms)",
+                            ErrorMessage = $"Mất kết nối tới thiết bị [{terminal.DeviceIp}] (Kiểm tra lại nguồn, IP/Port và mạng LAN)",
                             Timestamp = DateTime.UtcNow
                         };
                     }
@@ -1109,6 +1162,7 @@ namespace HPParking.Api.Services.Implementations
                     uniqueConfigs.Add(new FaceIdTerminalConfig
                     {
                         DeviceIp = ip,
+                        Port = device.Port > 0 ? device.Port : 443,
                         DeviceName = string.IsNullOrWhiteSpace(device.Name) ? lane.Name : device.Name,
                         Username = string.IsNullOrWhiteSpace(device.UserName) ? "admin" : device.UserName.Trim(),
                         Password = device.Password?.Trim() ?? string.Empty

@@ -347,11 +347,20 @@ export function VehicleFormDialog({
               )}
             </label>
             <InfiniteSearchableSelect<CardDto>
-              queryKey={['availableVehicleCardsInfinite']}
-              fetchFn={(params) => cardApi.getCards({ ...params, targetType: CardTargetType.Vehicle })}
+              queryKey={['availableVehicleCardsInfinite', initialData?.id || 'new']}
+              fetchFn={(params) =>
+                cardApi.getCards({
+                  ...params,
+                  targetType: CardTargetType.Vehicle,
+                  unassignedOnly: true,
+                  assignedVehicleId: initialData?.id,
+                })
+              }
               value={selectedCardCode || ''}
               getValue={(card) => card.cardNumber}
-              getLabel={(card) => `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`}
+              getLabel={(card) =>
+                `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`
+              }
               onValueChange={(val) =>
                 setValue('cardCode', val, {
                   shouldDirty: true,

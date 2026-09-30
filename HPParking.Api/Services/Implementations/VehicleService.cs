@@ -184,6 +184,12 @@ namespace HPParking.Api.Services.Implementations
                 var card = await _cardRepo.FindOneAsync(c => c.CardNumber == normCard && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
                 if (card != null)
                 {
+                    if (!string.IsNullOrWhiteSpace(card.VehicleId))
+                    {
+                        var assignedVeh = await _vehicleRepo.FindOneAsync(v => v.Id == card.VehicleId && !v.IsDeleted, cancellationToken);
+                        var plate = assignedVeh?.PlateNumber ?? card.VehicleId;
+                        throw new BadRequestException($"Thẻ xe '{normCard}' đã được gán cho phương tiện '{plate}'.");
+                    }
                     card.VehicleId = vehicle.Id;
                     card.Status = CardStatus.InUse;
                     await _cardRepo.UpdateAsync(card, cancellationToken);
@@ -265,6 +271,12 @@ namespace HPParking.Api.Services.Implementations
                         var newCard = await _cardRepo.FindOneAsync(c => c.CardNumber == normCard && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
                         if (newCard != null)
                         {
+                            if (!string.IsNullOrWhiteSpace(newCard.VehicleId) && newCard.VehicleId != id)
+                            {
+                                var assignedVeh = await _vehicleRepo.FindOneAsync(v => v.Id == newCard.VehicleId && !v.IsDeleted, cancellationToken);
+                                var plate = assignedVeh?.PlateNumber ?? newCard.VehicleId;
+                                throw new BadRequestException($"Thẻ xe '{normCard}' đã được gán cho phương tiện '{plate}'.");
+                            }
                             newCard.VehicleId = id;
                             newCard.Status = CardStatus.InUse;
                             await _cardRepo.UpdateAsync(newCard, cancellationToken);
