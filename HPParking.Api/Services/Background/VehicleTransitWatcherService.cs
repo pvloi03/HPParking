@@ -1,6 +1,8 @@
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Background
 {
@@ -61,6 +63,7 @@ namespace HPParking.Api.Services.Background
             var routeRepo = scope.ServiceProvider.GetRequiredService<IRepository<GateRouteConfig>>();
             var gateRepo = scope.ServiceProvider.GetRequiredService<IRepository<Gate>>();
             var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSenderService>();
+            var configuration = scope.ServiceProvider.GetService<IConfiguration>();
 
             var now = DateTime.UtcNow;
 
@@ -141,10 +144,23 @@ namespace HPParking.Api.Services.Background
                     subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} dừng đỗ quá hạn tại bãi";
                 }
 
+                var rootPathConfig = configuration?["StorageSettings:RootPath"]
+                    ?? configuration?["StorageSettings:UploadPath"]
+                    ?? @"C:\Users\ADMIN\Pictures\hpparking";
+
                 var lastCheckpoint = trip.Checkpoints?.LastOrDefault();
-                string? attachmentPath = !string.IsNullOrWhiteSpace(lastCheckpoint?.OverviewImagePath)
-                    ? lastCheckpoint.OverviewImagePath
-                    : lastCheckpoint?.PlateImagePath;
+                string? physicalAttachmentPath = ResolveCheckpointImagePath(lastCheckpoint?.OverviewImagePath, rootPathConfig)
+                    ?? ResolveCheckpointImagePath(lastCheckpoint?.PlateImagePath, rootPathConfig);
+
+                bool hasAttachment = !string.IsNullOrWhiteSpace(physicalAttachmentPath);
+                string? attachmentDisplayName = null;
+                if (hasAttachment)
+                {
+                    var cleanPlate = Regex.Replace(trip.PlateNumber ?? "Xe", @"[^a-zA-Z0-9]", "");
+                    var ext = Path.GetExtension(physicalAttachmentPath);
+                    if (string.IsNullOrWhiteSpace(ext)) ext = ".jpg";
+                    attachmentDisplayName = $"AnhGiamSat_{cleanPlate}{ext}";
+                }
 
                 string emailBody = BuildSlaAlertEmailHtml(
                     trip,
@@ -153,16 +169,29 @@ namespace HPParking.Api.Services.Background
                     originGateName,
                     currentGateName,
                     now,
-                    attachmentPath);
+                    hasAttachment);
 
                 if (recipients.Count > 0)
                 {
-                    await emailSender.SendEmailAsync(
-                        recipients,
-                        subject,
-                        emailBody,
-                        attachmentPath,
-                        cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(attachmentDisplayName))
+                    {
+                        await emailSender.SendEmailAsync(
+                            recipients,
+                            subject,
+                            emailBody,
+                            physicalAttachmentPath,
+                            attachmentDisplayName,
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        await emailSender.SendEmailAsync(
+                            recipients,
+                            subject,
+                            emailBody,
+                            physicalAttachmentPath,
+                            cancellationToken);
+                    }
                 }
 
                 trip.IsAlertSent = true;
@@ -183,7 +212,7 @@ namespace HPParking.Api.Services.Background
             string originGateName,
             string currentGateName,
             DateTime now,
-            string? attachmentPath = null)
+            bool hasAttachment = false)
         {
             var overdueMinutes = (now - trip.NextDeadline!.Value).TotalMinutes.ToString("N0");
             string timeRowsHtml;
@@ -245,7 +274,7 @@ namespace HPParking.Api.Services.Background
                     </tr>";
             }
 
-            string imageAttachmentNotice = !string.IsNullOrWhiteSpace(attachmentPath)
+            string imageAttachmentNotice = hasAttachment
                 ? $@"
                 <tr>
                   <td style='padding: 0 32px 20px 32px;'>
@@ -410,6 +439,44 @@ namespace HPParking.Api.Services.Background
   </table>
 </body>
 </html>";
+        }
+
+        internal static string? ResolveCheckpointImagePath(string? rawPath, string rootPath)
+        {
+            if (string.IsNullOrWhiteSpace(rawPath)) return null;
+
+            if (Path.IsPathRooted(rawPath) && File.Exists(rawPath))
+            {
+                return rawPath;
+            }
+
+            var cleanPath = rawPath.Trim().Replace('\\', '/');
+            if (cleanPath.StartsWith("/images/", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanPath = cleanPath.Substring(8);
+            }
+            else if (cleanPath.StartsWith("images/", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanPath = cleanPath.Substring(7);
+            }
+            cleanPath = cleanPath.TrimStart('/');
+
+            var candidates = new List<string>
+            {
+                Path.Combine(rootPath, cleanPath.Replace('/', Path.DirectorySeparatorChar)),
+                Path.Combine(rootPath, "Captures", cleanPath.Replace('/', Path.DirectorySeparatorChar)),
+                Path.Combine(Directory.GetCurrentDirectory(), cleanPath.Replace('/', Path.DirectorySeparatorChar))
+            };
+
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
     }
 }

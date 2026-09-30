@@ -14,5 +14,16 @@ namespace HPParking.Api.Services.Interfaces
             string htmlBody,
             string? attachmentPath = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gửi email HTML với tùy chọn đính kèm ảnh và chỉ định tên hiển thị file đính kèm
+        /// </summary>
+        Task<bool> SendEmailAsync(
+            IEnumerable<string> toEmails,
+            string subject,
+            string htmlBody,
+            string? attachmentPath,
+            string? attachmentDisplayName,
+            CancellationToken cancellationToken = default);
     }
 }
