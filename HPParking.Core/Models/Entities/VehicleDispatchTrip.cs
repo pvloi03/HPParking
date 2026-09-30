@@ -29,6 +29,7 @@ namespace HPParking.Core.Models.Entities
     /// <summary>
     /// Mốc kiểm soát ghi nhận mỗi lần xe quẹt qua cổng (Vào hoặc Ra)
     /// </summary>
+    [BsonIgnoreExtraElements]
     public class TripCheckpoint
     {
         public int StepIndex { get; set; }
@@ -44,7 +45,16 @@ namespace HPParking.Core.Models.Entities
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
-        public string? ImagePath { get; set; }
+        /// <summary>
+        /// Đường dẫn ảnh toàn cảnh / cabin chụp xe và tài xế tại cổng
+        /// </summary>
+        public string? OverviewImagePath { get; set; }
+
+        /// <summary>
+        /// Đường dẫn ảnh chụp biển số xe phục vụ nhận dạng LPR
+        /// </summary>
+        public string? PlateImagePath { get; set; }
+
         public string? PlateDetected { get; set; }
         public bool IsRouteCompliant { get; set; } = true;
         public string? Note { get; set; }
@@ -148,11 +158,6 @@ namespace HPParking.Core.Models.Entities
         /// </summary>
         [BsonDateTimeOptions(Kind = DateTimeKind.Utc)]
         public DateTime? AlertSentAt { get; set; }
-
-        /// <summary>
-        /// Đường dẫn ảnh tài xế chụp lúc qua cổng gần nhất
-        /// </summary>
-        public string? LastDriverImagePath { get; set; }
 
         /// <summary>
         /// Toàn bộ lịch sử các mốc trạm kiểm soát đã đi qua trong chuyến

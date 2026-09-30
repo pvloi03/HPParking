@@ -141,13 +141,19 @@ namespace HPParking.Api.Services.Background
                     subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} dừng đỗ quá hạn tại bãi";
                 }
 
+                var lastCheckpoint = trip.Checkpoints?.LastOrDefault();
+                string? attachmentPath = !string.IsNullOrWhiteSpace(lastCheckpoint?.OverviewImagePath)
+                    ? lastCheckpoint.OverviewImagePath
+                    : lastCheckpoint?.PlateImagePath;
+
                 string emailBody = BuildSlaAlertEmailHtml(
                     trip,
                     violationType,
                     routeName,
                     originGateName,
                     currentGateName,
-                    now);
+                    now,
+                    attachmentPath);
 
                 if (recipients.Count > 0)
                 {
@@ -155,7 +161,7 @@ namespace HPParking.Api.Services.Background
                         recipients,
                         subject,
                         emailBody,
-                        trip.LastDriverImagePath,
+                        attachmentPath,
                         cancellationToken);
                 }
 
@@ -176,7 +182,8 @@ namespace HPParking.Api.Services.Background
             string routeName,
             string originGateName,
             string currentGateName,
-            DateTime now)
+            DateTime now,
+            string? attachmentPath = null)
         {
             var overdueMinutes = (now - trip.NextDeadline!.Value).TotalMinutes.ToString("N0");
             string timeRowsHtml;
@@ -238,12 +245,12 @@ namespace HPParking.Api.Services.Background
                     </tr>";
             }
 
-            string imageAttachmentNotice = !string.IsNullOrWhiteSpace(trip.LastDriverImagePath)
+            string imageAttachmentNotice = !string.IsNullOrWhiteSpace(attachmentPath)
                 ? $@"
                 <tr>
                   <td style='padding: 0 32px 20px 32px;'>
                     <div style='background-color: #f1f5f9; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #475569;'>
-                      📷 <strong>Ảnh tài xế:</strong> Ảnh chụp khuôn mặt/xe tại cổng đã được đính kèm cùng email cảnh báo này.
+                      📷 <strong>Ảnh giám sát:</strong> Ảnh chụp xe/tài xế tại cổng đã được đính kèm cùng email cảnh báo này.
                     </div>
                   </td>
                 </tr>"

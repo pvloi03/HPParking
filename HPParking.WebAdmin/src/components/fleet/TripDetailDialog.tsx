@@ -12,7 +12,9 @@ import {
   ArrowRightCircle,
   ArrowLeftCircle,
   Eye,
+  Camera,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +30,7 @@ import {
   type FleetTripDto,
   type TripCheckpointDto,
 } from '@/types/fleetDispatch';
-import { formatImageUrl } from '@/components/parkingSessions/EvidenceImageGrid';
+import { formatImageUrl, hasImagePath } from '@/components/parkingSessions/EvidenceImageGrid';
 
 function formatOverdueText(seconds: number): string {
   if (seconds <= 0) return 'Đúng hạn';
@@ -53,7 +55,7 @@ export function TripDetailDialog({
   tripId,
   initialTrip,
 }: TripDetailDialogProps) {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [previewCheckpoint, setPreviewCheckpoint] = useState<TripCheckpointDto | null>(null);
 
   const { data: tripData, isLoading } = useQuery({
     queryKey: ['fleet-trip-detail', tripId],
@@ -329,19 +331,27 @@ export function TripDetailDialog({
                                   {cp.note || '---'}
                                 </td>
                                 <td className="py-2 px-3 text-center">
-                                  {cp.imagePath ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedImage(formatImageUrl(cp.imagePath))}
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-muted hover:bg-accent text-foreground text-[11px] font-medium border border-border cursor-pointer transition-colors"
-                                      title="Xem ảnh camera"
-                                    >
-                                      <Eye className="h-3 w-3 text-blue-500" />
-                                      <span>Xem</span>
-                                    </button>
-                                  ) : (
-                                    <span className="text-muted-foreground text-[11px]">---</span>
-                                  )}
+                                  {(() => {
+                                    const hasOverview = hasImagePath(cp.overviewImagePath);
+                                    const hasPlate = hasImagePath(cp.plateImagePath);
+                                    const imageCount = (hasOverview ? 1 : 0) + (hasPlate ? 1 : 0);
+                                    return imageCount > 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewCheckpoint(cp)}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-accent text-foreground text-[11px] font-medium border border-border cursor-pointer transition-colors"
+                                        title="Xem ảnh camera mốc kiểm soát"
+                                      >
+                                        <Eye className="h-3 w-3 text-blue-500" />
+                                        <span>Xem ảnh</span>
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                          {imageCount}
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <span className="text-muted-foreground text-[11px]">---</span>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             );
@@ -357,24 +367,124 @@ export function TripDetailDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Lightbox xem ảnh to */}
-      {selectedImage && (
-        <Dialog open={Boolean(selectedImage)} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-3xl p-2 bg-black/90 border-0 flex flex-col items-center justify-center">
-            <img
-              src={selectedImage}
-              alt="Ảnh bằng chứng điểm kiểm soát"
-              className="max-h-[80vh] w-auto rounded object-contain"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '';
-              }}
-            />
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="mt-2 text-xs text-white/70 hover:text-white underline cursor-pointer"
-            >
-              Đóng xem ảnh
-            </button>
+      {/* Modal xem ảnh bằng chứng điểm kiểm soát (Ảnh toàn cảnh & Ảnh biển số) */}
+      {previewCheckpoint && (
+        <Dialog open={Boolean(previewCheckpoint)} onOpenChange={() => setPreviewCheckpoint(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col bg-background text-foreground border-border shadow-2xl">
+            <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border bg-muted/20">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Camera className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
+                      <span>Ảnh Bằng Chứng Mốc Kiểm Soát #{previewCheckpoint.stepIndex}</span>
+                      <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted border border-border font-semibold">
+                        {previewCheckpoint.gateName || previewCheckpoint.gateId}
+                      </span>
+                    </DialogTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Thời điểm ghi nhận:{' '}
+                      <span className="font-medium text-foreground">
+                        {new Date(previewCheckpoint.timestamp).toLocaleString('vi-VN')}
+                      </span>{' '}
+                      —{' '}
+                      {Number(previewCheckpoint.direction) === 1 || previewCheckpoint.direction === 'Out' ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Ra khỏi cổng</span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">Vào cổng</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {previewCheckpoint.plateDetected && (
+                  <Badge variant="outline" className="font-mono text-xs px-2.5 py-1 bg-muted/50 border-border">
+                    Biển số: {previewCheckpoint.plateDetected}
+                  </Badge>
+                )}
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. Ảnh Toàn Cảnh / Xe & Tài Xế */}
+                <div className="flex flex-col rounded-lg border border-border bg-muted/20 overflow-hidden">
+                  <div className="px-3.5 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Camera className="h-3.5 w-3.5 text-blue-500" />
+                      Ảnh Toàn Cảnh / Cabin Xe
+                    </span>
+                    {hasImagePath(previewCheckpoint.overviewImagePath) && (
+                      <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/5">
+                        Có ảnh
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="p-3 flex items-center justify-center min-h-[220px] bg-black/5 dark:bg-black/20">
+                    {hasImagePath(previewCheckpoint.overviewImagePath) ? (
+                      <img
+                        src={formatImageUrl(previewCheckpoint.overviewImagePath)}
+                        alt={`Ảnh toàn cảnh chặng ${previewCheckpoint.stepIndex}`}
+                        className="max-h-[320px] w-full rounded object-contain transition-transform hover:scale-[1.01]"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '';
+                        }}
+                      />
+                    ) : (
+                      <div className="text-center py-10 text-muted-foreground text-xs">
+                        <Camera className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        Chưa có ảnh toàn cảnh cho mốc này
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Ảnh Nhận Dạng Biển Số */}
+                <div className="flex flex-col rounded-lg border border-border bg-muted/20 overflow-hidden">
+                  <div className="px-3.5 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between">
+                    <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Eye className="h-3.5 w-3.5 text-amber-500" />
+                      Ảnh Nhận Dạng Biển Số (LPR)
+                    </span>
+                    {hasImagePath(previewCheckpoint.plateImagePath) && (
+                      <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/5">
+                        Có ảnh
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="p-3 flex items-center justify-center min-h-[220px] bg-black/5 dark:bg-black/20">
+                    {hasImagePath(previewCheckpoint.plateImagePath) ? (
+                      <img
+                        src={formatImageUrl(previewCheckpoint.plateImagePath)}
+                        alt={`Ảnh biển số chặng ${previewCheckpoint.stepIndex}`}
+                        className="max-h-[320px] w-full rounded object-contain transition-transform hover:scale-[1.01]"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '';
+                        }}
+                      />
+                    ) : (
+                      <div className="text-center py-10 text-muted-foreground text-xs">
+                        <Eye className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        Chưa có ảnh biển số cho mốc này
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 px-5 border-t border-border bg-muted/10 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreviewCheckpoint(null)}
+                className="text-xs"
+                aria-label="Đóng xem ảnh"
+              >
+                Đóng
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       )}

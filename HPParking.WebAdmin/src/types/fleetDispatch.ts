@@ -48,7 +48,6 @@ export interface FleetTripDto {
   remainingSeconds: number;
   isOverdue: boolean;
   isAlertSent: boolean;
-  lastDriverImagePath?: string;
   checkpoints?: TripCheckpointDto[];
   createdAt: string;
   updatedAt?: string;
@@ -65,7 +64,8 @@ export interface TripCheckpointDto {
   gateName: string;
   direction: number | string;
   timestamp: string;
-  imagePath?: string;
+  overviewImagePath?: string;
+  plateImagePath?: string;
   plateDetected: string;
   isRouteCompliant: boolean;
   note?: string;

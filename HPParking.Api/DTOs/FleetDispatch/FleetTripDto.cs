@@ -26,7 +26,6 @@ namespace HPParking.Api.DTOs.FleetDispatch
         public DateTime? EndTime { get; set; }
         public bool IsOverdue { get; set; }
         public bool IsAlertSent { get; set; }
-        public string? LastDriverImagePath { get; set; }
         public List<TripCheckpointDto> Checkpoints { get; set; } = [];
     }
 
@@ -37,7 +36,8 @@ namespace HPParking.Api.DTOs.FleetDispatch
         public string GateName { get; set; } = string.Empty;
         public LaneDirection Direction { get; set; }
         public DateTime Timestamp { get; set; }
-        public string? ImagePath { get; set; }
+        public string? OverviewImagePath { get; set; }
+        public string? PlateImagePath { get; set; }
         public string PlateDetected { get; set; } = string.Empty;
         public bool IsRouteCompliant { get; set; } = true;
         public string? Note { get; set; }

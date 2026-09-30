@@ -155,7 +155,6 @@ namespace HPParking.Api.Services.Implementations
                 RemainingSeconds = remainingSeconds,
                 IsOverdue = isOverdue,
                 IsAlertSent = trip.IsAlertSent,
-                LastDriverImagePath = trip.LastDriverImagePath,
                 Checkpoints = trip.Checkpoints?.Select(c => new TripCheckpointDto
                 {
                     StepIndex = c.StepIndex,
@@ -163,7 +162,8 @@ namespace HPParking.Api.Services.Implementations
                     GateName = c.GateName ?? string.Empty,
                     Direction = c.Direction,
                     Timestamp = c.Timestamp,
-                    ImagePath = c.ImagePath,
+                    OverviewImagePath = c.OverviewImagePath,
+                    PlateImagePath = c.PlateImagePath,
                     PlateDetected = c.PlateDetected ?? string.Empty,
                     IsRouteCompliant = c.IsRouteCompliant,
                     Note = c.Note,

@@ -473,7 +473,6 @@ namespace HPParking.Services.Parking
                     LastEntryTime = null,
                     NextDeadline = now.AddMinutes(travelMinutes),
                     IsAlertSent = false,
-                    LastDriverImagePath = "",
                     Checkpoints = []
                 };
 
@@ -535,7 +534,8 @@ namespace HPParking.Services.Parking
                 GateName = currentGateName,
                 Direction = context.Direction,
                 Timestamp = now,
-                ImagePath = "",
+                OverviewImagePath = "",
+                PlateImagePath = "",
                 PlateDetected = lprResult?.Plate ?? vehicle.PlateNumber,
                 IsRouteCompliant = true,
                 Note = isEntry ? "Quẹt vào cổng" : "Quẹt ra khỏi cổng",
@@ -584,11 +584,14 @@ namespace HPParking.Services.Parking
                         string overviewPath = overviewSave != null
                             ? _imageStorageService.SaveImage(overviewSave, isEntry ? "ImageIn" : "ImageOut", "ToanCanh", imageBasePath)
                             : "";
+                        string platePath = plateSave != null
+                            ? _imageStorageService.SaveImage(plateSave, isEntry ? "ImageIn" : "ImageOut", "BienSo", imageBasePath)
+                            : "";
 
-                        if (activeTrip != null && !string.IsNullOrEmpty(overviewPath))
+                        if (activeTrip != null && (!string.IsNullOrEmpty(overviewPath) || !string.IsNullOrEmpty(platePath)))
                         {
-                            activeTrip.LastDriverImagePath = overviewPath;
-                            currentCheckpoint.ImagePath = overviewPath;
+                            currentCheckpoint.OverviewImagePath = overviewPath;
+                            currentCheckpoint.PlateImagePath = platePath;
                             await _tripRepository.UpdateAsync(activeTrip);
                         }
                     }
