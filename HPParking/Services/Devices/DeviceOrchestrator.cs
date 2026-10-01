@@ -1,4 +1,5 @@
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using HPParking.Models;
 using HPParking.Services.Camera;
 using HPParking.Services.Controller;
@@ -22,6 +23,8 @@ namespace HPParking.Services.Devices
         public event Action<string, bool, string>? OnControllerStatusChanged;
 
         public event Action<RealtimeLog>? OnCardSwiped;
+
+        public event Action<RealtimeLog>? OnRadarTriggered;
 
         public async Task InitializeDevicesAsync(
             List<LaneRuntimeContext> laneContexts,
@@ -125,15 +128,46 @@ namespace HPParking.Services.Devices
                 _cameras.Add(overviewCam);
             }
 
+            // 4. Camera FaceID / Chân Dung
+            Device? faceDev = (!string.IsNullOrEmpty(lane.FaceDeviceId) && deviceMap.TryGetValue(lane.FaceDeviceId, out var fDev))
+                ? fDev : null;
+
+            OverviewCameraService? faceCam = null;
+            if (lane.UseFaceCam || faceDev != null)
+            {
+                faceDev ??= deviceMap.Values.FirstOrDefault(d => d.Type == DeviceType.FaceId || d.IpAddress == "192.168.1.205");
+
+                if (faceDev != null && !string.IsNullOrWhiteSpace(faceDev.IpAddress))
+                {
+                    faceCam = new OverviewCameraService();
+                    faceCam.Config = new CameraConfig
+                    {
+                        Ip = faceDev.IpAddress,
+                        Port = SafeCastPort(faceDev.Port),
+                        UserName = faceDev.UserName ?? "admin",
+                        Password = faceDev.Password ?? ""
+                    };
+
+                    faceCam.OnStatusChanged += (isConnected, message) =>
+                    {
+                        Debug.WriteLine($"[Làn {lane.InputReader} - Cam FaceID ({faceDev.IpAddress})]: {message}");
+                    };
+
+                    _cameras.Add(faceCam);
+                }
+            }
+
             context.Cameras = new LaneCamera
             {
                 LicensePlateCamera = plateCam,
-                OverviewCamera = overviewCam
+                OverviewCamera = overviewCam,
+                FaceCamera = faceCam
             };
 
             var loginTasks = new List<Task>();
             if (plateDev != null && !string.IsNullOrWhiteSpace(plateDev.IpAddress)) loginTasks.Add(plateCam.LoginAsync());
             if (overviewDev != null && !string.IsNullOrWhiteSpace(overviewDev.IpAddress)) loginTasks.Add(overviewCam.LoginAsync());
+            if (faceCam != null && faceDev != null && !string.IsNullOrWhiteSpace(faceDev.IpAddress)) loginTasks.Add(faceCam.LoginAsync());
             if (loginTasks.Count > 0)
             {
                 await Task.WhenAll(loginTasks);
@@ -151,6 +185,10 @@ namespace HPParking.Services.Devices
                     if (handles.OverviewHandle != IntPtr.Zero)
                     {
                         overviewCam.StartPreview(handles.OverviewHandle);
+                    }
+                    if (faceCam != null && handles.FaceHandle != IntPtr.Zero)
+                    {
+                        faceCam.StartPreview(handles.FaceHandle);
                     }
                 }
             }
@@ -184,6 +222,11 @@ namespace HPParking.Services.Devices
             ctrlService.OnCardSwiped += (data) =>
             {
                 OnCardSwiped?.Invoke(data);
+            };
+
+            ctrlService.OnRadarTriggered += (data) =>
+            {
+                OnRadarTriggered?.Invoke(data);
             };
 
             await ctrlService.ConnectAsync(config);
@@ -241,6 +284,7 @@ namespace HPParking.Services.Devices
             // Dọn dẹp các external subscribers gắn vào Orchestrator
             OnControllerStatusChanged = null;
             OnCardSwiped = null;
+            OnRadarTriggered = null;
         }
 
         private static ushort SafeCastPort(int port, ushort defaultPort = 8000)

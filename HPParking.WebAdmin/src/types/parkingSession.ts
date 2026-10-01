@@ -18,20 +18,24 @@ export interface ParkingSessionDto {
   id: string;
   plateNumber: string;
   vehicleType: VehicleType;
+  targetType?: number;
   status: ParkingSessionStatus;
   personId?: string;
+  faceMatchScore?: number;
 
   // --- LƯỢT VÀO ---
   inTime?: string;
   inLaneName?: string;
   inOverviewImagePath: string;
   inPlateImagePath: string;
+  inFaceImagePath?: string;
 
   // --- LƯỢT RA ---
   outTime?: string;
   outLaneName?: string;
   outOverviewImagePath: string;
   outPlateImagePath: string;
+  outFaceImagePath?: string;
 
   // --- TÍNH TOÁN ---
   durationMinutes?: number;

@@ -24,6 +24,7 @@ import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-se
 import { gatesApi } from '@/api/infrastructureApi';
 import {
   LaneDirection,
+  LaneTargetType,
   DeviceType,
   type LaneDto,
   type GateDto,
@@ -49,6 +50,10 @@ const laneSchema = z.object({
     .min(2, 'Tên làn xe phải có ít nhất 2 ký tự')
     .max(100, 'Tên làn xe không được quá 100 ký tự'),
   direction: z.number().int().min(1).max(3),
+  targetType: z.number().int().min(0).max(1).optional(),
+  useOverviewCam: z.boolean().optional(),
+  usePlateCam: z.boolean().optional(),
+  useFaceCam: z.boolean().optional(),
   plateCameraDeviceId: z.string().optional(),
   overviewCameraDeviceId: z.string().optional(),
   controllerDeviceId: z.string().optional(),
@@ -103,6 +108,10 @@ export function LaneFormDialog({
       code: '',
       name: '',
       direction: LaneDirection.In,
+      targetType: LaneTargetType.Vehicle,
+      useOverviewCam: true,
+      usePlateCam: true,
+      useFaceCam: false,
       plateCameraDeviceId: 'none',
       overviewCameraDeviceId: 'none',
       controllerDeviceId: 'none',
@@ -115,6 +124,10 @@ export function LaneFormDialog({
 
   const selectedGateId = watch('gateId');
   const selectedDirection = watch('direction');
+  const selectedTargetType = watch('targetType');
+  const useOverviewCam = watch('useOverviewCam');
+  const usePlateCam = watch('usePlateCam');
+  const useFaceCam = watch('useFaceCam');
   const selectedPlateCamera = watch('plateCameraDeviceId');
   const selectedOverviewCamera = watch('overviewCameraDeviceId');
   const selectedController = watch('controllerDeviceId');
@@ -139,6 +152,10 @@ export function LaneFormDialog({
           code: initialData.code,
           name: initialData.name,
           direction: initialData.direction,
+          targetType: initialData.targetType ?? LaneTargetType.Vehicle,
+          useOverviewCam: initialData.useOverviewCam ?? true,
+          usePlateCam: initialData.usePlateCam ?? true,
+          useFaceCam: initialData.useFaceCam ?? false,
           plateCameraDeviceId: initialData.plateCameraDeviceId || 'none',
           overviewCameraDeviceId: initialData.overviewCameraDeviceId || 'none',
           controllerDeviceId: initialData.controllerDeviceId || 'none',
@@ -153,6 +170,10 @@ export function LaneFormDialog({
           code: '',
           name: '',
           direction: LaneDirection.In,
+          targetType: LaneTargetType.Vehicle,
+          useOverviewCam: true,
+          usePlateCam: true,
+          useFaceCam: false,
           plateCameraDeviceId: 'none',
           overviewCameraDeviceId: 'none',
           controllerDeviceId: 'none',
@@ -171,6 +192,10 @@ export function LaneFormDialog({
       code: formData.code.toUpperCase(),
       name: formData.name,
       direction: formData.direction as LaneDirection,
+      targetType: formData.targetType as LaneTargetType,
+      useOverviewCam: formData.useOverviewCam,
+      usePlateCam: formData.usePlateCam,
+      useFaceCam: formData.useFaceCam,
       plateCameraDeviceId:
         formData.plateCameraDeviceId && formData.plateCameraDeviceId !== 'none'
           ? formData.plateCameraDeviceId
@@ -266,6 +291,82 @@ export function LaneFormDialog({
             </div>
           </div>
 
+          {/* Phân loại đối tượng kiểm soát của làn & Tùy chọn Camera */}
+          <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 space-y-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-xs font-bold text-foreground">
+                Đối tượng kiểm soát <span className="text-destructive">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('targetType', LaneTargetType.Vehicle, { shouldValidate: true });
+                    setValue('usePlateCam', true);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    selectedTargetType === LaneTargetType.Vehicle
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-background hover:bg-muted text-muted-foreground border border-border'
+                  }`}
+                >
+                  🚗 Xe cơ giới
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue('targetType', LaneTargetType.Pedestrian, { shouldValidate: true });
+                    setValue('usePlateCam', false);
+                    setValue('useFaceCam', true);
+                    setValue('plateCameraDeviceId', 'none');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    selectedTargetType === LaneTargetType.Pedestrian
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-background hover:bg-muted text-muted-foreground border border-border'
+                  }`}
+                >
+                  🚶 Người đi bộ (Turnstile/FaceID)
+                </button>
+              </div>
+            </div>
+
+            {/* Checkbox cấu hình nhanh các camera kích hoạt trên làn */}
+            <div className="pt-2 border-t border-blue-200/60 dark:border-blue-900/40 flex flex-wrap gap-4 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useOverviewCam}
+                  onChange={(e) => setValue('useOverviewCam', e.target.checked)}
+                  className="rounded text-blue-600"
+                />
+                <span className="text-foreground">Cam toàn cảnh</span>
+              </label>
+
+              {selectedTargetType === LaneTargetType.Vehicle && (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={usePlateCam}
+                    onChange={(e) => setValue('usePlateCam', e.target.checked)}
+                    className="rounded text-blue-600"
+                  />
+                  <span className="text-foreground">Cam biển số (LPR)</span>
+                </label>
+              )}
+
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={useFaceCam}
+                  onChange={(e) => setValue('useFaceCam', e.target.checked)}
+                  className="rounded text-blue-600"
+                />
+                <span className="text-foreground">Cam FaceID</span>
+              </label>
+            </div>
+          </div>
+
           {/* Mã làn & Tên làn */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -305,31 +406,33 @@ export function LaneFormDialog({
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Camera Biển Số */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                  <Camera className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Camera Biển Số (LPR)</span>
-                </label>
-                <Select
-                  value={selectedPlateCamera}
-                  onValueChange={(val) => setValue('plateCameraDeviceId', val)}
-                >
-                  <SelectTrigger className="text-xs bg-background">
-                    <SelectValue placeholder="-- Chưa gán camera biển số --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none" className="text-xs text-muted-foreground">
-                      -- Không dùng / Chưa gán --
-                    </SelectItem>
-                    {cameraDevices.map((d) => (
-                      <SelectItem key={d.id} value={d.id} className="text-xs">
-                        {d.name} ({d.ipAddress})
+              {/* Camera Biển Số (chỉ áp dụng cho làn Xe) */}
+              {selectedTargetType === LaneTargetType.Vehicle && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <Camera className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Camera Biển Số (LPR)</span>
+                  </label>
+                  <Select
+                    value={selectedPlateCamera}
+                    onValueChange={(val) => setValue('plateCameraDeviceId', val)}
+                  >
+                    <SelectTrigger className="text-xs bg-background">
+                      <SelectValue placeholder="-- Chưa gán camera biển số --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs text-muted-foreground">
+                        -- Không dùng / Chưa gán --
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                      {cameraDevices.map((d) => (
+                        <SelectItem key={d.id} value={d.id} className="text-xs">
+                          {d.name} ({d.ipAddress})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Camera Toàn Cảnh */}
               <div className="space-y-1">

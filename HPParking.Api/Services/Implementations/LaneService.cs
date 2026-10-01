@@ -236,6 +236,10 @@ namespace HPParking.Api.Services.Implementations
                 Code = cleanCode,
                 Name = cleanName,
                 Direction = request.Direction,
+                TargetType = request.TargetType,
+                UseOverviewCam = request.UseOverviewCam,
+                UsePlateCam = request.UsePlateCam,
+                UseFaceCam = request.UseFaceCam,
                 PlateCameraDeviceId = request.PlateCameraDeviceId?.Trim(),
                 OverviewCameraDeviceId = request.OverviewCameraDeviceId?.Trim(),
                 ControllerDeviceId = request.ControllerDeviceId?.Trim(),
@@ -313,6 +317,10 @@ namespace HPParking.Api.Services.Implementations
             lane.Code = cleanCode;
             lane.Name = cleanName;
             lane.Direction = request.Direction;
+            lane.TargetType = request.TargetType;
+            lane.UseOverviewCam = request.UseOverviewCam;
+            lane.UsePlateCam = request.UsePlateCam;
+            lane.UseFaceCam = request.UseFaceCam;
             lane.PlateCameraDeviceId = request.PlateCameraDeviceId?.Trim();
             lane.OverviewCameraDeviceId = request.OverviewCameraDeviceId?.Trim();
             lane.ControllerDeviceId = request.ControllerDeviceId?.Trim();

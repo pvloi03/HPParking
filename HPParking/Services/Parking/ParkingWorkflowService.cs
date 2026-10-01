@@ -1,5 +1,6 @@
 using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
+using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
@@ -42,6 +43,1285 @@ namespace HPParking.Services.Parking
         private readonly IRepository<VehicleDispatchTrip> _tripRepository = tripRepository;
         private readonly IRepository<GateRouteConfig> _gateRouteRepository = gateRouteRepository;
         private readonly IRepository<Gate> _gateRepository = gateRepository;
+
+        #region --- 1. MASTER WORKFLOW DISPATCHER (TUPLE PATTERN MATCHING) ---
+
+        public async Task<ProcessResult> ProcessWorkflowAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+        {
+            // Kiểm tra thẻ hợp lệ nếu nguồn kích hoạt là quẹt thẻ
+            if (trigger.Source == TriggerSource.CardSwipe)
+            {
+                string raw = trigger.RawCardNo?.Trim() ?? string.Empty;
+                string norm = CardHelper.NormalizeCardCode(raw);
+                if (!CardHelper.IsValidCardCode(raw) && !CardHelper.IsValidCardCode(norm))
+                {
+                    return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = string.Empty };
+                }
+            }
+
+            return (context.Lane.TargetType, trigger.Source, context.Lane.Direction) switch
+            {
+                // 1. NGƯỜI ĐI BỘ (TURNSTILE / FLAP BARRIER)
+                (LaneTargetType.Pedestrian, TriggerSource.CardSwipe, LaneDirection.In)
+                    => await ProcessPedestrianEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed),
+                (LaneTargetType.Pedestrian, TriggerSource.CardSwipe, LaneDirection.Out)
+                    => await ProcessPedestrianExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed),
+                (LaneTargetType.Pedestrian, TriggerSource.FaceTerminal, _)
+                    => await ProcessPedestrianFacePassAsync(context, trigger, imageBasePath, onBarrierOpenFailed),
+
+                // 2. XE CƠ GIỚI - QUẸT THẺ THỦ CÔNG
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when trigger.IsSharedVehicle
+                    => await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
+                    => await ProcessVehicleCardEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
+                    => await ProcessVehicleCardExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+
+                // 3. XE CƠ GIỚI - CẢM BIẾN RADAR KÍCH HOẠT (FREE-FLOW)
+                (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.In)
+                    => await ProcessVehicleRadarEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed),
+                (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.Out)
+                    => await ProcessVehicleRadarExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed),
+
+                // 4. MỞ CƯỠNG BỨC THỦ CÔNG
+                (_, TriggerSource.Manual, _)
+                    => await ProcessManualOpenAsync(context, onBarrierOpenFailed),
+
+                _ => new ProcessResult { Status = ProcessStatus.Error, Message = "Chế độ xử lý chưa được hỗ trợ." }
+            };
+        }
+
+        #endregion
+
+        #region --- 2. BACKWARD COMPATIBILITY ENTRY/EXIT WRAPPERS ---
+
+        public async Task<ProcessResult> ProcessEntryAsync(
+            LaneRuntimeContext context,
+            RealtimeLog data,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+        {
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = data.CardNo ?? string.Empty,
+                ReaderIndex = data.DoorId,
+                DoorIndex = data.DoorId,
+                TriggerTime = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now
+            };
+
+            // Phân nhánh Thẻ Phương tiện nội bộ
+            var (card, _, _) = await ResolveIdentityAsync(trigger.RawCardNo);
+            if (card != null && card.TargetType == CardTargetType.Vehicle)
+            {
+                trigger.IsSharedVehicle = true;
+            }
+
+            return await ProcessWorkflowAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+        }
+
+        public async Task<ProcessResult> ProcessExitAsync(
+            LaneRuntimeContext context,
+            RealtimeLog data,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+        {
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = data.CardNo ?? string.Empty,
+                ReaderIndex = data.DoorId,
+                DoorIndex = data.DoorId,
+                TriggerTime = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now
+            };
+
+            var (card, _, _) = await ResolveIdentityAsync(trigger.RawCardNo);
+            if (card != null && card.TargetType == CardTargetType.Vehicle)
+            {
+                trigger.IsSharedVehicle = true;
+            }
+
+            return await ProcessWorkflowAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+        }
+
+        #endregion
+
+        #region --- 3. WORKFLOW HANDLERS (CHUYÊN BIỆT TỪNG NHÁNH NGHIỆP VỤ) ---
+
+        // ======================== [A] NGƯỜI ĐI BỘ ========================
+
+        private async Task<ProcessResult> ProcessPedestrianEntryAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            var (_, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
+            if (client == null)
+            {
+                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy thông tin người dùng trong hệ thống." };
+            }
+
+            string departmentName = await GetDepartmentNameAsync(client);
+            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
+            if (isExpired)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.CardExpired,
+                    Message = expiryMsg,
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            var activeSession = await _sessionRepository.FindOneAsync(x =>
+                x.PersonId == client.Id &&
+                x.TargetType == LaneTargetType.Pedestrian &&
+                x.Status == ParkingSessionStatus.Active &&
+                !x.IsDeleted);
+
+            if (activeSession != null)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.AlreadyInParking,
+                    Message = "Người dùng này đang có lượt vào chưa hoàn tất.",
+                    Client = client,
+                    DepartmentName = departmentName,
+                    ParkingSession = activeSession
+                };
+            }
+
+            // Chụp camera toàn cảnh và FaceID (bỏ qua camera biển số)
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: false, needFace: context.Lane.UseFaceCam);
+
+            // Mở Turnstile
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở cửa Turnstile. Vui lòng kiểm tra kết nối thiết bị.",
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            var session = new ParkingSession
+            {
+                TargetType = LaneTargetType.Pedestrian,
+                PersonId = client.Id,
+                InTime = trigger.TriggerTime,
+                InLaneName = context.Lane.Name,
+                Status = ParkingSessionStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _sessionRepository.AddAsync(session);
+
+            SaveImagesBackground(session, images, isEntry: true, imageBasePath);
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Client = client,
+                DepartmentName = departmentName,
+                ParkingSession = session,
+                OverviewImage = images.Overview,
+                FaceImage = images.Face,
+                Message = $"Xác thực người đi bộ vào thành công: {client.Name}"
+            };
+        }
+
+        private async Task<ProcessResult> ProcessPedestrianExitAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            var (_, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
+            if (client == null)
+            {
+                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy thông tin người dùng trong hệ thống." };
+            }
+
+            string departmentName = await GetDepartmentNameAsync(client);
+            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
+            if (isExpired)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.CardExpired,
+                    Message = expiryMsg,
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            var activeSession = await _sessionRepository.FindOneAsync(x =>
+                x.PersonId == client.Id &&
+                x.TargetType == LaneTargetType.Pedestrian &&
+                x.Status == ParkingSessionStatus.Active &&
+                !x.IsDeleted);
+
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: false, needFace: context.Lane.UseFaceCam);
+
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở cửa Turnstile. Vui lòng kiểm tra kết nối thiết bị.",
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            if (activeSession != null)
+            {
+                activeSession.OutTime = trigger.TriggerTime;
+                activeSession.OutLaneName = context.Lane.Name;
+                activeSession.Status = ParkingSessionStatus.Completed;
+                activeSession.UpdatedAt = DateTime.UtcNow;
+                await _sessionRepository.UpdateAsync(activeSession);
+                SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath);
+            }
+            else
+            {
+                var newSession = new ParkingSession
+                {
+                    TargetType = LaneTargetType.Pedestrian,
+                    PersonId = client.Id,
+                    OutTime = trigger.TriggerTime,
+                    OutLaneName = context.Lane.Name,
+                    Status = ParkingSessionStatus.Completed,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _sessionRepository.AddAsync(newSession);
+                SaveImagesBackground(newSession, images, isEntry: false, imageBasePath);
+                activeSession = newSession;
+            }
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Client = client,
+                DepartmentName = departmentName,
+                ParkingSession = activeSession,
+                OverviewImage = images.Overview,
+                FaceImage = images.Face,
+                Message = $"Xác thực người đi bộ ra thành công: {client.Name}"
+            };
+        }
+
+        private async Task<ProcessResult> ProcessPedestrianFacePassAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            if (context.Direction == LaneDirection.In)
+            {
+                return await ProcessPedestrianEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed);
+            }
+            return await ProcessPedestrianExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed);
+        }
+
+        // ======================== [B] XE CƠ GIỚI - QUẸT THẺ ========================
+
+        private async Task<ProcessResult> ProcessVehicleCardEntryAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
+        {
+            var (cardEntity, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
+
+            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(cardEntity.VehicleId))
+            {
+                return await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+            }
+
+            if (client == null)
+            {
+                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
+            }
+
+            string departmentName = await GetDepartmentNameAsync(client);
+            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
+            if (isExpired)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Message = expiryMsg,
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            var parkingInProgress = await _sessionRepository.FindOneAsync(x => x.PersonId == client.Id && x.Status == ParkingSessionStatus.Active && !x.IsDeleted);
+            if (parkingInProgress != null)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.AlreadyInParking,
+                    Message = "Khách hàng này đang có xe trong bãi.",
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            List<Vehicle> clientVehicles = [];
+            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
+            {
+                var vehicles = await _vehicleRepository.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted);
+                clientVehicles = vehicles?.ToList() ?? [];
+            }
+
+            bool requirePlateVerification = client.VerifyVehiclePlate;
+            if (requirePlateVerification && clientVehicles.Count == 0)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.PlateMismatch,
+                    Message = "Khách hàng chưa đăng ký biển số xe trong hệ thống.",
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            string defaultPlate = clientVehicles.Count > 0
+                ? string.Join("; ", clientVehicles.Select(v => v.PlateNumber).Where(p => !string.IsNullOrWhiteSpace(p)))
+                : "";
+
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: context.Lane.UseFaceCam);
+            var (plateSuccess, recognizedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate, onManualPlateInput);
+
+            Vehicle? matchedVehicle = null;
+
+            if (!requirePlateVerification)
+            {
+                if (string.IsNullOrEmpty(recognizedPlate)) recognizedPlate = defaultPlate;
+            }
+            else
+            {
+                if (!plateSuccess || string.IsNullOrEmpty(recognizedPlate))
+                {
+                    images.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = images.Plate == null ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                        Message = "Không nhận diện được biển số và không có biển số nhập tay.",
+                        Client = client,
+                        Vehicle = clientVehicles.FirstOrDefault(),
+                        DepartmentName = departmentName
+                    };
+                }
+
+                string actualPlate = recognizedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+                matchedVehicle = clientVehicles.FirstOrDefault(v =>
+                    (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() == actualPlate);
+
+                if (matchedVehicle == null && clientVehicles.Count > 0)
+                {
+                    images.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.PlateMismatch,
+                        Message = "Biển số xe không đúng với biển số đăng ký.",
+                        Client = client,
+                        Vehicle = clientVehicles.FirstOrDefault(),
+                        DepartmentName = departmentName,
+                        LprResult = lprResult
+                    };
+                }
+            }
+
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
+                    Client = client,
+                    Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
+                    DepartmentName = departmentName,
+                    LprResult = lprResult
+                };
+            }
+
+            var parking = new ParkingSession
+            {
+                PersonId = client.Id,
+                PlateNumber = !requirePlateVerification ? defaultPlate : (matchedVehicle?.PlateNumber ?? recognizedPlate ?? ""),
+                VehicleType = matchedVehicle?.Type ?? VehicleType.Car,
+                TargetType = LaneTargetType.Vehicle,
+                InTime = trigger.TriggerTime,
+                InLaneName = context.Lane.Name,
+                Status = ParkingSessionStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _sessionRepository.AddAsync(parking);
+            SaveImagesBackground(parking, images, isEntry: true, imageBasePath);
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Client = client,
+                Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
+                DepartmentName = departmentName,
+                LprResult = lprResult,
+                ParkingSession = parking,
+                OverviewImage = images.Overview,
+                PlateImage = images.Plate
+            };
+        }
+
+        private async Task<ProcessResult> ProcessVehicleCardExitAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
+        {
+            var (cardEntity, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
+
+            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(cardEntity.VehicleId))
+            {
+                return await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+            }
+
+            if (client == null)
+            {
+                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
+            }
+
+            string departmentName = await GetDepartmentNameAsync(client);
+            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
+            if (isExpired)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Message = expiryMsg,
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            var parking = await _sessionRepository.FindOneAsync(x => x.PersonId == client.Id && x.Status == ParkingSessionStatus.Active && !x.IsDeleted);
+            if (parking == null)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.NotInParking,
+                    Message = "Khách hàng này không có xe trong bãi.",
+                    Client = client,
+                    DepartmentName = departmentName
+                };
+            }
+
+            List<Vehicle> clientVehicles = [];
+            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
+            {
+                var vehicles = await _vehicleRepository.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted);
+                clientVehicles = vehicles?.ToList() ?? [];
+            }
+
+            Vehicle? matchedVehicle = clientVehicles.FirstOrDefault(v =>
+                !string.IsNullOrWhiteSpace(parking.PlateNumber) &&
+                (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() ==
+                (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant())
+                ?? clientVehicles.FirstOrDefault();
+
+            bool requirePlateVerification = client.VerifyVehiclePlate;
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: context.Lane.UseFaceCam);
+            var (plateSuccess, exitPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, parking.PlateNumber ?? "", onManualPlateInput);
+
+            if (!requirePlateVerification)
+            {
+                if (string.IsNullOrEmpty(exitPlate)) exitPlate = parking.PlateNumber ?? "";
+            }
+            else
+            {
+                string cleanInPlate = (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+                string cleanExitPlate = (exitPlate ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+
+                if (string.IsNullOrEmpty(cleanExitPlate))
+                {
+                    images.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = images.Plate == null ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                        Message = "Không nhận diện được biển số ra và không có biển số nhập tay.",
+                        Client = client,
+                        Vehicle = matchedVehicle,
+                        DepartmentName = departmentName,
+                        ParkingSession = parking
+                    };
+                }
+
+                if (cleanExitPlate != cleanInPlate)
+                {
+                    images.Dispose();
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.PlateMismatch,
+                        Message = $"Biển số ra ({exitPlate}) không khớp với biển số vào ({parking.PlateNumber}).",
+                        Client = client,
+                        Vehicle = matchedVehicle,
+                        DepartmentName = departmentName,
+                        ParkingSession = parking,
+                        LprResult = lprResult
+                    };
+                }
+            }
+
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
+                    Client = client,
+                    Vehicle = matchedVehicle,
+                    DepartmentName = departmentName,
+                    ParkingSession = parking,
+                    LprResult = lprResult
+                };
+            }
+
+            parking.OutTime = trigger.TriggerTime;
+            parking.OutLaneName = context.Lane.Name;
+            parking.Status = ParkingSessionStatus.Completed;
+            parking.UpdatedAt = DateTime.UtcNow;
+            await _sessionRepository.UpdateAsync(parking);
+            SaveImagesBackground(parking, images, isEntry: false, imageBasePath);
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Client = client,
+                Vehicle = matchedVehicle,
+                DepartmentName = departmentName,
+                ParkingSession = parking,
+                LprResult = lprResult,
+                OverviewImage = images.Overview,
+                PlateImage = images.Plate
+            };
+        }
+
+        // ======================== [C] XE CƠ GIỚI - CẢM BIẾN RADAR ========================
+
+        private async Task<ProcessResult> ProcessVehicleRadarEntryAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: false);
+            var (lprSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate: trigger.ManualPlateNumber ?? "", onManualPlateInput: null);
+
+            if (!lprSuccess || string.IsNullOrEmpty(detectedPlate))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Message = "Cảm biến Radar phát hiện xe nhưng chưa đọc được biển số. Vui lòng quẹt thẻ.",
+                    OverviewImage = images.Overview,
+                    PlateImage = images.Plate,
+                    LprResult = lprResult
+                };
+            }
+
+            string cleanPlate = detectedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+
+            var vehicle = await _vehicleRepository.FindOneAsync(v =>
+                v.PlateNumber.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpper() == cleanPlate &&
+                v.IsActive && !v.IsDeleted);
+
+            if (vehicle == null)
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Message = $"Phát hiện xe {detectedPlate}. Xe chưa đăng ký vé tháng/nội bộ, vui lòng quẹt thẻ.",
+                    OverviewImage = images.Overview,
+                    PlateImage = images.Plate,
+                    LprResult = lprResult
+                };
+            }
+
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở Barie cho xe tự do. Vui lòng kiểm tra thiết bị.",
+                    Vehicle = vehicle,
+                    LprResult = lprResult
+                };
+            }
+
+            var session = new ParkingSession
+            {
+                PlateNumber = vehicle.PlateNumber,
+                VehicleType = vehicle.Type,
+                TargetType = LaneTargetType.Vehicle,
+                InTime = trigger.TriggerTime,
+                InLaneName = context.Lane.Name,
+                Status = ParkingSessionStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _sessionRepository.AddAsync(session);
+            SaveImagesBackground(session, images, isEntry: true, imageBasePath);
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Vehicle = vehicle,
+                ParkingSession = session,
+                LprResult = lprResult,
+                OverviewImage = images.Overview,
+                PlateImage = images.Plate,
+                Message = $"Xe hợp lệ {vehicle.PlateNumber} qua cảm biến Radar thành công."
+            };
+        }
+
+        private async Task<ProcessResult> ProcessVehicleRadarExitAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: false);
+            var (lprSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate: trigger.ManualPlateNumber ?? "", onManualPlateInput: null);
+
+            if (!lprSuccess || string.IsNullOrEmpty(detectedPlate))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Message = "Cảm biến Radar phát hiện xe ra nhưng chưa đọc được biển số. Vui lòng quẹt thẻ.",
+                    OverviewImage = images.Overview,
+                    PlateImage = images.Plate,
+                    LprResult = lprResult
+                };
+            }
+
+            string cleanPlate = detectedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+
+            var vehicle = await _vehicleRepository.FindOneAsync(v =>
+                v.PlateNumber.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpper() == cleanPlate &&
+                v.IsActive && !v.IsDeleted);
+
+            if (vehicle == null)
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Message = $"Phát hiện xe {detectedPlate}. Xe chưa đăng ký vé tháng/nội bộ, vui lòng quẹt thẻ thanh toán.",
+                    OverviewImage = images.Overview,
+                    PlateImage = images.Plate,
+                    LprResult = lprResult
+                };
+            }
+
+            var activeSession = await _sessionRepository.FindOneAsync(s =>
+                s.PlateNumber.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpper() == cleanPlate &&
+                s.Status == ParkingSessionStatus.Active &&
+                !s.IsDeleted);
+
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở Barie cho xe tự do. Vui lòng kiểm tra thiết bị.",
+                    Vehicle = vehicle,
+                    LprResult = lprResult
+                };
+            }
+
+            if (activeSession != null)
+            {
+                activeSession.OutTime = trigger.TriggerTime;
+                activeSession.OutLaneName = context.Lane.Name;
+                activeSession.Status = ParkingSessionStatus.Completed;
+                activeSession.UpdatedAt = DateTime.UtcNow;
+                await _sessionRepository.UpdateAsync(activeSession);
+                SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath);
+            }
+
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Vehicle = vehicle,
+                ParkingSession = activeSession,
+                LprResult = lprResult,
+                OverviewImage = images.Overview,
+                PlateImage = images.Plate,
+                Message = $"Xe hợp lệ {vehicle.PlateNumber} qua cảm biến Radar ra thành công."
+            };
+        }
+
+        // ======================== [D] ĐIỀU VẬN XE DÙNG CHUNG ========================
+
+        private async Task<ProcessResult> ProcessSharedVehicleTripFromTriggerAsync(
+            LaneRuntimeContext context,
+            WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
+        {
+            var (cardEntity, _, _) = await ResolveIdentityAsync(trigger.RawCardNo);
+            if (cardEntity == null || string.IsNullOrEmpty(cardEntity.VehicleId))
+            {
+                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Thẻ xe dùng chung không hợp lệ." };
+            }
+
+            var log = new RealtimeLog
+            {
+                CardNo = trigger.RawCardNo,
+                DoorId = trigger.DoorIndex,
+                Time = trigger.TriggerTime
+            };
+
+            return await ProcessSharedVehicleTripAsync(context, cardEntity, log, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+        }
+
+        private async Task<ProcessResult> ProcessSharedVehicleTripAsync(
+            LaneRuntimeContext context,
+            Card vehicleCard,
+            RealtimeLog data,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+        {
+            var vehicle = await _vehicleRepository!.GetByIdAsync(vehicleCard.VehicleId!);
+            if (vehicle == null || !vehicle.IsActive)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ClientNotFound,
+                    Message = "Phương tiện nội bộ gắn với thẻ này không tồn tại hoặc đã bị khóa."
+                };
+            }
+
+            string currentGateId = context.Lane?.GateId ?? "";
+            bool isEntry = context.Direction == LaneDirection.In;
+
+            Gate? currentGate = !string.IsNullOrEmpty(currentGateId) ? await _gateRepository.GetByIdAsync(currentGateId) : null;
+            string currentGateName = currentGate?.Name ?? (string.IsNullOrEmpty(currentGateId) ? "Cổng không xác định" : currentGateId);
+
+            VehicleDispatchTrip? activeTrip = await _tripRepository.FindOneAsync(t =>
+                t.VehicleId == vehicle.Id &&
+                t.Status != TripStatus.Completed &&
+                !t.IsDeleted);
+
+            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane?.UseOverviewCam ?? true, needPlate: context.Lane?.UsePlateCam ?? true, needFace: false);
+            var (plateSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, vehicle.PlateNumber ?? "", onManualPlateInput);
+
+            string registeredPlateNorm = (vehicle.PlateNumber ?? "")
+                .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+            string detectedPlateNorm = detectedPlate
+                .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+
+            if (string.IsNullOrEmpty(detectedPlateNorm))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = images.Plate == null ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                    Message = $"Không nhận diện được biển số phương tiện {vehicle.PlateNumber} và không có biển số nhập tay.",
+                    Vehicle = vehicle,
+                    DepartmentName = "Không nhận diện được biển số",
+                    LprResult = lprResult,
+                    DispatchTrip = activeTrip
+                };
+            }
+
+            if (detectedPlateNorm != registeredPlateNorm)
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.PlateMismatch,
+                    Message = "BIỂN SỐ KHÔNG ĐÚNG VỚI BIỂN SỐ ĐÃ ĐĂNG KÝ!",
+                    Vehicle = vehicle,
+                    DepartmentName = "Cảnh báo sai biển số phương tiện",
+                    LprResult = lprResult,
+                    DispatchTrip = activeTrip
+                };
+            }
+
+            GateRouteConfig? assignedRoute = null;
+            if (!string.IsNullOrEmpty(vehicle.AssignedRouteId))
+            {
+                assignedRoute = await _gateRouteRepository.GetByIdAsync(vehicle.AssignedRouteId);
+            }
+            assignedRoute ??= await _gateRouteRepository.FindOneAsync(r => (r.IsDefault || r.RouteCode == "DEFAULT") && !r.IsDeleted);
+
+            DateTime now = (data.Time != default && data.Time != DateTime.MinValue)
+                ? (data.Time.Kind == DateTimeKind.Utc ? data.Time : data.Time.ToUniversalTime())
+                : DateTime.UtcNow;
+
+            bool isCheckpointOverdue = false;
+            double checkpointOverdueSeconds = 0;
+            if (activeTrip != null && activeTrip.NextDeadline.HasValue)
+            {
+                if (now > activeTrip.NextDeadline.Value)
+                {
+                    isCheckpointOverdue = true;
+                    checkpointOverdueSeconds = (now - activeTrip.NextDeadline.Value).TotalSeconds;
+                }
+            }
+
+            int defaultStay = assignedRoute?.DefaultStayMinutes ?? 60;
+            int defaultTravel = assignedRoute?.DefaultTravelMinutes ?? 30;
+
+            if (activeTrip == null)
+            {
+                int firstDeadlineMinutes = isEntry ? defaultStay : defaultTravel;
+                if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
+                {
+                    var firstStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == 1);
+                    if (firstStep != null)
+                    {
+                        firstDeadlineMinutes = isEntry ? firstStep.MaxStayMinutes : firstStep.MaxTravelMinutes;
+                    }
+                }
+
+                activeTrip = new VehicleDispatchTrip
+                {
+                    VehicleId = vehicle.Id,
+                    PlateNumber = vehicle.PlateNumber ?? "",
+                    CardId = vehicleCard.Id,
+                    CardNumber = vehicleCard.CardNumber,
+                    OriginGateId = currentGateId,
+                    CurrentGateId = currentGateId,
+                    AssignedRouteId = assignedRoute?.Id,
+                    CurrentStepIndex = 1,
+                    Status = isEntry ? TripStatus.WorkingAtGate : TripStatus.InTransit,
+                    StartTime = now,
+                    LastEntryTime = isEntry ? now : null,
+                    LastExitTime = isEntry ? null : now,
+                    NextDeadline = now.AddMinutes(firstDeadlineMinutes),
+                    IsAlertSent = false,
+                    Checkpoints = []
+                };
+                await _tripRepository.AddAsync(activeTrip);
+            }
+            else
+            {
+                if (isEntry)
+                {
+                    if (activeTrip.CurrentStepIndex >= (assignedRoute?.GateSteps.Count ?? 1))
+                    {
+                        activeTrip.Status = TripStatus.Completed;
+                        activeTrip.NextDeadline = null;
+                    }
+                    else
+                    {
+                        activeTrip.Status = TripStatus.WorkingAtGate;
+                        int stayMinutes = defaultStay;
+                        if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
+                        {
+                            var currentStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
+                            if (currentStep != null) stayMinutes = currentStep.MaxStayMinutes;
+                        }
+                        activeTrip.NextDeadline = now.AddMinutes(stayMinutes);
+                        activeTrip.IsAlertSent = false;
+                    }
+                }
+                else
+                {
+                    activeTrip.LastExitTime = now;
+                    activeTrip.CurrentStepIndex++;
+                    activeTrip.Status = TripStatus.InTransit;
+                    int travelMinutes = defaultTravel;
+                    if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
+                    {
+                        var nextStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
+                        if (nextStep != null) travelMinutes = nextStep.MaxTravelMinutes;
+                    }
+                    activeTrip.NextDeadline = now.AddMinutes(travelMinutes);
+                    activeTrip.IsAlertSent = false;
+                }
+
+                await _tripRepository.UpdateAsync(activeTrip);
+            }
+
+            bool isRouteCompliant = true;
+            if (assignedRoute != null && assignedRoute.GateSteps.Count > 0 && !assignedRoute.IsDefault)
+            {
+                var expectedStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
+                if (expectedStep != null && !string.IsNullOrEmpty(expectedStep.GateId))
+                {
+                    if (expectedStep.GateId != currentGateId)
+                    {
+                        isRouteCompliant = false;
+                    }
+                }
+            }
+
+            var currentCheckpoint = new TripCheckpoint
+            {
+                StepIndex = activeTrip.CurrentStepIndex,
+                GateId = currentGateId,
+                GateName = currentGateName,
+                Direction = context.Direction,
+                Timestamp = now,
+                OverviewImagePath = "",
+                PlateImagePath = "",
+                PlateDetected = lprResult?.Plate ?? vehicle.PlateNumber,
+                IsRouteCompliant = isRouteCompliant,
+                Note = isEntry ? "Quẹt vào cổng" : "Quẹt ra khỏi cổng",
+                SlaOverdue = new SlaOverdueInfo
+                {
+                    IsOverdue = isCheckpointOverdue,
+                    OverdueSeconds = checkpointOverdueSeconds
+                }
+            };
+            activeTrip.Checkpoints ??= [];
+            activeTrip.Checkpoints.Add(currentCheckpoint);
+            await _tripRepository.UpdateAsync(activeTrip);
+
+            if (!isRouteCompliant)
+            {
+                SaveImagesBackground(null, images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        if (activeTrip != null && (!string.IsNullOrEmpty(oPath) || !string.IsNullOrEmpty(pPath)))
+                        {
+                            currentCheckpoint.OverviewImagePath = oPath;
+                            currentCheckpoint.PlateImagePath = pPath;
+                            await _tripRepository.UpdateAsync(activeTrip);
+                        }
+                    });
+                });
+
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.ConfirmRequired,
+                    Vehicle = vehicle,
+                    DepartmentName = $"Tuyến: {assignedRoute?.RouteName ?? "Lạc tuyến"}",
+                    LprResult = lprResult,
+                    OverviewImage = images.Overview,
+                    PlateImage = images.Plate,
+                    Message = $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại {currentGateName} không đúng lộ trình tuyến {assignedRoute?.RouteName}!",
+                    DispatchTrip = activeTrip
+                };
+            }
+
+            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            {
+                images.Dispose();
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.BarrierFailed,
+                    Message = "Không thể mở barrier cho phương tiện. Vui lòng kiểm tra thiết bị.",
+                    Vehicle = vehicle,
+                    DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
+                    LprResult = lprResult
+                };
+            }
+
+            SaveImagesBackground(null, images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
+            {
+                _ = Task.Run(async () =>
+                {
+                    if (activeTrip != null && (!string.IsNullOrEmpty(oPath) || !string.IsNullOrEmpty(pPath)))
+                    {
+                        currentCheckpoint.OverviewImagePath = oPath;
+                        currentCheckpoint.PlateImagePath = pPath;
+                        await _tripRepository.UpdateAsync(activeTrip);
+                    }
+                });
+            });
+
+            string routeDesc = assignedRoute != null ? assignedRoute.RouteName : "Tuyến tự do";
+            int totalSteps = assignedRoute?.GateSteps.Count ?? 1;
+            return new ProcessResult
+            {
+                Status = ProcessStatus.Success,
+                Vehicle = vehicle,
+                DepartmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})",
+                LprResult = lprResult,
+                OverviewImage = images.Overview,
+                PlateImage = images.Plate,
+                Message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
+                DispatchTrip = activeTrip
+            };
+        }
+
+        // ======================== [E] MỞ CƯỠNG BỨC THỦ CÔNG ========================
+
+        private static Task<ProcessResult> ProcessManualOpenAsync(
+            LaneRuntimeContext context,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            bool opened = TryOpenBarrier(context, onBarrierOpenFailed);
+            return Task.FromResult(new ProcessResult
+            {
+                Status = opened ? ProcessStatus.Success : ProcessStatus.BarrierFailed,
+                Message = opened ? "Đã gửi lệnh mở cổng thành công." : "Không thể gửi lệnh mở cổng tới Controller."
+            });
+        }
+
+        #endregion
+
+        #region --- 4. 6 PRIVATE SHARED HELPERS (KHỐI KỸ THUẬT DÙNG CHUNG) ---
+
+        /// <summary>
+        /// Khối 1: Định danh thẻ & tra cứu đối tượng (Thẻ -> Xe hoặc Người)
+        /// </summary>
+        private async Task<(Card? Card, Vehicle? Vehicle, Client? Client)> ResolveIdentityAsync(string rawCard)
+        {
+            string normalizedCard = CardHelper.NormalizeCardCode(rawCard);
+            var card = await _cardRepository.FindOneAsync(c =>
+                (c.CardNumber == normalizedCard || c.CardNumber == rawCard) &&
+                !c.IsDeleted);
+
+            Vehicle? vehicle = null;
+            Client? client = null;
+
+            if (card != null)
+            {
+                if (card.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(card.VehicleId))
+                {
+                    vehicle = await _vehicleRepository.GetByIdAsync(card.VehicleId);
+                }
+                else if (!string.IsNullOrEmpty(card.ClientId))
+                {
+                    client = await _clientRepository.GetByIdAsync(card.ClientId);
+                }
+            }
+
+            if (client == null)
+            {
+                client = await _clientRepository.FindOneAsync(c =>
+                    (c.CardCode == normalizedCard || c.CardCode == rawCard ||
+                     c.PhoneNumber == normalizedCard || c.PhoneNumber == rawCard) &&
+                    !c.IsDeleted);
+            }
+
+            return (card, vehicle, client);
+        }
+
+        /// <summary>
+        /// Khối 2: Chụp ảnh song song đa camera an toàn với timeout và quản lý bộ nhớ
+        /// </summary>
+        private static async Task<CapturedLaneImages> CaptureLaneImagesAsync(
+            LaneRuntimeContext context,
+            bool needOverview = true,
+            bool needPlate = true,
+            bool needFace = false,
+            int timeoutMs = 2500)
+        {
+            var result = new CapturedLaneImages();
+            if (context.Cameras == null) return result;
+
+            var plateTask = (needPlate && context.Cameras.LicensePlateCamera != null)
+                ? Task.Run(() => { try { return context.Cameras.LicensePlateCamera.Capture(); } catch { return null; } })
+                : Task.FromResult<Bitmap?>(null);
+
+            var overviewTask = (needOverview && context.Cameras.OverviewCamera != null)
+                ? Task.Run(() => { try { return context.Cameras.OverviewCamera.Capture(); } catch { return null; } })
+                : Task.FromResult<Bitmap?>(null);
+
+            var faceTask = (needFace && context.Cameras.FaceCamera != null)
+                ? Task.Run(() => { try { return context.Cameras.FaceCamera.Capture(); } catch { return null; } })
+                : Task.FromResult<Bitmap?>(null);
+
+            var allTasks = Task.WhenAll(plateTask, overviewTask, faceTask);
+            var timeoutTask = Task.Delay(timeoutMs);
+
+            await Task.WhenAny(allTasks, timeoutTask);
+
+            if (plateTask.IsCompletedSuccessfully) result.Plate = plateTask.Result;
+            else SafelyDisposeTaskResult(plateTask);
+
+            if (overviewTask.IsCompletedSuccessfully) result.Overview = overviewTask.Result;
+            else SafelyDisposeTaskResult(overviewTask);
+
+            if (faceTask.IsCompletedSuccessfully) result.Face = faceTask.Result;
+            else SafelyDisposeTaskResult(faceTask);
+
+            return result;
+        }
+
+        private static void SafelyDisposeTaskResult(Task<Bitmap?> task)
+        {
+            _ = task.ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully && t.Result != null)
+                {
+                    t.Result.Dispose();
+                }
+            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        }
+
+        /// <summary>
+        /// Khối 3: OCR biển số phương tiện qua SimpleLPR3 kèm fallback nhập tay
+        /// </summary>
+        private async Task<(bool Success, string DetectedPlate, LprResult? LprResult)> RecognizePlateAsync(
+            LaneRuntimeContext context,
+            Bitmap? plateImage,
+            string defaultPlate,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
+        {
+            string recognizedPlate = string.Empty;
+            LprResult? lprResult = null;
+
+            if (plateImage != null)
+            {
+                lprResult = await Task.Run(() => _lprService.Recognize(plateImage));
+                if (lprResult != null && lprResult.Success && !string.IsNullOrWhiteSpace(lprResult.Plate))
+                {
+                    recognizedPlate = lprResult.Plate.Trim().ToUpper();
+                }
+            }
+
+            if (string.IsNullOrEmpty(recognizedPlate) && onManualPlateInput != null)
+            {
+                string? manual = await onManualPlateInput(context, defaultPlate);
+                if (!string.IsNullOrWhiteSpace(manual))
+                {
+                    recognizedPlate = manual.Trim().ToUpper();
+                    lprResult = new LprResult
+                    {
+                        Success = true,
+                        Plate = recognizedPlate,
+                        PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null
+                    };
+                }
+            }
+            else if (string.IsNullOrEmpty(recognizedPlate) && !string.IsNullOrWhiteSpace(defaultPlate))
+            {
+                recognizedPlate = defaultPlate.Trim().ToUpper();
+                lprResult = new LprResult
+                {
+                    Success = true,
+                    Plate = recognizedPlate,
+                    PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null
+                };
+            }
+
+            bool success = !string.IsNullOrEmpty(recognizedPlate);
+            return (success, recognizedPlate, lprResult);
+        }
+
+        /// <summary>
+        /// Khối 4: Kiểm tra ngày hết hạn đối tượng / khách
+        /// </summary>
+        private static (bool IsExpired, string Message) ValidateClientExpiry(Client client)
+        {
+            if (client.Expired.Enable)
+            {
+                DateTime now = DateTime.Now;
+                if (client.Expired.StartDay.Date > now.Date || client.Expired.EndDay.Date < now.Date)
+                {
+                    return (true, $"Người dùng chỉ được ra vào từ {client.Expired.StartDay:dd/MM/yyyy} - {client.Expired.EndDay:dd/MM/yyyy}");
+                }
+            }
+            return (false, string.Empty);
+        }
+
+        /// <summary>
+        /// Khối 5: Kích hoạt rơ-le mở barie / turnstile và xử lý lỗi phần cứng
+        /// </summary>
+        private static bool TryOpenBarrier(LaneRuntimeContext context, Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
+        {
+            if (context.OpenBarrier()) return true;
+            return onBarrierOpenFailed?.Invoke(context) ?? false;
+        }
+
+        /// <summary>
+        /// Khối 6: Lưu ảnh ngầm ra ổ cứng mà không chặn luồng giao diện chính
+        /// </summary>
+        private void SaveImagesBackground(
+            ParkingSession? session,
+            CapturedLaneImages images,
+            bool isEntry,
+            string imageBasePath,
+            Action<string, string, string>? onSaved = null)
+        {
+            Bitmap? plateSave = images.Plate != null ? (Bitmap)images.Plate.Clone() : null;
+            Bitmap? overviewSave = images.Overview != null ? (Bitmap)images.Overview.Clone() : null;
+            Bitmap? faceSave = images.Face != null ? (Bitmap)images.Face.Clone() : null;
+
+            string folder = isEntry ? "ImageIn" : "ImageOut";
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using (plateSave)
+                    using (overviewSave)
+                    using (faceSave)
+                    {
+                        string pPath = plateSave != null
+                            ? _imageStorageService.SaveImage(plateSave, folder, "BienSo", imageBasePath)
+                            : "";
+                        string oPath = overviewSave != null
+                            ? _imageStorageService.SaveImage(overviewSave, folder, "ToanCanh", imageBasePath)
+                            : "";
+                        string fPath = faceSave != null
+                            ? _imageStorageService.SaveImage(faceSave, folder, "KhuonMat", imageBasePath)
+                            : "";
+
+                        if (session != null)
+                        {
+                            if (isEntry)
+                            {
+                                session.InPlateImagePath = pPath;
+                                session.InOverviewImagePath = oPath;
+                                session.InFaceImagePath = fPath;
+                            }
+                            else
+                            {
+                                session.OutPlateImagePath = pPath;
+                                session.OutOverviewImagePath = oPath;
+                                session.OutFaceImagePath = fPath;
+                            }
+                            session.UpdatedAt = DateTime.UtcNow;
+
+                            if (!string.IsNullOrEmpty(session.Id))
+                            {
+                                await _sessionRepository.UpdateAsync(session);
+                            }
+                        }
+
+                        onSaved?.Invoke(pPath, oPath, fPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[SaveImagesBackground Error] {ex.Message}");
+                }
+            });
+        }
 
         private async Task<string> GetDepartmentNameAsync(Client client)
         {
@@ -101,1048 +1381,26 @@ namespace HPParking.Services.Parking
             }
         }
 
-        private static async Task<(bool PlateSuccess, Bitmap? PlateImage, bool OverviewSuccess, Bitmap? OverviewImage)> CaptureCamerasParallelAsync(
-            LaneCamera cameras,
-            bool capturePlateCamera = true,
-            int timeoutMs = 2500)
+        #endregion
+    }
+
+    /// <summary>
+    /// Đóng gói ảnh đa camera thu thập từ làn tại một thời điểm
+    /// </summary>
+    public sealed class CapturedLaneImages : IDisposable
+    {
+        public Bitmap? Overview { get; set; }
+        public Bitmap? Plate { get; set; }
+        public Bitmap? Face { get; set; }
+
+        public void Dispose()
         {
-            var plateCaptureTask = capturePlateCamera
-                ? Task.Run(() =>
-                {
-                    try { return cameras.LicensePlateCamera?.Capture(); }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[CaptureCamerasParallelAsync] Lỗi chụp camera biển số: {ex.Message}");
-                        return null;
-                    }
-                })
-                : Task.FromResult<Bitmap?>(null);
-
-            var overviewCaptureTask = Task.Run(() =>
-            {
-                try { return cameras.OverviewCamera?.Capture(); }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[CaptureCamerasParallelAsync] Lỗi chụp camera toàn cảnh: {ex.Message}");
-                    return null;
-                }
-            });
-
-            var allTasks = Task.WhenAll(plateCaptureTask, overviewCaptureTask);
-            var timeoutTask = Task.Delay(timeoutMs);
-
-            await Task.WhenAny(allTasks, timeoutTask);
-
-            Bitmap? plateBmp = null;
-            if (plateCaptureTask.IsCompletedSuccessfully)
-            {
-                plateBmp = plateCaptureTask.Result;
-            }
-            else
-            {
-                _ = plateCaptureTask.ContinueWith(t =>
-                {
-                    if (t.IsCompletedSuccessfully && t.Result != null)
-                    {
-                        t.Result.Dispose();
-                    }
-                }, TaskContinuationOptions.OnlyOnRanToCompletion);
-            }
-
-            Bitmap? overviewBmp = null;
-            if (overviewCaptureTask.IsCompletedSuccessfully)
-            {
-                overviewBmp = overviewCaptureTask.Result;
-            }
-            else
-            {
-                _ = overviewCaptureTask.ContinueWith(t =>
-                {
-                    if (t.IsCompletedSuccessfully && t.Result != null)
-                    {
-                        t.Result.Dispose();
-                    }
-                }, TaskContinuationOptions.OnlyOnRanToCompletion);
-            }
-
-            bool plateSuccess = !capturePlateCamera || (plateBmp != null);
-            return (plateSuccess, plateBmp, overviewBmp != null, overviewBmp);
-        }
-
-        private static bool BarrierOpen(LaneRuntimeContext context)
-        {
-            return context.OpenBarrier();
-        }
-
-        private bool IsClientExpired(Client client)
-        {
-            if (client.Expired.Enable) return false;
-
-            DateTime now = DateTime.Now;
-            if (client.Expired.StartDay.Date > now.Date) return true;
-            if (client.Expired.EndDay.Date < now.Date) return true;
-
-            return false;
-        }
-
-        /// <summary>
-        /// Xử lý điều vận phương tiện nội bộ / xe dùng chung qua lại giữa các nhà máy theo SLA
-        /// </summary>
-        private async Task<ProcessResult> ProcessSharedVehicleTripAsync(
-            LaneRuntimeContext context,
-            Card vehicleCard,
-            RealtimeLog data,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
-        {
-            var vehicle = await _vehicleRepository!.GetByIdAsync(vehicleCard.VehicleId!);
-            if (vehicle == null || !vehicle.IsActive)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ClientNotFound,
-                    Message = "Phương tiện nội bộ gắn với thẻ này không tồn tại hoặc đã bị khóa."
-                };
-            }
-
-            string currentGateId = context.Lane?.GateId ?? "";
-            bool isEntry = context.Direction == LaneDirection.In;
-
-            Gate? currentGate = !string.IsNullOrEmpty(currentGateId) ? await _gateRepository.GetByIdAsync(currentGateId) : null;
-            string currentGateName = currentGate?.Name ?? (string.IsNullOrEmpty(currentGateId) ? "Cổng không xác định" : currentGateId);
-
-            // Tìm chuyến đang chạy của phương tiện nội bộ
-            VehicleDispatchTrip? activeTrip = await _tripRepository.FindOneAsync(t =>
-                t.VehicleId == vehicle.Id &&
-                t.Status != TripStatus.Completed &&
-                !t.IsDeleted);
-
-            // Chụp ảnh camera lưu vết
-            Bitmap? plateImage = null;
-            Bitmap? overviewImage = null;
-            LprResult? lprResult = null;
-            string detectedPlate = "";
-            bool plateSuccess = false;
-            bool overviewSuccess = false;
-
-            if (context.Cameras != null)
-            {
-                (plateSuccess, plateImage, overviewSuccess, overviewImage) =
-                    await CaptureCamerasParallelAsync(context.Cameras, capturePlateCamera: true, timeoutMs: 2500);
-
-                if (plateSuccess && plateImage != null)
-                {
-                    lprResult = await Task.Run(() => _lprService.Recognize(plateImage));
-                    if (lprResult != null && lprResult.Success && !string.IsNullOrWhiteSpace(lprResult.Plate))
-                    {
-                        detectedPlate = lprResult.Plate.Trim().ToUpper();
-                    }
-                }
-            }
-
-            // 1. XÁC THỰC BIỂN SỐ PHƯƠNG TIỆN NỘI BỘ NGHIÊM NGẶT
-            string registeredPlateNorm = (vehicle.PlateNumber ?? "")
-                .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-            string detectedPlateNorm = detectedPlate
-                .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-
-            // TRƯỜNG HỢP A: Camera lỗi hoặc OCR hoàn toàn không đọc được biển số -> Cho bảo vệ nhập tay
-            if (string.IsNullOrEmpty(detectedPlateNorm))
-            {
-                bool manualCancelled = false;
-                if (onManualPlateInput != null)
-                {
-                    string promptPlate = vehicle.PlateNumber ?? "";
-                    string? manualInput = await onManualPlateInput(context, promptPlate);
-                    if (!string.IsNullOrWhiteSpace(manualInput))
-                    {
-                        detectedPlate = manualInput.Trim().ToUpper();
-                        detectedPlateNorm = detectedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-                        lprResult = new LprResult
-                        {
-                            Success = true,
-                            Plate = detectedPlate,
-                            PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null
-                        };
-                    }
-                    else
-                    {
-                        manualCancelled = true;
-                    }
-                }
-
-                // Nếu bảo vệ hủy hoặc không nhập -> CHẶN
-                if (string.IsNullOrEmpty(detectedPlateNorm))
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = (!plateSuccess || plateImage == null) ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = manualCancelled ? "" : $"Không thể nhận được biển số phương tiện {vehicle.PlateNumber} và không có biển số nhập tay.",
-                        Vehicle = vehicle,
-                        DepartmentName = "Không nhận diện được biển số",
-                        LprResult = lprResult,
-                        DispatchTrip = activeTrip
-                    };
-                }
-            }
-
-            // TRƯỜNG HỢP B: Đã có biển số (hoặc do AI đọc được, hoặc do bảo vệ nhập tay) -> So sánh đối soát
-            if (detectedPlateNorm != registeredPlateNorm)
-            {
-                // Biển số không trùng khớp -> BÁO LỖI LỆCH BIỂN VÀ CHẶN NGAY, KHÔNG BẬT FORM NHẬP TAY LÀM PHIỀN!
-                plateImage?.Dispose();
-                overviewImage?.Dispose();
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.PlateMismatch,
-                    Message = $"BIỂN SỐ KHÔNG ĐÚNG VỚI BIỂN SỐ ĐÃ ĐĂNG KÝ!",
-                    Vehicle = vehicle,
-                    DepartmentName = "Cảnh báo sai biển số phương tiện",
-                    LprResult = lprResult,
-                    DispatchTrip = activeTrip
-                };
-            }
-
-            GateRouteConfig? assignedRoute = null;
-            if (!string.IsNullOrEmpty(vehicle.AssignedRouteId))
-            {
-                assignedRoute = await _gateRouteRepository.GetByIdAsync(vehicle.AssignedRouteId);
-            }
-            assignedRoute ??= await _gateRouteRepository.FindOneAsync(r => (r.IsDefault || r.RouteCode == "DEFAULT") && !r.IsDeleted);
-
-            DateTime now = (data.Time != default && data.Time != DateTime.MinValue)
-                ? (data.Time.Kind == DateTimeKind.Utc ? data.Time : data.Time.ToUniversalTime())
-                : DateTime.UtcNow;
-
-            // Đánh giá tình trạng quá hạn SLA tại thời điểm quẹt thẻ hiện tại (trước khi NextDeadline bị cập nhật hoặc reset)
-            bool isCheckpointOverdue = false;
-            double checkpointOverdueSeconds = 0;
-            if (activeTrip != null && activeTrip.NextDeadline.HasValue && now > activeTrip.NextDeadline.Value)
-            {
-                isCheckpointOverdue = true;
-                checkpointOverdueSeconds = Math.Round((now - activeTrip.NextDeadline.Value).TotalSeconds);
-            }
-
-            int defaultTravel = assignedRoute?.DefaultTravelMinutes ?? 15;
-            int defaultStay = assignedRoute?.DefaultStayMinutes ?? 15;
-
-            // 2. KIỂM TRA CHIỀU QUẸT VÀ LỘ TRÌNH ĐIỀU VẬN
-            // Nghiệp vụ: Phương tiện nội bộ đang ở cơ quan/bãi. Bắt đầu chuyến phải quẹt ở LÀN RA để đi làm việc!
-            if (activeTrip == null)
-            {
-                if (isEntry)
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.ConfirmRequired,
-                        Message = $"Di chuyển sai làn!",
-                        Vehicle = vehicle,
-                        DepartmentName = "Sai chiều xuất phát",
-                        LprResult = lprResult
-                    };
-                }
-
-                // Kiểm tra Cổng xuất phát theo quy định của Tuyến (nếu có)
-                if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                {
-                    var firstStep = assignedRoute.GateSteps.OrderBy(s => s.StepIndex).First();
-                    if (!string.IsNullOrEmpty(firstStep.GateId) && firstStep.GateId != currentGateId)
-                    {
-                        plateImage?.Dispose();
-                        overviewImage?.Dispose();
-                        return new ProcessResult
-                        {
-                            Status = ProcessStatus.ConfirmRequired,
-                            Message = $"CẢNH BÁO SAI CỔNG XUẤT PHÁT: Xe {vehicle.PlateNumber} quẹt tại cổng '{currentGateName}'. Tuyến '{assignedRoute.RouteName}' quy định xuất phát từ cổng '{firstStep.GateName}'!",
-                            Vehicle = vehicle,
-                            DepartmentName = $"Sai tuyến: {assignedRoute.RouteName}",
-                            LprResult = lprResult
-                        };
-                    }
-                }
-            }
-            else
-            {
-                // activeTrip != null: Xe đang thực hiện hành trình
-                if (activeTrip.Status == TripStatus.InTransit)
-                {
-                    // Xe đang di chuyển trên đường: Bắt buộc phải quẹt LÀN VÀO tại cổng đến!
-                    if (!isEntry)
-                    {
-                        plateImage?.Dispose();
-                        overviewImage?.Dispose();
-                        return new ProcessResult
-                        {
-                            Status = ProcessStatus.ConfirmRequired,
-                            Message = "Di chuyển sai làn!",
-                            Vehicle = vehicle,
-                            DepartmentName = "Sai chiều di chuyển",
-                            LprResult = lprResult
-                        };
-                    }
-
-                    // Xe quẹt vào một cổng: Kiểm tra có đúng chặng theo tuyến quy định không
-                    if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                    {
-                        var expectedStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                        if (expectedStep != null && !string.IsNullOrEmpty(expectedStep.GateId) && expectedStep.GateId != currentGateId)
-                        {
-                            plateImage?.Dispose();
-                            overviewImage?.Dispose();
-
-                            // Ghi nhận mốc vi phạm lạc tuyến vào lịch sử hành trình (không mở barrier)
-                            var violationCheckpoint = new TripCheckpoint
-                            {
-                                StepIndex = activeTrip.CurrentStepIndex,
-                                GateId = currentGateId,
-                                GateName = currentGateName,
-                                Direction = context.Direction,
-                                Timestamp = now,
-                                PlateDetected = lprResult?.Plate ?? vehicle.PlateNumber,
-                                IsRouteCompliant = false,
-                                Note = $"Lạc tuyến: Quẹt vào {currentGateName} nhưng lộ trình chặng {activeTrip.CurrentStepIndex} là {expectedStep.GateName}",
-                                SlaOverdue = new SlaOverdueInfo
-                                {
-                                    IsOverdue = isCheckpointOverdue,
-                                    OverdueSeconds = checkpointOverdueSeconds
-                                }
-                            };
-                            activeTrip.Checkpoints ??= [];
-                            activeTrip.Checkpoints.Add(violationCheckpoint);
-                            await _tripRepository.UpdateAsync(activeTrip);
-
-                            return new ProcessResult
-                            {
-                                Status = ProcessStatus.ConfirmRequired,
-                                Message = $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại cổng '{currentGateName}'. Tuyến '{assignedRoute.RouteName}' chặng {activeTrip.CurrentStepIndex} yêu cầu đến cổng '{expectedStep.GateName}'!",
-                                Vehicle = vehicle,
-                                DepartmentName = $"Lạc tuyến: {assignedRoute.RouteName}",
-                                LprResult = lprResult
-                            };
-                        }
-                    }
-                }
-                else if (activeTrip.Status == TripStatus.WorkingAtGate)
-                {
-                    // Xe đang dừng làm việc tại cổng: Bắt buộc phải quẹt LÀN RA để rời khỏi cổng!
-                    if (isEntry)
-                    {
-                        plateImage?.Dispose();
-                        overviewImage?.Dispose();
-                        return new ProcessResult
-                        {
-                            Status = ProcessStatus.ConfirmRequired,
-                            Message = $"Di chuyển sai làn!",
-                            Vehicle = vehicle,
-                            DepartmentName = "Xe đang trong cổng",
-                            LprResult = lprResult
-                        };
-                    }
-                }
-            }
-
-            // 3. KHỞI TẠO HOẶC CẬP NHẬT CHUYẾN ĐI
-            if (activeTrip == null)
-            {
-                // Bắt đầu một chuyến điều vận mới (luôn là LÀN RA)
-                int travelMinutes = defaultTravel;
-                if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                {
-                    var firstStep = assignedRoute.GateSteps.OrderBy(s => s.StepIndex).First();
-                    travelMinutes = firstStep.MaxTravelMinutes;
-                }
-
-                activeTrip = new VehicleDispatchTrip
-                {
-                    VehicleId = vehicle.Id,
-                    PlateNumber = vehicle.PlateNumber ?? "",
-                    CardId = vehicleCard.Id,
-                    CardNumber = vehicleCard.CardNumber,
-                    OriginGateId = currentGateId,
-                    CurrentGateId = currentGateId,
-                    AssignedRouteId = vehicle.AssignedRouteId,
-                    CurrentStepIndex = 1,
-                    Status = TripStatus.InTransit, // Bắt đầu xuất phát ra khỏi cơ quan để đi làm việc
-                    StartTime = now,
-                    LastExitTime = now,
-                    LastEntryTime = null,
-                    NextDeadline = now.AddMinutes(travelMinutes),
-                    IsAlertSent = false,
-                    Checkpoints = []
-                };
-
-                await _tripRepository.AddAsync(activeTrip);
-            }
-            else
-            {
-                // Cập nhật chuyến đang chạy
-                activeTrip.CurrentGateId = currentGateId;
-                if (isEntry)
-                {
-                    activeTrip.LastEntryTime = now;
-                    bool isReturnOrigin = (!string.IsNullOrEmpty(activeTrip.OriginGateId) &&
-                                          activeTrip.OriginGateId == currentGateId &&
-                                          activeTrip.CurrentStepIndex >= (assignedRoute?.GateSteps.Count ?? 1));
-
-                    if (isReturnOrigin)
-                    {
-                        activeTrip.Status = TripStatus.Completed;
-                        activeTrip.EndTime = now;
-                        activeTrip.NextDeadline = null;
-                    }
-                    else
-                    {
-                        activeTrip.Status = TripStatus.WorkingAtGate;
-                        int stayMinutes = defaultStay;
-                        if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                        {
-                            var currentStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                            if (currentStep != null) stayMinutes = currentStep.MaxStayMinutes;
-                        }
-                        activeTrip.NextDeadline = now.AddMinutes(stayMinutes);
-                        activeTrip.IsAlertSent = false;
-                    }
-                }
-                else
-                {
-                    activeTrip.LastExitTime = now;
-                    activeTrip.CurrentStepIndex++;
-                    activeTrip.Status = TripStatus.InTransit;
-                    int travelMinutes = defaultTravel;
-                    if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                    {
-                        var nextStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                        if (nextStep != null) travelMinutes = nextStep.MaxTravelMinutes;
-                    }
-                    activeTrip.NextDeadline = now.AddMinutes(travelMinutes);
-                    activeTrip.IsAlertSent = false;
-                }
-
-                await _tripRepository.UpdateAsync(activeTrip);
-            }
-
-            // Ghi nhận mốc kiểm soát hành trình (Checkpoint)
-            var currentCheckpoint = new TripCheckpoint
-            {
-                StepIndex = activeTrip.CurrentStepIndex,
-                GateId = currentGateId,
-                GateName = currentGateName,
-                Direction = context.Direction,
-                Timestamp = now,
-                OverviewImagePath = "",
-                PlateImagePath = "",
-                PlateDetected = lprResult?.Plate ?? vehicle.PlateNumber,
-                IsRouteCompliant = true,
-                Note = isEntry ? "Quẹt vào cổng" : "Quẹt ra khỏi cổng",
-                SlaOverdue = new SlaOverdueInfo
-                {
-                    IsOverdue = isCheckpointOverdue,
-                    OverdueSeconds = checkpointOverdueSeconds
-                }
-            };
-            activeTrip.Checkpoints ??= [];
-            activeTrip.Checkpoints.Add(currentCheckpoint);
-            await _tripRepository.UpdateAsync(activeTrip);
-
-            // Mở Barrier
-            if (!BarrierOpen(context))
-            {
-                bool handledManually = onBarrierOpenFailed?.Invoke(context) ?? false;
-                if (!handledManually)
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.BarrierFailed,
-                        Message = "Không thể mở barrier cho phương tiện. Vui lòng kiểm tra thiết bị.",
-                        Vehicle = vehicle,
-                        DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                        LprResult = lprResult
-                    };
-                }
-            }
-
-            // Lưu ảnh ngầm và cập nhật đường dẫn ảnh vào Checkpoint
-            Bitmap? plateSave = plateImage != null ? (Bitmap)plateImage.Clone() : null;
-            Bitmap? overviewSave = overviewImage != null ? (Bitmap)overviewImage.Clone() : null;
-            plateImage?.Dispose();
-            overviewImage?.Dispose();
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    using (plateSave)
-                    using (overviewSave)
-                    {
-                        string overviewPath = overviewSave != null
-                            ? _imageStorageService.SaveImage(overviewSave, isEntry ? "ImageIn" : "ImageOut", "ToanCanh", imageBasePath)
-                            : "";
-                        string platePath = plateSave != null
-                            ? _imageStorageService.SaveImage(plateSave, isEntry ? "ImageIn" : "ImageOut", "BienSo", imageBasePath)
-                            : "";
-
-                        if (activeTrip != null && (!string.IsNullOrEmpty(overviewPath) || !string.IsNullOrEmpty(platePath)))
-                        {
-                            currentCheckpoint.OverviewImagePath = overviewPath;
-                            currentCheckpoint.PlateImagePath = platePath;
-                            await _tripRepository.UpdateAsync(activeTrip);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[SharedVehicleTrip Image Error] {ex.Message}");
-                }
-            });
-
-            string routeDesc = assignedRoute != null ? assignedRoute.RouteName : "Tuyến tự do";
-            int totalSteps = assignedRoute?.GateSteps.Count ?? 1;
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Vehicle = vehicle,
-                DepartmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})",
-                LprResult = lprResult,
-                Message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
-                DispatchTrip = activeTrip
-            };
-        }
-
-        public async Task<ProcessResult> ProcessEntryAsync(
-            LaneRuntimeContext context,
-            RealtimeLog data,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
-        {
-            string rawCard = data.CardNo?.Trim() ?? string.Empty;
-            string normalizedCard = CardHelper.NormalizeCardCode(rawCard);
-
-            Debug.WriteLine($"[ProcessEntryAsync] Quẹt thẻ: CardNo='{data.CardNo}', Raw='{rawCard}', Normalized='{normalizedCard}'");
-
-            if (!CardHelper.IsValidCardCode(rawCard) && !CardHelper.IsValidCardCode(normalizedCard))
-            {
-                // Silently ignore noise events (sensor 0, barrier open/close logs)
-                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = string.Empty };
-            }
-
-            // 1. Phân nhánh Thẻ Phương tiện nội bộ / Thẻ định danh qua Card repository
-            var cardEntity = await _cardRepository.FindOneAsync(c =>
-                (c.CardNumber == normalizedCard || c.CardNumber == rawCard) &&
-                !c.IsDeleted);
-
-            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle)
-            {
-                Debug.WriteLine($"[ProcessEntryAsync] Đã nhận diện Thẻ Phương tiện nội bộ: Card='{cardEntity.CardNumber}', VehicleId='{cardEntity.VehicleId}'");
-                if (!string.IsNullOrEmpty(cardEntity.VehicleId))
-                {
-                    return await ProcessSharedVehicleTripAsync(context, cardEntity, data, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
-                }
-            }
-
-            // 2. Tìm kiếm nhân sự/khách hàng qua ClientId (từ Card) hoặc trực tiếp CardCode / PhoneNumber
-            Client? client = null;
-            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Person && !string.IsNullOrEmpty(cardEntity.ClientId))
-            {
-                client = await _clientRepository.GetByIdAsync(cardEntity.ClientId);
-            }
-
-            if (client == null || client.IsDeleted)
-            {
-                client = await _clientRepository.FindOneAsync(x =>
-                    (x.CardCode == normalizedCard || x.CardCode == rawCard || x.PhoneNumber == rawCard || x.PhoneNumber == normalizedCard) &&
-                    !x.IsDeleted);
-            }
-
-            if (client == null)
-            {
-                Debug.WriteLine($"[ProcessEntryAsync] Không tìm thấy người dùng cho thẻ: '{normalizedCard}' (raw: '{rawCard}')");
-                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
-            }
-
-            string departmentName = await GetDepartmentNameAsync(client);
-
-            if (IsClientExpired(client))
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ConfirmRequired,
-                    Message = $"Người dùng chỉ được ra vào từ {client.Expired.StartDay:dd/MM/yyyy} - {client.Expired.EndDay:dd/MM/yyyy}",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            var parkingInProgress = await _sessionRepository.FindOneAsync(x => x.PersonId == client.Id && x.Status == ParkingSessionStatus.Active && !x.IsDeleted);
-            if (parkingInProgress != null)
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.AlreadyInParking,
-                    Message = "Khách hàng này đang có xe trong bãi.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-
-            if (context.Cameras == null)
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.CaptureFailed,
-                    Message = "Camera chưa được khởi tạo.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-
-            LaneCamera cameras = context.Cameras;
-
-            // Lấy danh sách xe đã đăng ký của khách hàng (nếu có)
-            List<Vehicle> clientVehicles = [];
-            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
-            {
-                var vehicles = await _vehicleRepository.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted);
-                clientVehicles = vehicles?.ToList() ?? [];
-            }
-
-            // Khối xác thực biển số: Quyết định dựa trên cờ VerifyVehiclePlate của Client
-            bool requirePlateVerification = client.VerifyVehiclePlate;
-
-            if (requirePlateVerification && _vehicleRepository != null && clientVehicles.Count == 0)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.PlateMismatch,
-                    Message = "Khách hàng chưa đăng ký biển số xe trong hệ thống.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            string defaultPlate = clientVehicles.Count > 0
-                ? string.Join("; ", clientVehicles.Select(v => v.PlateNumber).Where(p => !string.IsNullOrWhiteSpace(p)))
-                : "";
-
-            // Luôn chụp ảnh Camera Biển Số và Toàn Cảnh để lưu vết
-            var (plateSuccess, plateImage, overviewSuccess, overviewImage) =
-                await CaptureCamerasParallelAsync(cameras, capturePlateCamera: true, timeoutMs: 2500);
-
-            string recognizedPlate = "";
-            LprResult? lprResult = null;
-            Vehicle? matchedVehicle = null;
-
-            if (plateSuccess && plateImage != null)
-            {
-                lprResult = await Task.Run(() => _lprService.Recognize(plateImage));
-                if (lprResult != null && lprResult.Success && !string.IsNullOrWhiteSpace(lprResult.Plate))
-                {
-                    recognizedPlate = lprResult.Plate.Trim().ToUpper();
-                }
-            }
-
-            if (!requirePlateVerification)
-            {
-                // Nếu khách không bắt buộc đối soát biển số:
-                // Ưu tiên lấy biển số nhận diện từ camera, nếu camera không đọc được thì fallback sang biển số đăng ký
-                if (string.IsNullOrEmpty(recognizedPlate))
-                {
-                    recognizedPlate = defaultPlate;
-                }
-            }
-            else if (!plateSuccess || plateImage == null || string.IsNullOrEmpty(recognizedPlate))
-            {
-                // Yêu cầu xác thực nhưng camera lỗi hoặc OCR không ra biển số -> Cho bảo vệ nhập tay
-                bool manualCancelled = false;
-                if (onManualPlateInput != null)
-                {
-                    string? manual = await onManualPlateInput(context, defaultPlate);
-                    if (!string.IsNullOrWhiteSpace(manual))
-                    {
-                        recognizedPlate = manual.Trim().ToUpper();
-                        lprResult = new LprResult
-                        {
-                            Success = true,
-                            Plate = recognizedPlate,
-                            PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null
-                        };
-                    }
-                    else
-                    {
-                        manualCancelled = true;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(recognizedPlate))
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = (!plateSuccess || plateImage == null) ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = manualCancelled ? "" : "Không nhận diện được biển số và không có biển số nhập tay.",
-                        Client = client,
-                        Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName
-                    };
-                }
-            }
-
-            if (requirePlateVerification)
-            {
-                string actualPlate = (recognizedPlate ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-                matchedVehicle = clientVehicles.FirstOrDefault(v =>
-                    (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() == actualPlate);
-
-                if (matchedVehicle == null && clientVehicles.Count > 0)
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.PlateMismatch,
-                        Message = "Biển số xe không đúng với biển số đăng ký.",
-                        Client = client,
-                        Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName,
-                        LprResult = lprResult
-                    };
-                }
-            }
-
-            // Mở Barrier
-            if (!BarrierOpen(context))
-            {
-                bool handledManually = onBarrierOpenFailed?.Invoke(context) ?? false;
-                if (!handledManually)
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.BarrierFailed,
-                        Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
-                        Client = client,
-                        Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName,
-                        LprResult = lprResult
-                    };
-                }
-            }
-
-            DateTime timeIn = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now;
-            var parking = new ParkingSession
-            {
-                PersonId = client.Id,
-                PlateNumber = !requirePlateVerification ? defaultPlate : (matchedVehicle?.PlateNumber ?? recognizedPlate ?? ""),
-                VehicleType = matchedVehicle?.Type ?? VehicleType.Car,
-                InTime = timeIn,
-                InLaneName = context.Lane.Name,
-                Status = ParkingSessionStatus.Active
-            };
-
-            Bitmap? plateSave = plateImage != null ? (Bitmap)plateImage.Clone() : null;
-            Bitmap? overviewSave = overviewImage != null ? (Bitmap)overviewImage.Clone() : null;
-            plateImage?.Dispose();
-            overviewImage?.Dispose();
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    using (plateSave)
-                    using (overviewSave)
-                    {
-                        string platePath = plateSave != null
-                            ? _imageStorageService.SaveImage(plateSave, "ImageIn", "BienSo", imageBasePath)
-                            : "";
-                        string overviewPath = overviewSave != null
-                            ? _imageStorageService.SaveImage(overviewSave, "ImageIn", "ToanCanh", imageBasePath)
-                            : "";
-
-                        parking.InPlateImagePath = platePath;
-                        parking.InOverviewImagePath = overviewPath;
-
-                        await _sessionRepository.AddAsync(parking);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[ParkingEntry Error] {ex.Message}");
-                }
-            });
-
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Client = client,
-                Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                DepartmentName = departmentName,
-                LprResult = lprResult,
-                ParkingSession = parking
-            };
-        }
-
-        public async Task<ProcessResult> ProcessExitAsync(
-            LaneRuntimeContext context,
-            RealtimeLog data,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
-        {
-            string rawCard = data.CardNo?.Trim() ?? string.Empty;
-            string normalizedCard = CardHelper.NormalizeCardCode(rawCard);
-
-            Debug.WriteLine($"[ProcessExitAsync] Quẹt thẻ: CardNo='{data.CardNo}', Raw='{rawCard}', Normalized='{normalizedCard}'");
-
-            if (!CardHelper.IsValidCardCode(rawCard) && !CardHelper.IsValidCardCode(normalizedCard))
-            {
-                // Silently ignore noise events (sensor 0, barrier open/close logs)
-                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = string.Empty };
-            }
-
-            // 1. Phân nhánh Thẻ Phương tiện nội bộ / Thẻ định danh qua Card repository
-            var cardEntity = await _cardRepository.FindOneAsync(c =>
-                (c.CardNumber == normalizedCard || c.CardNumber == rawCard) &&
-                !c.IsDeleted);
-
-            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle)
-            {
-                Debug.WriteLine($"[ProcessExitAsync] Đã nhận diện Thẻ Phương tiện nội bộ: Card='{cardEntity.CardNumber}', VehicleId='{cardEntity.VehicleId}'");
-                if (!string.IsNullOrEmpty(cardEntity.VehicleId))
-                {
-                    return await ProcessSharedVehicleTripAsync(context, cardEntity, data, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
-                }
-            }
-
-            // 2. Tìm kiếm nhân sự/khách hàng qua ClientId (từ Card) hoặc trực tiếp CardCode / PhoneNumber
-            Client? client = null;
-            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Person && !string.IsNullOrEmpty(cardEntity.ClientId))
-            {
-                client = await _clientRepository.GetByIdAsync(cardEntity.ClientId);
-            }
-
-            if (client == null || client.IsDeleted)
-            {
-                client = await _clientRepository.FindOneAsync(x =>
-                    (x.CardCode == normalizedCard || x.CardCode == rawCard || x.PhoneNumber == rawCard || x.PhoneNumber == normalizedCard) &&
-                    !x.IsDeleted);
-            }
-
-            if (client == null)
-            {
-                Debug.WriteLine($"[ProcessExitAsync] Không tìm thấy khách hàng cho thẻ: '{normalizedCard}' (raw: '{rawCard}')");
-                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
-            }
-
-            string departmentName = await GetDepartmentNameAsync(client);
-
-            if (IsClientExpired(client))
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ConfirmRequired,
-                    Message = $"Người dùng chỉ được ra vào từ {client.Expired.StartDay:dd/MM/yyyy} - {client.Expired.EndDay:dd/MM/yyyy}",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            var parking = await _sessionRepository.FindOneAsync(x => x.PersonId == client.Id && x.Status == ParkingSessionStatus.Active && !x.IsDeleted);
-            if (parking == null)
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.NotInParking,
-                    Message = "Khách hàng này không có xe trong bãi.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-
-            List<Vehicle> clientVehicles = [];
-            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
-            {
-                var vehicles = await _vehicleRepository.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted);
-                clientVehicles = vehicles?.ToList() ?? [];
-            }
-
-            Vehicle? matchedVehicle = clientVehicles.FirstOrDefault(v =>
-                !string.IsNullOrWhiteSpace(parking.PlateNumber) &&
-                (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() ==
-                (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant())
-                ?? clientVehicles.FirstOrDefault();
-
-            if (context.Cameras == null)
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.CaptureFailed,
-                    Message = "Camera chưa được khởi tạo.",
-                    Client = client,
-                    Vehicle = matchedVehicle,
-                    DepartmentName = departmentName,
-                    ParkingSession = parking
-                };
-
-            // Khối xác thực biển số: Quyết định theo VerifyVehiclePlate của Client
-            bool requirePlateVerification = client.VerifyVehiclePlate;
-
-            // Luôn chụp ảnh Camera Biển Số và Toàn Cảnh để lưu vết
-            var (plateSuccess, plateImage, overviewSuccess, overviewImage) =
-                await CaptureCamerasParallelAsync(context.Cameras, capturePlateCamera: true, timeoutMs: 2500);
-
-            string exitPlate = "";
-            LprResult? lprResult = null;
-
-            if (plateSuccess && plateImage != null)
-            {
-                lprResult = await Task.Run(() => _lprService.Recognize(plateImage));
-                if (lprResult != null && lprResult.Success && !string.IsNullOrWhiteSpace(lprResult.Plate))
-                {
-                    exitPlate = lprResult.Plate.Trim().ToUpper();
-                }
-            }
-
-            if (!requirePlateVerification)
-            {
-                // Ưu tiên lấy biển nhận diện từ camera, nếu không có thì lấy biển số gửi lúc vào
-                if (string.IsNullOrEmpty(exitPlate))
-                {
-                    exitPlate = parking.PlateNumber ?? "";
-                }
-            }
-            else
-            {
-                string cleanInPlate = (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-                string cleanExitPlate = (exitPlate ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-
-                // Trường hợp A: Camera không chụp được hoặc OCR không đọc được chữ -> Cho bảo vệ nhập tay
-                if (string.IsNullOrEmpty(cleanExitPlate))
-                {
-                    bool manualCancelled = false;
-                    if (onManualPlateInput != null)
-                    {
-                        string promptPlate = parking.PlateNumber ?? "";
-                        string? manual = await onManualPlateInput(context, promptPlate);
-                        if (!string.IsNullOrWhiteSpace(manual))
-                        {
-                            exitPlate = manual.Trim().ToUpper();
-                            cleanExitPlate = exitPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-                            lprResult = new LprResult
-                            {
-                                Success = true,
-                                Plate = exitPlate,
-                                PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null
-                            };
-                        }
-                        else
-                        {
-                            manualCancelled = true;
-                        }
-                    }
-
-                    if (string.IsNullOrEmpty(cleanExitPlate))
-                    {
-                        plateImage?.Dispose();
-                        overviewImage?.Dispose();
-                        return new ProcessResult
-                        {
-                            Status = (!plateSuccess || plateImage == null) ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                            Message = manualCancelled ? "" : "Không nhận diện được biển số xe ra và không có biển số nhập tay hợp lệ.",
-                            Client = client,
-                            Vehicle = matchedVehicle,
-                            DepartmentName = departmentName,
-                            ParkingSession = parking,
-                            LprResult = lprResult
-                        };
-                    }
-                }
-
-                // Trường hợp B: Đã có biển số -> So sánh với biển số lúc vào
-                if (cleanExitPlate != cleanInPlate)
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.PlateMismatch,
-                        Message = $"Biển số xe ra ({exitPlate}) không khớp với biển số xe lúc vào ({parking.PlateNumber}).",
-                        Client = client,
-                        Vehicle = matchedVehicle,
-                        DepartmentName = departmentName,
-                        ParkingSession = parking,
-                        LprResult = lprResult
-                    };
-                }
-            }
-
-            if (!BarrierOpen(context))
-            {
-                bool handledManually = onBarrierOpenFailed?.Invoke(context) ?? false;
-                if (!handledManually)
-                {
-                    plateImage?.Dispose();
-                    overviewImage?.Dispose();
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.BarrierFailed,
-                        Message = "Không thể mở barrier. Vui lòng kiểm thiết bị.",
-                        Client = client,
-                        Vehicle = matchedVehicle,
-                        DepartmentName = departmentName,
-                        ParkingSession = parking,
-                        LprResult = lprResult
-                    };
-                }
-            }
-
-            Bitmap? plateSave = plateImage != null ? (Bitmap)plateImage.Clone() : null;
-            Bitmap? overviewSave = overviewImage != null ? (Bitmap)overviewImage.Clone() : null;
-            plateImage?.Dispose();
-            overviewImage?.Dispose();
-
-            DateTime timeOut = (data.Time != default && data.Time != DateTime.MinValue) ? data.Time : DateTime.Now;
-            parking.OutTime = timeOut;
-            parking.OutLaneName = context.Lane.Name;
-            parking.Status = ParkingSessionStatus.Completed;
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    using (plateSave)
-                    using (overviewSave)
-                    {
-                        string platePath = plateSave != null
-                            ? _imageStorageService.SaveImage(plateSave, "ImageOut", "BienSo", imageBasePath)
-                            : "";
-                        string overviewPath = overviewSave != null
-                            ? _imageStorageService.SaveImage(overviewSave, "ImageOut", "ToanCanh", imageBasePath)
-                            : "";
-
-                        parking.OutPlateImagePath = platePath;
-                        parking.OutOverviewImagePath = overviewPath;
-                        parking.UpdatedAt = DateTime.Now;
-
-                        await _sessionRepository.UpdateAsync(parking);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[ParkingExit Error] {ex.Message}");
-                }
-            });
-
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Client = client,
-                Vehicle = matchedVehicle,
-                DepartmentName = departmentName,
-                ParkingSession = parking,
-                LprResult = lprResult
-            };
+            Overview?.Dispose();
+            Plate?.Dispose();
+            Face?.Dispose();
+            Overview = null;
+            Plate = null;
+            Face = null;
         }
     }
 }

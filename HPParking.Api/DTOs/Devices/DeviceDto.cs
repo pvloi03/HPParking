@@ -11,6 +11,8 @@ namespace HPParking.Api.DTOs.Devices
         public string IpAddress { get; set; } = string.Empty;
         public int Port { get; set; } = 8000;
         public string? UserName { get; set; }
+        public string? RtspUrl { get; set; }
+        public int Channel { get; set; } = 1;
         public bool HasPassword { get; set; }
         public bool IsActive { get; set; } = true;
     }

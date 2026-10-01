@@ -24,6 +24,10 @@ namespace HPParking.Core.Models.Entities
 
         public string? Password { get; set; }                                 // [LƯU DB] Mật khẩu (Camera hoặc ZKTeco CommPassword)
 
+        public string? RtspUrl { get; set; }                                  // [LƯU DB] Đường dẫn RTSP stream
+
+        public int Channel { get; set; } = 1;                                 // [LƯU DB] Kênh stream / thiết bị (Hikvision: 1 hoặc 101)
+
         public bool IsActive { get; set; } = true;
     }
 }
