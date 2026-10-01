@@ -30,7 +30,7 @@ import { cardApi } from '@/api/cardApi';
 import { clientApi } from '@/api/clientApi';
 import { vehicleApi } from '@/api/vehicleApi';
 import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
-import { VehicleType } from '@/types/vehicle';
+import { getVehicleTypeLabel } from '@/types/vehicle';
 import { formatDateTimeVi } from '@/utils/formatters';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -75,11 +75,16 @@ export function CardDetailDialog({
     enabled: Boolean(open && card?.vehicleId),
   });
 
-  const handleCopyCardNumber = () => {
-    if (card?.cardNumber) {
-      void navigator.clipboard.writeText(card.cardNumber);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+  const handleCopyCardNumber = async () => {
+    if (!card?.cardNumber) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(card.cardNumber);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      }
+    } catch (err) {
+      console.warn('Không thể sao chép mã thẻ vào clipboard:', err);
     }
   };
 
@@ -114,21 +119,6 @@ export function CardDetailDialog({
         );
       default:
         return null;
-    }
-  };
-
-  const getVehicleTypeLabel = (type?: number) => {
-    switch (type) {
-      case VehicleType.Car:
-        return 'Ô tô';
-      case VehicleType.Motorbike:
-        return 'Xe máy';
-      case VehicleType.Bicycle:
-        return 'Xe đạp / Xe điện';
-      case VehicleType.Other:
-        return 'Phương tiện khác';
-      default:
-        return '—';
     }
   };
 

@@ -19,6 +19,24 @@ export function normalizePlateNumber(plate: string): string {
     .toUpperCase();
 }
 
+/**
+ * Lấy nhãn hiển thị tiếng Việt chuẩn hóa cho loại phương tiện
+ */
+export function getVehicleTypeLabel(type?: number): string {
+  switch (type) {
+    case VehicleType.Car:
+      return 'Ô tô';
+    case VehicleType.Motorbike:
+      return 'Xe máy';
+    case VehicleType.Bicycle:
+      return 'Xe đạp / Xe điện';
+    case VehicleType.Other:
+      return 'Phương tiện khác';
+    default:
+      return '—';
+  }
+}
+
 export interface VehicleDto {
   id: string;
   plateNumber: string;
