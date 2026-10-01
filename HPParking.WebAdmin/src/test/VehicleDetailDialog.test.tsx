@@ -4,9 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { VehicleDetailDialog } from '@/components/vehicles/VehicleDetailDialog';
 import { vehicleApi } from '@/api/vehicleApi';
 import { clientApi } from '@/api/clientApi';
-import { parkingSessionApi } from '@/api/parkingSessionApi';
 import { VehicleType } from '@/types/vehicle';
-import { ParkingSessionStatus } from '@/types/parkingSession';
 
 vi.mock('@/api/vehicleApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/vehicleApi')>();
@@ -24,16 +22,6 @@ vi.mock('@/api/clientApi', async (importOriginal) => {
     ...actual,
     clientApi: {
       getById: vi.fn(),
-    },
-  };
-});
-
-vi.mock('@/api/parkingSessionApi', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/api/parkingSessionApi')>();
-  return {
-    ...actual,
-    parkingSessionApi: {
-      getParkingSessions: vi.fn(),
     },
   };
 });
@@ -58,21 +46,10 @@ describe('VehicleDetailDialog Component', () => {
     code: 'KH_VIP_01',
     name: 'Nguyễn Văn Chủ Xe',
     phoneNumber: '0988666555',
+    address: 'Số 123 Đường Cầu Giấy, Hà Nội',
+    email: 'chuxe@hpparking.vn',
     isActive: true,
   };
-
-  const mockSessions = [
-    {
-      id: 'session-1',
-      plateNumber: '15A-999.88',
-      vehicleType: VehicleType.Car,
-      status: ParkingSessionStatus.Active,
-      inTime: '2026-09-28T08:00:00Z',
-      inLaneName: 'Làn Vào 1',
-      durationMinutes: 120,
-      createdAt: '2026-09-28T08:00:00Z',
-    },
-  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -84,17 +61,6 @@ describe('VehicleDetailDialog Component', () => {
 
     vi.mocked(vehicleApi.getById).mockResolvedValue(mockVehicle);
     vi.mocked(clientApi.getById).mockResolvedValue(mockOwner as any);
-    vi.mocked(parkingSessionApi.getParkingSessions).mockResolvedValue({
-      items: mockSessions as any,
-      pagination: {
-        pageIndex: 1,
-        pageSize: 5,
-        totalCount: 1,
-        totalPages: 1,
-        hasPreviousPage: false,
-        hasNextPage: false,
-      },
-    });
   });
 
   it('hiển thị khung biển số xe sắc nét, loại xe và thông tin chủ sở hữu', async () => {
@@ -114,11 +80,13 @@ describe('VehicleDetailDialog Component', () => {
       expect(screen.getByText('Nguyễn Văn Chủ Xe')).toBeInTheDocument();
       expect(screen.getByText('KH_VIP_01', { exact: false })).toBeInTheDocument();
       expect(screen.getByText('0988666555')).toBeInTheDocument();
+      expect(screen.getByText('Số 123 Đường Cầu Giấy, Hà Nội')).toBeInTheDocument();
+      expect(screen.getByText('chuxe@hpparking.vn')).toBeInTheDocument();
       expect(screen.getByText('Xe giám đốc lưu ý ưu tiên làn')).toBeInTheDocument();
     });
   });
 
-  it('chuyển tab xem lịch sử các lượt ra vào của biển số xe', async () => {
+  it('không hiển thị phần lịch sử ra vào trong chi tiết phương tiện', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <VehicleDetailDialog
@@ -133,14 +101,7 @@ describe('VehicleDetailDialog Component', () => {
       expect(screen.getByText('15A-999.88')).toBeInTheDocument();
     });
 
-    const historyTab = screen.getByRole('button', { name: /Lịch sử ra vào/i });
-    fireEvent.click(historyTab);
-
-    await waitFor(() => {
-      expect(screen.getByText('Đang đỗ trong bãi')).toBeInTheDocument();
-      expect(screen.getByText(/Làn: Làn Vào 1/i)).toBeInTheDocument();
-      expect(screen.getByText(/120 phút/i)).toBeInTheDocument();
-    });
+    expect(screen.queryByText(/Lịch sử ra vào/i)).not.toBeInTheDocument();
   });
 
   it('gọi callback onEdit khi click nút Chỉnh sửa trong dialog', async () => {

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
-import { Car, Trash2, Bike, HelpCircle } from 'lucide-react';
+import { Car, Trash2, Bike, HelpCircle, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
@@ -252,7 +252,7 @@ export function VehiclesPage() {
         if (item.isShared) {
           return (
             <Badge className="bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 text-[11px] font-medium">
-              Xe dùng chung / Công vụ
+              Phương tiện dùng chung
             </Badge>
           );
         }
@@ -261,18 +261,20 @@ export function VehiclesPage() {
           return <span className="text-muted-foreground text-xs">—</span>;
         }
         return (
-          <div className="text-xs">
+          <div className="text-xs space-y-1">
             <span className="font-semibold text-foreground block">
               {owner.name}
             </span>
-            <span className="font-mono text-[11px] text-muted-foreground block">
-              {owner.phoneNumber}
-              {owner.address ? ` • ${owner.address}` : ''}
-            </span>
+            {owner.phoneNumber && (
+              <span className="flex items-center gap-x-1 font-mono text-[11px] text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                {owner.phoneNumber}
+              </span>
+            )}
           </div>
         );
       },
-      className: 'min-w-[200px]',
+      className: 'min-w-[180px]',
       mobileLabel: 'Chủ xe',
     },
     {
@@ -383,9 +385,9 @@ export function VehiclesPage() {
         onAddNew={
           canWrite
             ? () => {
-                setSelectedVehicle(null);
-                setIsFormOpen(true);
-              }
+              setSelectedVehicle(null);
+              setIsFormOpen(true);
+            }
             : undefined
         }
         addNewLabel="Đăng ký phương tiện"
@@ -396,14 +398,14 @@ export function VehiclesPage() {
           onView: (item) => setDetailVehicleId(item.id),
           onEdit: canWrite
             ? (item) => {
-                setSelectedVehicle(item);
-                setIsFormOpen(true);
-              }
+              setSelectedVehicle(item);
+              setIsFormOpen(true);
+            }
             : undefined,
           onDelete: canWrite
             ? (item) => {
-                setDeleteCandidate(item);
-              }
+              setDeleteCandidate(item);
+            }
             : undefined,
         }}
         emptyTitle="Không có phương tiện nào"
@@ -418,9 +420,9 @@ export function VehiclesPage() {
         onEdit={
           canWrite
             ? (item) => {
-                setSelectedVehicle(item);
-                setIsFormOpen(true);
-              }
+              setSelectedVehicle(item);
+              setIsFormOpen(true);
+            }
             : undefined
         }
       />

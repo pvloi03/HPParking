@@ -114,6 +114,8 @@ describe('VehiclesPage Component', () => {
       expect(screen.getAllByText('30A88888').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Ô tô').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Trần Văn Bảo').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('0977888999').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/Hà Nội/)).not.toBeInTheDocument();
       expect(screen.getAllByText('Xe giám đốc').length).toBeGreaterThan(0);
     });
   });
