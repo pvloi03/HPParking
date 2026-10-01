@@ -101,7 +101,7 @@ export function ParkingSessionDetailDialog({
           <div className="flex flex-col gap-2.5 pr-8">
             <DialogTitle className="flex items-center gap-2.5 text-base sm:text-lg font-bold">
               <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Car className="h-4.5 w-4.5" />
+                <Car className="h-4 w-4" />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold tracking-wide">
@@ -114,7 +114,7 @@ export function ParkingSessionDetailDialog({
             </DialogTitle>
 
             {/* Badges trạng thái & thời lượng cho xuống hàng */}
-            <div className="flex items-center gap-2 flex-wrap sm:pl-10.5">
+            <div className="flex items-center gap-2 flex-wrap sm:pl-10">
               {session && getStatusBadge(session.status)}
               {session?.inTime && (
                 <Badge

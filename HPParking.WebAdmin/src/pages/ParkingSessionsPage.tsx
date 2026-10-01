@@ -335,15 +335,15 @@ export function ParkingSessionsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           {/* 1. Tìm theo biển số */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Tìm theo biển số xe (VD: 30A-12345)..."
+              placeholder="Tìm theo biển số xe..."
               value={plateNumber}
               onChange={(e) => {
                 setPlateNumber(e.target.value);
                 setPageIndex(1);
               }}
-              className="pl-8.5 text-xs h-9"
+              className="pl-9 text-xs h-9 bg-background"
             />
           </div>
 
