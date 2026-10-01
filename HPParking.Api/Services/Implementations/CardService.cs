@@ -5,6 +5,7 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -15,15 +16,26 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Card> _cardRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
+        private readonly IAuditLogService? _auditLogService;
+
+        public CardService(
+            IRepository<Card> cardRepo,
+            IRepository<Client> clientRepo,
+            IRepository<Vehicle> vehicleRepo,
+            IAuditLogService? auditLogService = null)
+        {
+            _cardRepo = cardRepo;
+            _clientRepo = clientRepo;
+            _vehicleRepo = vehicleRepo;
+            _auditLogService = auditLogService;
+        }
 
         public CardService(
             IRepository<Card> cardRepo,
             IRepository<Client> clientRepo,
             IRepository<Vehicle> vehicleRepo)
+            : this(cardRepo, clientRepo, vehicleRepo, null)
         {
-            _cardRepo = cardRepo;
-            _clientRepo = clientRepo;
-            _vehicleRepo = vehicleRepo;
         }
 
         public async Task<PagedResult<CardDto>> GetCardsPagedAsync(
@@ -179,6 +191,20 @@ namespace HPParking.Api.Services.Implementations
             }
 
             await _cardRepo.AddAsync(card, cancellationToken);
+
+            if (_auditLogService != null)
+            {
+                string targetDesc = card.TargetType == CardTargetType.Vehicle ? "Gán xe" : "Gán nhân sự";
+                string statusDesc = card.Status == CardStatus.InUse ? "Đang sử dụng" : "Trong kho";
+                await _auditLogService.LogActivityAsync(
+                    AuditActionType.Create,
+                    "Card",
+                    card.Id,
+                    card.CardNumber,
+                    reason: $"Tạo mới thẻ '{card.CardNumber}' (Mục đích: {targetDesc}, Trạng thái: {statusDesc}).",
+                    cancellationToken: cancellationToken);
+            }
+
             return await MapToDtoAsync(card);
         }
 
@@ -234,6 +260,18 @@ namespace HPParking.Api.Services.Implementations
             card.Note = request.Note;
 
             await _cardRepo.UpdateAsync(card, cancellationToken);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    AuditActionType.Update,
+                    "Card",
+                    card.Id,
+                    card.CardNumber,
+                    reason: $"Cập nhật thông tin thẻ '{card.CardNumber}' (Trạng thái: {card.Status}, Ghi chú: {card.Note ?? "---"}).",
+                    cancellationToken: cancellationToken);
+            }
+
             return await MapToDtoAsync(card);
         }
 
@@ -271,6 +309,17 @@ namespace HPParking.Api.Services.Implementations
             }
 
             await _cardRepo.DeleteAsync(id, softDelete: true, cancellationToken: cancellationToken);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    AuditActionType.Delete,
+                    "Card",
+                    card.Id,
+                    card.CardNumber,
+                    reason: $"Xóa thẻ định danh '{card.CardNumber}' khỏi hệ thống (Xóa mềm).",
+                    cancellationToken: cancellationToken);
+            }
         }
 
         private async Task<CardDto> MapToDtoAsync(Card card)

@@ -7,7 +7,9 @@ import {
   User,
   Lock,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -45,6 +47,9 @@ export function CardsPage() {
   const [selectedCard, setSelectedCard] = useState<CardDto | null>(null);
   const [detailCardId, setDetailCardId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<CardDto | null>(null);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
 
   const { data: pagedData, isLoading } = useQuery({
     queryKey: ['cards', pageIndex, pageSize, searchKeyword, targetTypeFilter, statusFilter],
@@ -102,6 +107,35 @@ export function CardsPage() {
       toast.error(extractErrorMessage(err));
     },
   });
+
+  // Xử lý thực thi xóa hàng loạt thẻ qua checkbox
+  const handleExecuteBulkDelete = async () => {
+    if (selectedRowIds.length === 0) return;
+    setIsBulkLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        selectedRowIds.map((id) => cardApi.delete(id))
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.length - succeeded;
+      if (failed > 0) {
+        toast.warning(
+          `Đã xóa ${succeeded}/${results.length} thẻ định danh (${failed} thẻ không thể xóa do đang được gán xe hoặc nhân sự).`
+        );
+      } else {
+        toast.success(`Đã xóa thành công ${succeeded} thẻ định danh khỏi hệ thống.`);
+      }
+      setSelectedRowIds([]);
+      setIsBulkDeleteOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['cards'] });
+      void queryClient.invalidateQueries({ queryKey: ['clients'] });
+      void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsBulkLoading(false);
+    }
+  };
 
   const handleFormSubmit = async (data: CreateCardRequest | UpdateCardRequest) => {
     if (selectedCard) {
@@ -254,6 +288,24 @@ export function CardsPage() {
             </Select>
           </div>
         }
+        selectable={canWrite}
+        selectedRowIds={selectedRowIds}
+        onSelectedRowIdsChange={setSelectedRowIds}
+        bulkActions={
+          canWrite ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsBulkDeleteOpen(true)}
+                className="h-7 px-2.5 text-xs text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                <span>Xóa thẻ đã chọn ({selectedRowIds.length})</span>
+              </Button>
+            </div>
+          ) : undefined
+        }
       />
 
       {/* Modal Xem chi tiết thẻ */}
@@ -294,6 +346,21 @@ export function CardsPage() {
             deleteMutation.mutate(deleteCandidate.id);
           }
         }}
+      />
+
+      {/* Confirm Xóa Hàng Loạt Thẻ Định Danh */}
+      <ConfirmDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
+        title="Xác Nhận Xóa Thẻ Hàng Loạt"
+        description={`Bạn có chắc chắn muốn xóa ${selectedRowIds.length} thẻ định danh đã chọn khỏi hệ thống không? Lưu ý: Các thẻ đang được gán cho nhân sự hoặc phương tiện sẽ được tự động giữ lại để đảm bảo an toàn dữ liệu.`}
+        confirmText={`Xác Nhận Xóa (${selectedRowIds.length})`}
+        cancelText="Hủy Bỏ"
+        variant="destructive"
+        isLoading={isBulkLoading}
+        icon={<Trash2 className="h-5 w-5 text-amber-600" />}
+        confirmIcon={<Trash2 className="h-3.5 w-3.5" />}
+        onConfirm={handleExecuteBulkDelete}
       />
     </div>
   );

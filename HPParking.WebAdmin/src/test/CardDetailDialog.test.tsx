@@ -5,8 +5,10 @@ import { CardDetailDialog } from '@/components/cards/CardDetailDialog';
 import { cardApi } from '@/api/cardApi';
 import { clientApi } from '@/api/clientApi';
 import { vehicleApi } from '@/api/vehicleApi';
+import { auditApi } from '@/api/auditApi';
 import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
 import { VehicleType } from '@/types/vehicle';
+import { AuditActionType } from '@/types/auditLog';
 
 vi.mock('@/api/cardApi', () => ({
   cardApi: {
@@ -23,6 +25,22 @@ vi.mock('@/api/clientApi', () => ({
 vi.mock('@/api/vehicleApi', () => ({
   vehicleApi: {
     getById: vi.fn(),
+  },
+}));
+
+vi.mock('@/api/auditApi', () => ({
+  auditApi: {
+    getPaged: vi.fn().mockResolvedValue({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 5,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    }),
   },
 }));
 
@@ -162,5 +180,95 @@ describe('CardDetailDialog Component', () => {
 
     expect(onOpenChangeMock).toHaveBeenCalledWith(false);
     expect(onEditMock).toHaveBeenCalledWith(mockCard);
+  });
+
+  it('hiển thị danh sách lịch sử kiểm toán của thẻ khi có bản ghi audit log', async () => {
+    const mockCard: CardDto = {
+      id: 'card-1',
+      cardNumber: '0000012345',
+      targetType: CardTargetType.Person,
+      status: CardStatus.Available,
+      createdAt: '2026-03-01T10:00:00Z',
+    };
+
+    vi.mocked(cardApi.getById).mockResolvedValue(mockCard);
+    vi.mocked(auditApi.getPaged).mockResolvedValue({
+      items: [
+        {
+          id: 'audit-log-1',
+          actorUsername: 'admin_test',
+          actorRole: 'Admin',
+          source: 'WebAdmin',
+          actionType: AuditActionType.Create,
+          targetEntity: 'Card',
+          targetId: 'card-1',
+          targetDisplay: '0000012345',
+          isSuccess: true,
+          createdAt: '2026-03-01T10:00:00Z',
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 5,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    renderComponent({
+      open: true,
+      cardId: 'card-1',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('0000012345')).toBeInTheDocument();
+      expect(screen.getByText(/Lịch sử kiểm toán thẻ/i)).toBeInTheDocument();
+      expect(screen.getByText('admin_test')).toBeInTheDocument();
+      expect(screen.getByText('Thêm mới')).toBeInTheDocument();
+      const ledgerLink = screen.getByRole('link', {
+        name: /Xem trong sổ cái kiểm toán/i,
+      });
+      expect(ledgerLink).toHaveAttribute(
+        'href',
+        '/audit-logs?targetEntity=Card&targetId=card-1'
+      );
+    });
+  });
+
+  it('hiển thị thông báo khi thẻ chưa có ghi nhận kiểm toán nào', async () => {
+    const mockCard: CardDto = {
+      id: 'card-1',
+      cardNumber: '0000012345',
+      targetType: CardTargetType.Person,
+      status: CardStatus.Available,
+      createdAt: '2026-03-01T10:00:00Z',
+    };
+
+    vi.mocked(cardApi.getById).mockResolvedValue(mockCard);
+    vi.mocked(auditApi.getPaged).mockResolvedValue({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 5,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    renderComponent({
+      open: true,
+      cardId: 'card-1',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('0000012345')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Chưa có ghi nhận kiểm toán nào cho thẻ này/i)
+      ).toBeInTheDocument();
+    });
   });
 });

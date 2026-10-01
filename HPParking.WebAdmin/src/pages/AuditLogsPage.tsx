@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   XCircle,
   Download,
+  CreditCard,
+  Car,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -134,6 +136,36 @@ export function AuditLogsPage() {
     }
   };
 
+  const getTargetEntityInfo = (entity: string) => {
+    switch (entity) {
+      case 'Card':
+        return {
+          icon: <CreditCard className="h-3.5 w-3.5 text-indigo-500 shrink-0" />,
+          label: 'Thẻ định danh',
+        };
+      case 'Vehicle':
+        return {
+          icon: <Car className="h-3.5 w-3.5 text-blue-500 shrink-0" />,
+          label: 'Phương tiện',
+        };
+      case 'Client':
+        return {
+          icon: <User className="h-3.5 w-3.5 text-purple-500 shrink-0" />,
+          label: 'Nhân sự',
+        };
+      case 'User':
+        return {
+          icon: <User className="h-3.5 w-3.5 text-amber-500 shrink-0" />,
+          label: 'Tài khoản',
+        };
+      default:
+        return {
+          icon: <Database className="h-3.5 w-3.5 text-muted-foreground shrink-0" />,
+          label: entity,
+        };
+    }
+  };
+
   // Cấu hình các cột hiển thị trong bảng DataTable
   const columns: ColumnDef<AuditLogDto>[] = [
     {
@@ -188,22 +220,26 @@ export function AuditLogsPage() {
     {
       header: 'Thực thể tác động',
       accessorKey: 'targetEntity',
-      cell: (item) => (
-        <div className="flex flex-col max-w-[200px]">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground truncate">
-            <Database className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="font-semibold">{item.targetEntity}</span>
+      cell: (item) => {
+        const entityInfo = getTargetEntityInfo(item.targetEntity);
+        return (
+          <div className="flex flex-col max-w-[200px]">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-foreground truncate">
+              {entityInfo.icon}
+              <span className="font-semibold">{entityInfo.label}</span>
+              <span className="text-[10px] text-muted-foreground font-mono">({item.targetEntity})</span>
+            </div>
+            {item.targetDisplay && (
+              <span
+                className="text-[11px] text-muted-foreground ml-5 truncate font-mono"
+                title={item.targetDisplay}
+              >
+                {item.targetDisplay}
+              </span>
+            )}
           </div>
-          {item.targetDisplay && (
-            <span
-              className="text-[11px] text-muted-foreground ml-5 truncate"
-              title={item.targetDisplay}
-            >
-              {item.targetDisplay}
-            </span>
-          )}
-        </div>
-      ),
+        );
+      },
     },
     {
       header: 'Kết quả',
@@ -286,6 +322,7 @@ export function AuditLogsPage() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Tất cả thực thể</SelectItem>
+          <SelectItem value="Card">Thẻ định danh (Card)</SelectItem>
           <SelectItem value="Client">Nhân sự (Client)</SelectItem>
           <SelectItem value="Vehicle">Phương tiện (Vehicle)</SelectItem>
           <SelectItem value="User">Tài khoản (User)</SelectItem>

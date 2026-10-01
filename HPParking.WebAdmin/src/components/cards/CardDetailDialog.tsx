@@ -24,12 +24,16 @@ import {
   Copy,
   Check,
   FileText,
+  History,
+  ExternalLink,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cardApi } from '@/api/cardApi';
 import { clientApi } from '@/api/clientApi';
 import { vehicleApi } from '@/api/vehicleApi';
+import { auditApi } from '@/api/auditApi';
 import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
+import { AUDIT_ACTION_BADGES } from '@/types/auditLog';
 import { getVehicleTypeLabel } from '@/types/vehicle';
 import { formatDateTimeVi } from '@/utils/formatters';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -73,6 +77,20 @@ export function CardDetailDialog({
     queryKey: ['card-vehicle', card?.vehicleId],
     queryFn: () => (card?.vehicleId ? vehicleApi.getById(card.vehicleId) : null),
     enabled: Boolean(open && card?.vehicleId),
+  });
+
+  // Fetch Lịch sử kiểm toán của Thẻ (5 bản ghi gần nhất)
+  const { data: auditLogsPaged, isLoading: isLoadingAuditLogs } = useQuery({
+    queryKey: ['card-audit-logs', cardId],
+    queryFn: () =>
+      cardId
+        ? auditApi.getPaged({
+            targetEntity: 'Card',
+            targetId: cardId,
+            pageSize: 5,
+          })
+        : Promise.resolve(null),
+    enabled: Boolean(open && cardId),
   });
 
   const handleCopyCardNumber = async () => {
@@ -295,6 +313,80 @@ export function CardDetailDialog({
                   <Clock className="h-3.5 w-3.5" />
                   <span>Sửa: {formatDateTimeVi(card.updatedAt)}</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Khối Lịch sử kiểm toán */}
+            <div className="border border-border rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between border-b pb-2">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <History className="h-4 w-4 text-indigo-600" />
+                  <span>Lịch sử kiểm toán thẻ</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  5 hoạt động gần nhất
+                </span>
+              </div>
+
+              {isLoadingAuditLogs ? (
+                <div className="space-y-2 py-1">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : !auditLogsPaged?.items || auditLogsPaged.items.length === 0 ? (
+                <p className="text-muted-foreground italic text-center py-2">
+                  Chưa có ghi nhận kiểm toán nào cho thẻ này.
+                </p>
+              ) : (
+                <div className="space-y-2 divide-y divide-border/40">
+                  {auditLogsPaged.items.map((log) => {
+                    const badgeConfig = AUDIT_ACTION_BADGES[log.actionType] || {
+                      label: 'Hoạt động',
+                      variant: 'outline' as const,
+                    };
+                    return (
+                      <div
+                        key={log.id}
+                        className="pt-2 first:pt-0 flex items-center justify-between gap-2"
+                      >
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge
+                              variant={badgeConfig.variant}
+                              className="text-[10px] px-1.5 py-0"
+                            >
+                              {badgeConfig.label}
+                            </Badge>
+                            <span className="font-medium text-foreground truncate">
+                              {log.actorUsername}
+                            </span>
+                            {!log.isSuccess && (
+                              <Badge
+                                variant="destructive"
+                                className="text-[9px] px-1 py-0"
+                              >
+                                Thất bại
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {formatDateTimeVi(log.createdAt)} • {log.source || 'WebAdmin'}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="pt-1.5 text-right border-t border-border/40">
+                <a
+                  href={`/audit-logs?targetEntity=Card&targetId=${card.id}`}
+                  className="text-[11px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center gap-1 hover:underline"
+                >
+                  <span>Xem trong sổ cái kiểm toán</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
             </div>
           </div>

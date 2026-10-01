@@ -280,4 +280,117 @@ describe('CardsPage Component', () => {
       );
     });
   });
+
+  it('hiển thị checkbox khi người dùng có quyền ghi (canWrite = true)', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('0000012345').length).toBeGreaterThan(0);
+    });
+
+    const selectAllCheckbox = screen.getAllByRole('checkbox', {
+      name: /Chọn tất cả trang này/i,
+    })[0];
+    expect(selectAllCheckbox).toBeInTheDocument();
+
+    const rowCheckboxes = screen.getAllByRole('checkbox', {
+      name: /Chọn dòng card-1/i,
+    });
+    expect(rowCheckboxes.length).toBeGreaterThan(0);
+  });
+
+  it('chọn tất cả các thẻ trên trang khi click checkbox ở header và hiển thị nút xóa hàng loạt', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('0000012345').length).toBeGreaterThan(0);
+    });
+
+    const selectAllCheckbox = screen.getAllByRole('checkbox', {
+      name: /Chọn tất cả trang này/i,
+    })[0];
+    fireEvent.click(selectAllCheckbox);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Đã chọn 2 mục/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Xóa thẻ đã chọn \(2\)/i })
+      ).toBeInTheDocument();
+    });
+
+    const deselectButton = screen.getByRole('button', { name: /Bỏ chọn/i });
+    fireEvent.click(deselectButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Đã chọn 2 mục/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('mở ConfirmDialog xác nhận xóa hàng loạt khi click nút Xóa thẻ đã chọn', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('0000012345').length).toBeGreaterThan(0);
+    });
+
+    const rowCheckbox = screen.getAllByRole('checkbox', {
+      name: /Chọn dòng card-1/i,
+    })[0];
+    fireEvent.click(rowCheckbox);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Đã chọn 1 mục/i)).toBeInTheDocument();
+    });
+
+    const bulkDeleteBtn = screen.getByRole('button', {
+      name: /Xóa thẻ đã chọn \(1\)/i,
+    });
+    fireEvent.click(bulkDeleteBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Xác Nhận Xóa Thẻ Hàng Loạt/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('thực thi xóa hàng loạt gọi cardApi.delete cho từng thẻ đã chọn', async () => {
+    vi.mocked(cardApi.delete).mockResolvedValue(undefined);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('0000012345').length).toBeGreaterThan(0);
+    });
+
+    const selectAllCheckbox = screen.getAllByRole('checkbox', {
+      name: /Chọn tất cả trang này/i,
+    })[0];
+    fireEvent.click(selectAllCheckbox);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Đã chọn 2 mục/i)).toBeInTheDocument();
+    });
+
+    const bulkDeleteBtn = screen.getByRole('button', {
+      name: /Xóa thẻ đã chọn \(2\)/i,
+    });
+    fireEvent.click(bulkDeleteBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Xác Nhận Xóa Thẻ Hàng Loạt/i)
+      ).toBeInTheDocument();
+    });
+
+    const confirmBtn = screen.getByRole('button', {
+      name: /Xác Nhận Xóa \(2\)/i,
+    });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(cardApi.delete).toHaveBeenCalledWith('card-1');
+      expect(cardApi.delete).toHaveBeenCalledWith('card-2');
+    });
+  });
 });

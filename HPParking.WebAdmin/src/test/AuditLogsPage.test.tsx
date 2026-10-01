@@ -58,11 +58,24 @@ describe('AuditLogsPage Component', () => {
         isSuccess: false,
         createdAt: '2026-09-26T08:20:00Z',
       },
+      {
+        id: 'log-003',
+        actorId: 'user-03',
+        actorUsername: 'card_manager',
+        actorRole: 'Admin',
+        source: 'WebAdmin',
+        actionType: AuditActionType.Create,
+        targetEntity: 'Card',
+        targetId: 'card-100',
+        targetDisplay: '0001234567',
+        isSuccess: true,
+        createdAt: '2026-09-26T08:25:00Z',
+      },
     ],
     pagination: {
       pageIndex: 1,
       pageSize: 10,
-      totalCount: 2,
+      totalCount: 3,
       totalPages: 1,
       hasPreviousPage: false,
       hasNextPage: false,
@@ -84,6 +97,8 @@ describe('AuditLogsPage Component', () => {
     expect(await screen.findAllByText('admin_root')).toHaveLength(2); // desktop + mobile
     expect(screen.getAllByText('manager_vinh').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Trần Thị Mai').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('0001234567').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Thẻ định danh/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Thành công').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Thất bại').length).toBeGreaterThan(0);
   });
@@ -146,7 +161,7 @@ describe('AuditLogsPage Component', () => {
     window.URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
-  it('chứa các tùy chọn lọc theo Đối tượng và hành động Đồng bộ FaceID', async () => {
+  it('chứa các tùy chọn lọc theo loại hành động gồm Đồng bộ FaceID', async () => {
     vi.mocked(auditApi.getPaged).mockResolvedValue(mockPagedLogs);
 
     render(
@@ -157,14 +172,26 @@ describe('AuditLogsPage Component', () => {
       </QueryClientProvider>
     );
 
-    // Kiểm tra select thực thể
-    const targetEntitySelect = await screen.findByRole('combobox', { name: /Lọc theo thực thể/i });
-    expect(targetEntitySelect).toBeInTheDocument();
-
-    // Kiểm tra select loại hành động có tùy chọn Đồng bộ FaceID
     const actionSelect = await screen.findByRole('combobox', { name: /Lọc loại hành động/i });
     expect(actionSelect).toBeInTheDocument();
     fireEvent.keyDown(actionSelect, { key: 'ArrowDown' });
     expect(await screen.findByText('Đồng bộ FaceID')).toBeInTheDocument();
+  });
+
+  it('chứa tùy chọn lọc theo thực thể Thẻ định danh (Card)', async () => {
+    vi.mocked(auditApi.getPaged).mockResolvedValue(mockPagedLogs);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AuditLogsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const targetEntitySelect = await screen.findByRole('combobox', { name: /Lọc theo thực thể/i });
+    expect(targetEntitySelect).toBeInTheDocument();
+    fireEvent.keyDown(targetEntitySelect, { key: 'ArrowDown' });
+    expect(await screen.findByText('Thẻ định danh (Card)')).toBeInTheDocument();
   });
 });
