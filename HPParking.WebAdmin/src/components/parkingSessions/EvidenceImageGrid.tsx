@@ -10,6 +10,8 @@ export interface EvidenceImageGridProps {
   inOverviewImagePath?: string | null;
   outPlateImagePath?: string | null;
   outOverviewImagePath?: string | null;
+  inFaceImagePath?: string | null;
+  outFaceImagePath?: string | null;
   plateNumber?: string;
   inLaneName?: string;
   outLaneName?: string;
@@ -47,6 +49,8 @@ export function EvidenceImageGrid({
   inOverviewImagePath,
   outPlateImagePath,
   outOverviewImagePath,
+  inFaceImagePath,
+  outFaceImagePath,
   plateNumber = '---',
   inLaneName,
   outLaneName,
@@ -103,6 +107,32 @@ export function EvidenceImageGrid({
         : 'Chưa có ảnh biển số ra',
     },
   ];
+
+  if (hasImagePath(inFaceImagePath)) {
+    slides.push({
+      id: 'in-face',
+      label: '5. Khuôn Mặt Chân Dung Vào',
+      subtitle: `Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+      tag: 'FACE VÀO',
+      tagColor: 'bg-purple-600',
+      url: formatImageUrl(inFaceImagePath),
+      hasImg: true,
+      fallbackText: 'Không có ảnh khuôn mặt vào',
+    });
+  }
+
+  if (hasImagePath(outFaceImagePath)) {
+    slides.push({
+      id: 'out-face',
+      label: '6. Khuôn Mặt Chân Dung Ra',
+      subtitle: `Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+      tag: 'FACE RA',
+      tagColor: 'bg-pink-600',
+      url: formatImageUrl(outFaceImagePath),
+      hasImg: true,
+      fallbackText: 'Không có ảnh khuôn mặt ra',
+    });
+  }
 
   const handlePrevSlide = useCallback(() => {
     setActiveSlide((prev) => (prev > 0 ? prev - 1 : slides.length - 1));

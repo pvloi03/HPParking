@@ -42,6 +42,11 @@ namespace HPParking.Api.Services.Implementations
                 filters.Add(builder.Eq(x => x.VehicleType, query.VehicleType.Value));
             }
 
+            if (query.TargetType.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.TargetType, query.TargetType.Value));
+            }
+
             if (query.Status.HasValue)
             {
                 filters.Add(builder.Eq(x => x.Status, query.Status.Value));

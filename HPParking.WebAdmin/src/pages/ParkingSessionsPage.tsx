@@ -43,6 +43,7 @@ export function ParkingSessionsPage() {
   const [plateNumber, setPlateNumber] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>('');
+  const [targetTypeFilter, setTargetTypeFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
@@ -85,6 +86,7 @@ export function ParkingSessionsPage() {
     setPlateNumber('');
     setStatusFilter('');
     setVehicleTypeFilter('');
+    setTargetTypeFilter('');
     setFromDate('');
     setToDate('');
     setPageIndex(1);
@@ -99,6 +101,7 @@ export function ParkingSessionsPage() {
       plateNumber,
       statusFilter,
       vehicleTypeFilter,
+      targetTypeFilter,
       fromDate,
       toDate,
     ],
@@ -109,6 +112,7 @@ export function ParkingSessionsPage() {
         plateNumber: plateNumber.trim() || undefined,
         status: statusFilter ? (Number(statusFilter) as ParkingSessionStatus) : undefined,
         vehicleType: vehicleTypeFilter ? (Number(vehicleTypeFilter) as VehicleType) : undefined,
+        targetType: targetTypeFilter !== '' ? Number(targetTypeFilter) : undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00` : undefined,
         toDate: toDate ? `${toDate}T23:59:59` : undefined,
       }),
@@ -151,7 +155,24 @@ export function ParkingSessionsPage() {
   // Định nghĩa các cột cho DataTable
   const columns: ColumnDef<ParkingSessionDto>[] = [
     {
-      header: 'Biển Số Xe',
+      header: 'Đối Tượng',
+      cell: (item) => {
+        if (item.targetType === 1) {
+          return (
+            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1 text-[11px] font-medium">
+              <span>🚶 Người</span>
+            </Badge>
+          );
+        }
+        return (
+          <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300 gap-1 text-[11px] font-medium">
+            <span>🚗 Xe</span>
+          </Badge>
+        );
+      },
+    },
+    {
+      header: 'Biển Số / Mã',
       cell: (item) => {
         const isMismatch = item.status === ParkingSessionStatus.UnmatchedOut;
         return (
@@ -348,7 +369,7 @@ export function ParkingSessionsPage() {
           </div>
 
           {/* 2. Lọc theo trạng thái */}
-          <div className="min-w-[190px]">
+          <div className="min-w-[170px]">
             <Select
               value={statusFilter || 'all'}
               onValueChange={(val) => {
@@ -365,6 +386,26 @@ export function ParkingSessionsPage() {
                 <SelectItem value={String(ParkingSessionStatus.Completed)}>Đã hoàn thành (Completed)</SelectItem>
                 <SelectItem value={String(ParkingSessionStatus.UnmatchedOut)}>Ra không vào / Lệch biển</SelectItem>
                 <SelectItem value={String(ParkingSessionStatus.Cancelled)}>Đã hủy bỏ (Cancelled)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 3. Lọc theo đối tượng (Xe / Người) */}
+          <div className="min-w-[150px]">
+            <Select
+              value={targetTypeFilter || 'all'}
+              onValueChange={(val) => {
+                setTargetTypeFilter(val === 'all' ? '' : val);
+                setPageIndex(1);
+              }}
+            >
+              <SelectTrigger aria-label="Lọc theo đối tượng" className="w-full h-9 text-xs">
+                <SelectValue placeholder="Tất cả đối tượng" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">-- Tất cả đối tượng --</SelectItem>
+                <SelectItem value="0">🚗 Xe cơ giới</SelectItem>
+                <SelectItem value="1">🚶 Người đi bộ</SelectItem>
               </SelectContent>
             </Select>
           </div>

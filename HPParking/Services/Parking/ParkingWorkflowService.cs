@@ -429,9 +429,9 @@ namespace HPParking.Services.Parking
                     };
                 }
 
-                string actualPlate = recognizedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+                string actualPlate = NormalizePlate(recognizedPlate);
                 matchedVehicle = clientVehicles.FirstOrDefault(v =>
-                    (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() == actualPlate);
+                    NormalizePlate(v.PlateNumber) == actualPlate);
 
                 if (matchedVehicle == null && clientVehicles.Count > 0)
                 {
@@ -556,8 +556,8 @@ namespace HPParking.Services.Parking
             }
             else
             {
-                string cleanInPlate = (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-                string cleanExitPlate = (exitPlate ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+                string cleanInPlate = NormalizePlate(parking.PlateNumber);
+                string cleanExitPlate = NormalizePlate(exitPlate);
 
                 if (string.IsNullOrEmpty(cleanExitPlate))
                 {
@@ -648,10 +648,10 @@ namespace HPParking.Services.Parking
                 };
             }
 
-            string cleanPlate = detectedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+            string cleanPlate = NormalizePlate(detectedPlate);
 
             var vehicle = await _vehicleRepository.FindOneAsync(v =>
-                v.PlateNumber.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpper() == cleanPlate &&
+                NormalizePlate(v.PlateNumber) == cleanPlate &&
                 v.IsActive && !v.IsDeleted);
 
             if (vehicle == null)
@@ -726,10 +726,10 @@ namespace HPParking.Services.Parking
                 };
             }
 
-            string cleanPlate = detectedPlate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+            string cleanPlate = NormalizePlate(detectedPlate);
 
             var vehicle = await _vehicleRepository.FindOneAsync(v =>
-                v.PlateNumber.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpper() == cleanPlate &&
+                NormalizePlate(v.PlateNumber) == cleanPlate &&
                 v.IsActive && !v.IsDeleted);
 
             if (vehicle == null)
@@ -746,7 +746,7 @@ namespace HPParking.Services.Parking
             }
 
             var activeSession = await _sessionRepository.FindOneAsync(s =>
-                s.PlateNumber.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpper() == cleanPlate &&
+                NormalizePlate(s.PlateNumber) == cleanPlate &&
                 s.Status == ParkingSessionStatus.Active &&
                 !s.IsDeleted);
 
@@ -841,10 +841,8 @@ namespace HPParking.Services.Parking
             var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane?.UseOverviewCam ?? true, needPlate: context.Lane?.UsePlateCam ?? true, needFace: false);
             var (plateSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, vehicle.PlateNumber ?? "", onManualPlateInput);
 
-            string registeredPlateNorm = (vehicle.PlateNumber ?? "")
-                .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-            string detectedPlateNorm = detectedPlate
-                .Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
+            string registeredPlateNorm = NormalizePlate(vehicle.PlateNumber);
+            string detectedPlateNorm = NormalizePlate(detectedPlate);
 
             if (string.IsNullOrEmpty(detectedPlateNorm))
             {
@@ -1180,6 +1178,15 @@ namespace HPParking.Services.Parking
                     t.Result.Dispose();
                 }
             }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        }
+
+        /// <summary>
+        /// Chuẩn hóa chuỗi biển số: loại bỏ dấu cách, dấu gạch nối, dấu chấm và in hoa
+        /// </summary>
+        private static string NormalizePlate(string? plate)
+        {
+            if (string.IsNullOrWhiteSpace(plate)) return string.Empty;
+            return plate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
         }
 
         /// <summary>

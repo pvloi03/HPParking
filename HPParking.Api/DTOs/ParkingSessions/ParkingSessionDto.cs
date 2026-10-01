@@ -13,17 +13,22 @@ namespace HPParking.Api.DTOs.ParkingSessions
         public ParkingSessionStatus Status { get; set; } = ParkingSessionStatus.Active;
         public string? PersonId { get; set; }
 
+        public LaneTargetType TargetType { get; set; } = LaneTargetType.Vehicle;
+        public double? FaceMatchScore { get; set; }
+
         // --- LƯỢT VÀO ---
         public DateTime? InTime { get; set; }
         public string? InLaneName { get; set; }
         public string InOverviewImagePath { get; set; } = string.Empty;
         public string InPlateImagePath { get; set; } = string.Empty;
+        public string InFaceImagePath { get; set; } = string.Empty;
 
         // --- LƯỢT RA ---
         public DateTime? OutTime { get; set; }
         public string? OutLaneName { get; set; }
         public string OutOverviewImagePath { get; set; } = string.Empty;
         public string OutPlateImagePath { get; set; } = string.Empty;
+        public string OutFaceImagePath { get; set; } = string.Empty;
 
         // --- TÍNH TOÁN ---
         public double? DurationMinutes { get; set; }

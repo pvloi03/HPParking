@@ -1,7 +1,7 @@
 # .NET
 *docs/
 *adr
-*.Tests
+# *.Tests
 *dist/
 *scripts/
 AGENTS.md

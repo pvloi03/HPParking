@@ -207,6 +207,8 @@ export function ParkingSessionDetailDialog({
                   inPlateImagePath={session.inPlateImagePath}
                   outOverviewImagePath={session.outOverviewImagePath}
                   outPlateImagePath={session.outPlateImagePath}
+                  inFaceImagePath={session.inFaceImagePath}
+                  outFaceImagePath={session.outFaceImagePath}
                   inLaneName={session.inLaneName}
                   outLaneName={session.outLaneName}
                   inTime={session.inTime}

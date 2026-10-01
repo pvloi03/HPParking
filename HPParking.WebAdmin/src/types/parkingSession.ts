@@ -66,6 +66,7 @@ export interface ParkingSessionDetailDto extends ParkingSessionDto {
 export interface ParkingSessionFilterQuery extends PaginationQuery {
   plateNumber?: string;
   vehicleType?: VehicleType;
+  targetType?: number;
   status?: ParkingSessionStatus;
   inLaneName?: string;
   outLaneName?: string;

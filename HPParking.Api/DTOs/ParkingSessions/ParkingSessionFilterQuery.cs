@@ -10,6 +10,7 @@ namespace HPParking.Api.DTOs.ParkingSessions
     {
         public string? PlateNumber { get; set; }
         public VehicleType? VehicleType { get; set; }
+        public LaneTargetType? TargetType { get; set; }
         public ParkingSessionStatus? Status { get; set; }
         public string? InLaneName { get; set; }
         public string? OutLaneName { get; set; }

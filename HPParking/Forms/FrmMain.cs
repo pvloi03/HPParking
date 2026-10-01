@@ -531,7 +531,7 @@ namespace HPParking.Forms
 
                     if (result.Client?.Avatar != null) ImageHelper.SetAvatar(pbLane1Avatar, result.Client.Avatar);
                     if (result.FaceImage != null) pbLane1FaceSnap.Image = (Bitmap)result.FaceImage.Clone();
-                    FlashLabel(lblLane1Name, Color.LightCyan);
+                    FrmMainMockHelper.FlashLabel(lblLane1Name, Color.LightCyan);
                 }
                 else if (slotIndex == 1)
                 {
@@ -543,7 +543,7 @@ namespace HPParking.Forms
 
                     if (result.Client?.Avatar != null) ImageHelper.SetAvatar(pbLane2Avatar, result.Client.Avatar);
                     if (result.FaceImage != null) pbLane2FaceSnap.Image = (Bitmap)result.FaceImage.Clone();
-                    FlashLabel(lblLane2Name, Color.LemonChiffon);
+                    FrmMainMockHelper.FlashLabel(lblLane2Name, Color.LemonChiffon);
                 }
             }
             else
@@ -564,7 +564,7 @@ namespace HPParking.Forms
                     else lblLane3TimeOut.Text = $"Ngày ra: {timeStr}";
 
                     if (result.PlateImage != null) pbLane3PlateCrop.Image = (Bitmap)result.PlateImage.Clone();
-                    FlashLabel(lblLane3PlateDet, Color.Honeydew);
+                    FrmMainMockHelper.FlashLabel(lblLane3PlateDet, Color.Honeydew);
                 }
                 else
                 {
@@ -577,7 +577,7 @@ namespace HPParking.Forms
                     else lblLane4TimeOut.Text = $"Ngày ra: {timeStr}";
 
                     if (result.PlateImage != null) pbLane4PlateCrop.Image = (Bitmap)result.PlateImage.Clone();
-                    FlashLabel(lblLane4PlateDet, Color.Honeydew);
+                    FrmMainMockHelper.FlashLabel(lblLane4PlateDet, Color.Honeydew);
                 }
             }
 
@@ -923,17 +923,17 @@ namespace HPParking.Forms
         {
             try
             {
-                pbLane1Avatar.Image = CreateMockAvatar("Trần Văn Mạnh", Color.FromArgb(2, 132, 199));
-                pbLane1FaceSnap.Image = CreateMockFaceSnapshot("08:15:22", 98.7);
+                pbLane1Avatar.Image = FrmMainMockHelper.CreateMockAvatar("Trần Văn Mạnh", Color.FromArgb(2, 132, 199));
+                pbLane1FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot("08:15:22", 98.7);
 
-                pbLane2Avatar.Image = CreateMockAvatar("Lê Thị Thu", Color.FromArgb(217, 119, 6));
-                pbLane2FaceSnap.Image = CreateMockFaceSnapshot("11:45:00", 99.2);
+                pbLane2Avatar.Image = FrmMainMockHelper.CreateMockAvatar("Lê Thị Thu", Color.FromArgb(217, 119, 6));
+                pbLane2FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot("11:45:00", 99.2);
 
-                pbLane3PlateCrop.Image = CreateMockPlateCrop("29C-888.68");
-                pbLane3DriverAvatar.Image = CreateMockAvatar("Phạm Q. Hùng", Color.FromArgb(22, 163, 74));
+                pbLane3PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop("29C-888.68");
+                pbLane3DriverAvatar.Image = FrmMainMockHelper.CreateMockAvatar("Phạm Q. Hùng", Color.FromArgb(22, 163, 74));
 
-                pbLane4PlateCrop.Image = CreateMockPlateCrop("15A-678.90");
-                pbLane4EntrySnap.Image = CreateMockVehicleSnapshot("15A-678.90", "VÀO: 09:05:40");
+                pbLane4PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop("15A-678.90");
+                pbLane4EntrySnap.Image = FrmMainMockHelper.CreateMockVehicleSnapshot("15A-678.90", "VÀO: 09:05:40");
             }
             catch { }
         }
@@ -950,10 +950,10 @@ namespace HPParking.Forms
 
             pbLane1Avatar.Image?.Dispose();
             pbLane1FaceSnap.Image?.Dispose();
-            pbLane1Avatar.Image = CreateMockAvatar($"NV {code % 100}", Color.FromArgb(2, 132, 199));
-            pbLane1FaceSnap.Image = CreateMockFaceSnapshot(DateTime.Now.ToString("HH:mm:ss"), 98.5 + (_random.NextDouble() * 1.4));
+            pbLane1Avatar.Image = FrmMainMockHelper.CreateMockAvatar($"NV {code % 100}", Color.FromArgb(2, 132, 199));
+            pbLane1FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot(DateTime.Now.ToString("HH:mm:ss"), 98.5 + (_random.NextDouble() * 1.4));
 
-            FlashLabel(lblLane1Name, Color.LightCyan);
+            FrmMainMockHelper.FlashLabel(lblLane1Name, Color.LightCyan);
         }
 
         private void SimulateLane2()
@@ -967,10 +967,10 @@ namespace HPParking.Forms
 
             pbLane2Avatar.Image?.Dispose();
             pbLane2FaceSnap.Image?.Dispose();
-            pbLane2Avatar.Image = CreateMockAvatar($"NT {code % 50}", Color.FromArgb(217, 119, 6));
-            pbLane2FaceSnap.Image = CreateMockFaceSnapshot(DateTime.Now.ToString("HH:mm:ss"), 97.8 + (_random.NextDouble() * 2.0));
+            pbLane2Avatar.Image = FrmMainMockHelper.CreateMockAvatar($"NT {code % 50}", Color.FromArgb(217, 119, 6));
+            pbLane2FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot(DateTime.Now.ToString("HH:mm:ss"), 97.8 + (_random.NextDouble() * 2.0));
 
-            FlashLabel(lblLane2Name, Color.LemonChiffon);
+            FrmMainMockHelper.FlashLabel(lblLane2Name, Color.LemonChiffon);
         }
 
         private void SimulateLane3()
@@ -988,10 +988,10 @@ namespace HPParking.Forms
 
             pbLane3PlateCrop.Image?.Dispose();
             pbLane3DriverAvatar.Image?.Dispose();
-            pbLane3PlateCrop.Image = CreateMockPlateCrop(plate);
-            pbLane3DriverAvatar.Image = CreateMockAvatar($"TX {num % 30}", Color.FromArgb(22, 163, 74));
+            pbLane3PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop(plate);
+            pbLane3DriverAvatar.Image = FrmMainMockHelper.CreateMockAvatar($"TX {num % 30}", Color.FromArgb(22, 163, 74));
 
-            FlashLabel(lblLane3PlateDet, Color.Honeydew);
+            FrmMainMockHelper.FlashLabel(lblLane3PlateDet, Color.Honeydew);
         }
 
         private void SimulateLane4()
@@ -1008,87 +1008,10 @@ namespace HPParking.Forms
 
             pbLane4PlateCrop.Image?.Dispose();
             pbLane4EntrySnap.Image?.Dispose();
-            pbLane4PlateCrop.Image = CreateMockPlateCrop(plate);
-            pbLane4EntrySnap.Image = CreateMockVehicleSnapshot(plate, "LƯỢT RA HỢP LỆ");
+            pbLane4PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop(plate);
+            pbLane4EntrySnap.Image = FrmMainMockHelper.CreateMockVehicleSnapshot(plate, "LƯỢT RA HỢP LỆ");
 
-            FlashLabel(lblLane4PlateDet, Color.Honeydew);
-        }
-
-        private static Bitmap CreateMockAvatar(string name, Color badgeColor)
-        {
-            Bitmap bmp = new(160, 200);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.FromArgb(248, 250, 252));
-            using var badgeBrush = new SolidBrush(badgeColor);
-            g.FillRectangle(badgeBrush, 0, 0, 160, 40);
-            using var textBrush = new SolidBrush(Color.White);
-            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            g.DrawString(name, font, textBrush, new RectangleF(0, 8, 160, 25), new StringFormat { Alignment = StringAlignment.Center });
-            using var headBrush = new SolidBrush(Color.FromArgb(203, 213, 225));
-            g.FillEllipse(headBrush, 45, 55, 70, 70);
-            g.FillPie(headBrush, 25, 120, 110, 100, 180, 180);
-            using var borderPen = new Pen(Color.FromArgb(226, 232, 240), 2);
-            g.DrawRectangle(borderPen, 0, 0, 159, 199);
-            return bmp;
-        }
-
-        private static Bitmap CreateMockFaceSnapshot(string time, double score)
-        {
-            Bitmap bmp = new(160, 200);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.FromArgb(15, 23, 42));
-            using var boxPen = new Pen(Color.FromArgb(34, 197, 94), 2);
-            g.DrawRectangle(boxPen, 30, 40, 100, 110);
-            using var textBrush = new SolidBrush(Color.FromArgb(34, 197, 94));
-            using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
-            g.DrawString($"MATCH: {score:0.0}%", font, textBrush, 32, 20);
-            using var timeBrush = new SolidBrush(Color.White);
-            g.DrawString($"SNAP: {time}", font, timeBrush, 10, 160);
-            return bmp;
-        }
-
-        private static Bitmap CreateMockPlateCrop(string plate)
-        {
-            Bitmap bmp = new(200, 70);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.White);
-            using var borderPen = new Pen(Color.Black, 3);
-            g.DrawRectangle(borderPen, 2, 2, 195, 65);
-            using var brush = new SolidBrush(Color.Black);
-            using var font = new Font("Segoe UI", 16F, FontStyle.Bold);
-            g.DrawString(plate, font, brush, new RectangleF(0, 14, 200, 45), new StringFormat { Alignment = StringAlignment.Center });
-            return bmp;
-        }
-
-        private static Bitmap CreateMockVehicleSnapshot(string plate, string subtitle)
-        {
-            Bitmap bmp = new(200, 130);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.FromArgb(30, 41, 59));
-            using var brush = new SolidBrush(Color.White);
-            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            g.DrawString($"ẢNH LƯỢT VÀO", font, brush, new RectangleF(0, 15, 200, 25), new StringFormat { Alignment = StringAlignment.Center });
-            using var plateBrush = new SolidBrush(Color.Gold);
-            using var plateFont = new Font("Segoe UI", 12F, FontStyle.Bold);
-            g.DrawString(plate, plateFont, plateBrush, new RectangleF(0, 45, 200, 30), new StringFormat { Alignment = StringAlignment.Center });
-            using var subBrush = new SolidBrush(Color.LightGreen);
-            using var subFont = new Font("Segoe UI", 8F, FontStyle.Regular);
-            g.DrawString(subtitle, subFont, subBrush, new RectangleF(0, 85, 200, 25), new StringFormat { Alignment = StringAlignment.Center });
-            return bmp;
-        }
-
-        private static void FlashLabel(Label lbl, Color flashColor)
-        {
-            Color orig = lbl.BackColor;
-            lbl.BackColor = flashColor;
-            var t = new Timer { Interval = 400 };
-            t.Tick += (s, args) =>
-            {
-                lbl.BackColor = orig;
-                t.Stop();
-                t.Dispose();
-            };
-            t.Start();
+            FrmMainMockHelper.FlashLabel(lblLane4PlateDet, Color.Honeydew);
         }
 
         #endregion
@@ -1109,5 +1032,88 @@ namespace HPParking.Forms
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Helper độc lập sinh dữ liệu đồ họa mô phỏng (Mock GDI+) phục vụ kiểm thử giao diện trạm khi không gắn phần cứng
+    /// </summary>
+    internal static class FrmMainMockHelper
+    {
+        public static Bitmap CreateMockAvatar(string name, Color badgeColor)
+        {
+            Bitmap bmp = new(160, 200);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.FromArgb(248, 250, 252));
+            using var badgeBrush = new SolidBrush(badgeColor);
+            g.FillRectangle(badgeBrush, 0, 0, 160, 40);
+            using var textBrush = new SolidBrush(Color.White);
+            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            g.DrawString(name, font, textBrush, new RectangleF(0, 8, 160, 25), new StringFormat { Alignment = StringAlignment.Center });
+            using var headBrush = new SolidBrush(Color.FromArgb(203, 213, 225));
+            g.FillEllipse(headBrush, 45, 55, 70, 70);
+            g.FillPie(headBrush, 25, 120, 110, 100, 180, 180);
+            using var borderPen = new Pen(Color.FromArgb(226, 232, 240), 2);
+            g.DrawRectangle(borderPen, 0, 0, 159, 199);
+            return bmp;
+        }
+
+        public static Bitmap CreateMockFaceSnapshot(string time, double score)
+        {
+            Bitmap bmp = new(160, 200);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.FromArgb(15, 23, 42));
+            using var boxPen = new Pen(Color.FromArgb(34, 197, 94), 2);
+            g.DrawRectangle(boxPen, 30, 40, 100, 110);
+            using var textBrush = new SolidBrush(Color.FromArgb(34, 197, 94));
+            using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            g.DrawString($"MATCH: {score:0.0}%", font, textBrush, 32, 20);
+            using var timeBrush = new SolidBrush(Color.White);
+            g.DrawString($"SNAP: {time}", font, timeBrush, 10, 160);
+            return bmp;
+        }
+
+        public static Bitmap CreateMockPlateCrop(string plate)
+        {
+            Bitmap bmp = new(200, 70);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.White);
+            using var borderPen = new Pen(Color.Black, 3);
+            g.DrawRectangle(borderPen, 2, 2, 195, 65);
+            using var brush = new SolidBrush(Color.Black);
+            using var font = new Font("Segoe UI", 16F, FontStyle.Bold);
+            g.DrawString(plate, font, brush, new RectangleF(0, 14, 200, 45), new StringFormat { Alignment = StringAlignment.Center });
+            return bmp;
+        }
+
+        public static Bitmap CreateMockVehicleSnapshot(string plate, string subtitle)
+        {
+            Bitmap bmp = new(200, 130);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.FromArgb(30, 41, 59));
+            using var brush = new SolidBrush(Color.White);
+            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            g.DrawString("ẢNH LƯỢT VÀO", font, brush, new RectangleF(0, 15, 200, 25), new StringFormat { Alignment = StringAlignment.Center });
+            using var plateBrush = new SolidBrush(Color.Gold);
+            using var plateFont = new Font("Segoe UI", 12F, FontStyle.Bold);
+            g.DrawString(plate, plateFont, plateBrush, new RectangleF(0, 45, 200, 30), new StringFormat { Alignment = StringAlignment.Center });
+            using var subBrush = new SolidBrush(Color.LightGreen);
+            using var subFont = new Font("Segoe UI", 8F, FontStyle.Regular);
+            g.DrawString(subtitle, subFont, subBrush, new RectangleF(0, 85, 200, 25), new StringFormat { Alignment = StringAlignment.Center });
+            return bmp;
+        }
+
+        public static void FlashLabel(Label lbl, Color flashColor)
+        {
+            Color orig = lbl.BackColor;
+            lbl.BackColor = flashColor;
+            var t = new Timer { Interval = 400 };
+            t.Tick += (s, args) =>
+            {
+                lbl.BackColor = orig;
+                t.Stop();
+                t.Dispose();
+            };
+            t.Start();
+        }
     }
 }
