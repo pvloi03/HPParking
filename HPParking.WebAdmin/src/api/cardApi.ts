@@ -1,6 +1,25 @@
+import axios from 'axios';
 import { apiClient } from './client';
 import type { ApiResponse, PagedResult } from '@/types/masterData';
 import type { CardDto, CardFilterQuery, CreateCardRequest, UpdateCardRequest } from '@/types/card';
+
+export function extractErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as ApiResponse<unknown> | undefined;
+    if (data?.message) {
+      if (data.message.includes('CARD_NUMBER_DUPLICATE') || data.message.includes('đã tồn tại')) {
+        return 'Mã thẻ định danh này đã tồn tại trong hệ thống.';
+      }
+      return data.message;
+    }
+    if (data?.errors) {
+      return Array.isArray(data.errors)
+        ? data.errors.join('. ')
+        : Object.values(data.errors).flat().join('. ');
+    }
+  }
+  return error instanceof Error ? error.message : 'Đã có lỗi xảy ra. Vui lòng thử lại sau.';
+}
 
 export const cardApi = {
   async getCards(query?: CardFilterQuery): Promise<PagedResult<CardDto>> {
