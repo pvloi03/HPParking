@@ -126,7 +126,7 @@ export function CardDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between pr-6">
+          <div className="flex items-center justify-between pr-10">
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <CreditCard className="h-5 w-5 text-indigo-600" />
               <span>Hồ Sơ Thẻ Định Danh</span>

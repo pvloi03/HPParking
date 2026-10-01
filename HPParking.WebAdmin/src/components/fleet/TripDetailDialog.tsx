@@ -112,13 +112,13 @@ export function TripDetailDialog({
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col bg-background text-foreground border-border shadow-2xl">
           {/* Header */}
           <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border bg-muted/20">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pr-10 sm:pr-12">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                   <Truck className="h-5 w-5" />
                 </div>
-                <div>
-                  <DialogTitle className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
+                <div className="min-w-0">
+                  <DialogTitle className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2 flex-wrap">
                     <span>Chi Tiết Hành Trình Phương Tiện Nội Bộ</span>
                     {trip && (
                       <span className="font-mono px-2 py-0.5 rounded bg-muted text-foreground text-sm font-semibold border border-border">
@@ -126,12 +126,12 @@ export function TripDetailDialog({
                       </span>
                     )}
                   </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate sm:whitespace-normal">
                     Hồ sơ lưu trữ toàn bộ các mốc kiểm soát ra vào và tuân thủ lộ trình tuyến xe.
                   </p>
                 </div>
               </div>
-              <div>{trip && getStatusBadge(trip.status)}</div>
+              <div className="shrink-0">{trip && getStatusBadge(trip.status)}</div>
             </div>
           </DialogHeader>
 
@@ -370,19 +370,19 @@ export function TripDetailDialog({
         <Dialog open={Boolean(previewCheckpoint)} onOpenChange={() => setPreviewCheckpoint(null)}>
           <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col bg-background text-foreground border-border shadow-2xl">
             <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border bg-muted/20">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pr-10 sm:pr-12">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
                     <Camera className="h-5 w-5" />
                   </div>
-                  <div>
-                    <DialogTitle className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
+                  <div className="min-w-0">
+                    <DialogTitle className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2 flex-wrap">
                       <span>Ảnh Bằng Chứng Mốc Kiểm Soát #{previewCheckpoint.stepIndex}</span>
                       <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted border border-border font-semibold">
                         {previewCheckpoint.gateName || previewCheckpoint.gateId}
                       </span>
                     </DialogTitle>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate sm:whitespace-normal">
                       Thời điểm ghi nhận:{' '}
                       <span className="font-medium text-foreground">
                         {new Date(previewCheckpoint.timestamp).toLocaleString('vi-VN')}
@@ -396,11 +396,13 @@ export function TripDetailDialog({
                     </p>
                   </div>
                 </div>
-                {previewCheckpoint.plateDetected && (
-                  <Badge variant="outline" className="font-mono text-xs px-2.5 py-1 bg-muted/50 border-border">
-                    Biển số: {previewCheckpoint.plateDetected}
-                  </Badge>
-                )}
+                <div className="shrink-0">
+                  {previewCheckpoint.plateDetected && (
+                    <Badge variant="outline" className="font-mono text-xs px-2.5 py-1 bg-muted/50 border-border">
+                      Biển số: {previewCheckpoint.plateDetected}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </DialogHeader>
 
