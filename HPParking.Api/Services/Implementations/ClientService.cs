@@ -1162,7 +1162,8 @@ namespace HPParking.Api.Services.Implementations
                     uniqueConfigs.Add(new FaceIdTerminalConfig
                     {
                         DeviceIp = ip,
-                        Port = device.Port > 0 ? device.Port : 443,
+                        // Cố định Port 443 (HTTPS) cho kết nối ISAPI từ API, bỏ qua port SDK (8000) lưu trong CSDL
+                        Port = 443,
                         DeviceName = string.IsNullOrWhiteSpace(device.Name) ? lane.Name : device.Name,
                         Username = string.IsNullOrWhiteSpace(device.UserName) ? "admin" : device.UserName.Trim(),
                         Password = device.Password?.Trim() ?? string.Empty

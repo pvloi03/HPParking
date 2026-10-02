@@ -26,4 +26,8 @@
     <ProjectReference Include="..\HPParking.Core\HPParking.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="HPParking.Tests" />
+  </ItemGroup>
+
 </Project>

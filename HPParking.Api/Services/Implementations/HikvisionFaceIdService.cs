@@ -208,8 +208,8 @@ namespace HPParking.Api.Services.Implementations
             }
 
             var portsToTest = new List<int>();
-            if (customPort > 0) portsToTest.Add(customPort);
-            portsToTest.AddRange(new[] { 443, 80, 8000 });
+            if (customPort > 0 && customPort != 8000) portsToTest.Add(customPort);
+            portsToTest.AddRange([443, 80, 8000]);
 
             foreach (var port in portsToTest.Distinct())
             {
@@ -734,9 +734,10 @@ namespace HPParking.Api.Services.Implementations
             return (false, $"HTTP {(int)updateResponse.StatusCode}: {errBody}");
         }
 
-        private HttpClient GetOrCreateHttpClient(FaceIdTerminalConfig terminal)
+        internal HttpClient GetOrCreateHttpClient(FaceIdTerminalConfig terminal)
         {
-            var cacheKey = $"{terminal.DeviceIp}|{terminal.Port}|{terminal.Username}|{terminal.Password}";
+            var effectivePort = (terminal.Port <= 0 || terminal.Port == 8000) ? 443 : terminal.Port;
+            var cacheKey = $"{terminal.DeviceIp}|{effectivePort}|{terminal.Username}|{terminal.Password}";
             return _clientCache.GetOrAdd(cacheKey, _ =>
             {
                 if (string.IsNullOrWhiteSpace(terminal.DeviceIp))
@@ -744,9 +745,9 @@ namespace HPParking.Api.Services.Implementations
                     throw new ArgumentException("Địa chỉ IP thiết bị không được để trống.", nameof(terminal.DeviceIp));
                 }
 
-                var scheme = (terminal.Port == 80 || terminal.Port == 8000) ? "http" : "https";
-                var hostWithPort = terminal.Port > 0 && terminal.Port != 80 && terminal.Port != 443
-                    ? $"{terminal.DeviceIp}:{terminal.Port}"
+                var scheme = effectivePort == 80 ? "http" : "https";
+                var hostWithPort = effectivePort != 80 && effectivePort != 443
+                    ? $"{terminal.DeviceIp}:{effectivePort}"
                     : terminal.DeviceIp;
                 var baseUri = new Uri($"{scheme}://{hostWithPort}");
                 var credentialCache = new CredentialCache
