@@ -974,13 +974,30 @@ namespace HPParking.Services.Parking
 
             if (activeTrip == null)
             {
-                int firstDeadlineMinutes = isEntry ? defaultStay : defaultTravel;
+                if (isEntry)
+                {
+                    var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = ExtractWorkflowImages(images, lprResult);
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.ConfirmRequired,
+                        Vehicle = vehicle,
+                        DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
+                        LprResult = lprResult,
+                        OverviewImage = warnOverviewSnap,
+                        PlateImage = warnSmallPlate,
+                        FaceImage = warnFaceSnap,
+                        Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra nhưng lại quẹt vào cổng {currentGateName}!",
+                        DispatchTrip = null
+                    };
+                }
+
+                int firstDeadlineMinutes = defaultTravel;
                 if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
                 {
                     var firstStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == 1);
                     if (firstStep != null)
                     {
-                        firstDeadlineMinutes = isEntry ? firstStep.MaxStayMinutes : firstStep.MaxTravelMinutes;
+                        firstDeadlineMinutes = firstStep.MaxTravelMinutes;
                     }
                 }
 
@@ -994,10 +1011,10 @@ namespace HPParking.Services.Parking
                     CurrentGateId = currentGateId,
                     AssignedRouteId = assignedRoute?.Id,
                     CurrentStepIndex = 1,
-                    Status = isEntry ? TripStatus.WorkingAtGate : TripStatus.InTransit,
+                    Status = TripStatus.InTransit,
                     StartTime = now,
-                    LastEntryTime = isEntry ? now : null,
-                    LastExitTime = isEntry ? null : now,
+                    LastEntryTime = null,
+                    LastExitTime = now,
                     NextDeadline = now.AddMinutes(firstDeadlineMinutes),
                     IsAlertSent = false,
                     Checkpoints = []
@@ -1008,9 +1025,28 @@ namespace HPParking.Services.Parking
             {
                 if (isEntry)
                 {
+                    if (activeTrip.Status == TripStatus.WorkingAtGate)
+                    {
+                        var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = ExtractWorkflowImages(images, lprResult);
+                        return new ProcessResult
+                        {
+                            Status = ProcessStatus.ConfirmRequired,
+                            Vehicle = vehicle,
+                            DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
+                            LprResult = lprResult,
+                            OverviewImage = warnOverviewSnap,
+                            PlateImage = warnSmallPlate,
+                            FaceImage = warnFaceSnap,
+                            Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra khỏi cổng trước đó nhưng lại quẹt vào cổng {currentGateName}!",
+                            DispatchTrip = activeTrip
+                        };
+                    }
+
+                    activeTrip.LastEntryTime = now;
                     if (activeTrip.CurrentStepIndex >= (assignedRoute?.GateSteps.Count ?? 1))
                     {
                         activeTrip.Status = TripStatus.Completed;
+                        activeTrip.EndTime = now;
                         activeTrip.NextDeadline = null;
                     }
                     else

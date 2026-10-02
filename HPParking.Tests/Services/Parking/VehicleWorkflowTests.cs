@@ -230,5 +230,118 @@ namespace HPParking.Tests.Services.Parking
             session.OutTime.Should().NotBeNull();
             await _sessionRepo.Received().UpdateAsync(session);
         }
+
+        [Fact]
+        public async Task SharedVehicleEntry_WhenNoActiveTrip_ShouldWarnWrongRoute()
+        {
+            // Arrange
+            var service = CreateService();
+            var lane = new Lane
+            {
+                Id = "lane-veh-in",
+                GateId = "gate-1",
+                Direction = LaneDirection.In,
+                TargetType = LaneTargetType.Vehicle
+            };
+            var context = new LaneRuntimeContext(lane);
+
+            var vehicle = new Vehicle
+            {
+                Id = "veh-shared-1",
+                PlateNumber = "29A-123.45",
+                IsShared = true,
+                IsActive = true
+            };
+            var card = new Card
+            {
+                Id = "card-shared-1",
+                CardNumber = "CARD_SHARED",
+                TargetType = CardTargetType.Vehicle,
+                VehicleId = vehicle.Id,
+                Status = CardStatus.InUse
+            };
+
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Card?>(card));
+            _vehicleRepo.GetByIdAsync("veh-shared-1").Returns(Task.FromResult<Vehicle?>(vehicle));
+            _tripRepo.FindOneAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<VehicleDispatchTrip?>(null));
+
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = "CARD_SHARED",
+                TriggerTime = DateTime.UtcNow
+            };
+
+            // Act
+            var result = await service.ProcessWorkflowAsync(
+                context, trigger, "C:\\Images",
+                onBarrierOpenFailed: _ => true,
+                onManualPlateInput: (_, _) => Task.FromResult<string?>("29A-123.45"));
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.ConfirmRequired);
+            result.Message.Should().Contain("SAI TUYẾN");
+            await _tripRepo.DidNotReceiveWithAnyArgs().AddAsync(Arg.Any<VehicleDispatchTrip>());
+        }
+
+        [Fact]
+        public async Task SharedVehicleExit_WhenNoActiveTrip_ShouldStartNewTrip()
+        {
+            // Arrange
+            var service = CreateService();
+            var lane = new Lane
+            {
+                Id = "lane-veh-out",
+                GateId = "gate-1",
+                Direction = LaneDirection.Out,
+                TargetType = LaneTargetType.Vehicle
+            };
+            var context = new LaneRuntimeContext(lane);
+
+            var vehicle = new Vehicle
+            {
+                Id = "veh-shared-2",
+                PlateNumber = "29A-999.99",
+                IsShared = true,
+                IsActive = true
+            };
+            var card = new Card
+            {
+                Id = "card-shared-2",
+                CardNumber = "CARD_SHARED_2",
+                TargetType = CardTargetType.Vehicle,
+                VehicleId = vehicle.Id,
+                Status = CardStatus.InUse
+            };
+
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Card?>(card));
+            _vehicleRepo.GetByIdAsync("veh-shared-2").Returns(Task.FromResult<Vehicle?>(vehicle));
+            _tripRepo.FindOneAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<VehicleDispatchTrip?>(null));
+
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = "CARD_SHARED_2",
+                TriggerTime = DateTime.UtcNow
+            };
+
+            // Act
+            var result = await service.ProcessWorkflowAsync(
+                context, trigger, "C:\\Images",
+                onBarrierOpenFailed: _ => true,
+                onManualPlateInput: (_, _) => Task.FromResult<string?>("29A-999.99"));
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _tripRepo.Received(1).AddAsync(Arg.Is<VehicleDispatchTrip>(t =>
+                t.VehicleId == vehicle.Id &&
+                t.Status == TripStatus.InTransit &&
+                t.LastExitTime != null &&
+                t.LastEntryTime == null));
+        }
     }
 }

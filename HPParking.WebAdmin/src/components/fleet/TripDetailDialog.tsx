@@ -388,10 +388,12 @@ export function TripDetailDialog({
                         {new Date(previewCheckpoint.timestamp).toLocaleString('vi-VN')}
                       </span>{' '}
                       —{' '}
-                      {Number(previewCheckpoint.direction) === 1 || previewCheckpoint.direction === 'Out' ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-medium">Ra khỏi cổng</span>
-                      ) : (
+                      {previewCheckpoint.direction === 1 ||
+                        previewCheckpoint.direction === 'In' ||
+                        previewCheckpoint.direction === '1' ? (
                         <span className="text-emerald-600 dark:text-emerald-400 font-medium">Vào cổng</span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Ra khỏi cổng</span>
                       )}
                     </p>
                   </div>

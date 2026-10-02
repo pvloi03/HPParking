@@ -977,6 +977,8 @@ namespace HPParking.Tests.Api
             // Assert
             result.Status.Should().Be(ProcessStatus.Success);
             existingTrip.Status.Should().Be(TripStatus.Completed);
+            existingTrip.EndTime.Should().NotBeNull("chuyến đi hoàn tất phải có EndTime");
+            existingTrip.LastEntryTime.Should().NotBeNull("quẹt thẻ vào phải cập nhật LastEntryTime");
             existingTrip.NextDeadline.Should().BeNull("chuyến đi hoàn tất thì NextDeadline được set null");
             existingTrip.Checkpoints.Should().HaveCount(2);
 
@@ -1051,6 +1053,8 @@ namespace HPParking.Tests.Api
             // Assert
             result.Status.Should().Be(ProcessStatus.Success);
             existingTrip.Status.Should().Be(TripStatus.Completed);
+            existingTrip.EndTime.Should().NotBeNull("chuyến đi hoàn tất phải có EndTime");
+            existingTrip.LastEntryTime.Should().NotBeNull("quẹt thẻ vào phải cập nhật LastEntryTime");
             existingTrip.NextDeadline.Should().BeNull();
             existingTrip.Checkpoints.Should().HaveCount(1);
 

@@ -542,7 +542,10 @@ namespace HPParking.Forms
                 }
                 else if (result.Status == ProcessStatus.ConfirmRequired)
                 {
-                    MessageBox.Show(this, result.Message, "Cảnh Báo Vi Phạm", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string title = (result.Message.Contains("SAI TUYẾN") || result.Message.Contains("LẠC TUYẾN"))
+                        ? "⚠️ Cảnh Báo Xe Đi Sai Tuyến"
+                        : "Cảnh Báo Vi Phạm";
+                    MessageBox.Show(this, result.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 else if (result.Status != ProcessStatus.Success)
                 {
