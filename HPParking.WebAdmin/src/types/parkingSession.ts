@@ -65,6 +65,7 @@ export interface ParkingSessionDetailDto extends ParkingSessionDto {
  * Tham số lọc và phân trang tra cứu danh sách phiên đỗ xe (ParkingSessionFilterQuery.cs)
  */
 export interface ParkingSessionFilterQuery extends PaginationQuery {
+  keyword?: string;
   plateNumber?: string;
   vehicleType?: VehicleType;
   targetType?: number;

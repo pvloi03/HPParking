@@ -8,6 +8,11 @@ namespace HPParking.Api.DTOs.ParkingSessions
     /// </summary>
     public class ParkingSessionFilterQuery : PaginationQuery
     {
+        /// <summary>
+        /// Từ khóa tìm kiếm đa năng (Biển số xe, hoặc Họ tên / Mã nhân sự / CCCD / SĐT đối tượng)
+        /// </summary>
+        public string? Keyword { get; set; }
+
         public string? PlateNumber { get; set; }
         public VehicleType? VehicleType { get; set; }
         public LaneTargetType? TargetType { get; set; }

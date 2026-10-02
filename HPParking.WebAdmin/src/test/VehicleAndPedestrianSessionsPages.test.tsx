@@ -170,7 +170,20 @@ describe('VehicleSessionsPage & PedestrianSessionsPage', () => {
     );
 
     // Placeholder tìm kiếm nhân sự, không có placeholder tìm biển số xe
-    expect(screen.getByPlaceholderText('Tìm theo họ tên, mã nhân sự, mã thẻ...')).toBeInTheDocument();
+    const searchInput = screen.getByPlaceholderText('Tìm theo họ tên, mã nhân sự, mã thẻ...');
+    expect(searchInput).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Tìm theo biển số xe...')).not.toBeInTheDocument();
+
+    // Nhập từ khóa tìm kiếm theo tên nhân sự
+    fireEvent.change(searchInput, { target: { value: 'Trần Thị B' } });
+
+    await waitFor(() => {
+      expect(parkingSessionApi.getParkingSessions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetType: LaneTargetType.Pedestrian,
+          keyword: 'Trần Thị B',
+        })
+      );
+    });
   });
 });

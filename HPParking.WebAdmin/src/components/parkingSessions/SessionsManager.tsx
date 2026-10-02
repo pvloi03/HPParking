@@ -114,7 +114,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       parkingSessionApi.getParkingSessions({
         pageIndex,
         pageSize,
-        plateNumber: !isPedestrian && searchQuery.trim() ? searchQuery.trim() : undefined,
+        keyword: searchQuery.trim() ? searchQuery.trim() : undefined,
         targetType,
         status: statusFilter ? (Number(statusFilter) as ParkingSessionStatus) : undefined,
         vehicleType: !isPedestrian && vehicleTypeFilter ? (Number(vehicleTypeFilter) as VehicleType) : undefined,
@@ -140,7 +140,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       toast.info(`Đang khởi tạo và xuất tệp Excel lịch sử ${targetLabel}...`);
 
       const blob = await parkingSessionApi.exportParkingSessions({
-        plateNumber: !isPedestrian && searchQuery.trim() ? searchQuery.trim() : undefined,
+        keyword: searchQuery.trim() ? searchQuery.trim() : undefined,
         targetType,
         status: statusFilter ? (Number(statusFilter) as ParkingSessionStatus) : undefined,
         vehicleType: !isPedestrian && vehicleTypeFilter ? (Number(vehicleTypeFilter) as VehicleType) : undefined,

@@ -5,6 +5,7 @@ using HPParking.Api.DTOs.ParkingSessions;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -35,6 +36,53 @@ namespace HPParking.Api.Services.Implementations
             {
                 var cleanPlate = PlateHelper.Normalize(query.PlateNumber);
                 filters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(cleanPlate, "i")));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.Keyword))
+            {
+                var kw = query.Keyword.Trim();
+                var kwRegex = new BsonRegularExpression(Regex.Escape(kw), "i");
+
+                var clientFilter = Builders<Client>.Filter.And(
+                    Builders<Client>.Filter.Eq(c => c.IsDeleted, false),
+                    Builders<Client>.Filter.Or(
+                        Builders<Client>.Filter.Regex(c => c.Name, kwRegex),
+                        Builders<Client>.Filter.Regex(c => c.Code, kwRegex),
+                        Builders<Client>.Filter.Regex(c => c.PhoneNumber, kwRegex)
+                    )
+                );
+
+                var matchedClients = await _clientRepo.FindAsync(clientFilter, cancellationToken: cancellationToken);
+                var matchedClientIds = matchedClients.Select(c => c.Id).ToHashSet();
+
+                var cleanPlate = PlateHelper.Normalize(kw);
+                var isPlateSearch = !string.IsNullOrEmpty(cleanPlate) && query.TargetType != LaneTargetType.Pedestrian;
+
+                if (query.TargetType == LaneTargetType.Pedestrian)
+                {
+                    filters.Add(builder.In(x => x.PersonId, matchedClientIds));
+                }
+                else
+                {
+                    var orFilters = new List<FilterDefinition<ParkingSession>>();
+                    if (isPlateSearch)
+                    {
+                        orFilters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(cleanPlate, "i")));
+                    }
+                    if (matchedClientIds.Count > 0)
+                    {
+                        orFilters.Add(builder.In(x => x.PersonId, matchedClientIds));
+                    }
+
+                    if (orFilters.Count > 0)
+                    {
+                        filters.Add(builder.Or(orFilters));
+                    }
+                    else
+                    {
+                        filters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(Regex.Escape(kw), "i")));
+                    }
+                }
             }
 
             if (query.VehicleType.HasValue)
