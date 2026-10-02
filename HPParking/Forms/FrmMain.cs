@@ -99,7 +99,7 @@ namespace HPParking.Forms
             }
         }
 
-        private async Task LoadHardwareAndLanesAsync()
+        private async Task<bool> LoadHardwareAndLanesAsync()
         {
             // Nhận diện Cổng phụ trách theo MachineCode máy trạm
             string currentMachineCode = HardwareFingerprint.GetMachineCode();
@@ -110,7 +110,7 @@ namespace HPParking.Forms
             {
                 ShowNoGateConfiguredWarning(currentMachineCode);
                 SetFormConfigurationLocked(true);
-                return;
+                return false;
             }
 
             var gateLanes = await _laneRepository.FindAsync(x => x.GateId == _currentGate.Id && x.IsActive && !x.IsDeleted);
@@ -124,7 +124,7 @@ namespace HPParking.Forms
             {
                 ShowNoLaneConfiguredWarning(_currentGate.Name ?? _currentGate.Code);
                 SetFormConfigurationLocked(true);
-                return;
+                return false;
             }
 
             // Cấu hình hợp lệ — mở khóa form và khởi tạo
@@ -143,6 +143,7 @@ namespace HPParking.Forms
             _deviceOrchestrator.OnRadarTriggered -= OnRadarTriggered;
             _deviceOrchestrator.OnRadarTriggered += OnRadarTriggered;
             _deviceOrchestrator.StartRealtimeLoop();
+            return true;
         }
 
         #endregion
@@ -1050,10 +1051,10 @@ namespace HPParking.Forms
                 _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
 
                 // Nạp lại cấu hình và khởi tạo lại toàn bộ thiết bị
-                await LoadHardwareAndLanesAsync();
+                bool isLoaded = await LoadHardwareAndLanesAsync();
 
-                // Chỉ hiện "thành công" khi cấu hình hợp lệ (form đã được unlock)
-                if (tlpLanes.Enabled)
+                // Chỉ hiện "thành công" khi cấu hình hợp lệ
+                if (isLoaded)
                     MessageBox.Show("Nạp lại cấu hình và kết nối thiết bị phần cứng thành công!", "Thông Báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -1067,21 +1068,33 @@ namespace HPParking.Forms
             }
         }
 
+        private void ShowConfigurationWarning(string laneTitle, string messageBoxTitle, string messageBoxContent, string? gateInfoText = null)
+        {
+            if (!string.IsNullOrEmpty(gateInfoText))
+            {
+                lblGateInfo.Text = gateInfoText;
+            }
+            lblTitleLane1.Text = laneTitle;
+
+            MessageBox.Show(
+                messageBoxContent,
+                messageBoxTitle,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
         /// <summary>
         /// Hiển thị cảnh báo khi máy trạm chưa được gán vào Cổng nào trong hệ thống.
         /// </summary>
         private void ShowNoGateConfiguredWarning(string machineCode)
         {
-            lblGateInfo.Text = "⚠️ CHƯA CẤU HÌNH CỔNG — Vui lòng vào WebAdmin để thiết lập";
-            lblTitleLane1.Text = "⚠️ CHƯA CÓ CỔNG";
-
-            MessageBox.Show(
-                $"Máy trạm này (MachineCode: {machineCode}) chưa được gán vào Cổng nào.\n\n" +
-                "Vui lòng vào WebAdmin → Cài đặt → Cổng và gán MachineCode cho máy trạm này, " +
-                "sau đó nhấn \"KHỞI ĐỘNG LẠI\".",
-                "⚠️ Chưa Cấu Hình Cổng",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+            ShowConfigurationWarning(
+                laneTitle: "⚠️ CHƯA CÓ CỔNG",
+                messageBoxTitle: "⚠️ Chưa Cấu Hình Cổng",
+                messageBoxContent: $"Máy trạm này (MachineCode: {machineCode}) chưa được gán vào Cổng nào.\n\n" +
+                    "Vui lòng vào WebAdmin → Cài đặt → Cổng và gán MachineCode cho máy trạm này, " +
+                    "sau đó nhấn \"KHỞI ĐỘNG LẠI\".",
+                gateInfoText: "⚠️ CHƯA CẤU HÌNH CỔNG — Vui lòng vào WebAdmin để thiết lập");
         }
 
         /// <summary>
@@ -1089,15 +1102,12 @@ namespace HPParking.Forms
         /// </summary>
         private void ShowNoLaneConfiguredWarning(string gateName)
         {
-            lblTitleLane1.Text = "⚠️ CHƯA CÓ LÀN";
-
-            MessageBox.Show(
-                $"Cổng \"{gateName}\" chưa có Làn hoạt động nào.\n\n" +
-                "Vui lòng vào WebAdmin → Cài đặt → Làn, thêm hoặc kích hoạt Làn cho cổng này, " +
-                "sau đó nhấn \"KHỞI ĐỘNG LẠI\".",
-                "⚠️ Chưa Cấu Hình Làn",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+            ShowConfigurationWarning(
+                laneTitle: "⚠️ CHƯA CÓ LÀN",
+                messageBoxTitle: "⚠️ Chưa Cấu Hình Làn",
+                messageBoxContent: $"Cổng \"{gateName}\" chưa có Làn hoạt động nào.\n\n" +
+                    "Vui lòng vào WebAdmin → Cài đặt → Làn, thêm hoặc kích hoạt Làn cho cổng này, " +
+                    "sau đó nhấn \"KHỞI ĐỘNG LẠI\".");
         }
 
         /// <summary>

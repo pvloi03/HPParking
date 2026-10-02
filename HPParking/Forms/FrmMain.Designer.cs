@@ -23,12 +23,10 @@ namespace HPParking.Forms
             tlpRoot = new TableLayoutPanel();
             pnlHeader = new Panel();
             lblGateInfo = new Label();
-            btnReloadHardware = new Button();
             tlpLanes = new TableLayoutPanel();
             tlpLane1 = new TableLayoutPanel();
             tlpHeadLane1 = new TableLayoutPanel();
             lblTitleLane1 = new Label();
-            lblSubLane1 = new Label();
             tlpCamsLane1 = new TableLayoutPanel();
             pbLane1Overview = new PictureBox();
             pbLane1Plate = new PictureBox();
@@ -46,7 +44,6 @@ namespace HPParking.Forms
             tlpLane2 = new TableLayoutPanel();
             tlpHeadLane2 = new TableLayoutPanel();
             lblTitleLane2 = new Label();
-            lblSubLane2 = new Label();
             tlpCamsLane2 = new TableLayoutPanel();
             pbLane2Overview = new PictureBox();
             pbLane2Plate = new PictureBox();
@@ -64,7 +61,6 @@ namespace HPParking.Forms
             tlpLane3 = new TableLayoutPanel();
             tlpHeadLane3 = new TableLayoutPanel();
             lblTitleLane3 = new Label();
-            lblSubLane3 = new Label();
             tlpCamsLane3 = new TableLayoutPanel();
             pbLane3Overview = new PictureBox();
             pbLane3Plate = new PictureBox();
@@ -82,7 +78,6 @@ namespace HPParking.Forms
             tlpLane4 = new TableLayoutPanel();
             tlpHeadLane4 = new TableLayoutPanel();
             lblTitleLane4 = new Label();
-            lblSubLane4 = new Label();
             tlpCamsLane4 = new TableLayoutPanel();
             pbLane4Overview = new PictureBox();
             pbLane4Plate = new PictureBox();
@@ -98,6 +93,7 @@ namespace HPParking.Forms
             pbLane4PlateCrop = new PictureBox();
             pbLane4EntrySnap = new PictureBox();
             pnlFooter = new Panel();
+            btnReloadHardware = new Button();
             lbServer = new Label();
             lbStatusCtrl = new Label();
             lbdayExpiryDate = new Label();
@@ -162,7 +158,7 @@ namespace HPParking.Forms
             tlpRoot.RowCount = 3;
             tlpRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
             tlpRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tlpRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
+            tlpRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             tlpRoot.Size = new Size(1924, 1050);
             tlpRoot.TabIndex = 0;
             // 
@@ -170,7 +166,6 @@ namespace HPParking.Forms
             // 
             pnlHeader.BackColor = Color.FromArgb(15, 23, 42);
             pnlHeader.Controls.Add(lblGateInfo);
-            pnlHeader.Controls.Add(btnReloadHardware);
             pnlHeader.Dock = DockStyle.Fill;
             pnlHeader.Location = new Point(0, 0);
             pnlHeader.Margin = new Padding(0);
@@ -180,34 +175,18 @@ namespace HPParking.Forms
             // 
             // lblGateInfo
             // 
+            lblGateInfo.BackColor = Color.DimGray;
             lblGateInfo.Dock = DockStyle.Fill;
-            lblGateInfo.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
+            lblGateInfo.Font = new Font("Segoe UI", 10F, FontStyle.Bold, GraphicsUnit.Point, 0);
             lblGateInfo.ForeColor = Color.White;
             lblGateInfo.Location = new Point(0, 0);
             lblGateInfo.Margin = new Padding(0);
             lblGateInfo.Name = "lblGateInfo";
             lblGateInfo.Padding = new Padding(15, 0, 0, 0);
-            lblGateInfo.Size = new Size(1684, 45);
+            lblGateInfo.Size = new Size(1924, 45);
             lblGateInfo.TabIndex = 0;
-            lblGateInfo.Text = "HỆ THỐNG KIỂM SOÁT VÀO RA - KẾT NỐI THIẾT BỊ THỰC TẾ";
+            lblGateInfo.Text = "HỆ THỐNG KIỂM SOÁT VÀO RA";
             lblGateInfo.TextAlign = ContentAlignment.MiddleLeft;
-            // 
-            // btnReloadHardware
-            // 
-            btnReloadHardware.BackColor = Color.FromArgb(30, 41, 59);
-            btnReloadHardware.Dock = DockStyle.Right;
-            btnReloadHardware.FlatAppearance.BorderColor = Color.FromArgb(71, 85, 105);
-            btnReloadHardware.FlatStyle = FlatStyle.Flat;
-            btnReloadHardware.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            btnReloadHardware.ForeColor = Color.PaleGreen;
-            btnReloadHardware.Location = new Point(1684, 0);
-            btnReloadHardware.Margin = new Padding(0);
-            btnReloadHardware.Name = "btnReloadHardware";
-            btnReloadHardware.Size = new Size(240, 45);
-            btnReloadHardware.TabIndex = 1;
-            btnReloadHardware.Text = "🔄 NẠP LẠI THIẾT BỊ";
-            btnReloadHardware.UseVisualStyleBackColor = false;
-            btnReloadHardware.Click += BtnReloadHardware_Click;
             // 
             // tlpLanes
             // 
@@ -226,7 +205,7 @@ namespace HPParking.Forms
             tlpLanes.Name = "tlpLanes";
             tlpLanes.RowCount = 1;
             tlpLanes.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            tlpLanes.Size = new Size(1924, 955);
+            tlpLanes.Size = new Size(1924, 975);
             tlpLanes.TabIndex = 1;
             // 
             // tlpLane1
@@ -241,10 +220,10 @@ namespace HPParking.Forms
             tlpLane1.Margin = new Padding(4, 5, 4, 5);
             tlpLane1.Name = "tlpLane1";
             tlpLane1.RowCount = 3;
-            tlpLane1.RowStyles.Add(new RowStyle(SizeType.Absolute, 113F));
+            tlpLane1.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
             tlpLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
             tlpLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            tlpLane1.Size = new Size(473, 945);
+            tlpLane1.Size = new Size(473, 965);
             tlpLane1.TabIndex = 0;
             // 
             // tlpHeadLane1
@@ -252,44 +231,28 @@ namespace HPParking.Forms
             tlpHeadLane1.ColumnCount = 1;
             tlpHeadLane1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             tlpHeadLane1.Controls.Add(lblTitleLane1, 0, 0);
-            tlpHeadLane1.Controls.Add(lblSubLane1, 0, 1);
             tlpHeadLane1.Dock = DockStyle.Fill;
             tlpHeadLane1.Location = new Point(0, 0);
             tlpHeadLane1.Margin = new Padding(0);
             tlpHeadLane1.Name = "tlpHeadLane1";
-            tlpHeadLane1.RowCount = 2;
-            tlpHeadLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 54F));
-            tlpHeadLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpHeadLane1.Size = new Size(473, 113);
+            tlpHeadLane1.RowCount = 1;
+            tlpHeadLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpHeadLane1.Size = new Size(473, 50);
             tlpHeadLane1.TabIndex = 0;
             // 
             // lblTitleLane1
             // 
             lblTitleLane1.BackColor = Color.SeaGreen;
             lblTitleLane1.Dock = DockStyle.Fill;
-            lblTitleLane1.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            lblTitleLane1.Font = new Font("Arial", 9F, FontStyle.Bold);
             lblTitleLane1.ForeColor = Color.White;
             lblTitleLane1.Location = new Point(0, 0);
             lblTitleLane1.Margin = new Padding(0);
             lblTitleLane1.Name = "lblTitleLane1";
-            lblTitleLane1.Size = new Size(473, 61);
+            lblTitleLane1.Size = new Size(473, 50);
             lblTitleLane1.TabIndex = 0;
-            lblTitleLane1.Text = "NGƯỜI";
+            lblTitleLane1.Text = "LÀN VÀO 01";
             lblTitleLane1.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // lblSubLane1
-            // 
-            lblSubLane1.BackColor = Color.DarkCyan;
-            lblSubLane1.Dock = DockStyle.Fill;
-            lblSubLane1.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            lblSubLane1.ForeColor = Color.White;
-            lblSubLane1.Location = new Point(0, 61);
-            lblSubLane1.Margin = new Padding(0);
-            lblSubLane1.Name = "lblSubLane1";
-            lblSubLane1.Size = new Size(473, 52);
-            lblSubLane1.TabIndex = 1;
-            lblSubLane1.Text = "LÀN NGƯỜI VÀO (VÀO)";
-            lblSubLane1.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // tlpCamsLane1
             // 
@@ -301,13 +264,13 @@ namespace HPParking.Forms
             tlpCamsLane1.Controls.Add(pbLane1Plate, 0, 1);
             tlpCamsLane1.Controls.Add(pbLane1Face, 1, 1);
             tlpCamsLane1.Dock = DockStyle.Fill;
-            tlpCamsLane1.Location = new Point(0, 118);
+            tlpCamsLane1.Location = new Point(0, 55);
             tlpCamsLane1.Margin = new Padding(0, 5, 0, 5);
             tlpCamsLane1.Name = "tlpCamsLane1";
             tlpCamsLane1.RowCount = 2;
             tlpCamsLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
             tlpCamsLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            tlpCamsLane1.Size = new Size(473, 447);
+            tlpCamsLane1.Size = new Size(473, 493);
             tlpCamsLane1.TabIndex = 1;
             // 
             // pbLane1Overview
@@ -318,7 +281,7 @@ namespace HPParking.Forms
             pbLane1Overview.Dock = DockStyle.Fill;
             pbLane1Overview.Location = new Point(3, 3);
             pbLane1Overview.Name = "pbLane1Overview";
-            pbLane1Overview.Size = new Size(467, 217);
+            pbLane1Overview.Size = new Size(467, 240);
             pbLane1Overview.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane1Overview.TabIndex = 0;
             pbLane1Overview.TabStop = false;
@@ -328,9 +291,9 @@ namespace HPParking.Forms
             pbLane1Plate.BackColor = Color.FromArgb(11, 15, 20);
             pbLane1Plate.BorderStyle = BorderStyle.FixedSingle;
             pbLane1Plate.Dock = DockStyle.Fill;
-            pbLane1Plate.Location = new Point(3, 226);
+            pbLane1Plate.Location = new Point(3, 249);
             pbLane1Plate.Name = "pbLane1Plate";
-            pbLane1Plate.Size = new Size(230, 218);
+            pbLane1Plate.Size = new Size(230, 241);
             pbLane1Plate.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane1Plate.TabIndex = 1;
             pbLane1Plate.TabStop = false;
@@ -340,9 +303,9 @@ namespace HPParking.Forms
             pbLane1Face.BackColor = Color.FromArgb(11, 15, 20);
             pbLane1Face.BorderStyle = BorderStyle.FixedSingle;
             pbLane1Face.Dock = DockStyle.Fill;
-            pbLane1Face.Location = new Point(239, 226);
+            pbLane1Face.Location = new Point(239, 249);
             pbLane1Face.Name = "pbLane1Face";
-            pbLane1Face.Size = new Size(231, 218);
+            pbLane1Face.Size = new Size(231, 241);
             pbLane1Face.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane1Face.TabIndex = 2;
             pbLane1Face.TabStop = false;
@@ -352,11 +315,11 @@ namespace HPParking.Forms
             pnlInfoLane1.BackColor = Color.Gainsboro;
             pnlInfoLane1.Controls.Add(tlpFieldsLane1);
             pnlInfoLane1.Dock = DockStyle.Fill;
-            pnlInfoLane1.Location = new Point(0, 575);
+            pnlInfoLane1.Location = new Point(0, 558);
             pnlInfoLane1.Margin = new Padding(0, 5, 0, 0);
             pnlInfoLane1.Name = "pnlInfoLane1";
             pnlInfoLane1.Padding = new Padding(9, 10, 9, 10);
-            pnlInfoLane1.Size = new Size(473, 370);
+            pnlInfoLane1.Size = new Size(473, 407);
             pnlInfoLane1.TabIndex = 2;
             // 
             // tlpFieldsLane1
@@ -381,7 +344,8 @@ namespace HPParking.Forms
             tlpFieldsLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane1.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpFieldsLane1.Size = new Size(455, 350);
+            tlpFieldsLane1.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
+            tlpFieldsLane1.Size = new Size(455, 387);
             tlpFieldsLane1.TabIndex = 0;
             // 
             // lblLane1Name
@@ -395,7 +359,7 @@ namespace HPParking.Forms
             lblLane1Name.Margin = new Padding(3);
             lblLane1Name.Name = "lblLane1Name";
             lblLane1Name.Padding = new Padding(6, 0, 0, 0);
-            lblLane1Name.Size = new Size(221, 57);
+            lblLane1Name.Size = new Size(221, 63);
             lblLane1Name.TabIndex = 0;
             lblLane1Name.Text = "Họ và tên:";
             lblLane1Name.TextAlign = ContentAlignment.MiddleLeft;
@@ -411,7 +375,7 @@ namespace HPParking.Forms
             lblLane1Dept.Margin = new Padding(3);
             lblLane1Dept.Name = "lblLane1Dept";
             lblLane1Dept.Padding = new Padding(6, 0, 0, 0);
-            lblLane1Dept.Size = new Size(222, 57);
+            lblLane1Dept.Size = new Size(222, 63);
             lblLane1Dept.TabIndex = 1;
             lblLane1Dept.Text = "Phòng ban:";
             lblLane1Dept.TextAlign = ContentAlignment.MiddleLeft;
@@ -423,11 +387,11 @@ namespace HPParking.Forms
             lblLane1TimeIn.Dock = DockStyle.Fill;
             lblLane1TimeIn.Font = new Font("Arial", 8F);
             lblLane1TimeIn.ForeColor = Color.Black;
-            lblLane1TimeIn.Location = new Point(3, 66);
+            lblLane1TimeIn.Location = new Point(3, 72);
             lblLane1TimeIn.Margin = new Padding(3);
             lblLane1TimeIn.Name = "lblLane1TimeIn";
             lblLane1TimeIn.Padding = new Padding(6, 0, 0, 0);
-            lblLane1TimeIn.Size = new Size(221, 57);
+            lblLane1TimeIn.Size = new Size(221, 63);
             lblLane1TimeIn.TabIndex = 2;
             lblLane1TimeIn.Text = "Ngày vào: --";
             lblLane1TimeIn.TextAlign = ContentAlignment.MiddleLeft;
@@ -439,11 +403,11 @@ namespace HPParking.Forms
             lblLane1TimeOut.Dock = DockStyle.Fill;
             lblLane1TimeOut.Font = new Font("Arial", 8F);
             lblLane1TimeOut.ForeColor = Color.Black;
-            lblLane1TimeOut.Location = new Point(230, 66);
+            lblLane1TimeOut.Location = new Point(230, 72);
             lblLane1TimeOut.Margin = new Padding(3);
             lblLane1TimeOut.Name = "lblLane1TimeOut";
             lblLane1TimeOut.Padding = new Padding(6, 0, 0, 0);
-            lblLane1TimeOut.Size = new Size(222, 57);
+            lblLane1TimeOut.Size = new Size(222, 63);
             lblLane1TimeOut.TabIndex = 3;
             lblLane1TimeOut.Text = "Ngày ra: --";
             lblLane1TimeOut.TextAlign = ContentAlignment.MiddleLeft;
@@ -455,11 +419,11 @@ namespace HPParking.Forms
             lblLane1Code.Dock = DockStyle.Fill;
             lblLane1Code.Font = new Font("Arial", 8F);
             lblLane1Code.ForeColor = Color.Black;
-            lblLane1Code.Location = new Point(3, 129);
+            lblLane1Code.Location = new Point(3, 141);
             lblLane1Code.Margin = new Padding(3);
             lblLane1Code.Name = "lblLane1Code";
             lblLane1Code.Padding = new Padding(6, 0, 0, 0);
-            lblLane1Code.Size = new Size(221, 57);
+            lblLane1Code.Size = new Size(221, 63);
             lblLane1Code.TabIndex = 4;
             lblLane1Code.Text = "Mã:";
             lblLane1Code.TextAlign = ContentAlignment.MiddleLeft;
@@ -471,11 +435,11 @@ namespace HPParking.Forms
             lblLane1Role.Dock = DockStyle.Fill;
             lblLane1Role.Font = new Font("Arial", 8F);
             lblLane1Role.ForeColor = Color.DarkBlue;
-            lblLane1Role.Location = new Point(230, 129);
+            lblLane1Role.Location = new Point(230, 141);
             lblLane1Role.Margin = new Padding(3);
             lblLane1Role.Name = "lblLane1Role";
             lblLane1Role.Padding = new Padding(6, 0, 0, 0);
-            lblLane1Role.Size = new Size(222, 57);
+            lblLane1Role.Size = new Size(222, 63);
             lblLane1Role.TabIndex = 5;
             lblLane1Role.Text = "Đối tượng:";
             lblLane1Role.TextAlign = ContentAlignment.MiddleLeft;
@@ -485,9 +449,9 @@ namespace HPParking.Forms
             pbLane1Avatar.BackColor = Color.White;
             pbLane1Avatar.BorderStyle = BorderStyle.FixedSingle;
             pbLane1Avatar.Dock = DockStyle.Fill;
-            pbLane1Avatar.Location = new Point(3, 192);
+            pbLane1Avatar.Location = new Point(3, 210);
             pbLane1Avatar.Name = "pbLane1Avatar";
-            pbLane1Avatar.Size = new Size(221, 155);
+            pbLane1Avatar.Size = new Size(221, 174);
             pbLane1Avatar.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane1Avatar.TabIndex = 6;
             pbLane1Avatar.TabStop = false;
@@ -497,9 +461,9 @@ namespace HPParking.Forms
             pbLane1FaceSnap.BackColor = Color.White;
             pbLane1FaceSnap.BorderStyle = BorderStyle.FixedSingle;
             pbLane1FaceSnap.Dock = DockStyle.Fill;
-            pbLane1FaceSnap.Location = new Point(230, 192);
+            pbLane1FaceSnap.Location = new Point(230, 210);
             pbLane1FaceSnap.Name = "pbLane1FaceSnap";
-            pbLane1FaceSnap.Size = new Size(222, 155);
+            pbLane1FaceSnap.Size = new Size(222, 174);
             pbLane1FaceSnap.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane1FaceSnap.TabIndex = 7;
             pbLane1FaceSnap.TabStop = false;
@@ -516,10 +480,10 @@ namespace HPParking.Forms
             tlpLane2.Margin = new Padding(4, 5, 4, 5);
             tlpLane2.Name = "tlpLane2";
             tlpLane2.RowCount = 3;
-            tlpLane2.RowStyles.Add(new RowStyle(SizeType.Absolute, 113F));
+            tlpLane2.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
             tlpLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
             tlpLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            tlpLane2.Size = new Size(473, 945);
+            tlpLane2.Size = new Size(473, 965);
             tlpLane2.TabIndex = 1;
             // 
             // tlpHeadLane2
@@ -527,44 +491,28 @@ namespace HPParking.Forms
             tlpHeadLane2.ColumnCount = 1;
             tlpHeadLane2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             tlpHeadLane2.Controls.Add(lblTitleLane2, 0, 0);
-            tlpHeadLane2.Controls.Add(lblSubLane2, 0, 1);
             tlpHeadLane2.Dock = DockStyle.Fill;
             tlpHeadLane2.Location = new Point(0, 0);
             tlpHeadLane2.Margin = new Padding(0);
             tlpHeadLane2.Name = "tlpHeadLane2";
-            tlpHeadLane2.RowCount = 2;
-            tlpHeadLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 54F));
-            tlpHeadLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpHeadLane2.Size = new Size(473, 113);
+            tlpHeadLane2.RowCount = 1;
+            tlpHeadLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpHeadLane2.Size = new Size(473, 50);
             tlpHeadLane2.TabIndex = 0;
             // 
             // lblTitleLane2
             // 
             lblTitleLane2.BackColor = Color.SeaGreen;
             lblTitleLane2.Dock = DockStyle.Fill;
-            lblTitleLane2.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            lblTitleLane2.Font = new Font("Arial", 9F, FontStyle.Bold);
             lblTitleLane2.ForeColor = Color.White;
             lblTitleLane2.Location = new Point(0, 0);
             lblTitleLane2.Margin = new Padding(0);
             lblTitleLane2.Name = "lblTitleLane2";
-            lblTitleLane2.Size = new Size(473, 61);
+            lblTitleLane2.Size = new Size(473, 50);
             lblTitleLane2.TabIndex = 0;
-            lblTitleLane2.Text = "NGƯỜI";
+            lblTitleLane2.Text = "LÀN RA 02";
             lblTitleLane2.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // lblSubLane2
-            // 
-            lblSubLane2.BackColor = Color.DarkCyan;
-            lblSubLane2.Dock = DockStyle.Fill;
-            lblSubLane2.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            lblSubLane2.ForeColor = Color.White;
-            lblSubLane2.Location = new Point(0, 61);
-            lblSubLane2.Margin = new Padding(0);
-            lblSubLane2.Name = "lblSubLane2";
-            lblSubLane2.Size = new Size(473, 52);
-            lblSubLane2.TabIndex = 1;
-            lblSubLane2.Text = "LÀN NGƯỜI RA (RA)";
-            lblSubLane2.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // tlpCamsLane2
             // 
@@ -576,13 +524,13 @@ namespace HPParking.Forms
             tlpCamsLane2.Controls.Add(pbLane2Plate, 0, 1);
             tlpCamsLane2.Controls.Add(pbLane2Face, 1, 1);
             tlpCamsLane2.Dock = DockStyle.Fill;
-            tlpCamsLane2.Location = new Point(0, 118);
+            tlpCamsLane2.Location = new Point(0, 55);
             tlpCamsLane2.Margin = new Padding(0, 5, 0, 5);
             tlpCamsLane2.Name = "tlpCamsLane2";
             tlpCamsLane2.RowCount = 2;
             tlpCamsLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
             tlpCamsLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            tlpCamsLane2.Size = new Size(473, 447);
+            tlpCamsLane2.Size = new Size(473, 493);
             tlpCamsLane2.TabIndex = 1;
             // 
             // pbLane2Overview
@@ -593,7 +541,7 @@ namespace HPParking.Forms
             pbLane2Overview.Dock = DockStyle.Fill;
             pbLane2Overview.Location = new Point(3, 3);
             pbLane2Overview.Name = "pbLane2Overview";
-            pbLane2Overview.Size = new Size(467, 217);
+            pbLane2Overview.Size = new Size(467, 240);
             pbLane2Overview.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane2Overview.TabIndex = 0;
             pbLane2Overview.TabStop = false;
@@ -603,9 +551,9 @@ namespace HPParking.Forms
             pbLane2Plate.BackColor = Color.FromArgb(11, 15, 20);
             pbLane2Plate.BorderStyle = BorderStyle.FixedSingle;
             pbLane2Plate.Dock = DockStyle.Fill;
-            pbLane2Plate.Location = new Point(3, 226);
+            pbLane2Plate.Location = new Point(3, 249);
             pbLane2Plate.Name = "pbLane2Plate";
-            pbLane2Plate.Size = new Size(230, 218);
+            pbLane2Plate.Size = new Size(230, 241);
             pbLane2Plate.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane2Plate.TabIndex = 1;
             pbLane2Plate.TabStop = false;
@@ -615,9 +563,9 @@ namespace HPParking.Forms
             pbLane2Face.BackColor = Color.FromArgb(11, 15, 20);
             pbLane2Face.BorderStyle = BorderStyle.FixedSingle;
             pbLane2Face.Dock = DockStyle.Fill;
-            pbLane2Face.Location = new Point(239, 226);
+            pbLane2Face.Location = new Point(239, 249);
             pbLane2Face.Name = "pbLane2Face";
-            pbLane2Face.Size = new Size(231, 218);
+            pbLane2Face.Size = new Size(231, 241);
             pbLane2Face.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane2Face.TabIndex = 2;
             pbLane2Face.TabStop = false;
@@ -627,11 +575,11 @@ namespace HPParking.Forms
             pnlInfoLane2.BackColor = Color.Gainsboro;
             pnlInfoLane2.Controls.Add(tlpFieldsLane2);
             pnlInfoLane2.Dock = DockStyle.Fill;
-            pnlInfoLane2.Location = new Point(0, 575);
+            pnlInfoLane2.Location = new Point(0, 558);
             pnlInfoLane2.Margin = new Padding(0, 5, 0, 0);
             pnlInfoLane2.Name = "pnlInfoLane2";
             pnlInfoLane2.Padding = new Padding(9, 10, 9, 10);
-            pnlInfoLane2.Size = new Size(473, 370);
+            pnlInfoLane2.Size = new Size(473, 407);
             pnlInfoLane2.TabIndex = 2;
             // 
             // tlpFieldsLane2
@@ -656,7 +604,7 @@ namespace HPParking.Forms
             tlpFieldsLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane2.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpFieldsLane2.Size = new Size(455, 350);
+            tlpFieldsLane2.Size = new Size(455, 387);
             tlpFieldsLane2.TabIndex = 0;
             // 
             // lblLane2Name
@@ -670,7 +618,7 @@ namespace HPParking.Forms
             lblLane2Name.Margin = new Padding(3);
             lblLane2Name.Name = "lblLane2Name";
             lblLane2Name.Padding = new Padding(6, 0, 0, 0);
-            lblLane2Name.Size = new Size(221, 57);
+            lblLane2Name.Size = new Size(221, 63);
             lblLane2Name.TabIndex = 0;
             lblLane2Name.Text = "Họ và tên:";
             lblLane2Name.TextAlign = ContentAlignment.MiddleLeft;
@@ -686,7 +634,7 @@ namespace HPParking.Forms
             lblLane2Dept.Margin = new Padding(3);
             lblLane2Dept.Name = "lblLane2Dept";
             lblLane2Dept.Padding = new Padding(6, 0, 0, 0);
-            lblLane2Dept.Size = new Size(222, 57);
+            lblLane2Dept.Size = new Size(222, 63);
             lblLane2Dept.TabIndex = 1;
             lblLane2Dept.Text = "Nhà thầu:";
             lblLane2Dept.TextAlign = ContentAlignment.MiddleLeft;
@@ -698,11 +646,11 @@ namespace HPParking.Forms
             lblLane2TimeIn.Dock = DockStyle.Fill;
             lblLane2TimeIn.Font = new Font("Arial", 8F);
             lblLane2TimeIn.ForeColor = Color.Black;
-            lblLane2TimeIn.Location = new Point(3, 66);
+            lblLane2TimeIn.Location = new Point(3, 72);
             lblLane2TimeIn.Margin = new Padding(3);
             lblLane2TimeIn.Name = "lblLane2TimeIn";
             lblLane2TimeIn.Padding = new Padding(6, 0, 0, 0);
-            lblLane2TimeIn.Size = new Size(221, 57);
+            lblLane2TimeIn.Size = new Size(221, 63);
             lblLane2TimeIn.TabIndex = 2;
             lblLane2TimeIn.Text = "Ngày vào:";
             lblLane2TimeIn.TextAlign = ContentAlignment.MiddleLeft;
@@ -714,11 +662,11 @@ namespace HPParking.Forms
             lblLane2TimeOut.Dock = DockStyle.Fill;
             lblLane2TimeOut.Font = new Font("Arial", 8F);
             lblLane2TimeOut.ForeColor = Color.Black;
-            lblLane2TimeOut.Location = new Point(230, 66);
+            lblLane2TimeOut.Location = new Point(230, 72);
             lblLane2TimeOut.Margin = new Padding(3);
             lblLane2TimeOut.Name = "lblLane2TimeOut";
             lblLane2TimeOut.Padding = new Padding(6, 0, 0, 0);
-            lblLane2TimeOut.Size = new Size(222, 57);
+            lblLane2TimeOut.Size = new Size(222, 63);
             lblLane2TimeOut.TabIndex = 3;
             lblLane2TimeOut.Text = "Ngày ra:";
             lblLane2TimeOut.TextAlign = ContentAlignment.MiddleLeft;
@@ -730,11 +678,11 @@ namespace HPParking.Forms
             lblLane2Code.Dock = DockStyle.Fill;
             lblLane2Code.Font = new Font("Arial", 8F);
             lblLane2Code.ForeColor = Color.Black;
-            lblLane2Code.Location = new Point(3, 129);
+            lblLane2Code.Location = new Point(3, 141);
             lblLane2Code.Margin = new Padding(3);
             lblLane2Code.Name = "lblLane2Code";
             lblLane2Code.Padding = new Padding(6, 0, 0, 0);
-            lblLane2Code.Size = new Size(221, 57);
+            lblLane2Code.Size = new Size(221, 63);
             lblLane2Code.TabIndex = 4;
             lblLane2Code.Text = "Mã:";
             lblLane2Code.TextAlign = ContentAlignment.MiddleLeft;
@@ -746,11 +694,11 @@ namespace HPParking.Forms
             lblLane2Role.Dock = DockStyle.Fill;
             lblLane2Role.Font = new Font("Arial", 8F);
             lblLane2Role.ForeColor = Color.DarkGoldenrod;
-            lblLane2Role.Location = new Point(230, 129);
+            lblLane2Role.Location = new Point(230, 141);
             lblLane2Role.Margin = new Padding(3);
             lblLane2Role.Name = "lblLane2Role";
             lblLane2Role.Padding = new Padding(6, 0, 0, 0);
-            lblLane2Role.Size = new Size(222, 57);
+            lblLane2Role.Size = new Size(222, 63);
             lblLane2Role.TabIndex = 5;
             lblLane2Role.Text = "Đối tượng:";
             lblLane2Role.TextAlign = ContentAlignment.MiddleLeft;
@@ -760,9 +708,9 @@ namespace HPParking.Forms
             pbLane2Avatar.BackColor = Color.White;
             pbLane2Avatar.BorderStyle = BorderStyle.FixedSingle;
             pbLane2Avatar.Dock = DockStyle.Fill;
-            pbLane2Avatar.Location = new Point(3, 192);
+            pbLane2Avatar.Location = new Point(3, 210);
             pbLane2Avatar.Name = "pbLane2Avatar";
-            pbLane2Avatar.Size = new Size(221, 155);
+            pbLane2Avatar.Size = new Size(221, 174);
             pbLane2Avatar.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane2Avatar.TabIndex = 6;
             pbLane2Avatar.TabStop = false;
@@ -772,9 +720,9 @@ namespace HPParking.Forms
             pbLane2FaceSnap.BackColor = Color.White;
             pbLane2FaceSnap.BorderStyle = BorderStyle.FixedSingle;
             pbLane2FaceSnap.Dock = DockStyle.Fill;
-            pbLane2FaceSnap.Location = new Point(230, 192);
+            pbLane2FaceSnap.Location = new Point(230, 210);
             pbLane2FaceSnap.Name = "pbLane2FaceSnap";
-            pbLane2FaceSnap.Size = new Size(222, 155);
+            pbLane2FaceSnap.Size = new Size(222, 174);
             pbLane2FaceSnap.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane2FaceSnap.TabIndex = 7;
             pbLane2FaceSnap.TabStop = false;
@@ -791,10 +739,10 @@ namespace HPParking.Forms
             tlpLane3.Margin = new Padding(4, 5, 4, 5);
             tlpLane3.Name = "tlpLane3";
             tlpLane3.RowCount = 3;
-            tlpLane3.RowStyles.Add(new RowStyle(SizeType.Absolute, 113F));
+            tlpLane3.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
             tlpLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
             tlpLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            tlpLane3.Size = new Size(473, 945);
+            tlpLane3.Size = new Size(473, 965);
             tlpLane3.TabIndex = 2;
             // 
             // tlpHeadLane3
@@ -802,44 +750,28 @@ namespace HPParking.Forms
             tlpHeadLane3.ColumnCount = 1;
             tlpHeadLane3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             tlpHeadLane3.Controls.Add(lblTitleLane3, 0, 0);
-            tlpHeadLane3.Controls.Add(lblSubLane3, 0, 1);
             tlpHeadLane3.Dock = DockStyle.Fill;
             tlpHeadLane3.Location = new Point(0, 0);
             tlpHeadLane3.Margin = new Padding(0);
             tlpHeadLane3.Name = "tlpHeadLane3";
-            tlpHeadLane3.RowCount = 2;
-            tlpHeadLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 54F));
-            tlpHeadLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpHeadLane3.Size = new Size(473, 113);
+            tlpHeadLane3.RowCount = 1;
+            tlpHeadLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpHeadLane3.Size = new Size(473, 50);
             tlpHeadLane3.TabIndex = 0;
             // 
             // lblTitleLane3
             // 
             lblTitleLane3.BackColor = Color.SeaGreen;
             lblTitleLane3.Dock = DockStyle.Fill;
-            lblTitleLane3.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            lblTitleLane3.Font = new Font("Arial", 9F, FontStyle.Bold);
             lblTitleLane3.ForeColor = Color.White;
             lblTitleLane3.Location = new Point(0, 0);
             lblTitleLane3.Margin = new Padding(0);
             lblTitleLane3.Name = "lblTitleLane3";
-            lblTitleLane3.Size = new Size(473, 61);
+            lblTitleLane3.Size = new Size(473, 50);
             lblTitleLane3.TabIndex = 0;
-            lblTitleLane3.Text = "XE";
+            lblTitleLane3.Text = "LÀN VÀO 03";
             lblTitleLane3.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // lblSubLane3
-            // 
-            lblSubLane3.BackColor = Color.DarkCyan;
-            lblSubLane3.Dock = DockStyle.Fill;
-            lblSubLane3.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            lblSubLane3.ForeColor = Color.White;
-            lblSubLane3.Location = new Point(0, 61);
-            lblSubLane3.Margin = new Padding(0);
-            lblSubLane3.Name = "lblSubLane3";
-            lblSubLane3.Size = new Size(473, 52);
-            lblSubLane3.TabIndex = 1;
-            lblSubLane3.Text = "LÀN XE VÀO (VÀO - 3 CAM)";
-            lblSubLane3.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // tlpCamsLane3
             // 
@@ -851,13 +783,13 @@ namespace HPParking.Forms
             tlpCamsLane3.Controls.Add(pbLane3Plate, 0, 1);
             tlpCamsLane3.Controls.Add(pbLane3Face, 1, 1);
             tlpCamsLane3.Dock = DockStyle.Fill;
-            tlpCamsLane3.Location = new Point(0, 118);
+            tlpCamsLane3.Location = new Point(0, 55);
             tlpCamsLane3.Margin = new Padding(0, 5, 0, 5);
             tlpCamsLane3.Name = "tlpCamsLane3";
             tlpCamsLane3.RowCount = 2;
             tlpCamsLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
             tlpCamsLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            tlpCamsLane3.Size = new Size(473, 447);
+            tlpCamsLane3.Size = new Size(473, 493);
             tlpCamsLane3.TabIndex = 1;
             // 
             // pbLane3Overview
@@ -868,7 +800,7 @@ namespace HPParking.Forms
             pbLane3Overview.Dock = DockStyle.Fill;
             pbLane3Overview.Location = new Point(3, 3);
             pbLane3Overview.Name = "pbLane3Overview";
-            pbLane3Overview.Size = new Size(467, 217);
+            pbLane3Overview.Size = new Size(467, 240);
             pbLane3Overview.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane3Overview.TabIndex = 0;
             pbLane3Overview.TabStop = false;
@@ -878,9 +810,9 @@ namespace HPParking.Forms
             pbLane3Plate.BackColor = Color.FromArgb(11, 15, 20);
             pbLane3Plate.BorderStyle = BorderStyle.FixedSingle;
             pbLane3Plate.Dock = DockStyle.Fill;
-            pbLane3Plate.Location = new Point(3, 226);
+            pbLane3Plate.Location = new Point(3, 249);
             pbLane3Plate.Name = "pbLane3Plate";
-            pbLane3Plate.Size = new Size(230, 218);
+            pbLane3Plate.Size = new Size(230, 241);
             pbLane3Plate.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane3Plate.TabIndex = 1;
             pbLane3Plate.TabStop = false;
@@ -890,9 +822,9 @@ namespace HPParking.Forms
             pbLane3Face.BackColor = Color.FromArgb(11, 15, 20);
             pbLane3Face.BorderStyle = BorderStyle.FixedSingle;
             pbLane3Face.Dock = DockStyle.Fill;
-            pbLane3Face.Location = new Point(239, 226);
+            pbLane3Face.Location = new Point(239, 249);
             pbLane3Face.Name = "pbLane3Face";
-            pbLane3Face.Size = new Size(231, 218);
+            pbLane3Face.Size = new Size(231, 241);
             pbLane3Face.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane3Face.TabIndex = 2;
             pbLane3Face.TabStop = false;
@@ -902,11 +834,11 @@ namespace HPParking.Forms
             pnlInfoLane3.BackColor = Color.Gainsboro;
             pnlInfoLane3.Controls.Add(tlpFieldsLane3);
             pnlInfoLane3.Dock = DockStyle.Fill;
-            pnlInfoLane3.Location = new Point(0, 575);
+            pnlInfoLane3.Location = new Point(0, 558);
             pnlInfoLane3.Margin = new Padding(0, 5, 0, 0);
             pnlInfoLane3.Name = "pnlInfoLane3";
             pnlInfoLane3.Padding = new Padding(9, 10, 9, 10);
-            pnlInfoLane3.Size = new Size(473, 370);
+            pnlInfoLane3.Size = new Size(473, 407);
             pnlInfoLane3.TabIndex = 2;
             // 
             // tlpFieldsLane3
@@ -931,7 +863,7 @@ namespace HPParking.Forms
             tlpFieldsLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane3.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpFieldsLane3.Size = new Size(455, 350);
+            tlpFieldsLane3.Size = new Size(455, 387);
             tlpFieldsLane3.TabIndex = 0;
             // 
             // lblLane3Driver
@@ -945,9 +877,9 @@ namespace HPParking.Forms
             lblLane3Driver.Margin = new Padding(3);
             lblLane3Driver.Name = "lblLane3Driver";
             lblLane3Driver.Padding = new Padding(6, 0, 0, 0);
-            lblLane3Driver.Size = new Size(221, 57);
+            lblLane3Driver.Size = new Size(221, 63);
             lblLane3Driver.TabIndex = 0;
-            lblLane3Driver.Text = "Tài xế: Phạm Quốc Hùng";
+            lblLane3Driver.Text = "Tài xế:";
             lblLane3Driver.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblLane3Dept
@@ -961,7 +893,7 @@ namespace HPParking.Forms
             lblLane3Dept.Margin = new Padding(3);
             lblLane3Dept.Name = "lblLane3Dept";
             lblLane3Dept.Padding = new Padding(6, 0, 0, 0);
-            lblLane3Dept.Size = new Size(222, 57);
+            lblLane3Dept.Size = new Size(222, 63);
             lblLane3Dept.TabIndex = 1;
             lblLane3Dept.Text = "Phòng ban:";
             lblLane3Dept.TextAlign = ContentAlignment.MiddleLeft;
@@ -973,11 +905,11 @@ namespace HPParking.Forms
             lblLane3TimeIn.Dock = DockStyle.Fill;
             lblLane3TimeIn.Font = new Font("Arial", 8F);
             lblLane3TimeIn.ForeColor = Color.Black;
-            lblLane3TimeIn.Location = new Point(3, 66);
+            lblLane3TimeIn.Location = new Point(3, 72);
             lblLane3TimeIn.Margin = new Padding(3);
             lblLane3TimeIn.Name = "lblLane3TimeIn";
             lblLane3TimeIn.Padding = new Padding(6, 0, 0, 0);
-            lblLane3TimeIn.Size = new Size(221, 57);
+            lblLane3TimeIn.Size = new Size(221, 63);
             lblLane3TimeIn.TabIndex = 2;
             lblLane3TimeIn.Text = "Ngày vào:";
             lblLane3TimeIn.TextAlign = ContentAlignment.MiddleLeft;
@@ -989,11 +921,11 @@ namespace HPParking.Forms
             lblLane3TimeOut.Dock = DockStyle.Fill;
             lblLane3TimeOut.Font = new Font("Arial", 8F);
             lblLane3TimeOut.ForeColor = Color.Black;
-            lblLane3TimeOut.Location = new Point(230, 66);
+            lblLane3TimeOut.Location = new Point(230, 72);
             lblLane3TimeOut.Margin = new Padding(3);
             lblLane3TimeOut.Name = "lblLane3TimeOut";
             lblLane3TimeOut.Padding = new Padding(6, 0, 0, 0);
-            lblLane3TimeOut.Size = new Size(222, 57);
+            lblLane3TimeOut.Size = new Size(222, 63);
             lblLane3TimeOut.TabIndex = 3;
             lblLane3TimeOut.Text = "Ngày ra: --";
             lblLane3TimeOut.TextAlign = ContentAlignment.MiddleLeft;
@@ -1005,11 +937,11 @@ namespace HPParking.Forms
             lblLane3PlateReg.Dock = DockStyle.Fill;
             lblLane3PlateReg.Font = new Font("Arial", 8F);
             lblLane3PlateReg.ForeColor = Color.Black;
-            lblLane3PlateReg.Location = new Point(3, 129);
+            lblLane3PlateReg.Location = new Point(3, 141);
             lblLane3PlateReg.Margin = new Padding(3);
             lblLane3PlateReg.Name = "lblLane3PlateReg";
             lblLane3PlateReg.Padding = new Padding(6, 0, 0, 0);
-            lblLane3PlateReg.Size = new Size(221, 57);
+            lblLane3PlateReg.Size = new Size(221, 63);
             lblLane3PlateReg.TabIndex = 4;
             lblLane3PlateReg.Text = "Biển số đăng ký:";
             lblLane3PlateReg.TextAlign = ContentAlignment.MiddleLeft;
@@ -1021,11 +953,11 @@ namespace HPParking.Forms
             lblLane3PlateDet.Dock = DockStyle.Fill;
             lblLane3PlateDet.Font = new Font("Arial", 8F);
             lblLane3PlateDet.ForeColor = Color.DarkGreen;
-            lblLane3PlateDet.Location = new Point(230, 129);
+            lblLane3PlateDet.Location = new Point(230, 141);
             lblLane3PlateDet.Margin = new Padding(3);
             lblLane3PlateDet.Name = "lblLane3PlateDet";
             lblLane3PlateDet.Padding = new Padding(6, 0, 0, 0);
-            lblLane3PlateDet.Size = new Size(222, 57);
+            lblLane3PlateDet.Size = new Size(222, 63);
             lblLane3PlateDet.TabIndex = 5;
             lblLane3PlateDet.Text = "Biển số nhận diện:";
             lblLane3PlateDet.TextAlign = ContentAlignment.MiddleLeft;
@@ -1035,9 +967,9 @@ namespace HPParking.Forms
             pbLane3PlateCrop.BackColor = Color.White;
             pbLane3PlateCrop.BorderStyle = BorderStyle.FixedSingle;
             pbLane3PlateCrop.Dock = DockStyle.Fill;
-            pbLane3PlateCrop.Location = new Point(3, 192);
+            pbLane3PlateCrop.Location = new Point(3, 210);
             pbLane3PlateCrop.Name = "pbLane3PlateCrop";
-            pbLane3PlateCrop.Size = new Size(221, 155);
+            pbLane3PlateCrop.Size = new Size(221, 174);
             pbLane3PlateCrop.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane3PlateCrop.TabIndex = 6;
             pbLane3PlateCrop.TabStop = false;
@@ -1047,9 +979,9 @@ namespace HPParking.Forms
             pbLane3DriverAvatar.BackColor = Color.White;
             pbLane3DriverAvatar.BorderStyle = BorderStyle.FixedSingle;
             pbLane3DriverAvatar.Dock = DockStyle.Fill;
-            pbLane3DriverAvatar.Location = new Point(230, 192);
+            pbLane3DriverAvatar.Location = new Point(230, 210);
             pbLane3DriverAvatar.Name = "pbLane3DriverAvatar";
-            pbLane3DriverAvatar.Size = new Size(222, 155);
+            pbLane3DriverAvatar.Size = new Size(222, 174);
             pbLane3DriverAvatar.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane3DriverAvatar.TabIndex = 7;
             pbLane3DriverAvatar.TabStop = false;
@@ -1066,10 +998,10 @@ namespace HPParking.Forms
             tlpLane4.Margin = new Padding(4, 5, 4, 5);
             tlpLane4.Name = "tlpLane4";
             tlpLane4.RowCount = 3;
-            tlpLane4.RowStyles.Add(new RowStyle(SizeType.Absolute, 113F));
+            tlpLane4.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
             tlpLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
             tlpLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
-            tlpLane4.Size = new Size(473, 945);
+            tlpLane4.Size = new Size(473, 965);
             tlpLane4.TabIndex = 3;
             // 
             // tlpHeadLane4
@@ -1077,44 +1009,28 @@ namespace HPParking.Forms
             tlpHeadLane4.ColumnCount = 1;
             tlpHeadLane4.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             tlpHeadLane4.Controls.Add(lblTitleLane4, 0, 0);
-            tlpHeadLane4.Controls.Add(lblSubLane4, 0, 1);
             tlpHeadLane4.Dock = DockStyle.Fill;
             tlpHeadLane4.Location = new Point(0, 0);
             tlpHeadLane4.Margin = new Padding(0);
             tlpHeadLane4.Name = "tlpHeadLane4";
-            tlpHeadLane4.RowCount = 2;
-            tlpHeadLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 54F));
-            tlpHeadLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpHeadLane4.Size = new Size(473, 113);
+            tlpHeadLane4.RowCount = 1;
+            tlpHeadLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            tlpHeadLane4.Size = new Size(473, 50);
             tlpHeadLane4.TabIndex = 0;
             // 
             // lblTitleLane4
             // 
             lblTitleLane4.BackColor = Color.SeaGreen;
             lblTitleLane4.Dock = DockStyle.Fill;
-            lblTitleLane4.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+            lblTitleLane4.Font = new Font("Arial", 9F, FontStyle.Bold);
             lblTitleLane4.ForeColor = Color.White;
             lblTitleLane4.Location = new Point(0, 0);
             lblTitleLane4.Margin = new Padding(0);
             lblTitleLane4.Name = "lblTitleLane4";
-            lblTitleLane4.Size = new Size(473, 61);
+            lblTitleLane4.Size = new Size(473, 50);
             lblTitleLane4.TabIndex = 0;
-            lblTitleLane4.Text = "XE";
+            lblTitleLane4.Text = "LÀN RA 04";
             lblTitleLane4.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // lblSubLane4
-            // 
-            lblSubLane4.BackColor = Color.DarkCyan;
-            lblSubLane4.Dock = DockStyle.Fill;
-            lblSubLane4.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-            lblSubLane4.ForeColor = Color.White;
-            lblSubLane4.Location = new Point(0, 61);
-            lblSubLane4.Margin = new Padding(0);
-            lblSubLane4.Name = "lblSubLane4";
-            lblSubLane4.Size = new Size(473, 52);
-            lblSubLane4.TabIndex = 1;
-            lblSubLane4.Text = "LÀN XE RA (RA - 2 CAM)";
-            lblSubLane4.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // tlpCamsLane4
             // 
@@ -1126,13 +1042,13 @@ namespace HPParking.Forms
             tlpCamsLane4.Controls.Add(pbLane4Plate, 0, 1);
             tlpCamsLane4.Controls.Add(pbLane4Face, 1, 1);
             tlpCamsLane4.Dock = DockStyle.Fill;
-            tlpCamsLane4.Location = new Point(0, 118);
+            tlpCamsLane4.Location = new Point(0, 55);
             tlpCamsLane4.Margin = new Padding(0, 5, 0, 5);
             tlpCamsLane4.Name = "tlpCamsLane4";
             tlpCamsLane4.RowCount = 2;
             tlpCamsLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
             tlpCamsLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            tlpCamsLane4.Size = new Size(473, 447);
+            tlpCamsLane4.Size = new Size(473, 493);
             tlpCamsLane4.TabIndex = 1;
             // 
             // pbLane4Overview
@@ -1143,7 +1059,7 @@ namespace HPParking.Forms
             pbLane4Overview.Dock = DockStyle.Fill;
             pbLane4Overview.Location = new Point(3, 3);
             pbLane4Overview.Name = "pbLane4Overview";
-            pbLane4Overview.Size = new Size(467, 217);
+            pbLane4Overview.Size = new Size(467, 240);
             pbLane4Overview.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane4Overview.TabIndex = 0;
             pbLane4Overview.TabStop = false;
@@ -1153,9 +1069,9 @@ namespace HPParking.Forms
             pbLane4Plate.BackColor = Color.FromArgb(11, 15, 20);
             pbLane4Plate.BorderStyle = BorderStyle.FixedSingle;
             pbLane4Plate.Dock = DockStyle.Fill;
-            pbLane4Plate.Location = new Point(3, 226);
+            pbLane4Plate.Location = new Point(3, 249);
             pbLane4Plate.Name = "pbLane4Plate";
-            pbLane4Plate.Size = new Size(230, 218);
+            pbLane4Plate.Size = new Size(230, 241);
             pbLane4Plate.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane4Plate.TabIndex = 1;
             pbLane4Plate.TabStop = false;
@@ -1165,9 +1081,9 @@ namespace HPParking.Forms
             pbLane4Face.BackColor = Color.FromArgb(11, 15, 20);
             pbLane4Face.BorderStyle = BorderStyle.FixedSingle;
             pbLane4Face.Dock = DockStyle.Fill;
-            pbLane4Face.Location = new Point(239, 226);
+            pbLane4Face.Location = new Point(239, 249);
             pbLane4Face.Name = "pbLane4Face";
-            pbLane4Face.Size = new Size(231, 218);
+            pbLane4Face.Size = new Size(231, 241);
             pbLane4Face.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane4Face.TabIndex = 2;
             pbLane4Face.TabStop = false;
@@ -1177,11 +1093,11 @@ namespace HPParking.Forms
             pnlInfoLane4.BackColor = Color.Gainsboro;
             pnlInfoLane4.Controls.Add(tlpFieldsLane4);
             pnlInfoLane4.Dock = DockStyle.Fill;
-            pnlInfoLane4.Location = new Point(0, 575);
+            pnlInfoLane4.Location = new Point(0, 558);
             pnlInfoLane4.Margin = new Padding(0, 5, 0, 0);
             pnlInfoLane4.Name = "pnlInfoLane4";
             pnlInfoLane4.Padding = new Padding(9, 10, 9, 10);
-            pnlInfoLane4.Size = new Size(473, 370);
+            pnlInfoLane4.Size = new Size(473, 407);
             pnlInfoLane4.TabIndex = 2;
             // 
             // tlpFieldsLane4
@@ -1206,7 +1122,7 @@ namespace HPParking.Forms
             tlpFieldsLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 18F));
             tlpFieldsLane4.RowStyles.Add(new RowStyle(SizeType.Percent, 46F));
-            tlpFieldsLane4.Size = new Size(455, 350);
+            tlpFieldsLane4.Size = new Size(455, 387);
             tlpFieldsLane4.TabIndex = 0;
             // 
             // lblLane4Driver
@@ -1220,7 +1136,7 @@ namespace HPParking.Forms
             lblLane4Driver.Margin = new Padding(3);
             lblLane4Driver.Name = "lblLane4Driver";
             lblLane4Driver.Padding = new Padding(6, 0, 0, 0);
-            lblLane4Driver.Size = new Size(221, 57);
+            lblLane4Driver.Size = new Size(221, 63);
             lblLane4Driver.TabIndex = 0;
             lblLane4Driver.Text = "Tài xế:";
             lblLane4Driver.TextAlign = ContentAlignment.MiddleLeft;
@@ -1236,7 +1152,7 @@ namespace HPParking.Forms
             lblLane4Dept.Margin = new Padding(3);
             lblLane4Dept.Name = "lblLane4Dept";
             lblLane4Dept.Padding = new Padding(6, 0, 0, 0);
-            lblLane4Dept.Size = new Size(222, 57);
+            lblLane4Dept.Size = new Size(222, 63);
             lblLane4Dept.TabIndex = 1;
             lblLane4Dept.Text = "Đơn vị:";
             lblLane4Dept.TextAlign = ContentAlignment.MiddleLeft;
@@ -1248,11 +1164,11 @@ namespace HPParking.Forms
             lblLane4TimeIn.Dock = DockStyle.Fill;
             lblLane4TimeIn.Font = new Font("Arial", 8F);
             lblLane4TimeIn.ForeColor = Color.Black;
-            lblLane4TimeIn.Location = new Point(3, 66);
+            lblLane4TimeIn.Location = new Point(3, 72);
             lblLane4TimeIn.Margin = new Padding(3);
             lblLane4TimeIn.Name = "lblLane4TimeIn";
             lblLane4TimeIn.Padding = new Padding(6, 0, 0, 0);
-            lblLane4TimeIn.Size = new Size(221, 57);
+            lblLane4TimeIn.Size = new Size(221, 63);
             lblLane4TimeIn.TabIndex = 2;
             lblLane4TimeIn.Text = "Ngày vào:";
             lblLane4TimeIn.TextAlign = ContentAlignment.MiddleLeft;
@@ -1264,11 +1180,11 @@ namespace HPParking.Forms
             lblLane4TimeOut.Dock = DockStyle.Fill;
             lblLane4TimeOut.Font = new Font("Arial", 8F);
             lblLane4TimeOut.ForeColor = Color.Black;
-            lblLane4TimeOut.Location = new Point(230, 66);
+            lblLane4TimeOut.Location = new Point(230, 72);
             lblLane4TimeOut.Margin = new Padding(3);
             lblLane4TimeOut.Name = "lblLane4TimeOut";
             lblLane4TimeOut.Padding = new Padding(6, 0, 0, 0);
-            lblLane4TimeOut.Size = new Size(222, 57);
+            lblLane4TimeOut.Size = new Size(222, 63);
             lblLane4TimeOut.TabIndex = 3;
             lblLane4TimeOut.Text = "Ngày ra:";
             lblLane4TimeOut.TextAlign = ContentAlignment.MiddleLeft;
@@ -1280,11 +1196,11 @@ namespace HPParking.Forms
             lblLane4PlateReg.Dock = DockStyle.Fill;
             lblLane4PlateReg.Font = new Font("Arial", 8F);
             lblLane4PlateReg.ForeColor = Color.Black;
-            lblLane4PlateReg.Location = new Point(3, 129);
+            lblLane4PlateReg.Location = new Point(3, 141);
             lblLane4PlateReg.Margin = new Padding(3);
             lblLane4PlateReg.Name = "lblLane4PlateReg";
             lblLane4PlateReg.Padding = new Padding(6, 0, 0, 0);
-            lblLane4PlateReg.Size = new Size(221, 57);
+            lblLane4PlateReg.Size = new Size(221, 63);
             lblLane4PlateReg.TabIndex = 4;
             lblLane4PlateReg.Text = "Biển số đăng ký:";
             lblLane4PlateReg.TextAlign = ContentAlignment.MiddleLeft;
@@ -1296,11 +1212,11 @@ namespace HPParking.Forms
             lblLane4PlateDet.Dock = DockStyle.Fill;
             lblLane4PlateDet.Font = new Font("Arial", 8F);
             lblLane4PlateDet.ForeColor = Color.DarkGreen;
-            lblLane4PlateDet.Location = new Point(230, 129);
+            lblLane4PlateDet.Location = new Point(230, 141);
             lblLane4PlateDet.Margin = new Padding(3);
             lblLane4PlateDet.Name = "lblLane4PlateDet";
             lblLane4PlateDet.Padding = new Padding(6, 0, 0, 0);
-            lblLane4PlateDet.Size = new Size(222, 57);
+            lblLane4PlateDet.Size = new Size(222, 63);
             lblLane4PlateDet.TabIndex = 5;
             lblLane4PlateDet.Text = "Biển số nhận diện:";
             lblLane4PlateDet.TextAlign = ContentAlignment.MiddleLeft;
@@ -1310,9 +1226,9 @@ namespace HPParking.Forms
             pbLane4PlateCrop.BackColor = Color.White;
             pbLane4PlateCrop.BorderStyle = BorderStyle.FixedSingle;
             pbLane4PlateCrop.Dock = DockStyle.Fill;
-            pbLane4PlateCrop.Location = new Point(3, 192);
+            pbLane4PlateCrop.Location = new Point(3, 210);
             pbLane4PlateCrop.Name = "pbLane4PlateCrop";
-            pbLane4PlateCrop.Size = new Size(221, 155);
+            pbLane4PlateCrop.Size = new Size(221, 174);
             pbLane4PlateCrop.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane4PlateCrop.TabIndex = 6;
             pbLane4PlateCrop.TabStop = false;
@@ -1322,37 +1238,57 @@ namespace HPParking.Forms
             pbLane4EntrySnap.BackColor = Color.White;
             pbLane4EntrySnap.BorderStyle = BorderStyle.FixedSingle;
             pbLane4EntrySnap.Dock = DockStyle.Fill;
-            pbLane4EntrySnap.Location = new Point(230, 192);
+            pbLane4EntrySnap.Location = new Point(230, 210);
             pbLane4EntrySnap.Name = "pbLane4EntrySnap";
-            pbLane4EntrySnap.Size = new Size(222, 155);
+            pbLane4EntrySnap.Size = new Size(222, 174);
             pbLane4EntrySnap.SizeMode = PictureBoxSizeMode.Zoom;
             pbLane4EntrySnap.TabIndex = 7;
             pbLane4EntrySnap.TabStop = false;
             // 
             // pnlFooter
             // 
-            pnlFooter.BackColor = Color.FromArgb(30, 41, 59);
+            pnlFooter.BackColor = Color.Gray;
+            pnlFooter.Controls.Add(btnReloadHardware);
             pnlFooter.Controls.Add(lbServer);
             pnlFooter.Controls.Add(lbStatusCtrl);
             pnlFooter.Controls.Add(lbdayExpiryDate);
             pnlFooter.Controls.Add(lbRealTime);
             pnlFooter.Dock = DockStyle.Fill;
-            pnlFooter.Location = new Point(0, 1000);
+            pnlFooter.Location = new Point(0, 1020);
             pnlFooter.Margin = new Padding(0);
             pnlFooter.Name = "pnlFooter";
-            pnlFooter.Size = new Size(1924, 50);
+            pnlFooter.Size = new Size(1924, 30);
             pnlFooter.TabIndex = 2;
+            // 
+            // btnReloadHardware
+            // 
+            btnReloadHardware.BackColor = Color.Crimson;
+            btnReloadHardware.Cursor = Cursors.Hand;
+            btnReloadHardware.Dock = DockStyle.Left;
+            btnReloadHardware.FlatAppearance.BorderColor = Color.FromArgb(71, 85, 105);
+            btnReloadHardware.FlatAppearance.BorderSize = 0;
+            btnReloadHardware.FlatStyle = FlatStyle.Flat;
+            btnReloadHardware.Font = new Font("Arial", 8F, FontStyle.Regular, GraphicsUnit.Point, 0);
+            btnReloadHardware.ForeColor = Color.White;
+            btnReloadHardware.Location = new Point(678, 0);
+            btnReloadHardware.Margin = new Padding(0);
+            btnReloadHardware.Name = "btnReloadHardware";
+            btnReloadHardware.Size = new Size(227, 30);
+            btnReloadHardware.TabIndex = 5;
+            btnReloadHardware.Text = "KHỞI ĐỘNG LẠI";
+            btnReloadHardware.UseVisualStyleBackColor = false;
+            btnReloadHardware.Click += BtnReloadHardware_Click;
             // 
             // lbServer
             // 
             lbServer.BackColor = Color.Teal;
             lbServer.Dock = DockStyle.Left;
-            lbServer.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lbServer.Font = new Font("Arial", 8F);
             lbServer.ForeColor = Color.White;
-            lbServer.Location = new Point(586, 0);
+            lbServer.Location = new Point(477, 0);
             lbServer.Margin = new Padding(4, 0, 4, 0);
             lbServer.Name = "lbServer";
-            lbServer.Size = new Size(229, 50);
+            lbServer.Size = new Size(201, 30);
             lbServer.TabIndex = 0;
             lbServer.Text = "MÁY CHỦ: ONLINE";
             lbServer.TextAlign = ContentAlignment.MiddleCenter;
@@ -1361,12 +1297,12 @@ namespace HPParking.Forms
             // 
             lbStatusCtrl.BackColor = Color.SeaGreen;
             lbStatusCtrl.Dock = DockStyle.Left;
-            lbStatusCtrl.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lbStatusCtrl.Font = new Font("Arial", 8F);
             lbStatusCtrl.ForeColor = Color.White;
-            lbStatusCtrl.Location = new Point(300, 0);
+            lbStatusCtrl.Location = new Point(229, 0);
             lbStatusCtrl.Margin = new Padding(4, 0, 4, 0);
             lbStatusCtrl.Name = "lbStatusCtrl";
-            lbStatusCtrl.Size = new Size(286, 50);
+            lbStatusCtrl.Size = new Size(248, 30);
             lbStatusCtrl.TabIndex = 1;
             lbStatusCtrl.Text = "BỘ ĐIỀU KHIỂN: ONLINE";
             lbStatusCtrl.TextAlign = ContentAlignment.MiddleCenter;
@@ -1375,25 +1311,25 @@ namespace HPParking.Forms
             // 
             lbdayExpiryDate.BackColor = Color.DarkGoldenrod;
             lbdayExpiryDate.Dock = DockStyle.Left;
-            lbdayExpiryDate.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lbdayExpiryDate.Font = new Font("Arial", 8F);
             lbdayExpiryDate.ForeColor = Color.White;
             lbdayExpiryDate.Location = new Point(0, 0);
             lbdayExpiryDate.Margin = new Padding(4, 0, 4, 0);
             lbdayExpiryDate.Name = "lbdayExpiryDate";
-            lbdayExpiryDate.Size = new Size(300, 50);
+            lbdayExpiryDate.Size = new Size(229, 30);
             lbdayExpiryDate.TabIndex = 2;
-            lbdayExpiryDate.Text = "HẠN BẢN QUYỀN: 31/12/2026";
+            lbdayExpiryDate.Text = "BẢN QUYỀN: VĨNH VIỄN";
             lbdayExpiryDate.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // lbRealTime
             // 
             lbRealTime.Dock = DockStyle.Right;
-            lbRealTime.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            lbRealTime.Font = new Font("Arial", 8F, FontStyle.Regular, GraphicsUnit.Point, 0);
             lbRealTime.ForeColor = Color.White;
-            lbRealTime.Location = new Point(1407, 0);
+            lbRealTime.Location = new Point(1567, 0);
             lbRealTime.Margin = new Padding(4, 0, 4, 0);
             lbRealTime.Name = "lbRealTime";
-            lbRealTime.Size = new Size(517, 50);
+            lbRealTime.Size = new Size(357, 30);
             lbRealTime.TabIndex = 4;
             lbRealTime.Text = "HÔM NAY: 10:00:00 01/10/2026";
             lbRealTime.TextAlign = ContentAlignment.MiddleRight;
@@ -1465,7 +1401,6 @@ namespace HPParking.Forms
         private TableLayoutPanel tlpRoot;
         private Panel pnlHeader;
         private Label lblGateInfo;
-        private Button btnReloadHardware;
 
         private TableLayoutPanel tlpLanes;
         private Panel pnlFooter;
@@ -1478,7 +1413,6 @@ namespace HPParking.Forms
         private TableLayoutPanel tlpLane1;
         private TableLayoutPanel tlpHeadLane1;
         private Label lblTitleLane1;
-        private Label lblSubLane1;
         private TableLayoutPanel tlpCamsLane1;
         private PictureBox pbLane1Overview;
         private PictureBox pbLane1Plate;
@@ -1498,7 +1432,6 @@ namespace HPParking.Forms
         private TableLayoutPanel tlpLane2;
         private TableLayoutPanel tlpHeadLane2;
         private Label lblTitleLane2;
-        private Label lblSubLane2;
         private TableLayoutPanel tlpCamsLane2;
         private PictureBox pbLane2Overview;
         private PictureBox pbLane2Plate;
@@ -1518,7 +1451,6 @@ namespace HPParking.Forms
         private TableLayoutPanel tlpLane3;
         private TableLayoutPanel tlpHeadLane3;
         private Label lblTitleLane3;
-        private Label lblSubLane3;
         private TableLayoutPanel tlpCamsLane3;
         private PictureBox pbLane3Overview;
         private PictureBox pbLane3Plate;
@@ -1538,7 +1470,6 @@ namespace HPParking.Forms
         private TableLayoutPanel tlpLane4;
         private TableLayoutPanel tlpHeadLane4;
         private Label lblTitleLane4;
-        private Label lblSubLane4;
         private TableLayoutPanel tlpCamsLane4;
         private PictureBox pbLane4Overview;
         private PictureBox pbLane4Plate;
@@ -1553,5 +1484,6 @@ namespace HPParking.Forms
         private Label lblLane4PlateDet;
         private PictureBox pbLane4PlateCrop;
         private PictureBox pbLane4EntrySnap;
+        private Button btnReloadHardware;
     }
 }
