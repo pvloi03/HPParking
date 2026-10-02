@@ -24,7 +24,6 @@ namespace HPParking.Forms
     public partial class FrmMain : Form
     {
         private readonly IRepository<Lane> _laneRepository;
-        private readonly IRepository<Company> _companyRepository;
         private readonly IRepository<Gate> _gateRepository;
         private readonly IRepository<Device> _deviceRepository;
         private readonly LicenseManager _licenseManager;
@@ -43,7 +42,6 @@ namespace HPParking.Forms
 
         public FrmMain(
             IRepository<Lane> laneRepository,
-            IRepository<Company> companyRepository,
             IRepository<Gate> gateRepository,
             IRepository<Device> deviceRepository,
             LicenseManager licenseManager,
@@ -53,7 +51,6 @@ namespace HPParking.Forms
             InitializeComponent();
 
             _laneRepository = laneRepository;
-            _companyRepository = companyRepository;
             _gateRepository = gateRepository;
             _deviceRepository = deviceRepository;
             _licenseManager = licenseManager;
@@ -108,32 +105,30 @@ namespace HPParking.Forms
             string currentMachineCode = HardwareFingerprint.GetMachineCode();
             _currentGate = await _gateRepository.FindOneAsync(x => x.MachineCode == currentMachineCode && x.IsActive && !x.IsDeleted);
 
-            // Fallback nếu máy tính chưa gán MachineCode vào cổng cụ thể: lấy Cổng đang kích hoạt đầu tiên
+            // Không fallback — nếu không khớp MachineCode thì báo lỗi cấu hình rõ ràng
             if (_currentGate == null)
             {
-                var allActiveGates = await _gateRepository.FindAsync(x => x.IsActive && !x.IsDeleted);
-                _currentGate = allActiveGates?.FirstOrDefault();
+                ShowNoGateConfiguredWarning(currentMachineCode);
+                SetFormConfigurationLocked(true);
+                return;
             }
 
-            if (_currentGate != null && !string.IsNullOrWhiteSpace(_currentGate.Id))
+            var gateLanes = await _laneRepository.FindAsync(x => x.GateId == _currentGate.Id && x.IsActive && !x.IsDeleted);
+            _lanes = gateLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
+            _laneContexts = [.. _lanes.Select(l => new LaneRuntimeContext(l))];
+
+            Text = $"HPPARKING - {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code})";
+            lblGateInfo.Text = $"CỔNG: {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code}) - SỐ LÀN KẾT NỐI: {_lanes.Count}";
+
+            if (_lanes.Count == 0)
             {
-                var gateLanes = await _laneRepository.FindAsync(x => x.GateId == _currentGate.Id && x.IsActive && !x.IsDeleted);
-                _lanes = gateLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
-                _laneContexts = _lanes.Select(l => new LaneRuntimeContext(l)).ToList();
-
-                Text = $"HPPARKING - {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code})";
-                lblGateInfo.Text = $"CỔNG: {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code}) - SỐ LÀN KẾT NỐI: {_lanes.Count}";
+                ShowNoLaneConfiguredWarning(_currentGate.Name ?? _currentGate.Code);
+                SetFormConfigurationLocked(true);
+                return;
             }
-            else
-            {
-                // Fallback nếu không tìm thấy cổng nào: nạp toàn bộ các làn đang kích hoạt
-                var allActiveLanes = await _laneRepository.FindAsync(x => x.IsActive && !x.IsDeleted);
-                _lanes = allActiveLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
-                _laneContexts = _lanes.Select(l => new LaneRuntimeContext(l)).ToList();
 
-                Text = "HPPARKING - HỆ THỐNG KIỂM SOÁT VÀO RA";
-                lblGateInfo.Text = $"HỆ THỐNG KIỂM SOÁT VÀO RA - TẤT CẢ LÀN HOẠT ĐỘNG ({_lanes.Count} LÀN)";
-            }
+            // Cấu hình hợp lệ — mở khóa form và khởi tạo
+            SetFormConfigurationLocked(false);
 
             // Liên kết Làn 1-1 và áp dụng Dynamic Layout
             BindLanesToUiSlots();
@@ -160,7 +155,6 @@ namespace HPParking.Forms
             {
                 SwitchLaneMode(true, false, false, false, "Chưa Cấu Hình Làn");
                 lblTitleLane1.Text = "⚠️ CHƯA CÓ LÀN HOẠT ĐỘNG";
-                lblSubLane1.Text = "Vui lòng cấu hình cổng và làn trên WebAdmin";
                 return;
             }
 
@@ -185,27 +179,20 @@ namespace HPParking.Forms
 
         private void ConfigureSlotHeader(int slotIndex, Lane lane)
         {
-            string dirText = lane.Direction == LaneDirection.In ? "VÀO" : "RA";
-            string typeIcon = lane.TargetType == LaneTargetType.Pedestrian ? "🚶" : "🚗";
-            string typeText = lane.TargetType == LaneTargetType.Pedestrian ? "NGƯỜI ĐI BỘ" : "XE CƠ GIỚI";
 
             switch (slotIndex)
             {
                 case 0:
-                    lblTitleLane1.Text = $"{typeIcon} LÀN 1 ({dirText})";
-                    lblSubLane1.Text = $"{lane.Name.ToUpperInvariant()} - {typeText}";
+                    lblTitleLane1.Text = $"{lane.Name.ToUpperInvariant()}";
                     break;
                 case 1:
-                    lblTitleLane2.Text = $"{typeIcon} LÀN 2 ({dirText})";
-                    lblSubLane2.Text = $"{lane.Name.ToUpperInvariant()} - {typeText}";
+                    lblTitleLane2.Text = $"{lane.Name.ToUpperInvariant()}";
                     break;
                 case 2:
-                    lblTitleLane3.Text = $"{typeIcon} LÀN 3 ({dirText})";
-                    lblSubLane3.Text = $"{lane.Name.ToUpperInvariant()} - {typeText}";
+                    lblTitleLane3.Text = $"{lane.Name.ToUpperInvariant()}";
                     break;
                 case 3:
-                    lblTitleLane4.Text = $"{typeIcon} LÀN 4 ({dirText})";
-                    lblSubLane4.Text = $"{lane.Name.ToUpperInvariant()} - {typeText}";
+                    lblTitleLane4.Text = $"{lane.Name.ToUpperInvariant()}";
                     break;
             }
         }
@@ -481,8 +468,8 @@ namespace HPParking.Forms
                     tlpCams.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
                     tlpCams.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
                     tlpCams.RowStyles.Clear();
-                    tlpCams.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));
-                    tlpCams.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+                    tlpCams.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+                    tlpCams.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
 
                     tlpCams.SetColumnSpan(camOverview, 2);
                     tlpCams.SetCellPosition(camOverview, new TableLayoutPanelCellPosition(0, 0));
@@ -629,32 +616,6 @@ namespace HPParking.Forms
             string timeStr = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
             bool isEntry = context.Lane.Direction == LaneDirection.In;
             bool isSuccess = result.Status == ProcessStatus.Success;
-
-            // Cập nhật banner thông báo trạng thái trên tiêu đề Làn
-            Label? subLabel = slotIndex switch
-            {
-                0 => lblSubLane1,
-                1 => lblSubLane2,
-                2 => lblSubLane3,
-                3 => lblSubLane4,
-                _ => null
-            };
-
-            if (subLabel != null)
-            {
-                if (isSuccess)
-                {
-                    subLabel.Text = $"✅ {result.Message}";
-                    subLabel.BackColor = Color.ForestGreen;
-                    subLabel.ForeColor = Color.White;
-                }
-                else
-                {
-                    subLabel.Text = $"❌ {result.Message}";
-                    subLabel.BackColor = Color.Crimson;
-                    subLabel.ForeColor = Color.White;
-                }
-            }
 
             if (context.Lane.TargetType == LaneTargetType.Pedestrian)
             {
@@ -1081,7 +1042,7 @@ namespace HPParking.Forms
             {
                 using var waitScope = new WaitCursorScope(this);
                 btnReloadHardware.Enabled = false;
-                btnReloadHardware.Text = "⏳ ĐANG KẾT NỐI LẠI...";
+                btnReloadHardware.Text = "ĐANG KHỞI ĐỘNG LẠI...";
 
                 // Giải phóng kết nối phần cứng cũ và khởi tạo lại Orchestrator mới
                 _deviceOrchestrator.Dispose();
@@ -1091,7 +1052,9 @@ namespace HPParking.Forms
                 // Nạp lại cấu hình và khởi tạo lại toàn bộ thiết bị
                 await LoadHardwareAndLanesAsync();
 
-                MessageBox.Show("Nạp lại cấu hình và kết nối thiết bị phần cứng thành công!", "Thông Báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Chỉ hiện "thành công" khi cấu hình hợp lệ (form đã được unlock)
+                if (tlpLanes.Enabled)
+                    MessageBox.Show("Nạp lại cấu hình và kết nối thiết bị phần cứng thành công!", "Thông Báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -1100,8 +1063,52 @@ namespace HPParking.Forms
             finally
             {
                 btnReloadHardware.Enabled = true;
-                btnReloadHardware.Text = "🔄 NẠP LẠI THIẾT BỊ";
+                btnReloadHardware.Text = "KHỞI ĐỘNG LẠI";
             }
+        }
+
+        /// <summary>
+        /// Hiển thị cảnh báo khi máy trạm chưa được gán vào Cổng nào trong hệ thống.
+        /// </summary>
+        private void ShowNoGateConfiguredWarning(string machineCode)
+        {
+            lblGateInfo.Text = "⚠️ CHƯA CẤU HÌNH CỔNG — Vui lòng vào WebAdmin để thiết lập";
+            lblTitleLane1.Text = "⚠️ CHƯA CÓ CỔNG";
+
+            MessageBox.Show(
+                $"Máy trạm này (MachineCode: {machineCode}) chưa được gán vào Cổng nào.\n\n" +
+                "Vui lòng vào WebAdmin → Cài đặt → Cổng và gán MachineCode cho máy trạm này, " +
+                "sau đó nhấn \"KHỞI ĐỘNG LẠI\".",
+                "⚠️ Chưa Cấu Hình Cổng",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
+        /// <summary>
+        /// Hiển thị cảnh báo khi Cổng đã tìm thấy nhưng chưa có Làn hoạt động nào.
+        /// </summary>
+        private void ShowNoLaneConfiguredWarning(string gateName)
+        {
+            lblTitleLane1.Text = "⚠️ CHƯA CÓ LÀN";
+
+            MessageBox.Show(
+                $"Cổng \"{gateName}\" chưa có Làn hoạt động nào.\n\n" +
+                "Vui lòng vào WebAdmin → Cài đặt → Làn, thêm hoặc kích hoạt Làn cho cổng này, " +
+                "sau đó nhấn \"KHỞI ĐỘNG LẠI\".",
+                "⚠️ Chưa Cấu Hình Làn",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
+        /// <summary>
+        /// Khóa/mở toàn bộ giao diện làn. Khi locked, chỉ btnReloadHardware hoạt động.
+        /// Dùng khi chưa có Cổng hoặc Làn hợp lệ để ngăn vận hành nhầm.
+        /// </summary>
+        private void SetFormConfigurationLocked(bool locked)
+        {
+            tlpLanes.Enabled = !locked;
+            // btnReloadHardware nằm trong pnlFooter — luôn giữ enabled
+            btnReloadHardware.Enabled = true;
         }
 
         #endregion
