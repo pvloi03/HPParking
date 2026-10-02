@@ -8,18 +8,12 @@ using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Controller;
-using HPParking.Services.LPR;
 using HPParking.Services.Parking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using NSubstitute;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Api
@@ -36,7 +30,7 @@ namespace HPParking.Tests.Api
             // Case 1.1: Chuyến xe đã về nhà máy hoàn tất (Status = Completed, NextDeadline = null)
             // nhưng trước đó có 1 chặng bị trễ hạn (SlaOverdue.IsOverdue = true)
             // KẾT QUẢ MONG MUỐN: isOverdue của toàn chuyến PHẢI là true (không bị tẩy trắng).
-            
+
             var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
             var gateRepo = Substitute.For<IRepository<Gate>>();
             var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();

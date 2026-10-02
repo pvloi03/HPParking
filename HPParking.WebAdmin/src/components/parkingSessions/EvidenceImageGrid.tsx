@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageOff,
+  ScanFace,
 } from 'lucide-react';
 
 export interface EvidenceImageGridProps {
@@ -18,6 +19,8 @@ export interface EvidenceImageGridProps {
   inTime?: string;
   outTime?: string;
   isActiveSession?: boolean;
+  targetType?: number;
+  personAvatar?: string | null;
 }
 
 export interface SlideItem {
@@ -57,82 +60,131 @@ export function EvidenceImageGrid({
   inTime,
   outTime,
   isActiveSession = false,
+  targetType,
+  personAvatar,
 }: EvidenceImageGridProps) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
-  const slides: SlideItem[] = [
-    {
-      id: 'in-overview',
-      label: '1. Toàn Cảnh Lúc Vào',
-      subtitle: `Làn: ${inLaneName || 'Làn Vào 1'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
-      tag: 'VÀO',
-      tagColor: 'bg-blue-600',
-      url: formatImageUrl(inOverviewImagePath),
-      hasImg: hasImagePath(inOverviewImagePath),
-      fallbackText: 'Không có ảnh toàn cảnh vào',
-    },
-    {
-      id: 'in-plate',
-      label: '2. Cận Cảnh Biển Số Vào',
-      subtitle: `Biển số nhận diện: ${plateNumber} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
-      tag: 'BIỂN SỐ VÀO',
-      tagColor: 'bg-cyan-600',
-      url: formatImageUrl(inPlateImagePath),
-      hasImg: hasImagePath(inPlateImagePath),
-      fallbackText: 'Không có ảnh biển số vào',
-    },
-    {
-      id: 'out-overview',
-      label: '3. Toàn Cảnh Lúc Ra',
-      subtitle: `Làn: ${outLaneName || 'Làn Ra 1'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
-      tag: 'RA',
-      tagColor: 'bg-emerald-600',
-      url: formatImageUrl(outOverviewImagePath),
-      hasImg: hasImagePath(outOverviewImagePath),
-      fallbackText: isActiveSession
-        ? 'Xe đang đỗ trong bãi (Chưa có ảnh toàn cảnh ra)'
-        : 'Chưa có ảnh toàn cảnh ra',
-    },
-    {
-      id: 'out-plate',
-      label: '4. Cận Cảnh Biển Số Ra',
-      subtitle: `Biển số đối chiếu: ${plateNumber} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
-      tag: 'BIỂN SỐ RA',
-      tagColor: 'bg-rose-600',
-      url: formatImageUrl(outPlateImagePath),
-      hasImg: hasImagePath(outPlateImagePath),
-      fallbackText: isActiveSession
-        ? 'Xe đang đỗ trong bãi (Chưa có ảnh biển số ra)'
-        : 'Chưa có ảnh biển số ra',
-    },
-  ];
+  const effectiveInFace = inFaceImagePath || personAvatar;
+  const effectiveOutFace = outFaceImagePath || personAvatar;
+  const isPedestrian = targetType === 1;
 
-  if (hasImagePath(inFaceImagePath)) {
-    slides.push({
-      id: 'in-face',
-      label: '5. Khuôn Mặt Chân Dung Vào',
-      subtitle: `Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
-      tag: 'FACE VÀO',
-      tagColor: 'bg-purple-600',
-      url: formatImageUrl(inFaceImagePath),
-      hasImg: true,
-      fallbackText: 'Không có ảnh khuôn mặt vào',
-    });
-  }
-
-  if (hasImagePath(outFaceImagePath)) {
-    slides.push({
-      id: 'out-face',
-      label: '6. Khuôn Mặt Chân Dung Ra',
-      subtitle: `Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
-      tag: 'FACE RA',
-      tagColor: 'bg-pink-600',
-      url: formatImageUrl(outFaceImagePath),
-      hasImg: true,
-      fallbackText: 'Không có ảnh khuôn mặt ra',
-    });
-  }
+  const slides: SlideItem[] = isPedestrian
+    ? [
+        {
+          id: 'in-face',
+          label: '1. Khuôn Mặt Chân Dung Vào',
+          subtitle: `Làn: ${inLaneName || 'Làn Vào'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'FACE VÀO',
+          tagColor: 'bg-purple-600',
+          url: formatImageUrl(effectiveInFace),
+          hasImg: hasImagePath(effectiveInFace),
+          fallbackText: 'Chưa có ảnh khuôn mặt lúc vào',
+        },
+        {
+          id: 'in-overview',
+          label: '2. Toàn Cảnh Lúc Vào',
+          subtitle: `Làn: ${inLaneName || 'Làn Vào'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'VÀO',
+          tagColor: 'bg-blue-600',
+          url: formatImageUrl(inOverviewImagePath),
+          hasImg: hasImagePath(inOverviewImagePath),
+          fallbackText: 'Không có ảnh toàn cảnh vào',
+        },
+        {
+          id: 'out-face',
+          label: '3. Khuôn Mặt Chân Dung Ra',
+          subtitle: `Làn: ${outLaneName || 'Làn Ra'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'FACE RA',
+          tagColor: 'bg-pink-600',
+          url: formatImageUrl(effectiveOutFace),
+          hasImg: hasImagePath(effectiveOutFace),
+          fallbackText: isActiveSession
+            ? 'Người đang trong khu vực (Chưa có ảnh mặt ra)'
+            : 'Chưa có ảnh khuôn mặt lúc ra',
+        },
+        {
+          id: 'out-overview',
+          label: '4. Toàn Cảnh Lúc Ra',
+          subtitle: `Làn: ${outLaneName || 'Làn Ra'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'RA',
+          tagColor: 'bg-emerald-600',
+          url: formatImageUrl(outOverviewImagePath),
+          hasImg: hasImagePath(outOverviewImagePath),
+          fallbackText: isActiveSession
+            ? 'Người đang trong khu vực (Chưa có ảnh toàn cảnh ra)'
+            : 'Chưa có ảnh toàn cảnh ra',
+        },
+      ]
+    : [
+        {
+          id: 'in-overview',
+          label: '1. Toàn Cảnh Lúc Vào',
+          subtitle: `Làn: ${inLaneName || 'Làn Vào 1'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'VÀO',
+          tagColor: 'bg-blue-600',
+          url: formatImageUrl(inOverviewImagePath),
+          hasImg: hasImagePath(inOverviewImagePath),
+          fallbackText: 'Không có ảnh toàn cảnh vào',
+        },
+        {
+          id: 'in-plate',
+          label: '2. Cận Cảnh Biển Số Vào',
+          subtitle: `Biển số nhận diện: ${plateNumber} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'BIỂN SỐ VÀO',
+          tagColor: 'bg-cyan-600',
+          url: formatImageUrl(inPlateImagePath),
+          hasImg: hasImagePath(inPlateImagePath),
+          fallbackText: 'Không có ảnh biển số vào',
+        },
+        {
+          id: 'in-face',
+          label: '3. Khuôn Mặt Chân Dung Vào',
+          subtitle: `Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'FACE VÀO',
+          tagColor: 'bg-purple-600',
+          url: formatImageUrl(effectiveInFace),
+          hasImg: hasImagePath(effectiveInFace),
+          fallbackText: 'Chưa có ảnh khuôn mặt lúc vào',
+        },
+        {
+          id: 'out-overview',
+          label: '4. Toàn Cảnh Lúc Ra',
+          subtitle: `Làn: ${outLaneName || 'Làn Ra 1'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'RA',
+          tagColor: 'bg-emerald-600',
+          url: formatImageUrl(outOverviewImagePath),
+          hasImg: hasImagePath(outOverviewImagePath),
+          fallbackText: isActiveSession
+            ? 'Xe đang đỗ trong bãi (Chưa có ảnh toàn cảnh ra)'
+            : 'Chưa có ảnh toàn cảnh ra',
+        },
+        {
+          id: 'out-plate',
+          label: '5. Cận Cảnh Biển Số Ra',
+          subtitle: `Biển số đối chiếu: ${plateNumber} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'BIỂN SỐ RA',
+          tagColor: 'bg-rose-600',
+          url: formatImageUrl(outPlateImagePath),
+          hasImg: hasImagePath(outPlateImagePath),
+          fallbackText: isActiveSession
+            ? 'Xe đang đỗ trong bãi (Chưa có ảnh biển số ra)'
+            : 'Chưa có ảnh biển số ra',
+        },
+        {
+          id: 'out-face',
+          label: '6. Khuôn Mặt Chân Dung Ra',
+          subtitle: `Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          tag: 'FACE RA',
+          tagColor: 'bg-pink-600',
+          url: formatImageUrl(effectiveOutFace),
+          hasImg: hasImagePath(effectiveOutFace),
+          fallbackText: isActiveSession
+            ? 'Xe đang đỗ trong bãi (Chưa có ảnh mặt ra)'
+            : 'Chưa có ảnh khuôn mặt lúc ra',
+        },
+      ];
 
   const handlePrevSlide = useCallback(() => {
     setActiveSlide((prev) => (prev > 0 ? prev - 1 : slides.length - 1));
@@ -240,9 +292,10 @@ export function EvidenceImageGrid({
       </div>
 
       {/* Bottom Thumbnail Strip - Compact */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className={`grid gap-2 ${slides.length <= 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3 sm:grid-cols-6'}`}>
         {slides.map((slide, idx) => {
           const isThumbValid = slide.hasImg && !failedImages[slide.id];
+          const isFaceSlide = slide.id.includes('face');
           return (
             <button
               key={slide.id}
@@ -265,7 +318,11 @@ export function EvidenceImageGrid({
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-0.5">
-                    <ImageOff className="h-3.5 w-3.5 opacity-50" />
+                    {isFaceSlide ? (
+                      <ScanFace className="h-4 w-4 opacity-60 text-purple-500 dark:text-purple-400" />
+                    ) : (
+                      <ImageOff className="h-3.5 w-3.5 opacity-50" />
+                    )}
                     <span className="text-[9px] font-medium leading-none">
                       {failedImages[slide.id] ? 'Lỗi ảnh' : 'Chưa có'}
                     </span>

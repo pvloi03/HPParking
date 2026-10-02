@@ -16,7 +16,8 @@ namespace HPParking.Core.Models.Entities
         public string PlateNumber { get; set; } = string.Empty;
 
         [BsonRepresentation(BsonType.String)]
-        public VehicleType VehicleType { get; set; } = VehicleType.Car;
+        [BsonIgnoreIfNull]
+        public VehicleType? VehicleType { get; set; }
 
         [BsonRepresentation(BsonType.String)]
         public ParkingSessionStatus Status { get; set; } = ParkingSessionStatus.Active;

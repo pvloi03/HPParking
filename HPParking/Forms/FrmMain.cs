@@ -12,7 +12,6 @@ using HPParking.Services.License;
 using HPParking.Services.Parking;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Threading;
@@ -32,8 +31,7 @@ namespace HPParking.Forms
         private readonly IParkingWorkflowService _workflowService;
         private readonly IServerHealthService _serverHealthService;
 
-        private readonly DeviceOrchestrator _deviceOrchestrator = new();
-        private readonly Random _random = new();
+        private DeviceOrchestrator _deviceOrchestrator = new();
 
         private List<Lane> _lanes = [];
         private List<LaneRuntimeContext> _laneContexts = [];
@@ -95,40 +93,61 @@ namespace HPParking.Forms
                 };
                 _clockTimer.Start();
 
-                // 4. Nhận diện Cổng phụ trách theo MachineCode
-                string currentMachineCode = HardwareFingerprint.GetMachineCode();
-                _currentGate = await _gateRepository.FindOneAsync(x => x.MachineCode == currentMachineCode && x.IsActive && !x.IsDeleted);
-
-                if (_currentGate != null && !string.IsNullOrWhiteSpace(_currentGate.Id))
-                {
-                    var gateLanes = await _laneRepository.FindAsync(x => x.GateId == _currentGate.Id && x.IsActive);
-                    _lanes = gateLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
-                    _laneContexts = _lanes.Select(l => new LaneRuntimeContext(l)).ToList();
-                    Text = $"HPPARKING - {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code})";
-                }
-                else
-                {
-                    _lanes = [];
-                    _laneContexts = [];
-                    Text = "HPPARKING - [CHẾ ĐỘ MÔ PHỎNG / TEST] CỔNG ĐA LÀN";
-                }
-
-                // 5. Liên kết Làn 1-1 và áp dụng Dynamic Layout Option B
-                BindLanesToUiSlots();
-
-                // 6. Khởi tạo Thiết bị Phần Cứng & LiveView Camera
-                _devices = (await _deviceRepository.GetAllAsync())?.ToList() ?? [];
-                await _deviceOrchestrator.InitializeDevicesAsync(_laneContexts, _devices, previewHandleResolver: ResolvePreviewHandles);
-
-                // 7. Lắng nghe tín hiệu quẹt thẻ & cảm biến Radar Realtime
-                _deviceOrchestrator.OnCardSwiped += OnCardSwiped;
-                _deviceOrchestrator.OnRadarTriggered += OnRadarTriggered;
-                _deviceOrchestrator.StartRealtimeLoop();
+                // 4. Nạp Cổng, Làn và kết nối toàn bộ thiết bị phần cứng thực tế
+                await LoadHardwareAndLanesAsync();
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Lỗi Khởi Động HPParking", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private async Task LoadHardwareAndLanesAsync()
+        {
+            // Nhận diện Cổng phụ trách theo MachineCode máy trạm
+            string currentMachineCode = HardwareFingerprint.GetMachineCode();
+            _currentGate = await _gateRepository.FindOneAsync(x => x.MachineCode == currentMachineCode && x.IsActive && !x.IsDeleted);
+
+            // Fallback nếu máy tính chưa gán MachineCode vào cổng cụ thể: lấy Cổng đang kích hoạt đầu tiên
+            if (_currentGate == null)
+            {
+                var allActiveGates = await _gateRepository.FindAsync(x => x.IsActive && !x.IsDeleted);
+                _currentGate = allActiveGates?.FirstOrDefault();
+            }
+
+            if (_currentGate != null && !string.IsNullOrWhiteSpace(_currentGate.Id))
+            {
+                var gateLanes = await _laneRepository.FindAsync(x => x.GateId == _currentGate.Id && x.IsActive && !x.IsDeleted);
+                _lanes = gateLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
+                _laneContexts = _lanes.Select(l => new LaneRuntimeContext(l)).ToList();
+
+                Text = $"HPPARKING - {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code})";
+                lblGateInfo.Text = $"CỔNG: {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code}) - SỐ LÀN KẾT NỐI: {_lanes.Count}";
+            }
+            else
+            {
+                // Fallback nếu không tìm thấy cổng nào: nạp toàn bộ các làn đang kích hoạt
+                var allActiveLanes = await _laneRepository.FindAsync(x => x.IsActive && !x.IsDeleted);
+                _lanes = allActiveLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
+                _laneContexts = _lanes.Select(l => new LaneRuntimeContext(l)).ToList();
+
+                Text = "HPPARKING - HỆ THỐNG KIỂM SOÁT VÀO RA";
+                lblGateInfo.Text = $"HỆ THỐNG KIỂM SOÁT VÀO RA - TẤT CẢ LÀN HOẠT ĐỘNG ({_lanes.Count} LÀN)";
+            }
+
+            // Liên kết Làn 1-1 và áp dụng Dynamic Layout
+            BindLanesToUiSlots();
+
+            // Khởi tạo Thiết bị Phần Cứng & LiveView Camera
+            _devices = (await _deviceRepository.FindAsync(x => x.IsActive && !x.IsDeleted))?.ToList() ?? [];
+            await _deviceOrchestrator.InitializeDevicesAsync(_laneContexts, _devices, previewHandleResolver: ResolvePreviewHandles);
+
+            // Lắng nghe tín hiệu quẹt thẻ & cảm biến Radar Realtime
+            _deviceOrchestrator.OnCardSwiped -= OnCardSwiped;
+            _deviceOrchestrator.OnCardSwiped += OnCardSwiped;
+            _deviceOrchestrator.OnRadarTriggered -= OnRadarTriggered;
+            _deviceOrchestrator.OnRadarTriggered += OnRadarTriggered;
+            _deviceOrchestrator.StartRealtimeLoop();
         }
 
         #endregion
@@ -139,9 +158,9 @@ namespace HPParking.Forms
         {
             if (_lanes.Count == 0)
             {
-                // Nếu chưa gán cổng thật: hiển thị chế độ 4 làn mẫu
-                SwitchLaneMode(true, true, true, true, "4 Làn Mô Phỏng", btnMode4Lanes);
-                GenerateInitialMockImages();
+                SwitchLaneMode(true, false, false, false, "Chưa Cấu Hình Làn");
+                lblTitleLane1.Text = "⚠️ CHƯA CÓ LÀN HOẠT ĐỘNG";
+                lblSubLane1.Text = "Vui lòng cấu hình cổng và làn trên WebAdmin";
                 return;
             }
 
@@ -161,15 +180,7 @@ namespace HPParking.Forms
             bool lane4Vis = activeCount >= 4;
 
             string modeDesc = $"{activeCount} Làn Hoạt Động";
-            Button? activeBtn = activeCount switch
-            {
-                1 => btnMode1Lane,
-                2 => btnMode2Vehicles,
-                3 => btnMode3Lanes,
-                _ => btnMode4Lanes
-            };
-
-            SwitchLaneMode(lane1Vis, lane2Vis, lane3Vis, lane4Vis, modeDesc, activeBtn);
+            SwitchLaneMode(lane1Vis, lane2Vis, lane3Vis, lane4Vis, modeDesc);
         }
 
         private void ConfigureSlotHeader(int slotIndex, Lane lane)
@@ -199,41 +210,51 @@ namespace HPParking.Forms
             }
         }
 
-        private LanePreviewHandles? ResolvePreviewHandles(Lane lane)
+        private (PictureBox Overview, PictureBox Plate, PictureBox Face) GetLaneCamBoxes(int slotIndex)
         {
-            int slotIndex = _lanes.IndexOf(lane);
-            if (slotIndex < 0) return null;
-
             return slotIndex switch
             {
-                0 => new LanePreviewHandles
-                {
-                    OverviewHandle = pbLane1Overview.Handle,
-                    FaceHandle = pbLane1Face.Handle,
-                    PlateHandle = pbLane1Face.Handle
-                },
-                1 => new LanePreviewHandles
-                {
-                    OverviewHandle = pbLane2Overview.Handle,
-                    FaceHandle = pbLane2Face.Handle,
-                    PlateHandle = pbLane2Face.Handle
-                },
-                2 => new LanePreviewHandles
-                {
-                    OverviewHandle = pbLane3Overview.Handle,
-                    PlateHandle = pbLane3Plate.Handle,
-                    FaceHandle = pbLane3Face.Handle
-                },
-                3 => new LanePreviewHandles
-                {
-                    OverviewHandle = pbLane4Overview.Handle,
-                    PlateHandle = pbLane4Plate.Handle
-                },
-                _ => null
+                0 => (pbLane1Overview, pbLane1Plate, pbLane1Face),
+                1 => (pbLane2Overview, pbLane2Plate, pbLane2Face),
+                2 => (pbLane3Overview, pbLane3Plate, pbLane3Face),
+                3 => (pbLane4Overview, pbLane4Plate, pbLane4Face),
+                _ => throw new ArgumentOutOfRangeException(nameof(slotIndex))
             };
         }
 
-        public void SwitchLaneMode(bool lane1Vis, bool lane2Vis, bool lane3Vis, bool lane4Vis, string modeName, Button? activeBtn)
+        private TableLayoutPanel GetLaneCamsContainer(int slotIndex)
+        {
+            return slotIndex switch
+            {
+                0 => tlpCamsLane1,
+                1 => tlpCamsLane2,
+                2 => tlpCamsLane3,
+                3 => tlpCamsLane4,
+                _ => throw new ArgumentOutOfRangeException(nameof(slotIndex))
+            };
+        }
+
+        private LanePreviewHandles? ResolvePreviewHandles(Lane lane)
+        {
+            int slotIndex = _lanes.IndexOf(lane);
+            if (slotIndex < 0 || slotIndex > 3) return null;
+
+            var (pbOverview, pbPlate, pbFace) = GetLaneCamBoxes(slotIndex);
+
+            bool isPedestrian = lane.TargetType == LaneTargetType.Pedestrian;
+            bool hasFace = lane.UseFaceCam || (!string.IsNullOrEmpty(lane.FaceDeviceId)) || isPedestrian;
+            bool hasPlate = !isPedestrian && (lane.UsePlateCam || !string.IsNullOrEmpty(lane.PlateCameraDeviceId));
+            bool hasOverview = lane.UseOverviewCam || (!string.IsNullOrEmpty(lane.OverviewCameraDeviceId));
+
+            return new LanePreviewHandles
+            {
+                OverviewHandle = hasOverview ? pbOverview.Handle : IntPtr.Zero,
+                PlateHandle = hasPlate ? pbPlate.Handle : IntPtr.Zero,
+                FaceHandle = hasFace ? pbFace.Handle : IntPtr.Zero
+            };
+        }
+
+        public void SwitchLaneMode(bool lane1Vis, bool lane2Vis, bool lane3Vis, bool lane4Vis, string modeName)
         {
             tlpLanes.SuspendLayout();
             try
@@ -255,15 +276,6 @@ namespace HPParking.Forms
 
                 // Áp dụng Phương án B: Tự động dàn đều camera trên 1 hàng ngang khi ở chế độ ít làn (<= 3 làn)
                 ApplyOptionBCameraLayout(activeCount);
-
-                ResetModeButtonStyles();
-                if (activeBtn != null)
-                {
-                    activeBtn.BackColor = Color.FromArgb(2, 132, 199);
-                    activeBtn.ForeColor = Color.White;
-                }
-
-                lblModeNote.Text = $"✓ Đang chạy: {modeName} (Mỗi làn {percentPerActive:0.#}% màn hình, camera dàn đều chuẩn 16:9/4:3)";
             }
             finally
             {
@@ -281,17 +293,95 @@ namespace HPParking.Forms
             UpdateLaneHeightRatio(tlpLane3, isWideMode);
             UpdateLaneHeightRatio(tlpLane4, isWideMode);
 
-            // 2. Làn 1 (2 Cam Người Vào)
-            Apply2CamsLayout(tlpCamsLane1, pbLane1Overview, pbLane1Face, isWideMode);
+            // 2. Dàn layout camera linh hoạt cho từng làn dựa trên cấu hình và số camera kích hoạt
+            for (int i = 0; i < 4; i++)
+            {
+                var tlpCams = GetLaneCamsContainer(i);
+                var (pbOverview, pbPlate, pbFace) = GetLaneCamBoxes(i);
+                var lane = i < _lanes.Count ? _lanes[i] : null;
 
-            // 3. Làn 2 (2 Cam Người Ra)
-            Apply2CamsLayout(tlpCamsLane2, pbLane2Overview, pbLane2Face, isWideMode);
+                ApplyDynamicLaneCamLayout(tlpCams, pbOverview, pbPlate, pbFace, lane, isWideMode);
+            }
+        }
 
-            // 4. Làn 3 (3 Cam Xe Vào: Toàn cảnh, Biển số, FaceID)
-            Apply3CamsLayout(tlpCamsLane3, pbLane3Overview, pbLane3Plate, pbLane3Face, isWideMode);
+        private static void ApplyDynamicLaneCamLayout(
+            TableLayoutPanel tlpCams,
+            PictureBox pbOverview,
+            PictureBox pbPlate,
+            PictureBox pbFace,
+            Lane? lane,
+            bool isWideMode)
+        {
+            tlpCams.SuspendLayout();
+            try
+            {
+                bool isPedestrian = lane?.TargetType == LaneTargetType.Pedestrian;
+                bool hasFace = lane != null && (lane.UseFaceCam || !string.IsNullOrEmpty(lane.FaceDeviceId) || isPedestrian);
+                bool hasPlate = lane != null && !isPedestrian && (lane.UsePlateCam || !string.IsNullOrEmpty(lane.PlateCameraDeviceId));
+                bool hasOverview = lane == null || lane.UseOverviewCam || !string.IsNullOrEmpty(lane.OverviewCameraDeviceId);
 
-            // 5. Làn 4 (2 Cam Xe Ra: Toàn cảnh, Biển số)
-            Apply2CamsLayout(tlpCamsLane4, pbLane4Overview, pbLane4Plate, isWideMode);
+                int camCount = (hasOverview ? 1 : 0) + (hasPlate ? 1 : 0) + (hasFace ? 1 : 0);
+
+                if (camCount >= 3)
+                {
+                    pbOverview.Visible = true;
+                    pbPlate.Visible = true;
+                    pbFace.Visible = true;
+                    Apply3CamsLayout(tlpCams, pbOverview, pbPlate, pbFace, isWideMode);
+                }
+                else if (camCount == 2)
+                {
+                    if (hasOverview && hasPlate)
+                    {
+                        pbOverview.Visible = true;
+                        pbPlate.Visible = true;
+                        pbFace.Visible = false;
+                        Apply2CamsLayout(tlpCams, pbOverview, pbPlate, isWideMode);
+                    }
+                    else if (hasOverview && hasFace)
+                    {
+                        pbOverview.Visible = true;
+                        pbFace.Visible = true;
+                        pbPlate.Visible = false;
+                        Apply2CamsLayout(tlpCams, pbOverview, pbFace, isWideMode);
+                    }
+                    else
+                    {
+                        pbPlate.Visible = true;
+                        pbFace.Visible = true;
+                        pbOverview.Visible = false;
+                        Apply2CamsLayout(tlpCams, pbPlate, pbFace, isWideMode);
+                    }
+                }
+                else if (camCount == 1)
+                {
+                    var activeCam = hasOverview ? pbOverview : (hasPlate ? pbPlate : pbFace);
+                    pbOverview.Visible = (activeCam == pbOverview);
+                    pbPlate.Visible = (activeCam == pbPlate);
+                    pbFace.Visible = (activeCam == pbFace);
+
+                    tlpCams.ColumnCount = 1;
+                    tlpCams.RowCount = 1;
+                    tlpCams.ColumnStyles.Clear();
+                    tlpCams.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                    tlpCams.RowStyles.Clear();
+                    tlpCams.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                    tlpCams.SetColumnSpan(activeCam, 1);
+                    tlpCams.SetCellPosition(activeCam, new TableLayoutPanelCellPosition(0, 0));
+                }
+                else
+                {
+                    pbOverview.Visible = true;
+                    pbPlate.Visible = true;
+                    pbFace.Visible = false;
+                    Apply2CamsLayout(tlpCams, pbOverview, pbPlate, isWideMode);
+                }
+            }
+            finally
+            {
+                tlpCams.ResumeLayout(true);
+            }
         }
 
         private static void UpdateLaneHeightRatio(TableLayoutPanel tlpLane, bool isWideMode)
@@ -408,23 +498,6 @@ namespace HPParking.Forms
             }
         }
 
-        private void ResetModeButtonStyles()
-        {
-            Color defaultBg = Color.FromArgb(241, 245, 249);
-            Color defaultFg = Color.FromArgb(51, 65, 85);
-
-            btnMode4Lanes.BackColor = defaultBg;
-            btnMode4Lanes.ForeColor = defaultFg;
-            btnMode2Vehicles.BackColor = defaultBg;
-            btnMode2Vehicles.ForeColor = defaultFg;
-            btnMode2Pedestrians.BackColor = defaultBg;
-            btnMode2Pedestrians.ForeColor = defaultFg;
-            btnMode3Lanes.BackColor = defaultBg;
-            btnMode3Lanes.ForeColor = defaultFg;
-            btnMode1Lane.BackColor = defaultBg;
-            btnMode1Lane.ForeColor = defaultFg;
-        }
-
         #endregion
 
         #region --- 3. WORKFLOW EVENTS: CARD SWIPE & RADAR ---
@@ -438,7 +511,19 @@ namespace HPParking.Forms
                 (x.Controller?.Config?.IP == data.ControllerIp ||
                  _devices.Any(d => d.Id == x.Lane.ControllerDeviceId && d.IpAddress == data.ControllerIp)));
 
-            if (context == null) return;
+            if (context == null)
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    MessageBox.Show(
+                        this,
+                        $"Nhận tín hiệu thẻ [{data.CardNo}] tại Đầu đọc {data.DoorId} (Bộ điều khiển {data.ControllerIp}), nhưng Đầu đọc {data.DoorId} chưa được gán vào làn hoạt động nào!\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.",
+                        "⚠️ Cảnh Báo Đầu Đọc Chưa Gán Làn",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }));
+                return;
+            }
 
             int slotIndex = _laneContexts.IndexOf(context);
             string pathImage = StorageConfigHelper.GetPathImage();
@@ -470,6 +555,15 @@ namespace HPParking.Forms
                 else if (result.Status == ProcessStatus.ConfirmRequired)
                 {
                     MessageBox.Show(this, result.Message, "Cảnh Báo Vi Phạm", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                else if (result.Status != ProcessStatus.Success)
+                {
+                    MessageBox.Show(
+                        this,
+                        $"XÁC THỰC THẤT BẠI - TỪ CHỐI QUA CỔNG!\n\n• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})",
+                        "Từ Chối Vào / Ra",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
                 }
             }));
         }
@@ -506,83 +600,211 @@ namespace HPParking.Forms
                     HandleManualPlateInputAsync);
 
                 UpdateLaneSlotUI(slotIndex, context, result);
+
+                if (result.Status != ProcessStatus.Success)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Radar Làn {context.Lane.Name}]: {result.Status} - {result.Message}");
+                }
             }));
+        }
+
+        private (PictureBox Box1, PictureBox Box2) GetLaneInfoBoxes(int slotIndex) => slotIndex switch
+        {
+            0 => (pbLane1Avatar, pbLane1FaceSnap),
+            1 => (pbLane2Avatar, pbLane2FaceSnap),
+            2 => (pbLane3PlateCrop, pbLane3DriverAvatar),
+            3 => (pbLane4PlateCrop, pbLane4EntrySnap),
+            _ => throw new ArgumentOutOfRangeException(nameof(slotIndex))
+        };
+
+        private static void SetBoxImage(PictureBox box, Bitmap? newImage)
+        {
+            var old = box.Image;
+            box.Image = newImage != null ? (Bitmap)newImage.Clone() : null;
+            old?.Dispose();
         }
 
         private void UpdateLaneSlotUI(int slotIndex, LaneRuntimeContext context, ProcessResult result)
         {
             string timeStr = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
             bool isEntry = context.Lane.Direction == LaneDirection.In;
+            bool isSuccess = result.Status == ProcessStatus.Success;
 
-            if (context.Lane.TargetType == LaneTargetType.Pedestrian || result.Client != null)
+            // Cập nhật banner thông báo trạng thái trên tiêu đề Làn
+            Label? subLabel = slotIndex switch
+            {
+                0 => lblSubLane1,
+                1 => lblSubLane2,
+                2 => lblSubLane3,
+                3 => lblSubLane4,
+                _ => null
+            };
+
+            if (subLabel != null)
+            {
+                if (isSuccess)
+                {
+                    subLabel.Text = $"✅ {result.Message}";
+                    subLabel.BackColor = Color.ForestGreen;
+                    subLabel.ForeColor = Color.White;
+                }
+                else
+                {
+                    subLabel.Text = $"❌ {result.Message}";
+                    subLabel.BackColor = Color.Crimson;
+                    subLabel.ForeColor = Color.White;
+                }
+            }
+
+            if (context.Lane.TargetType == LaneTargetType.Pedestrian)
             {
                 // Cập nhật giao diện Người đi bộ
-                string name = result.Client?.Name ?? "Người dùng";
-                string code = result.Client?.Code ?? "--";
-                string role = result.DepartmentName ?? (result.Client?.Type.ToString() ?? "Khách");
+                string name = result.Client?.Name ?? (isSuccess ? "Người dùng" : "KHÔNG XÁC THỰC");
+                string code = result.Client?.Code ?? (string.IsNullOrEmpty(result.Client?.CardCode) ? "--" : result.Client.CardCode);
+                string dept = isSuccess
+                    ? (result.DepartmentName ?? "Nội bộ")
+                    : $"TỪ CHỐI ({result.Status})";
+                string role = isSuccess
+                    ? (result.Client?.Type.ToString() ?? "Nhân viên / Khách")
+                    : $"TỪ CHỐI ({result.Status})";
+
+                Color flashColor = isSuccess ? Color.LightGreen : Color.LightCoral;
 
                 if (slotIndex == 0)
                 {
                     lblLane1Name.Text = $"Họ và tên: {name}";
+                    lblLane1Dept.Text = $"Phòng ban: {dept}";
+                    lblLane1Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
                     lblLane1Code.Text = $"CCCD/Mã: {code}";
                     lblLane1Role.Text = $"Đối tượng: {role}";
+                    lblLane1Role.ForeColor = isSuccess ? Color.Black : Color.Crimson;
                     if (isEntry) lblLane1TimeIn.Text = $"Ngày vào: {timeStr}";
                     else lblLane1TimeOut.Text = $"Ngày ra: {timeStr}";
-
-                    if (result.Client?.Avatar != null) ImageHelper.SetAvatar(pbLane1Avatar, result.Client.Avatar);
-                    if (result.FaceImage != null) pbLane1FaceSnap.Image = (Bitmap)result.FaceImage.Clone();
-                    FrmMainMockHelper.FlashLabel(lblLane1Name, Color.LightCyan);
+                    FrmMainVisualHelper.FlashLabel(lblLane1Name, flashColor);
                 }
                 else if (slotIndex == 1)
                 {
                     lblLane2Name.Text = $"Họ và tên: {name}";
+                    lblLane2Dept.Text = $"Phòng ban: {dept}";
+                    lblLane2Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
                     lblLane2Code.Text = $"CCCD/Mã: {code}";
                     lblLane2Role.Text = $"Đối tượng: {role}";
+                    lblLane2Role.ForeColor = isSuccess ? Color.Black : Color.Crimson;
                     if (isEntry) lblLane2TimeIn.Text = $"Ngày vào: {timeStr}";
                     else lblLane2TimeOut.Text = $"Ngày ra: {timeStr}";
-
-                    if (result.Client?.Avatar != null) ImageHelper.SetAvatar(pbLane2Avatar, result.Client.Avatar);
-                    if (result.FaceImage != null) pbLane2FaceSnap.Image = (Bitmap)result.FaceImage.Clone();
-                    FrmMainMockHelper.FlashLabel(lblLane2Name, Color.LemonChiffon);
+                    FrmMainVisualHelper.FlashLabel(lblLane2Name, flashColor);
                 }
+                else if (slotIndex == 2)
+                {
+                    lblLane3Driver.Text = $"Họ và tên: {name}";
+                    lblLane3Dept.Text = $"Phòng ban: {dept}";
+                    lblLane3Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
+                    lblLane3PlateReg.Text = $"CCCD/Mã: {code}";
+                    lblLane3PlateDet.Text = $"Đối tượng: {role}";
+                    lblLane3PlateDet.ForeColor = isSuccess ? Color.Black : Color.Crimson;
+                    if (isEntry) lblLane3TimeIn.Text = $"Ngày vào: {timeStr}";
+                    else lblLane3TimeOut.Text = $"Ngày ra: {timeStr}";
+                    FrmMainVisualHelper.FlashLabel(lblLane3Driver, flashColor);
+                }
+                else
+                {
+                    lblLane4Driver.Text = $"Họ và tên: {name}";
+                    lblLane4Dept.Text = $"Phòng ban: {dept}";
+                    lblLane4Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
+                    lblLane4PlateReg.Text = $"CCCD/Mã: {code}";
+                    lblLane4PlateDet.Text = $"Đối tượng: {role}";
+                    lblLane4PlateDet.ForeColor = isSuccess ? Color.Black : Color.Crimson;
+                    if (isEntry) lblLane4TimeIn.Text = $"Ngày vào: {timeStr}";
+                    else lblLane4TimeOut.Text = $"Ngày ra: {timeStr}";
+                    FrmMainVisualHelper.FlashLabel(lblLane4Driver, flashColor);
+                }
+
+                var (box1, box2) = GetLaneInfoBoxes(slotIndex);
+                if (result.Client?.Avatar != null)
+                {
+                    ImageHelper.SetAvatar(box1, result.Client.Avatar);
+                }
+                else
+                {
+                    SetBoxImage(box1, null);
+                }
+                SetBoxImage(box2, result.FaceImage);
             }
             else
             {
                 // Cập nhật giao diện Xe cơ giới
                 string plate = result.LprResult?.Plate ?? result.RegisteredPlate ?? "--";
                 string driver = result.Client?.Name ?? result.Vehicle?.PlateNumber ?? "Tài xế";
-                string dept = result.DepartmentName ?? "Điều vận / Nội bộ";
+                string dept = isSuccess
+                    ? (result.DepartmentName ?? "Điều vận / Nội bộ")
+                    : $"TỪ CHỐI ({result.Status})";
 
-                if (slotIndex == 2 || slotIndex == 0)
+                Color flashColor = isSuccess ? Color.Honeydew : Color.LightCoral;
+
+                if (slotIndex == 0)
+                {
+                    lblLane1Name.Text = $"Tài xế/Chủ xe: {driver}";
+                    lblLane1Dept.Text = $"Phòng ban: {dept}";
+                    lblLane1Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
+                    lblLane1Code.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
+                    lblLane1Role.Text = $"Biển số nhận diện: {plate}";
+                    lblLane1Role.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
+                    if (isEntry) lblLane1TimeIn.Text = $"Ngày vào: {timeStr}";
+                    else lblLane1TimeOut.Text = $"Ngày ra: {timeStr}";
+                    FrmMainVisualHelper.FlashLabel(lblLane1Role, flashColor);
+                }
+                else if (slotIndex == 1)
+                {
+                    lblLane2Name.Text = $"Tài xế/Chủ xe: {driver}";
+                    lblLane2Dept.Text = $"Phòng ban: {dept}";
+                    lblLane2Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
+                    lblLane2Code.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
+                    lblLane2Role.Text = $"Biển số nhận diện: {plate}";
+                    lblLane2Role.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
+                    if (isEntry) lblLane2TimeIn.Text = $"Ngày vào: {timeStr}";
+                    else lblLane2TimeOut.Text = $"Ngày ra: {timeStr}";
+                    FrmMainVisualHelper.FlashLabel(lblLane2Role, flashColor);
+                }
+                else if (slotIndex == 2)
                 {
                     lblLane3Driver.Text = $"Tài xế/Chủ xe: {driver}";
                     lblLane3Dept.Text = $"Phòng ban: {dept}";
+                    lblLane3Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
                     lblLane3PlateReg.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
                     lblLane3PlateDet.Text = $"Biển số nhận diện: {plate}";
-                    lblLane3PlateDet.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : Color.DarkGreen;
+                    lblLane3PlateDet.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
                     if (isEntry) lblLane3TimeIn.Text = $"Ngày vào: {timeStr}";
                     else lblLane3TimeOut.Text = $"Ngày ra: {timeStr}";
-
-                    if (result.PlateImage != null) pbLane3PlateCrop.Image = (Bitmap)result.PlateImage.Clone();
-                    FrmMainMockHelper.FlashLabel(lblLane3PlateDet, Color.Honeydew);
+                    FrmMainVisualHelper.FlashLabel(lblLane3PlateDet, flashColor);
                 }
                 else
                 {
                     lblLane4Driver.Text = $"Tài xế/Chủ xe: {driver}";
                     lblLane4Dept.Text = $"Phòng ban: {dept}";
+                    lblLane4Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
                     lblLane4PlateReg.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
                     lblLane4PlateDet.Text = $"Biển số nhận diện: {plate}";
-                    lblLane4PlateDet.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : Color.DarkGreen;
+                    lblLane4PlateDet.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
                     if (isEntry) lblLane4TimeIn.Text = $"Ngày vào: {timeStr}";
                     else lblLane4TimeOut.Text = $"Ngày ra: {timeStr}";
-
-                    if (result.PlateImage != null) pbLane4PlateCrop.Image = (Bitmap)result.PlateImage.Clone();
-                    FrmMainMockHelper.FlashLabel(lblLane4PlateDet, Color.Honeydew);
+                    FrmMainVisualHelper.FlashLabel(lblLane4PlateDet, flashColor);
                 }
+
+                var (box1, box2) = GetLaneInfoBoxes(slotIndex);
+
+                // 1. Ô đầu tiên hiện ảnh biển số nhỏ (cropped plate)
+                Bitmap? smallPlate = result.PlateImage ?? result.LprResult?.PlateImage;
+                SetBoxImage(box1, smallPlate);
+
+                // 2. Ô thứ 2 hiện ảnh chụp khuôn mặt từ faceid nếu làn đó có faceid, không thì cứ để trống
+                bool hasFaceId = context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
+                SetBoxImage(box2, (hasFaceId && result.FaceImage != null) ? result.FaceImage : null);
             }
 
             result.LprResult?.Dispose();
             result.OverviewImage?.Dispose();
+            result.PlateImage?.Dispose();
+            result.FaceImage?.Dispose();
         }
 
         #endregion
@@ -851,172 +1073,40 @@ namespace HPParking.Forms
 
         #endregion
 
-        #region --- 5. UI ACTIONS & MANUAL BARRIER TRIGGERS ---
+        #region --- 5. UI ACTIONS & HARDWARE RELOAD ---
 
-        private void BtnLane1Test_Click(object? sender, EventArgs e)
-        {
-            if (_laneContexts.Count > 0 && _laneContexts[0].Controller != null)
-            {
-                _laneContexts[0].OpenBarrier();
-            }
-            else
-            {
-                SimulateLane1();
-            }
-        }
-
-        private void BtnLane2Test_Click(object? sender, EventArgs e)
-        {
-            if (_laneContexts.Count > 1 && _laneContexts[1].Controller != null)
-            {
-                _laneContexts[1].OpenBarrier();
-            }
-            else
-            {
-                SimulateLane2();
-            }
-        }
-
-        private void BtnLane3Test_Click(object? sender, EventArgs e)
-        {
-            if (_laneContexts.Count > 2 && _laneContexts[2].Controller != null)
-            {
-                _laneContexts[2].OpenBarrier();
-            }
-            else
-            {
-                SimulateLane3();
-            }
-        }
-
-        private void BtnLane4Test_Click(object? sender, EventArgs e)
-        {
-            if (_laneContexts.Count > 3 && _laneContexts[3].Controller != null)
-            {
-                _laneContexts[3].OpenBarrier();
-            }
-            else
-            {
-                SimulateLane4();
-            }
-        }
-
-        private void BtnSimulateAll_Click(object? sender, EventArgs e)
-        {
-            SimulateLane1();
-            SimulateLane2();
-            SimulateLane3();
-            SimulateLane4();
-        }
-
-        private void BtnMode4Lanes_Click(object? sender, EventArgs e) => SwitchLaneMode(true, true, true, true, "4 Làn (2 Người + 2 Xe)", btnMode4Lanes);
-        private void BtnMode2Vehicles_Click(object? sender, EventArgs e) => SwitchLaneMode(false, false, true, true, "2 Làn Xe (1 Vào + 1 Ra)", btnMode2Vehicles);
-        private void BtnMode2Pedestrians_Click(object? sender, EventArgs e) => SwitchLaneMode(true, true, false, false, "2 Làn Người (1 Vào + 1 Ra)", btnMode2Pedestrians);
-        private void BtnMode3Lanes_Click(object? sender, EventArgs e) => SwitchLaneMode(true, false, true, true, "3 Làn (1 Người Vào + 2 Xe)", btnMode3Lanes);
-        private void BtnMode1Lane_Click(object? sender, EventArgs e) => SwitchLaneMode(false, false, true, false, "1 Làn Xe Đơn", btnMode1Lane);
-
-        #endregion
-
-        #region --- 6. SIMULATION & MOCK DATA GENERATOR ---
-
-        private void GenerateInitialMockImages()
+        private async void BtnReloadHardware_Click(object? sender, EventArgs e)
         {
             try
             {
-                pbLane1Avatar.Image = FrmMainMockHelper.CreateMockAvatar("Trần Văn Mạnh", Color.FromArgb(2, 132, 199));
-                pbLane1FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot("08:15:22", 98.7);
+                using var waitScope = new WaitCursorScope(this);
+                btnReloadHardware.Enabled = false;
+                btnReloadHardware.Text = "⏳ ĐANG KẾT NỐI LẠI...";
 
-                pbLane2Avatar.Image = FrmMainMockHelper.CreateMockAvatar("Lê Thị Thu", Color.FromArgb(217, 119, 6));
-                pbLane2FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot("11:45:00", 99.2);
+                // Giải phóng kết nối phần cứng cũ và khởi tạo lại Orchestrator mới
+                _deviceOrchestrator.Dispose();
+                _deviceOrchestrator = new DeviceOrchestrator();
+                _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
 
-                pbLane3PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop("29C-888.68");
-                pbLane3DriverAvatar.Image = FrmMainMockHelper.CreateMockAvatar("Phạm Q. Hùng", Color.FromArgb(22, 163, 74));
+                // Nạp lại cấu hình và khởi tạo lại toàn bộ thiết bị
+                await LoadHardwareAndLanesAsync();
 
-                pbLane4PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop("15A-678.90");
-                pbLane4EntrySnap.Image = FrmMainMockHelper.CreateMockVehicleSnapshot("15A-678.90", "VÀO: 09:05:40");
+                MessageBox.Show("Nạp lại cấu hình và kết nối thiết bị phần cứng thành công!", "Thông Báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch { }
-        }
-
-        private void SimulateLane1()
-        {
-            int code = _random.Next(1000, 9999);
-            string time = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
-            lblLane1Name.Text = $"Họ và tên: NV Test {code % 100}";
-            lblLane1TimeIn.Text = $"Ngày vào: {time}";
-            lblLane1TimeOut.Text = "Ngày ra: --";
-            lblLane1Code.Text = $"CCCD/Mã NV: 03109{code}12";
-            lblLane1Role.Text = "Đối tượng: Nhân viên";
-
-            pbLane1Avatar.Image?.Dispose();
-            pbLane1FaceSnap.Image?.Dispose();
-            pbLane1Avatar.Image = FrmMainMockHelper.CreateMockAvatar($"NV {code % 100}", Color.FromArgb(2, 132, 199));
-            pbLane1FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot(DateTime.Now.ToString("HH:mm:ss"), 98.5 + (_random.NextDouble() * 1.4));
-
-            FrmMainMockHelper.FlashLabel(lblLane1Name, Color.LightCyan);
-        }
-
-        private void SimulateLane2()
-        {
-            int code = _random.Next(1000, 9999);
-            string time = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
-            lblLane2Name.Text = $"Họ và tên: Nhà thầu {code % 50}";
-            lblLane2TimeOut.Text = $"Ngày ra: {time}";
-            lblLane2Code.Text = $"CCCD: 03618{code}93";
-            lblLane2Role.Text = "Đối tượng: Nhà thầu";
-
-            pbLane2Avatar.Image?.Dispose();
-            pbLane2FaceSnap.Image?.Dispose();
-            pbLane2Avatar.Image = FrmMainMockHelper.CreateMockAvatar($"NT {code % 50}", Color.FromArgb(217, 119, 6));
-            pbLane2FaceSnap.Image = FrmMainMockHelper.CreateMockFaceSnapshot(DateTime.Now.ToString("HH:mm:ss"), 97.8 + (_random.NextDouble() * 2.0));
-
-            FrmMainMockHelper.FlashLabel(lblLane2Name, Color.LemonChiffon);
-        }
-
-        private void SimulateLane3()
-        {
-            int num = _random.Next(100, 999);
-            string plate = $"29C-{num}.{_random.Next(10, 99)}";
-            string time = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
-
-            lblLane3Driver.Text = $"Tài xế/Chủ xe: Lái xe {num % 30}";
-            lblLane3TimeIn.Text = $"Ngày vào: {time}";
-            lblLane3TimeOut.Text = "Ngày ra: --";
-            lblLane3PlateReg.Text = $"Biển số đăng ký: {plate}";
-            lblLane3PlateDet.Text = $"Biển số nhận diện: {plate}";
-            lblLane3PlateDet.ForeColor = Color.DarkGreen;
-
-            pbLane3PlateCrop.Image?.Dispose();
-            pbLane3DriverAvatar.Image?.Dispose();
-            pbLane3PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop(plate);
-            pbLane3DriverAvatar.Image = FrmMainMockHelper.CreateMockAvatar($"TX {num % 30}", Color.FromArgb(22, 163, 74));
-
-            FrmMainMockHelper.FlashLabel(lblLane3PlateDet, Color.Honeydew);
-        }
-
-        private void SimulateLane4()
-        {
-            int num = _random.Next(100, 999);
-            string plate = $"15A-{num}.{_random.Next(10, 99)}";
-            string time = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
-
-            lblLane4Driver.Text = $"Tài xế/Khách: Khách vãng lai {num % 20}";
-            lblLane4TimeOut.Text = $"Ngày ra: {time}";
-            lblLane4PlateReg.Text = $"Biển số đăng ký: {plate}";
-            lblLane4PlateDet.Text = $"Biển số nhận diện: {plate}";
-            lblLane4PlateDet.ForeColor = Color.DarkGreen;
-
-            pbLane4PlateCrop.Image?.Dispose();
-            pbLane4EntrySnap.Image?.Dispose();
-            pbLane4PlateCrop.Image = FrmMainMockHelper.CreateMockPlateCrop(plate);
-            pbLane4EntrySnap.Image = FrmMainMockHelper.CreateMockVehicleSnapshot(plate, "LƯỢT RA HỢP LỆ");
-
-            FrmMainMockHelper.FlashLabel(lblLane4PlateDet, Color.Honeydew);
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi kết nối lại thiết bị: {ex.Message}", "Lỗi Phần Cứng", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnReloadHardware.Enabled = true;
+                btnReloadHardware.Text = "🔄 NẠP LẠI THIẾT BỊ";
+            }
         }
 
         #endregion
 
-        #region --- 7. CLEANUP & FORM CLOSING ---
+        #region --- 6. CLEANUP & FORM CLOSING ---
 
         private void FrmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -1035,73 +1125,10 @@ namespace HPParking.Forms
     }
 
     /// <summary>
-    /// Helper độc lập sinh dữ liệu đồ họa mô phỏng (Mock GDI+) phục vụ kiểm thử giao diện trạm khi không gắn phần cứng
+    /// Helper hỗ trợ hiệu ứng đồ họa UI trạm kiểm soát
     /// </summary>
-    internal static class FrmMainMockHelper
+    internal static class FrmMainVisualHelper
     {
-        public static Bitmap CreateMockAvatar(string name, Color badgeColor)
-        {
-            Bitmap bmp = new(160, 200);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.FromArgb(248, 250, 252));
-            using var badgeBrush = new SolidBrush(badgeColor);
-            g.FillRectangle(badgeBrush, 0, 0, 160, 40);
-            using var textBrush = new SolidBrush(Color.White);
-            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            g.DrawString(name, font, textBrush, new RectangleF(0, 8, 160, 25), new StringFormat { Alignment = StringAlignment.Center });
-            using var headBrush = new SolidBrush(Color.FromArgb(203, 213, 225));
-            g.FillEllipse(headBrush, 45, 55, 70, 70);
-            g.FillPie(headBrush, 25, 120, 110, 100, 180, 180);
-            using var borderPen = new Pen(Color.FromArgb(226, 232, 240), 2);
-            g.DrawRectangle(borderPen, 0, 0, 159, 199);
-            return bmp;
-        }
-
-        public static Bitmap CreateMockFaceSnapshot(string time, double score)
-        {
-            Bitmap bmp = new(160, 200);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.FromArgb(15, 23, 42));
-            using var boxPen = new Pen(Color.FromArgb(34, 197, 94), 2);
-            g.DrawRectangle(boxPen, 30, 40, 100, 110);
-            using var textBrush = new SolidBrush(Color.FromArgb(34, 197, 94));
-            using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
-            g.DrawString($"MATCH: {score:0.0}%", font, textBrush, 32, 20);
-            using var timeBrush = new SolidBrush(Color.White);
-            g.DrawString($"SNAP: {time}", font, timeBrush, 10, 160);
-            return bmp;
-        }
-
-        public static Bitmap CreateMockPlateCrop(string plate)
-        {
-            Bitmap bmp = new(200, 70);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.White);
-            using var borderPen = new Pen(Color.Black, 3);
-            g.DrawRectangle(borderPen, 2, 2, 195, 65);
-            using var brush = new SolidBrush(Color.Black);
-            using var font = new Font("Segoe UI", 16F, FontStyle.Bold);
-            g.DrawString(plate, font, brush, new RectangleF(0, 14, 200, 45), new StringFormat { Alignment = StringAlignment.Center });
-            return bmp;
-        }
-
-        public static Bitmap CreateMockVehicleSnapshot(string plate, string subtitle)
-        {
-            Bitmap bmp = new(200, 130);
-            using var g = Graphics.FromImage(bmp);
-            g.Clear(Color.FromArgb(30, 41, 59));
-            using var brush = new SolidBrush(Color.White);
-            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            g.DrawString("ẢNH LƯỢT VÀO", font, brush, new RectangleF(0, 15, 200, 25), new StringFormat { Alignment = StringAlignment.Center });
-            using var plateBrush = new SolidBrush(Color.Gold);
-            using var plateFont = new Font("Segoe UI", 12F, FontStyle.Bold);
-            g.DrawString(plate, plateFont, plateBrush, new RectangleF(0, 45, 200, 30), new StringFormat { Alignment = StringAlignment.Center });
-            using var subBrush = new SolidBrush(Color.LightGreen);
-            using var subFont = new Font("Segoe UI", 8F, FontStyle.Regular);
-            g.DrawString(subtitle, subFont, subBrush, new RectangleF(0, 85, 200, 25), new StringFormat { Alignment = StringAlignment.Center });
-            return bmp;
-        }
-
         public static void FlashLabel(Label lbl, Color flashColor)
         {
             Color orig = lbl.BackColor;

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
+import { formatImageUrl, hasImagePath } from '@/components/parkingSessions/EvidenceImageGrid';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {
@@ -197,18 +198,45 @@ export function ParkingSessionsPage() {
     },
     {
       header: 'Chủ Phương Tiện',
-      cell: (item) => (
-        <div className="flex items-center gap-1.5 text-xs">
-          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-medium text-foreground truncate max-w-[140px]">
-            {item.personFullName || 'Khách vãng lai'}
-          </span>
-        </div>
-      ),
+      cell: (item) => {
+        const faceUrl = item.inFaceImagePath || item.personAvatar;
+        return (
+          <div className="flex items-center gap-2 py-0.5 text-xs">
+            {hasImagePath(faceUrl) ? (
+              <img
+                src={formatImageUrl(faceUrl)}
+                alt={item.personFullName || 'User'}
+                className="h-7 w-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+              />
+            ) : (
+              <div className="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
+                <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </div>
+            )}
+            <div className="flex flex-col min-w-0">
+              <span className="font-medium text-foreground truncate max-w-[130px]">
+                {item.personFullName || 'Khách vãng lai'}
+              </span>
+              {item.personCode && (
+                <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
+                  {item.personCode}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
     {
-      header: 'Loại Xe',
+      header: 'Đối Tượng / Loại Xe',
       cell: (item) => {
+        if (item.targetType === 2 || !item.vehicleType) {
+          return (
+            <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 gap-1 font-semibold text-[11px]">
+              <User className="h-3 w-3" /> Đi bộ
+            </Badge>
+          );
+        }
         if (item.vehicleType === VehicleType.Car) {
           return (
             <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 gap-1 font-semibold text-[11px]">

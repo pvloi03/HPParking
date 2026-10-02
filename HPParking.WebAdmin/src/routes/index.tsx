@@ -13,7 +13,8 @@ import { LanesPage } from '@/pages/LanesPage';
 import { DevicesPage } from '@/pages/DevicesPage';
 import { ClientsPage } from '@/pages/ClientsPage';
 import { VehiclesPage } from '@/pages/VehiclesPage';
-import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
+import { VehicleSessionsPage } from '@/pages/VehicleSessionsPage';
+import { PedestrianSessionsPage } from '@/pages/PedestrianSessionsPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
@@ -92,8 +93,12 @@ export const router = createBrowserRouter([
         element: <FleetDispatchPage />,
       },
       {
-        path: 'parking-sessions',
-        element: <ParkingSessionsPage />,
+        path: 'sessions/vehicles',
+        element: <VehicleSessionsPage />,
+      },
+      {
+        path: 'sessions/pedestrians',
+        element: <PedestrianSessionsPage />,
       },
       {
         path: 'audit-logs',

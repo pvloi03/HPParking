@@ -15,7 +15,7 @@ namespace HPParking.Api.DTOs.Excel.Reports
         public string CompanyName { get; set; } = string.Empty;
         public string DepartmentName { get; set; } = string.Empty;
         public string PlateNumber { get; set; } = string.Empty;
-        public VehicleType VehicleType { get; set; } = VehicleType.Car;
+        public VehicleType? VehicleType { get; set; }
         public int InCount { get; set; }
         public int OutCount { get; set; }
         public int CompletedCount { get; set; }

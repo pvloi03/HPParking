@@ -9,7 +9,7 @@ namespace HPParking.Api.DTOs.ParkingSessions
     public class ParkingSessionDto : AuditableDto
     {
         public string PlateNumber { get; set; } = string.Empty;
-        public VehicleType VehicleType { get; set; } = VehicleType.Car;
+        public VehicleType? VehicleType { get; set; }
         public ParkingSessionStatus Status { get; set; } = ParkingSessionStatus.Active;
         public string? PersonId { get; set; }
 
@@ -40,5 +40,6 @@ namespace HPParking.Api.DTOs.ParkingSessions
         public string? PersonFullName { get; set; }
         public string? PersonPhoneNumber { get; set; }
         public string? PersonCode { get; set; }
+        public string? PersonAvatar { get; set; }
     }
 }

@@ -1,7 +1,6 @@
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
-using System.IO;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Background

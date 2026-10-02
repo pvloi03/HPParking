@@ -7,11 +7,8 @@ using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Parking;
 using NSubstitute;
-using System;
 using System.Drawing;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Services.Parking
@@ -99,6 +96,7 @@ namespace HPParking.Tests.Services.Parking
             await _sessionRepo.Received(1).AddAsync(Arg.Is<ParkingSession>(s =>
                 s.TargetType == LaneTargetType.Pedestrian &&
                 s.PersonId == "emp-1" &&
+                s.VehicleType == null &&
                 s.Status == ParkingSessionStatus.Active));
         }
 

@@ -6,7 +6,6 @@ using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Controller;
-using HPParking.Services.Devices;
 using HPParking.Services.LPR;
 using System;
 using System.Collections.Generic;
@@ -201,18 +200,23 @@ namespace HPParking.Services.Parking
             }
 
             // Chụp camera toàn cảnh và FaceID (bỏ qua camera biển số)
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: false, needFace: context.Lane.UseFaceCam);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane.UseOverviewCam,
+                needPlate: false,
+                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId) || context.Lane.TargetType == LaneTargetType.Pedestrian);
 
             // Mở Turnstile
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (_, failFace, failOverview) = ExtractWorkflowImages(images, null);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở cửa Turnstile. Vui lòng kiểm tra kết nối thiết bị.",
                     Client = client,
-                    DepartmentName = departmentName
+                    DepartmentName = departmentName,
+                    FaceImage = failFace,
+                    OverviewImage = failOverview
                 };
             }
 
@@ -220,6 +224,7 @@ namespace HPParking.Services.Parking
             {
                 TargetType = LaneTargetType.Pedestrian,
                 PersonId = client.Id,
+                VehicleType = null,
                 InTime = trigger.TriggerTime,
                 InLaneName = context.Lane.Name,
                 Status = ParkingSessionStatus.Active,
@@ -227,16 +232,17 @@ namespace HPParking.Services.Parking
             };
             await _sessionRepository.AddAsync(session);
 
-            SaveImagesBackground(session, images, isEntry: true, imageBasePath);
+            SaveImagesBackground(session, images, isEntry: true, imageBasePath, client: client);
 
+            var (_, pedFace, pedOverview) = ExtractWorkflowImages(images, null);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
                 Client = client,
                 DepartmentName = departmentName,
                 ParkingSession = session,
-                OverviewImage = images.Overview,
-                FaceImage = images.Face,
+                OverviewImage = pedOverview,
+                FaceImage = pedFace,
                 Message = $"Xác thực người đi bộ vào thành công: {client.Name}"
             };
         }
@@ -272,17 +278,22 @@ namespace HPParking.Services.Parking
                 x.Status == ParkingSessionStatus.Active &&
                 !x.IsDeleted);
 
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: false, needFace: context.Lane.UseFaceCam);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane.UseOverviewCam,
+                needPlate: false,
+                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId) || context.Lane.TargetType == LaneTargetType.Pedestrian);
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (_, failFace, failOverview) = ExtractWorkflowImages(images, null);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở cửa Turnstile. Vui lòng kiểm tra kết nối thiết bị.",
+                    Message = "Không thể mở cửa Turnstile ra. Vui lòng kiểm tra kết nối thiết bị.",
                     Client = client,
-                    DepartmentName = departmentName
+                    DepartmentName = departmentName,
+                    FaceImage = failFace,
+                    OverviewImage = failOverview
                 };
             }
 
@@ -293,7 +304,7 @@ namespace HPParking.Services.Parking
                 activeSession.Status = ParkingSessionStatus.Completed;
                 activeSession.UpdatedAt = DateTime.UtcNow;
                 await _sessionRepository.UpdateAsync(activeSession);
-                SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath);
+                SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath, client: client);
             }
             else
             {
@@ -301,24 +312,26 @@ namespace HPParking.Services.Parking
                 {
                     TargetType = LaneTargetType.Pedestrian,
                     PersonId = client.Id,
+                    VehicleType = null,
                     OutTime = trigger.TriggerTime,
                     OutLaneName = context.Lane.Name,
                     Status = ParkingSessionStatus.Completed,
                     CreatedAt = DateTime.UtcNow
                 };
                 await _sessionRepository.AddAsync(newSession);
-                SaveImagesBackground(newSession, images, isEntry: false, imageBasePath);
+                SaveImagesBackground(newSession, images, isEntry: false, imageBasePath, client: client);
                 activeSession = newSession;
             }
 
+            var (_, exitFace, exitOverview) = ExtractWorkflowImages(images, null);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
                 Client = client,
                 DepartmentName = departmentName,
                 ParkingSession = activeSession,
-                OverviewImage = images.Overview,
-                FaceImage = images.Face,
+                OverviewImage = exitOverview,
+                FaceImage = exitFace,
                 Message = $"Xác thực người đi bộ ra thành công: {client.Name}"
             };
         }
@@ -405,7 +418,10 @@ namespace HPParking.Services.Parking
                 ? string.Join("; ", clientVehicles.Select(v => v.PlateNumber).Where(p => !string.IsNullOrWhiteSpace(p)))
                 : "";
 
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: context.Lane.UseFaceCam);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane.UseOverviewCam,
+                needPlate: context.Lane.UsePlateCam,
+                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
             var (plateSuccess, recognizedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate, onManualPlateInput);
 
             Vehicle? matchedVehicle = null;
@@ -418,14 +434,19 @@ namespace HPParking.Services.Parking
             {
                 if (!plateSuccess || string.IsNullOrEmpty(recognizedPlate))
                 {
-                    images.Dispose();
+                    bool capturedPlate = images.Plate != null;
+                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                     return new ProcessResult
                     {
-                        Status = images.Plate == null ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                        Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
                         Message = "Không nhận diện được biển số và không có biển số nhập tay.",
                         Client = client,
                         Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName
+                        DepartmentName = departmentName,
+                        LprResult = lprResult,
+                        PlateImage = smallPlate,
+                        FaceImage = faceSnap,
+                        OverviewImage = overviewSnap
                     };
                 }
 
@@ -435,7 +456,7 @@ namespace HPParking.Services.Parking
 
                 if (matchedVehicle == null && clientVehicles.Count > 0)
                 {
-                    images.Dispose();
+                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                     return new ProcessResult
                     {
                         Status = ProcessStatus.PlateMismatch,
@@ -443,14 +464,17 @@ namespace HPParking.Services.Parking
                         Client = client,
                         Vehicle = clientVehicles.FirstOrDefault(),
                         DepartmentName = departmentName,
-                        LprResult = lprResult
+                        LprResult = lprResult,
+                        PlateImage = smallPlate,
+                        FaceImage = faceSnap,
+                        OverviewImage = overviewSnap
                     };
                 }
             }
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
@@ -458,7 +482,10 @@ namespace HPParking.Services.Parking
                     Client = client,
                     Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
                     DepartmentName = departmentName,
-                    LprResult = lprResult
+                    LprResult = lprResult,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
+                    OverviewImage = overviewSnap
                 };
             }
 
@@ -474,8 +501,9 @@ namespace HPParking.Services.Parking
                 CreatedAt = DateTime.UtcNow
             };
             await _sessionRepository.AddAsync(parking);
-            SaveImagesBackground(parking, images, isEntry: true, imageBasePath);
+            SaveImagesBackground(parking, images, isEntry: true, imageBasePath, client: client);
 
+            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
@@ -484,8 +512,9 @@ namespace HPParking.Services.Parking
                 DepartmentName = departmentName,
                 LprResult = lprResult,
                 ParkingSession = parking,
-                OverviewImage = images.Overview,
-                PlateImage = images.Plate
+                OverviewImage = succOverviewSnap,
+                PlateImage = succSmallPlate,
+                FaceImage = succFaceSnap
             };
         }
 
@@ -547,7 +576,10 @@ namespace HPParking.Services.Parking
                 ?? clientVehicles.FirstOrDefault();
 
             bool requirePlateVerification = client.VerifyVehiclePlate;
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: context.Lane.UseFaceCam);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane.UseOverviewCam,
+                needPlate: context.Lane.UsePlateCam,
+                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
             var (plateSuccess, exitPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, parking.PlateNumber ?? "", onManualPlateInput);
 
             if (!requirePlateVerification)
@@ -561,21 +593,26 @@ namespace HPParking.Services.Parking
 
                 if (string.IsNullOrEmpty(cleanExitPlate))
                 {
-                    images.Dispose();
+                    bool capturedPlate = images.Plate != null;
+                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                     return new ProcessResult
                     {
-                        Status = images.Plate == null ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                        Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
                         Message = "Không nhận diện được biển số ra và không có biển số nhập tay.",
                         Client = client,
                         Vehicle = matchedVehicle,
                         DepartmentName = departmentName,
-                        ParkingSession = parking
+                        ParkingSession = parking,
+                        LprResult = lprResult,
+                        PlateImage = smallPlate,
+                        FaceImage = faceSnap,
+                        OverviewImage = overviewSnap
                     };
                 }
 
                 if (cleanExitPlate != cleanInPlate)
                 {
-                    images.Dispose();
+                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                     return new ProcessResult
                     {
                         Status = ProcessStatus.PlateMismatch,
@@ -584,14 +621,17 @@ namespace HPParking.Services.Parking
                         Vehicle = matchedVehicle,
                         DepartmentName = departmentName,
                         ParkingSession = parking,
-                        LprResult = lprResult
+                        LprResult = lprResult,
+                        PlateImage = smallPlate,
+                        FaceImage = faceSnap,
+                        OverviewImage = overviewSnap
                     };
                 }
             }
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
@@ -600,7 +640,10 @@ namespace HPParking.Services.Parking
                     Vehicle = matchedVehicle,
                     DepartmentName = departmentName,
                     ParkingSession = parking,
-                    LprResult = lprResult
+                    LprResult = lprResult,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
+                    OverviewImage = overviewSnap
                 };
             }
 
@@ -609,8 +652,9 @@ namespace HPParking.Services.Parking
             parking.Status = ParkingSessionStatus.Completed;
             parking.UpdatedAt = DateTime.UtcNow;
             await _sessionRepository.UpdateAsync(parking);
-            SaveImagesBackground(parking, images, isEntry: false, imageBasePath);
+            SaveImagesBackground(parking, images, isEntry: false, imageBasePath, client: client);
 
+            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
@@ -619,8 +663,9 @@ namespace HPParking.Services.Parking
                 DepartmentName = departmentName,
                 ParkingSession = parking,
                 LprResult = lprResult,
-                OverviewImage = images.Overview,
-                PlateImage = images.Plate
+                OverviewImage = succOverviewSnap,
+                PlateImage = succSmallPlate,
+                FaceImage = succFaceSnap
             };
         }
 
@@ -632,18 +677,22 @@ namespace HPParking.Services.Parking
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
         {
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: false);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane.UseOverviewCam,
+                needPlate: context.Lane.UsePlateCam,
+                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
             var (lprSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate: trigger.ManualPlateNumber ?? "", onManualPlateInput: null);
 
             if (!lprSuccess || string.IsNullOrEmpty(detectedPlate))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.ConfirmRequired,
                     Message = "Cảm biến Radar phát hiện xe nhưng chưa đọc được biển số. Vui lòng quẹt thẻ.",
-                    OverviewImage = images.Overview,
-                    PlateImage = images.Plate,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
                     LprResult = lprResult
                 };
             }
@@ -656,26 +705,30 @@ namespace HPParking.Services.Parking
 
             if (vehicle == null)
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.ConfirmRequired,
                     Message = $"Phát hiện xe {detectedPlate}. Xe chưa đăng ký vé tháng/nội bộ, vui lòng quẹt thẻ.",
-                    OverviewImage = images.Overview,
-                    PlateImage = images.Plate,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
                     LprResult = lprResult
                 };
             }
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở Barie cho xe tự do. Vui lòng kiểm tra thiết bị.",
                     Vehicle = vehicle,
-                    LprResult = lprResult
+                    LprResult = lprResult,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap
                 };
             }
 
@@ -692,14 +745,16 @@ namespace HPParking.Services.Parking
             await _sessionRepository.AddAsync(session);
             SaveImagesBackground(session, images, isEntry: true, imageBasePath);
 
+            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
                 Vehicle = vehicle,
                 ParkingSession = session,
                 LprResult = lprResult,
-                OverviewImage = images.Overview,
-                PlateImage = images.Plate,
+                OverviewImage = succOverviewSnap,
+                PlateImage = succSmallPlate,
+                FaceImage = succFaceSnap,
                 Message = $"Xe hợp lệ {vehicle.PlateNumber} qua cảm biến Radar thành công."
             };
         }
@@ -710,18 +765,22 @@ namespace HPParking.Services.Parking
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
         {
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane.UseOverviewCam, needPlate: context.Lane.UsePlateCam, needFace: false);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane.UseOverviewCam,
+                needPlate: context.Lane.UsePlateCam,
+                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
             var (lprSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate: trigger.ManualPlateNumber ?? "", onManualPlateInput: null);
 
             if (!lprSuccess || string.IsNullOrEmpty(detectedPlate))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.ConfirmRequired,
                     Message = "Cảm biến Radar phát hiện xe ra nhưng chưa đọc được biển số. Vui lòng quẹt thẻ.",
-                    OverviewImage = images.Overview,
-                    PlateImage = images.Plate,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
                     LprResult = lprResult
                 };
             }
@@ -734,13 +793,14 @@ namespace HPParking.Services.Parking
 
             if (vehicle == null)
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.ConfirmRequired,
                     Message = $"Phát hiện xe {detectedPlate}. Xe chưa đăng ký vé tháng/nội bộ, vui lòng quẹt thẻ thanh toán.",
-                    OverviewImage = images.Overview,
-                    PlateImage = images.Plate,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
                     LprResult = lprResult
                 };
             }
@@ -752,13 +812,16 @@ namespace HPParking.Services.Parking
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở Barie cho xe tự do. Vui lòng kiểm tra thiết bị.",
                     Vehicle = vehicle,
-                    LprResult = lprResult
+                    LprResult = lprResult,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap
                 };
             }
 
@@ -772,14 +835,16 @@ namespace HPParking.Services.Parking
                 SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath);
             }
 
+            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
                 Vehicle = vehicle,
                 ParkingSession = activeSession,
                 LprResult = lprResult,
-                OverviewImage = images.Overview,
-                PlateImage = images.Plate,
+                OverviewImage = succOverviewSnap,
+                PlateImage = succSmallPlate,
+                FaceImage = succFaceSnap,
                 Message = $"Xe hợp lệ {vehicle.PlateNumber} qua cảm biến Radar ra thành công."
             };
         }
@@ -838,7 +903,10 @@ namespace HPParking.Services.Parking
                 t.Status != TripStatus.Completed &&
                 !t.IsDeleted);
 
-            var images = await CaptureLaneImagesAsync(context, needOverview: context.Lane?.UseOverviewCam ?? true, needPlate: context.Lane?.UsePlateCam ?? true, needFace: false);
+            var images = await CaptureLaneImagesAsync(context,
+                needOverview: context.Lane?.UseOverviewCam ?? true,
+                needPlate: context.Lane?.UsePlateCam ?? true,
+                needFace: context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId)));
             var (plateSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, vehicle.PlateNumber ?? "", onManualPlateInput);
 
             string registeredPlateNorm = NormalizePlate(vehicle.PlateNumber);
@@ -846,21 +914,25 @@ namespace HPParking.Services.Parking
 
             if (string.IsNullOrEmpty(detectedPlateNorm))
             {
-                images.Dispose();
+                bool capturedPlate = images.Plate != null;
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
-                    Status = images.Plate == null ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                    Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
                     Message = $"Không nhận diện được biển số phương tiện {vehicle.PlateNumber} và không có biển số nhập tay.",
                     Vehicle = vehicle,
                     DepartmentName = "Không nhận diện được biển số",
                     LprResult = lprResult,
-                    DispatchTrip = activeTrip
+                    DispatchTrip = activeTrip,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
+                    OverviewImage = overviewSnap
                 };
             }
 
             if (detectedPlateNorm != registeredPlateNorm)
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.PlateMismatch,
@@ -868,7 +940,10 @@ namespace HPParking.Services.Parking
                     Vehicle = vehicle,
                     DepartmentName = "Cảnh báo sai biển số phương tiện",
                     LprResult = lprResult,
-                    DispatchTrip = activeTrip
+                    DispatchTrip = activeTrip,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap,
+                    OverviewImage = overviewSnap
                 };
             }
 
@@ -1019,14 +1094,16 @@ namespace HPParking.Services.Parking
                     });
                 });
 
+                var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.ConfirmRequired,
                     Vehicle = vehicle,
                     DepartmentName = $"Tuyến: {assignedRoute?.RouteName ?? "Lạc tuyến"}",
                     LprResult = lprResult,
-                    OverviewImage = images.Overview,
-                    PlateImage = images.Plate,
+                    OverviewImage = warnOverviewSnap,
+                    PlateImage = warnSmallPlate,
+                    FaceImage = warnFaceSnap,
                     Message = $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại {currentGateName} không đúng lộ trình tuyến {assignedRoute?.RouteName}!",
                     DispatchTrip = activeTrip
                 };
@@ -1034,14 +1111,17 @@ namespace HPParking.Services.Parking
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                images.Dispose();
+                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
                 {
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở barrier cho phương tiện. Vui lòng kiểm tra thiết bị.",
                     Vehicle = vehicle,
                     DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                    LprResult = lprResult
+                    LprResult = lprResult,
+                    OverviewImage = overviewSnap,
+                    PlateImage = smallPlate,
+                    FaceImage = faceSnap
                 };
             }
 
@@ -1060,14 +1140,16 @@ namespace HPParking.Services.Parking
 
             string routeDesc = assignedRoute != null ? assignedRoute.RouteName : "Tuyến tự do";
             int totalSteps = assignedRoute?.GateSteps.Count ?? 1;
+            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
                 Vehicle = vehicle,
                 DepartmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})",
                 LprResult = lprResult,
-                OverviewImage = images.Overview,
-                PlateImage = images.Plate,
+                OverviewImage = succOverviewSnap,
+                PlateImage = succSmallPlate,
+                FaceImage = succFaceSnap,
                 Message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
                 DispatchTrip = activeTrip
             };
@@ -1090,6 +1172,27 @@ namespace HPParking.Services.Parking
         #endregion
 
         #region --- 4. 6 PRIVATE SHARED HELPERS (KHỐI KỸ THUẬT DÙNG CHUNG) ---
+
+        /// <summary>
+        /// Trích xuất và nhân bản các ảnh phục vụ hiển thị UI:
+        /// - SmallPlate: Ảnh crop biển số từ LprResult (ưu tiên) hoặc fallback ảnh camera biển số.
+        /// - FaceSnap: Ảnh chụp khuôn mặt từ camera FaceID.
+        /// - OverviewSnap: Ảnh chụp toàn cảnh làn xe.
+        /// Đồng thời giải phóng bộ đệm ảnh gốc CapturedLaneImages an toàn.
+        /// </summary>
+        private static (Bitmap? SmallPlate, Bitmap? FaceSnap, Bitmap? OverviewSnap) ExtractWorkflowImages(
+            CapturedLaneImages images,
+            LprResult? lprResult)
+        {
+            Bitmap? smallPlate = lprResult?.PlateImage != null
+                ? (Bitmap)lprResult.PlateImage.Clone()
+                : (images.Plate != null ? (Bitmap)images.Plate.Clone() : null);
+            Bitmap? faceSnap = images.Face != null ? (Bitmap)images.Face.Clone() : null;
+            Bitmap? overviewSnap = images.Overview != null ? (Bitmap)images.Overview.Clone() : null;
+
+            images.Dispose();
+            return (smallPlate, faceSnap, overviewSnap);
+        }
 
         /// <summary>
         /// Khối 1: Định danh thẻ & tra cứu đối tượng (Thẻ -> Xe hoặc Người)
@@ -1272,7 +1375,8 @@ namespace HPParking.Services.Parking
             CapturedLaneImages images,
             bool isEntry,
             string imageBasePath,
-            Action<string, string, string>? onSaved = null)
+            Action<string, string, string>? onSaved = null,
+            Client? client = null)
         {
             Bitmap? plateSave = images.Plate != null ? (Bitmap)images.Plate.Clone() : null;
             Bitmap? overviewSave = images.Overview != null ? (Bitmap)images.Overview.Clone() : null;
@@ -1297,6 +1401,14 @@ namespace HPParking.Services.Parking
                         string fPath = faceSave != null
                             ? _imageStorageService.SaveImage(faceSave, folder, "KhuonMat", imageBasePath)
                             : "";
+
+                        // Fallback nếu camera chưa chụp được ảnh khuôn mặt trực tiếp nhưng người dùng có Avatar đăng ký
+                        if (string.IsNullOrEmpty(fPath) && client != null && !string.IsNullOrWhiteSpace(client.Avatar))
+                        {
+                            fPath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
+                                ? client.Avatar
+                                : $"Avatar/{client.Avatar}".Replace('\\', '/');
+                        }
 
                         if (session != null)
                         {

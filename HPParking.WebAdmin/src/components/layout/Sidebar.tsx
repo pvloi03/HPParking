@@ -21,6 +21,7 @@ import {
   X,
   CreditCard,
   Truck,
+  UserCheck,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -73,11 +74,14 @@ const menuConfig: MenuItem[] = [
     },
   },
   {
-    type: 'single',
-    item: {
-      title: 'Lịch sử xe ra vào',
-      href: '/parking-sessions',
+    type: 'group',
+    group: {
+      title: 'Lịch sử vào ra',
       icon: History,
+      children: [
+        { title: 'Phương tiện vào ra', href: '/sessions/vehicles', icon: Car },
+        { title: 'Người vào ra', href: '/sessions/pedestrians', icon: UserCheck },
+      ],
     },
   },
   {
@@ -166,6 +170,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    'Lịch sử vào ra': true,
     'Tổ chức & đơn vị': true,
     'Nhân sự & phương tiện': true,
     'Điều vận phương tiện nội bộ': true,

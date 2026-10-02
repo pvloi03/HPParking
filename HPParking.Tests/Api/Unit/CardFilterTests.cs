@@ -1,5 +1,4 @@
 using HPParking.Core.Models.Entities;
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Xunit;

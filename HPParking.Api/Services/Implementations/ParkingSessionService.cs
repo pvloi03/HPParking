@@ -181,6 +181,21 @@ namespace HPParking.Api.Services.Implementations
                     item.PersonFullName = client.Name;
                     item.PersonPhoneNumber = client.PhoneNumber;
                     item.PersonCode = client.Code;
+                    item.PersonAvatar = client.Avatar;
+
+                    // Fallback hiển thị ảnh đại diện khuôn mặt nếu chưa có ảnh chụp từ camera
+                    if (string.IsNullOrWhiteSpace(item.InFaceImagePath) && !string.IsNullOrWhiteSpace(client.Avatar))
+                    {
+                        item.InFaceImagePath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
+                            ? client.Avatar
+                            : $"Avatar/{client.Avatar}".Replace('\\', '/');
+                    }
+                    if (string.IsNullOrWhiteSpace(item.OutFaceImagePath) && !string.IsNullOrWhiteSpace(client.Avatar))
+                    {
+                        item.OutFaceImagePath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
+                            ? client.Avatar
+                            : $"Avatar/{client.Avatar}".Replace('\\', '/');
+                    }
                 }
             }
 
@@ -239,6 +254,21 @@ namespace HPParking.Api.Services.Implementations
                 detail.PersonFullName = client.Name;
                 detail.PersonPhoneNumber = client.PhoneNumber;
                 detail.PersonCode = client.Code;
+                detail.PersonAvatar = client.Avatar;
+
+                // Fallback hiển thị ảnh đại diện khuôn mặt nếu chưa có ảnh chụp từ camera
+                if (string.IsNullOrWhiteSpace(detail.InFaceImagePath) && !string.IsNullOrWhiteSpace(client.Avatar))
+                {
+                    detail.InFaceImagePath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
+                        ? client.Avatar
+                        : $"Avatar/{client.Avatar}".Replace('\\', '/');
+                }
+                if (string.IsNullOrWhiteSpace(detail.OutFaceImagePath) && !string.IsNullOrWhiteSpace(client.Avatar))
+                {
+                    detail.OutFaceImagePath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
+                        ? client.Avatar
+                        : $"Avatar/{client.Avatar}".Replace('\\', '/');
+                }
             }
 
             _logger.LogInformation("Lấy chi tiết phiên đỗ xe {Id}: Biển số {PlateNumber}, Trạng thái {Status}, Khách hàng: {ClientName}.",

@@ -7,11 +7,7 @@ using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Parking;
 using NSubstitute;
-using System;
-using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Services.Parking

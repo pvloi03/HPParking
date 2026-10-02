@@ -17,7 +17,7 @@ export type ParkingSessionStatus =
 export interface ParkingSessionDto {
   id: string;
   plateNumber: string;
-  vehicleType: VehicleType;
+  vehicleType?: VehicleType;
   targetType?: number;
   status: ParkingSessionStatus;
   personId?: string;
@@ -47,6 +47,7 @@ export interface ParkingSessionDto {
   personFullName?: string;
   personPhoneNumber?: string;
   personCode?: string;
+  personAvatar?: string;
 
   // --- AUDIT TRAIL (AuditableDto) ---
   createdAt: string;

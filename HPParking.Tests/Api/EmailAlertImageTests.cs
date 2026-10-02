@@ -2,7 +2,6 @@ using FluentAssertions;
 using HPParking.Api.Services.Background;
 using HPParking.Api.Services.Implementations;
 using HPParking.Api.Services.Interfaces;
-using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using Microsoft.Extensions.Configuration;
@@ -10,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MimeKit;
 using NSubstitute;
-using System.IO;
 using Xunit;
 
 namespace HPParking.Tests.Api
