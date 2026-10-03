@@ -17,8 +17,8 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Company> _companyRepo;
         private readonly IRepository<Lane> _laneRepo;
-        private readonly IRepository<GateRouteConfig>? _routeRepo;
-        private readonly IRepository<VehicleDispatchTrip>? _tripRepo;
+        private readonly IRepository<GateRouteConfig> _routeRepo;
+        private readonly IRepository<VehicleDispatchTrip> _tripRepo;
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<GateService> _logger;
 
@@ -26,27 +26,18 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Gate> gateRepo,
             IRepository<Company> companyRepo,
             IRepository<Lane> laneRepo,
+            IRepository<GateRouteConfig> routeRepo,
+            IRepository<VehicleDispatchTrip> tripRepo,
             ILogger<GateService> logger,
-            IAuditLogService? auditLogService = null,
-            IRepository<GateRouteConfig>? routeRepo = null,
-            IRepository<VehicleDispatchTrip>? tripRepo = null)
+            IAuditLogService? auditLogService = null)
         {
             _gateRepo = gateRepo;
             _companyRepo = companyRepo;
             _laneRepo = laneRepo;
-            _auditLogService = auditLogService;
-            _logger = logger;
             _routeRepo = routeRepo;
             _tripRepo = tripRepo;
-        }
-
-        public GateService(
-            IRepository<Gate> gateRepo,
-            IRepository<Company> companyRepo,
-            IRepository<Lane> laneRepo,
-            ILogger<GateService> logger)
-            : this(gateRepo, companyRepo, laneRepo, logger, null, null, null)
-        {
+            _logger = logger;
+            _auditLogService = auditLogService;
         }
 
         public async Task<PagedResult<GateDto>> GetGatesPagedAsync(GateFilterQuery query, CancellationToken cancellationToken = default)
@@ -295,33 +286,27 @@ namespace HPParking.Api.Services.Implementations
                     ErrorCodes.GATE_HAS_LANES);
             }
 
-            if (_routeRepo != null)
-            {
-                var routesWithGate = await _routeRepo.FindAsync(
-                    r => !r.IsDeleted && r.GateSteps.Any(s => s.GateId == id),
-                    cancellationToken);
+            var routesWithGate = await _routeRepo.FindAsync(
+                r => !r.IsDeleted && r.IsActive && r.GateSteps.Any(s => s.GateId == id),
+                cancellationToken);
 
-                if (routesWithGate.Count > 0)
-                {
-                    var routeNames = string.Join(", ", routesWithGate.Select(r => r.RouteName));
-                    throw new ConflictException(
-                        $"Không thể xóa Cổng '{gate.Name}' vì đang nằm trong danh sách chặng của các tuyến: {routeNames}.",
-                        ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
-                }
+            if (routesWithGate.Count > 0)
+            {
+                var routeNames = string.Join(", ", routesWithGate.Select(r => r.RouteName));
+                throw new ConflictException(
+                    $"Không thể xóa Cổng '{gate.Name}' vì đang nằm trong danh sách chặng của các tuyến đang hoạt động: {routeNames}.",
+                    ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
             }
 
-            if (_tripRepo != null)
-            {
-                var hasActiveTripAtGate = await _tripRepo.ExistsAsync(
-                    t => !t.IsDeleted && t.Status != TripStatus.Completed && (t.CurrentGateId == id || t.OriginGateId == id),
-                    cancellationToken);
+            var hasActiveTripAtGate = await _tripRepo.ExistsAsync(
+                t => !t.IsDeleted && t.Status != TripStatus.Completed && (t.CurrentGateId == id || t.OriginGateId == id || t.Checkpoints.Any(c => c.GateId == id)),
+                cancellationToken);
 
-                if (hasActiveTripAtGate)
-                {
-                    throw new ConflictException(
-                        $"Không thể xóa Cổng '{gate.Name}' vì đang có phương tiện xuất phát hoặc dừng đỗ/làm việc dở dang tại cổng này.",
-                        ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
-                }
+            if (hasActiveTripAtGate)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa Cổng '{gate.Name}' vì đang có phương tiện xuất phát hoặc dừng đỗ/làm việc dở dang tại cổng này.",
+                    ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
             }
 
             if (!hardDelete)

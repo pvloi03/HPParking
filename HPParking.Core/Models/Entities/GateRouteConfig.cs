@@ -2,6 +2,7 @@ using HPParking.Core.Models.Common;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HPParking.Core.Models.Entities
 {
@@ -97,5 +98,32 @@ namespace HPParking.Core.Models.Entities
         /// Trạng thái hoạt động của tuyến
         /// </summary>
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Lấy thời gian di chuyển tối đa cho chặng chỉ định (phút)
+        /// </summary>
+        public int GetTravelMinutesForStep(int stepIndex)
+        {
+            var step = GateSteps?.Find(s => s.StepIndex == stepIndex);
+            return (step != null && step.MaxTravelMinutes > 0) ? step.MaxTravelMinutes : DefaultTravelMinutes;
+        }
+
+        /// <summary>
+        /// Lấy thời gian dừng đỗ tối đa cho chặng chỉ định (phút)
+        /// </summary>
+        public int GetStayMinutesForStep(int stepIndex)
+        {
+            var step = GateSteps?.Find(s => s.StepIndex == stepIndex);
+            return (step != null && step.MaxStayMinutes > 0) ? step.MaxStayMinutes : DefaultStayMinutes;
+        }
+
+        /// <summary>
+        /// Lấy cổng đích cuối cùng của tuyến cố định
+        /// </summary>
+        public string? GetFinalGateId()
+        {
+            if (GateSteps == null || GateSteps.Count == 0) return null;
+            return GateSteps.OrderBy(s => s.StepIndex).LastOrDefault()?.GateId;
+        }
     }
 }

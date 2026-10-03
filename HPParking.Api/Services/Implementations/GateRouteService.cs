@@ -13,13 +13,13 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<GateRouteConfig> _routeRepo;
         private readonly IRepository<Gate> _gateRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
-        private readonly IRepository<VehicleDispatchTrip>? _tripRepo;
+        private readonly IRepository<VehicleDispatchTrip> _tripRepo;
 
         public GateRouteService(
             IRepository<GateRouteConfig> routeRepo,
             IRepository<Gate> gateRepo,
             IRepository<Vehicle> vehicleRepo,
-            IRepository<VehicleDispatchTrip>? tripRepo = null)
+            IRepository<VehicleDispatchTrip> tripRepo)
         {
             _routeRepo = routeRepo;
             _gateRepo = gateRepo;
@@ -246,15 +246,12 @@ namespace HPParking.Api.Services.Implementations
             if (assignedVehicles.Any())
                 throw new ConflictException("Không thể xóa tuyến đường này vì vẫn còn phương tiện đang được phân công chạy tuyến.");
 
-            if (_tripRepo != null)
-            {
-                var hasActiveTrip = await _tripRepo.ExistsAsync(
-                    t => t.AssignedRouteId == id && t.Status != TripStatus.Completed && !t.IsDeleted,
-                    cancellationToken);
+            var hasActiveTrip = await _tripRepo.ExistsAsync(
+                t => t.AssignedRouteId == id && t.Status != TripStatus.Completed && !t.IsDeleted,
+                cancellationToken);
 
-                if (hasActiveTrip)
-                    throw new ConflictException("Không thể xóa tuyến đường này vì vẫn còn chuyến xe điều vận đang hoạt động trên tuyến.", ErrorCodes.ROUTE_HAS_ACTIVE_TRIP);
-            }
+            if (hasActiveTrip)
+                throw new ConflictException("Không thể xóa tuyến đường này vì vẫn còn chuyến xe điều vận đang hoạt động trên tuyến.", ErrorCodes.ROUTE_HAS_ACTIVE_TRIP);
 
             await _routeRepo.DeleteAsync(id, softDelete: true, cancellationToken: cancellationToken);
         }

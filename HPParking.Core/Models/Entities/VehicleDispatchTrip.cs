@@ -234,16 +234,19 @@ namespace HPParking.Core.Models.Entities
         /// <summary>
         /// Kiểm tra xem sự kiện quẹt vào cổng hiện tại có hoàn thành chuyến đi không
         /// - Tuyến tự do: Chỉ hoàn thành khi quẹt vào lại đúng OriginGateId
-        /// - Tuyến cố định: Hoàn thành khi đạt chặng cuối cùng của tuyến
+        /// - Tuyến cố định: Hoàn thành khi đạt chặng cuối cùng của tuyến VÀ cổng quẹt đúng là cổng đích của chặng cuối
         /// </summary>
         public bool IsTripCompletedOnEntry(GateRouteConfig? route, string currentGateId)
         {
-            bool isFreeRoam = route == null || route.IsDefault || route.RouteCode == "DEFAULT" || route.GateSteps.Count == 0;
-            if (isFreeRoam)
+            if (route == null || route.IsDefault || route.RouteCode == "DEFAULT" || route.GateSteps.Count == 0)
             {
                 return string.Equals(OriginGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
             }
-            return route != null && CurrentStepIndex >= route.GateSteps.Count;
+
+            var finalGateId = route.GetFinalGateId();
+            return CurrentStepIndex >= route.GateSteps.Count &&
+                   !string.IsNullOrEmpty(finalGateId) &&
+                   string.Equals(finalGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -265,7 +268,7 @@ namespace HPParking.Core.Models.Entities
                 {
                     return string.Equals(expectedStep.GateId, currentGateId, StringComparison.OrdinalIgnoreCase);
                 }
-                return true;
+                return false;
             }
             else
             {
@@ -281,7 +284,7 @@ namespace HPParking.Core.Models.Entities
                 {
                     return string.Equals(CurrentGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
                 }
-                return true;
+                return false;
             }
         }
 

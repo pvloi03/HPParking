@@ -135,34 +135,24 @@ namespace HPParking.Services.Parking.Handlers
             // 5. PRE-VALIDATION & CHUYỂN ĐỔI MÁY TRẠNG THÁI (RICH DOMAIN MODEL)
             bool isNewTrip = false;
             SlaOverdueInfo slaInfo;
+            string defaultDeptName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận";
 
             if (activeTrip == null)
             {
                 // Chưa có chuyến đang chạy: Chỉ được phép bắt đầu chuyến bằng cách quẹt RA
                 if (isEntry)
                 {
-                    var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.ConfirmRequired,
-                        Vehicle = vehicle,
-                        DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                        LprResult = lprResult,
-                        OverviewImage = warnOverviewSnap,
-                        PlateImage = warnSmallPlate,
-                        FaceImage = warnFaceSnap,
-                        Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra nhưng lại quẹt vào cổng {currentGateName}!",
-                        DispatchTrip = null
-                    };
+                    return CreateConfirmRequiredResult(
+                        vehicle,
+                        defaultDeptName,
+                        $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra nhưng lại quẹt vào cổng {currentGateName}!",
+                        images,
+                        lprResult,
+                        dispatchTrip: null);
                 }
 
-                // Xuất phát chuyến mới
-                int firstDeadlineMinutes = defaultTravel;
-                if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                {
-                    var firstStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == 1);
-                    if (firstStep != null) firstDeadlineMinutes = firstStep.MaxTravelMinutes;
-                }
+                // Xuất phát chuyến mới: Sử dụng domain method trên assignedRoute
+                int firstDeadlineMinutes = assignedRoute?.GetTravelMinutesForStep(1) ?? defaultTravel;
 
                 activeTrip = new VehicleDispatchTrip
                 {
@@ -185,38 +175,26 @@ namespace HPParking.Services.Parking.Handlers
                 {
                     if (activeTrip.Status == TripStatus.WorkingAtGate || activeTrip.Status == TripStatus.OverdueStay)
                     {
-                        var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                        return new ProcessResult
-                        {
-                            Status = ProcessStatus.ConfirmRequired,
-                            Vehicle = vehicle,
-                            DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                            LprResult = lprResult,
-                            OverviewImage = warnOverviewSnap,
-                            PlateImage = warnSmallPlate,
-                            FaceImage = warnFaceSnap,
-                            Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra khỏi cổng trước đó nhưng lại quẹt vào cổng {currentGateName}!",
-                            DispatchTrip = activeTrip
-                        };
+                        return CreateConfirmRequiredResult(
+                            vehicle,
+                            defaultDeptName,
+                            $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra khỏi cổng trước đó nhưng lại quẹt vào cổng {currentGateName}!",
+                            images,
+                            lprResult,
+                            activeTrip);
                     }
                 }
                 else
                 {
                     if (activeTrip.Status == TripStatus.InTransit || activeTrip.Status == TripStatus.OverdueTransit)
                     {
-                        var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                        return new ProcessResult
-                        {
-                            Status = ProcessStatus.ConfirmRequired,
-                            Vehicle = vehicle,
-                            DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                            LprResult = lprResult,
-                            OverviewImage = warnOverviewSnap,
-                            PlateImage = warnSmallPlate,
-                            FaceImage = warnFaceSnap,
-                            Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt vào cổng tiếp theo nhưng lại quẹt ra!",
-                            DispatchTrip = activeTrip
-                        };
+                        return CreateConfirmRequiredResult(
+                            vehicle,
+                            defaultDeptName,
+                            $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt vào cổng tiếp theo nhưng lại quẹt ra!",
+                            images,
+                            lprResult,
+                            activeTrip);
                     }
                 }
 
@@ -241,28 +219,17 @@ namespace HPParking.Services.Parking.Handlers
                     {
                         _ = Task.Run(async () =>
                         {
-                            if (activeTrip != null && (!string.IsNullOrEmpty(oPath) || !string.IsNullOrEmpty(pPath)))
-                            {
-                                devCheckpoint.OverviewImagePath = oPath;
-                                devCheckpoint.PlateImagePath = pPath;
-                                await _tripRepository.UpdateAsync(activeTrip);
-                            }
+                            await UpdateCheckpointImagePathsAsync(activeTrip.Id, devCheckpoint, oPath, pPath);
                         });
                     });
 
-                    var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.ConfirmRequired,
-                        Vehicle = vehicle,
-                        DepartmentName = $"Tuyến: {assignedRoute?.RouteName ?? "Lạc tuyến"}",
-                        LprResult = lprResult,
-                        OverviewImage = warnOverviewSnap,
-                        PlateImage = warnSmallPlate,
-                        FaceImage = warnFaceSnap,
-                        Message = $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại {currentGateName} không đúng lộ trình tuyến {assignedRoute?.RouteName}!",
-                        DispatchTrip = activeTrip
-                    };
+                    return CreateConfirmRequiredResult(
+                        vehicle,
+                        $"Tuyến: {assignedRoute?.RouteName ?? "Lạc tuyến"}",
+                        $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại {currentGateName} không đúng lộ trình tuyến {assignedRoute?.RouteName}!",
+                        images,
+                        lprResult,
+                        activeTrip);
                 }
 
                 // Tính toán vi phạm SLA của chặng vừa hoàn thành TRƯỚC KHI cập nhật trạng thái/NextDeadline mới
@@ -272,22 +239,12 @@ namespace HPParking.Services.Parking.Handlers
                 if (isEntry)
                 {
                     bool isCompleted = activeTrip.IsTripCompletedOnEntry(assignedRoute, currentGateId);
-                    int stayMinutes = defaultStay;
-                    if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                    {
-                        var currentStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                        if (currentStep != null) stayMinutes = currentStep.MaxStayMinutes;
-                    }
+                    int stayMinutes = assignedRoute?.GetStayMinutesForStep(activeTrip.CurrentStepIndex) ?? defaultStay;
                     activeTrip.ArriveAtGate(currentGateId, stayMinutes, isCompleted, now);
                 }
                 else
                 {
-                    int nextTravelMinutes = defaultTravel;
-                    if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                    {
-                        var nextStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == (activeTrip.CurrentStepIndex + 1));
-                        if (nextStep != null) nextTravelMinutes = nextStep.MaxTravelMinutes;
-                    }
+                    int nextTravelMinutes = assignedRoute?.GetTravelMinutesForStep(activeTrip.CurrentStepIndex + 1) ?? defaultTravel;
                     activeTrip.DepartToNextStep(currentGateId, nextTravelMinutes, now);
                 }
             }
@@ -322,7 +279,7 @@ namespace HPParking.Services.Parking.Handlers
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở barrier cho phương tiện. Vui lòng kiểm tra thiết bị.",
                     Vehicle = vehicle,
-                    DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
+                    DepartmentName = defaultDeptName,
                     LprResult = lprResult,
                     OverviewImage = overviewSnap,
                     PlateImage = smallPlate,
@@ -336,34 +293,7 @@ namespace HPParking.Services.Parking.Handlers
             {
                 _ = Task.Run(async () =>
                 {
-                    if (activeTrip != null && (!string.IsNullOrEmpty(oPath) || !string.IsNullOrEmpty(pPath)))
-                    {
-                        currentCheckpoint.OverviewImagePath = oPath;
-                        currentCheckpoint.PlateImagePath = pPath;
-
-                        try
-                        {
-                            var tripFilter = Builders<VehicleDispatchTrip>.Filter.And(
-                                Builders<VehicleDispatchTrip>.Filter.Eq(t => t.Id, activeTrip.Id),
-                                Builders<VehicleDispatchTrip>.Filter.ElemMatch(t => t.Checkpoints,
-                                    c => c.StepIndex == currentCheckpoint.StepIndex && c.Direction == currentCheckpoint.Direction)
-                            );
-
-                            var updateDef = Builders<VehicleDispatchTrip>.Update
-                                .Set("Checkpoints.$.OverviewImagePath", oPath)
-                                .Set("Checkpoints.$.PlateImagePath", pPath);
-
-                            var updated = await _tripRepository.UpdateOneAsync(tripFilter, updateDef);
-                            if (!updated)
-                            {
-                                await _tripRepository.UpdateAsync(activeTrip);
-                            }
-                        }
-                        catch
-                        {
-                            await _tripRepository.UpdateAsync(activeTrip);
-                        }
-                    }
+                    await UpdateCheckpointImagePathsAsync(activeTrip.Id, currentCheckpoint, oPath, pPath);
                 });
             });
 
@@ -424,6 +354,58 @@ namespace HPParking.Services.Parking.Handlers
                     // Catch exception trong background thread
                 }
             });
+        }
+
+        private ProcessResult CreateConfirmRequiredResult(
+            Vehicle vehicle,
+            string deptName,
+            string message,
+            CapturedLaneImages images,
+            LprResult? lprResult,
+            VehicleDispatchTrip? dispatchTrip = null)
+        {
+            var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
+            return new ProcessResult
+            {
+                Status = ProcessStatus.ConfirmRequired,
+                Vehicle = vehicle,
+                DepartmentName = deptName,
+                Message = message,
+                OverviewImage = overviewSnap,
+                PlateImage = smallPlate,
+                FaceImage = faceSnap,
+                LprResult = lprResult,
+                DispatchTrip = dispatchTrip
+            };
+        }
+
+        private async Task UpdateCheckpointImagePathsAsync(
+            string tripId,
+            TripCheckpoint cp,
+            string? overviewPath,
+            string? platePath)
+        {
+            try
+            {
+                cp.OverviewImagePath = overviewPath;
+                cp.PlateImagePath = platePath;
+
+                var filter = Builders<VehicleDispatchTrip>.Filter.And(
+                    Builders<VehicleDispatchTrip>.Filter.Eq(x => x.Id, tripId),
+                    Builders<VehicleDispatchTrip>.Filter.ElemMatch(x => x.Checkpoints,
+                        c => c.GateId == cp.GateId && c.Timestamp == cp.Timestamp && c.Direction == cp.Direction)
+                );
+
+                var update = Builders<VehicleDispatchTrip>.Update
+                    .Set("Checkpoints.$.OverviewImagePath", overviewPath)
+                    .Set("Checkpoints.$.PlateImagePath", platePath);
+
+                await _tripRepository.UpdateOneAsync(filter, update);
+            }
+            catch
+            {
+                // Background update failure should not crash workflow
+            }
         }
     }
 }

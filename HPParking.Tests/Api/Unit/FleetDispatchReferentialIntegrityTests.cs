@@ -32,7 +32,7 @@ namespace HPParking.Tests.Api.Unit
             tripRepo.ExistsAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
-            var service = new VehicleService(vehicleRepo, clientRepo, logger, null, null, tripRepo);
+            var service = new VehicleService(vehicleRepo, clientRepo, tripRepo, logger);
 
             // Act & Assert
             var act = async () => await service.DeleteVehicleAsync("veh1", hardDelete: false);
@@ -57,7 +57,7 @@ namespace HPParking.Tests.Api.Unit
             tripRepo.ExistsAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
-            var service = new VehicleService(vehicleRepo, clientRepo, logger, null, null, tripRepo);
+            var service = new VehicleService(vehicleRepo, clientRepo, tripRepo, logger);
 
             // Act
             var result = await service.DeleteVehicleAsync("veh1", hardDelete: false);
@@ -147,7 +147,7 @@ namespace HPParking.Tests.Api.Unit
             routeRepo.FindAsync(Arg.Any<Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(new List<GateRouteConfig> { activeRoute });
 
-            var service = new GateService(gateRepo, companyRepo, laneRepo, logger, null, routeRepo, tripRepo);
+            var service = new GateService(gateRepo, companyRepo, laneRepo, routeRepo, tripRepo, logger);
 
             // Act & Assert
             var act = async () => await service.DeleteGateAsync("gate1");
@@ -178,7 +178,7 @@ namespace HPParking.Tests.Api.Unit
             tripRepo.ExistsAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
-            var service = new GateService(gateRepo, companyRepo, laneRepo, logger, null, routeRepo, tripRepo);
+            var service = new GateService(gateRepo, companyRepo, laneRepo, routeRepo, tripRepo, logger);
 
             // Act & Assert
             var act = async () => await service.DeleteGateAsync("gate1");
@@ -209,7 +209,7 @@ namespace HPParking.Tests.Api.Unit
             tripRepo.ExistsAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
-            var service = new GateService(gateRepo, companyRepo, laneRepo, logger, null, routeRepo, tripRepo);
+            var service = new GateService(gateRepo, companyRepo, laneRepo, routeRepo, tripRepo, logger);
 
             // Act
             var result = await service.DeleteGateAsync("gate1");
