@@ -46,5 +46,43 @@ namespace HPParking.Api.Data
                 logger?.LogWarning(ex, "Không thể kết nối hoặc khởi tạo dữ liệu ban đầu từ DbSeeder: {Message}. Tiếp tục khởi động ứng dụng.", ex.Message);
             }
         }
+
+        public static async Task SeedDefaultGateRouteAsync(IServiceProvider serviceProvider)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var routeRepo = scope.ServiceProvider.GetRequiredService<IRepository<GateRouteConfig>>();
+            var logger = scope.ServiceProvider.GetService<ILogger<DbSeeder>>();
+
+            try
+            {
+                var hasDefault = await routeRepo.ExistsAsync(r => (r.IsDefault || r.RouteCode == "DEFAULT") && !r.IsDeleted);
+                if (hasDefault)
+                {
+                    logger?.LogInformation("Đã tồn tại Tuyến đường mặc định trong hệ thống. Bỏ qua bước khởi tạo tuyến.");
+                    return;
+                }
+
+                var defaultRoute = new GateRouteConfig
+                {
+                    RouteCode = "DEFAULT",
+                    RouteName = "Tuyến tự do mặc định (Free-roam SLA)",
+                    Description = "Cấu hình thời gian di chuyển và làm việc mặc định cho phương tiện nội bộ chạy tự do giữa các cổng/nhà máy.",
+                    IsDefault = true,
+                    DefaultTravelMinutes = 15,
+                    DefaultStayMinutes = 15,
+                    GateSteps = [],
+                    IsClosedLoop = true,
+                    AlertEmails = [],
+                    IsActive = true
+                };
+
+                await routeRepo.AddAsync(defaultRoute);
+                logger?.LogInformation("Khởi tạo thành công Tuyến đường mặc định 'DEFAULT' (Travel: 15m, Stay: 15m).");
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Không thể khởi tạo Tuyến đường mặc định từ DbSeeder: {Message}. Tiếp tục khởi động.", ex.Message);
+            }
+        }
     }
 }

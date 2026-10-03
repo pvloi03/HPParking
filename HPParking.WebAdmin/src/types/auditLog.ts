@@ -77,6 +77,8 @@ export interface AuditLogFilterQuery extends PaginationQuery {
   actorUsername?: string;
   actionType?: AuditActionType | number;
   targetEntity?: string;
+  targetId?: string;
+  targetDisplay?: string;
   isSuccess?: boolean;
   source?: string;
   fromDate?: string;

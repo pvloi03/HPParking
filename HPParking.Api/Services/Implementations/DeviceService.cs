@@ -10,7 +10,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -122,6 +121,8 @@ namespace HPParking.Api.Services.Implementations
             device.IpAddress = ip;
             device.UserName = request.UserName?.Trim();
             device.Password = request.Password;
+            device.RtspUrl = request.RtspUrl?.Trim();
+            device.Channel = request.Channel;
 
             await _deviceRepo.AddAsync(device, cancellationToken);
             _logger.LogInformation("Đã tạo mới thiết bị {Id}: {Name} ({Code}) tại {Ip}:{Port}", device.Id, device.Name, device.Code, device.IpAddress, device.Port);
@@ -199,6 +200,8 @@ namespace HPParking.Api.Services.Implementations
             device.IpAddress = ip;
             device.Port = request.Port;
             device.UserName = request.UserName?.Trim();
+            device.RtspUrl = request.RtspUrl?.Trim();
+            device.Channel = request.Channel;
             device.IsActive = request.IsActive;
 
             // Nếu người dùng truyền mật khẩu mới, cập nhật mật khẩu; ngược lại giữ nguyên

@@ -8,6 +8,10 @@ namespace HPParking.Api.DTOs.Lanes
         public string Name { get; set; } = string.Empty;
         public string GateId { get; set; } = string.Empty;
         public LaneDirection Direction { get; set; } = LaneDirection.In;
+        public LaneTargetType TargetType { get; set; } = LaneTargetType.Vehicle;
+        public bool UseOverviewCam { get; set; } = true;
+        public bool UsePlateCam { get; set; } = true;
+        public bool UseFaceCam { get; set; } = false;
         public string? OverviewCameraDeviceId { get; set; }
         public string? PlateCameraDeviceId { get; set; }
         public string? ControllerDeviceId { get; set; }

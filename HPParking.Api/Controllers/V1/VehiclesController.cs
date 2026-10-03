@@ -77,12 +77,13 @@ namespace HPParking.Api.Controllers.V1
         [ProducesResponseType(typeof(ApiResponse<object>), 409)]
         public async Task<IActionResult> CreateVehicle([FromBody] CreateVehicleRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.ClientId))
+            if (!request.IsShared && string.IsNullOrWhiteSpace(request.ClientId))
             {
                 throw new BadRequestException("Vui lòng cung cấp ClientId của chủ xe.", ErrorCodes.BAD_REQUEST);
             }
 
-            var created = await _vehicleService.CreateVehicleAsync(request.ClientId, request);
+            var clientId = request.IsShared ? null : request.ClientId;
+            var created = await _vehicleService.CreateVehicleAsync(clientId, request);
             return CreatedApiResponse($"/api/v1/vehicles/{created.Id}", created, "Đăng ký phương tiện mới thành công.");
         }
 

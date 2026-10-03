@@ -1,7 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { cardApi } from '@/api/cardApi';
+import { CardTargetType, type CardDto } from '@/types/card';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +35,9 @@ import {
   Trash2,
   Bike,
   Info,
+  CreditCard,
+  ScanFace,
+  Radio,
 } from 'lucide-react';
 import { AvatarUploadField } from './AvatarUploadField';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
@@ -44,6 +50,7 @@ import {
   type CreateVehicleRequest,
 } from '@/types/vehicle';
 import { vehicleApi } from '@/api/vehicleApi';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import {
   ClientType,
   type ClientDto,
@@ -56,47 +63,61 @@ export const CLIENT_TYPE_OPTIONS = [
   { value: ClientType.Contractor, label: 'Nhân sự nhà thầu' },
   { value: ClientType.Visitor, label: 'Khách vãng lai' },
   { value: ClientType.VIP, label: 'Khách VIP' },
-  { value: ClientType.Other, label: 'Khác' },
+  { value: ClientType.Guest, label: 'Khách đến thăm' },
 ];
 
-const clientSchema = z.object({
-  code: z
-    .string()
-    .trim()
-    .min(1, 'Số CCCD/Định danh cá nhân không được để trống')
-    .regex(/^[0-9]{9,12}$/, 'Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số'),
-  name: z
-    .string()
-    .trim()
-    .min(2, 'Họ và tên phải có ít nhất 2 ký tự')
-    .max(100, 'Họ và tên không được quá 100 ký tự'),
-  phoneNumber: z
-    .string()
-    .trim()
-    .regex(
-      /^(03|05|07|08|09)\d{8}$/,
-      'Số điện thoại di động không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)'
-    ),
-  type: z.number().int().min(0).max(4),
-  gender: z.number().int().min(0).max(1),
-  birthDay: z.string().min(1, 'Vui lòng chọn ngày tháng năm sinh'),
-  address: z.string().trim().optional(),
-  email: z
-    .string()
-    .trim()
-    .optional()
-    .refine((val) => !val || z.string().email().safeParse(val).success, {
-      message: 'Email không đúng định dạng',
-    }),
-  companyId: z.string().optional(),
-  departmentId: z.string().optional(),
-  contractorId: z.string().optional(),
-  note: z.string().trim().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
-  expiredEnable: z.boolean(),
-  expiredStartDay: z.string().optional(),
-  expiredEndDay: z.string().optional(),
-  isActive: z.boolean(),
-});
+const clientSchema = z
+  .object({
+    cardCode: z.string().trim().optional(),
+    authMethods: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất một phương thức xác thực'),
+    verifyVehiclePlate: z.boolean(),
+    code: z
+      .string()
+      .trim()
+      .min(1, 'Số CCCD/Định danh cá nhân không được để trống')
+      .regex(/^[0-9]{9,12}$/, 'Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số'),
+    name: z
+      .string()
+      .trim()
+      .min(2, 'Họ và tên phải có ít nhất 2 ký tự')
+      .max(100, 'Họ và tên không được quá 100 ký tự'),
+    phoneNumber: z
+      .string()
+      .trim()
+      .regex(
+        /^(03|05|07|08|09)\d{8}$/,
+        'Số điện thoại di động không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)'
+      ),
+    type: z.number().int().min(0).max(4),
+    gender: z.number().int().min(0).max(1),
+    birthDay: z.string().min(1, 'Vui lòng chọn ngày tháng năm sinh'),
+    address: z.string().trim().optional(),
+    email: z
+      .string()
+      .trim()
+      .optional()
+      .refine((val) => !val || z.string().email().safeParse(val).success, {
+        message: 'Email không đúng định dạng',
+      }),
+    companyId: z.string().optional(),
+    departmentId: z.string().optional(),
+    contractorId: z.string().optional(),
+    note: z.string().trim().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
+    expiredEnable: z.boolean(),
+    expiredStartDay: z.string().optional(),
+    expiredEndDay: z.string().optional(),
+    isActive: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    const isNonNoneAuth = data.authMethods.some((m) => m.toLowerCase() !== 'none');
+    if (isNonNoneAuth && (!data.cardCode || data.cardCode.trim() === '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Vui lòng gán thẻ định danh RFID cho nhân sự khi kích hoạt phương thức xác thực',
+        path: ['cardCode'],
+      });
+    }
+  });
 
 type ClientFormData = z.infer<typeof clientSchema>;
 
@@ -148,14 +169,17 @@ export function ClientFormDialog({
 }: ClientFormDialogProps) {
   const isEditing = Boolean(initialData);
   const isFromHn212 = Boolean(hn212CardData);
+  const queryClient = useQueryClient();
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
 
   // Quản lý danh sách phương tiện hiện có và phương tiện thêm mới
   const [existingVehicles, setExistingVehicles] = useState<VehicleDto[]>([]);
   const [, setIsLoadingVehicles] = useState(false);
   const [pendingVehicles, setPendingVehicles] = useState<PendingVehicleItem[]>([]);
+  const [vehicleSectionError, setVehicleSectionError] = useState<string | null>(null);
 
   const handleAddVehicle = () => {
+    setVehicleSectionError(null);
     setPendingVehicles((prev) => [
       ...prev,
       {
@@ -212,6 +236,9 @@ export function ClientFormDialog({
       code: '',
       name: '',
       phoneNumber: '',
+      cardCode: '',
+      authMethods: ['FaceId'],
+      verifyVehiclePlate: true,
       type: ClientType.Employee,
       gender: 1, // 1: Nam
       birthDay: '1995-01-01',
@@ -233,6 +260,9 @@ export function ClientFormDialog({
   const selectedCompanyId = watch('companyId');
   const selectedDepartmentId = watch('departmentId');
   const selectedContractorId = watch('contractorId');
+  const selectedAuthMethods = watch('authMethods') || ['FaceId'];
+  const cardCodeInput = watch('cardCode') || '';
+  const verifyVehiclePlate = watch('verifyVehiclePlate');
   const expiredEnable = watch('expiredEnable');
   const isActive = watch('isActive');
 
@@ -244,7 +274,9 @@ export function ClientFormDialog({
 
   useEffect(() => {
     if (open) {
+      setVehicleSectionError(null);
       setPendingVehicles([]);
+      queryClient.invalidateQueries({ queryKey: ['cards', 'available-person'] });
       if (initialData?.id) {
         setIsLoadingVehicles(true);
         vehicleApi
@@ -294,6 +326,9 @@ export function ClientFormDialog({
             code: cccdCode,
             name: cccdName,
             phoneNumber: initialData.phoneNumber || '',
+            cardCode: initialData.cardCode || '',
+            authMethods: initialData.authMethods && initialData.authMethods.length > 0 ? initialData.authMethods : ['FaceId'],
+            verifyVehiclePlate: initialData.verifyVehiclePlate ?? true,
             type: initialData.type ?? ClientType.Employee,
             gender: genderVal,
             birthDay: parsedDob || '1995-01-01',
@@ -314,6 +349,9 @@ export function ClientFormDialog({
             code: initialData.code || '',
             name: initialData.name || '',
             phoneNumber: initialData.phoneNumber || '',
+            cardCode: initialData.cardCode || '',
+            authMethods: initialData.authMethods && initialData.authMethods.length > 0 ? initialData.authMethods : ['FaceId'],
+            verifyVehiclePlate: initialData.verifyVehiclePlate ?? true,
             type: initialData.type ?? ClientType.Employee,
             gender: initialData.gender ?? 1,
             birthDay: toDateInputValue(initialData.birthDay) || '1995-01-01',
@@ -349,6 +387,9 @@ export function ClientFormDialog({
           code: cccdCode,
           name: cccdName,
           phoneNumber: '',
+          cardCode: '',
+          authMethods: ['FaceId'],
+          verifyVehiclePlate: true,
           type: ClientType.Employee,
           gender: genderVal,
           birthDay: parsedDob,
@@ -369,6 +410,9 @@ export function ClientFormDialog({
           code: '',
           name: '',
           phoneNumber: '',
+          cardCode: '',
+          authMethods: ['FaceId'],
+          verifyVehiclePlate: true,
           type: ClientType.Employee,
           gender: 1,
           birthDay: '1995-01-01',
@@ -388,6 +432,16 @@ export function ClientFormDialog({
   }, [open, initialData, hn212CardData, cccdAvatarFile, reset, defaultToday]);
 
   const onFormSubmit = async (formData: ClientFormData) => {
+    if (formData.verifyVehiclePlate) {
+      const totalVehicles = existingVehicles.length + pendingVehicles.length;
+      if (totalVehicles === 0) {
+        setVehicleSectionError(
+          'Vui lòng thêm ít nhất một phương tiện đăng ký khi kích hoạt xác thực đối chiếu xe.'
+        );
+        return;
+      }
+    }
+
     // Kiểm tra dữ liệu các phương tiện mới nếu có thêm
     let hasVehicleError = false;
     const validatedVehicles = pendingVehicles.map((v) => {
@@ -436,7 +490,7 @@ export function ClientFormDialog({
           ? formData.departmentId
           : undefined,
       contractorId:
-        formData.type === ClientType.Contractor &&
+        (formData.type === ClientType.Contractor || formData.type === ClientType.Guest) &&
           formData.contractorId &&
           formData.contractorId !== 'none'
           ? formData.contractorId
@@ -445,6 +499,9 @@ export function ClientFormDialog({
       email: formData.email?.trim() || undefined,
       gender: formData.gender,
       phoneNumber: formData.phoneNumber.trim(),
+      cardCode: formData.cardCode?.trim() || undefined,
+      authMethods: formData.authMethods,
+      verifyVehiclePlate: formData.verifyVehiclePlate,
       isActive: formData.isActive,
       note: formData.note?.trim() || undefined,
       expired: {
@@ -779,13 +836,13 @@ export function ClientFormDialog({
               </div>
             )}
 
-            {/* Chỉ hiển thị chọn Nhà thầu khi chọn Nhân sự nhà thầu */}
-            {selectedType === ClientType.Contractor && (
+            {/* Hiển thị chọn Nhà thầu khi chọn Nhân sự nhà thầu hoặc Khách đến thăm */}
+            {(selectedType === ClientType.Contractor || selectedType === ClientType.Guest) && (
               <div className="space-y-1 pt-2 border-t border-border/50 animate-in fade-in-50 duration-200">
                 <label className="text-xs font-medium text-foreground flex items-center justify-between h-5">
                   <span>Nhà thầu đối tác</span>
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                    ★ Dành riêng cho đối tượng Nhà thầu
+                    {selectedType === ClientType.Contractor ? '★ Bắt buộc cho đối tượng Nhà thầu' : 'Tùy chọn: Gán với nhà thầu hoặc để trống'}
                   </span>
                 </label>
                 <Select
@@ -810,7 +867,7 @@ export function ClientFormDialog({
             )}
 
             {/* Ghi chú thông tin khi chọn các loại khách khác */}
-            {selectedType !== ClientType.Employee && selectedType !== ClientType.Contractor && (
+            {selectedType !== ClientType.Employee && selectedType !== ClientType.Contractor && selectedType !== ClientType.Guest && (
               <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60 text-[11px] text-muted-foreground flex items-center gap-2 pt-2 border-t animate-in fade-in-50 duration-200">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                 <span>
@@ -820,14 +877,197 @@ export function ClientFormDialog({
             )}
           </div>
 
-          {/* 3. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ (TÙY CHỌN) */}
+          {/* 3. KHỐI PHƯƠNG THỨC XÁC THỰC RA / VÀO & ĐỐI SOÁT XE */}
+          <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
+            <div className="flex items-center gap-2 pb-1 border-b border-border/60">
+              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                3. Phương thức xác thực ra / vào & Đối soát xe
+              </span>
+            </div>
+
+            {/* Phương thức xác thực người dùng (AuthMethods) */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Phương thức xác thực người <span className="text-destructive">*</span></span>
+                <span className="text-[10px] text-muted-foreground font-normal">
+                  (Hệ thống tự động kích hoạt thiết bị tương ứng)
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* 1. Thẻ từ RFID */}
+                <label
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('Card')
+                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                    }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAuthMethods.includes('Card')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const next = selectedAuthMethods.filter((m) => m !== 'None').concat('Card');
+                        setValue('authMethods', next, { shouldValidate: true, shouldDirty: true });
+                      } else {
+                        const next = selectedAuthMethods.filter((m) => m !== 'Card');
+                        setValue('authMethods', next.length > 0 ? next : ['FaceId'], { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <CreditCard className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Thẻ từ RFID</span>
+                  </div>
+                </label>
+
+                {/* 2. Nhận diện FaceID */}
+                <label
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('FaceId')
+                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                    }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAuthMethods.includes('FaceId')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const next = selectedAuthMethods.filter((m) => m !== 'None').concat('FaceId');
+                        setValue('authMethods', next, { shouldValidate: true, shouldDirty: true });
+                      } else {
+                        const next = selectedAuthMethods.filter((m) => m !== 'FaceId');
+                        setValue('authMethods', next.length > 0 ? next : ['Card'], { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <ScanFace className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Khuôn mặt FaceID</span>
+                  </div>
+                </label>
+
+                {/* 3. Làn tự do (None) */}
+                <label
+                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('None')
+                    ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 font-medium text-amber-900 dark:text-amber-300'
+                    : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                    }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAuthMethods.includes('None')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setValue('authMethods', ['None'], { shouldValidate: true, shouldDirty: true });
+                      } else {
+                        setValue('authMethods', ['FaceId'], { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border text-amber-600 focus:ring-amber-500"
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Radio className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Làn tự do (None)</span>
+                  </div>
+                </label>
+              </div>
+              {errors.authMethods && (
+                <p className="text-[11px] text-destructive">{errors.authMethods.message}</p>
+              )}
+            </div>
+
+            {/* Mã thẻ định danh Person */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
+                <span className="flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 text-indigo-500" />
+                  <span>Mã thẻ định danh RFID</span>
+                  {selectedAuthMethods.some((m) => m.toLowerCase() !== 'none') && (
+                    <span className="text-destructive font-bold">*</span>
+                  )}
+                </span>
+                {cardCodeInput && cardCodeInput.trim() && (
+                  <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                    Mã thẻ: {cardCodeInput.trim()}
+                  </span>
+                )}
+              </label>
+              <InfiniteSearchableSelect<CardDto>
+                queryKey={['cards', 'available-person', initialData?.id || 'new']}
+                fetchFn={(params) =>
+                  cardApi.getCards({
+                    ...params,
+                    targetType: CardTargetType.Person,
+                    unassignedOnly: true,
+                    assignedClientId: initialData?.id,
+                  })
+                }
+                value={cardCodeInput || ''}
+                getValue={(card) => card.cardNumber}
+                getLabel={(card) =>
+                  `${card.cardNumber} ${card.note ? `(${card.note})` : ''} ${card.cardNumber === initialData?.cardCode ? '★ Thẻ hiện tại' : ''}`
+                }
+                onValueChange={(val) => {
+                  setValue('cardCode', val, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }}
+                placeholder="-- Chọn thẻ định danh Person trong kho --"
+                allowClear={true}
+                clearLabel="-- Không gán thẻ từ (None) --"
+              />
+              {errors.cardCode && (
+                <p className="text-[11px] text-destructive font-medium">{errors.cardCode.message}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Chọn thẻ từ kho thẻ có loại là Nhân sự (Person).
+              </p>
+            </div>
+
+            {/* CỜ XÁC THỰC ĐỐI CHIẾU XE (VERIFYVEHICLEPLATE) */}
+            <div className="pt-2 border-t border-border/60">
+              <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
+                <input
+                  type="checkbox"
+                  {...register('verifyVehiclePlate', {
+                    onChange: (e) => {
+                      if (!e.target.checked) {
+                        setVehicleSectionError(null);
+                      }
+                    },
+                  })}
+                  className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
+                />
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Car className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="text-xs font-semibold text-foreground">
+                      Bắt buộc xác thực đối chiếu biển số xe khi qua cổng
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    - <strong>Có tích chọn (Mặc định):</strong> Bắt buộc đăng ký xe và camera OCR đối soát biển số xe. Nếu biển số sai sẽ bị chặn.<br />
+                    - <strong>Bỏ tích:</strong> Miễn đối soát xe. Barrier sẽ mở ngay khi nhận diện Thẻ/FaceID hợp lệ (phù hợp cho VIP, khách thăm, lãnh đạo hoặc người đi bộ).
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          {/* 4. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ */}
           <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between pb-1 border-b border-border/60">
               <div className="flex items-center gap-2">
                 <Car className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                  3. Phương tiện đăng ký (Tùy chọn)
+                  4. Phương tiện đăng ký {verifyVehiclePlate ? '(Bắt buộc)' : '(Tùy chọn)'}
                 </span>
+                {verifyVehiclePlate && <span className="text-destructive font-bold">*</span>}
                 {(existingVehicles.length > 0 || pendingVehicles.length > 0) && (
                   <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">
                     {existingVehicles.length + pendingVehicles.length} phương tiện
@@ -845,6 +1085,13 @@ export function ClientFormDialog({
                 <span>Thêm phương tiện</span>
               </Button>
             </div>
+
+            {vehicleSectionError && (
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs flex items-center gap-2">
+                <Info className="h-4 w-4 shrink-0 text-red-600" />
+                <span>{vehicleSectionError}</span>
+              </div>
+            )}
 
             {/* Danh sách xe hiện có (chỉ hiển thị khi cập nhật nhân sự) */}
             {isEditing && existingVehicles.length > 0 && (

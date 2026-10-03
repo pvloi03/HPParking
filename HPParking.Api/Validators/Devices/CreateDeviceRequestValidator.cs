@@ -38,6 +38,13 @@ namespace HPParking.Api.Validators.Devices
                 RuleFor(x => x.Password!)
                     .MaximumLength(100).WithMessage("Mật khẩu không được vượt quá 100 ký tự.");
             });
+
+            When(x => !string.IsNullOrWhiteSpace(x.RtspUrl), () =>
+            {
+                RuleFor(x => x.RtspUrl!)
+                    .Matches(@"^rtsp://", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                    .WithMessage("Đường dẫn luồng RTSP phải bắt đầu bằng 'rtsp://'.");
+            });
         }
 
         private static bool BeValidIpv4(string ip)

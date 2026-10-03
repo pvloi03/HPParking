@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
+import { formatImageUrl, hasImagePath } from '@/components/parkingSessions/EvidenceImageGrid';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {
@@ -43,6 +44,7 @@ export function ParkingSessionsPage() {
   const [plateNumber, setPlateNumber] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<string>('');
+  const [targetTypeFilter, setTargetTypeFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
@@ -85,6 +87,7 @@ export function ParkingSessionsPage() {
     setPlateNumber('');
     setStatusFilter('');
     setVehicleTypeFilter('');
+    setTargetTypeFilter('');
     setFromDate('');
     setToDate('');
     setPageIndex(1);
@@ -99,6 +102,7 @@ export function ParkingSessionsPage() {
       plateNumber,
       statusFilter,
       vehicleTypeFilter,
+      targetTypeFilter,
       fromDate,
       toDate,
     ],
@@ -109,6 +113,7 @@ export function ParkingSessionsPage() {
         plateNumber: plateNumber.trim() || undefined,
         status: statusFilter ? (Number(statusFilter) as ParkingSessionStatus) : undefined,
         vehicleType: vehicleTypeFilter ? (Number(vehicleTypeFilter) as VehicleType) : undefined,
+        targetType: targetTypeFilter !== '' ? Number(targetTypeFilter) : undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00` : undefined,
         toDate: toDate ? `${toDate}T23:59:59` : undefined,
       }),
@@ -151,7 +156,24 @@ export function ParkingSessionsPage() {
   // Định nghĩa các cột cho DataTable
   const columns: ColumnDef<ParkingSessionDto>[] = [
     {
-      header: 'Biển Số Xe',
+      header: 'Đối Tượng',
+      cell: (item) => {
+        if (item.targetType === 1) {
+          return (
+            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1 text-[11px] font-medium">
+              <span>🚶 Người</span>
+            </Badge>
+          );
+        }
+        return (
+          <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300 gap-1 text-[11px] font-medium">
+            <span>🚗 Xe</span>
+          </Badge>
+        );
+      },
+    },
+    {
+      header: 'Biển Số / Mã',
       cell: (item) => {
         const isMismatch = item.status === ParkingSessionStatus.UnmatchedOut;
         return (
@@ -176,18 +198,45 @@ export function ParkingSessionsPage() {
     },
     {
       header: 'Chủ Phương Tiện',
-      cell: (item) => (
-        <div className="flex items-center gap-1.5 text-xs">
-          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <span className="font-medium text-foreground truncate max-w-[140px]">
-            {item.personFullName || 'Khách vãng lai'}
-          </span>
-        </div>
-      ),
+      cell: (item) => {
+        const faceUrl = item.inFaceImagePath || item.personAvatar;
+        return (
+          <div className="flex items-center gap-2 py-0.5 text-xs">
+            {hasImagePath(faceUrl) ? (
+              <img
+                src={formatImageUrl(faceUrl)}
+                alt={item.personFullName || 'User'}
+                className="h-7 w-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+              />
+            ) : (
+              <div className="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
+                <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </div>
+            )}
+            <div className="flex flex-col min-w-0">
+              <span className="font-medium text-foreground truncate max-w-[130px]">
+                {item.personFullName || 'Khách vãng lai'}
+              </span>
+              {item.personCode && (
+                <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
+                  {item.personCode}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      },
     },
     {
-      header: 'Loại Xe',
+      header: 'Đối Tượng / Loại Xe',
       cell: (item) => {
+        if (item.targetType === 2 || !item.vehicleType) {
+          return (
+            <Badge variant="outline" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 gap-1 font-semibold text-[11px]">
+              <User className="h-3 w-3" /> Đi bộ
+            </Badge>
+          );
+        }
         if (item.vehicleType === VehicleType.Car) {
           return (
             <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 gap-1 font-semibold text-[11px]">
@@ -335,20 +384,20 @@ export function ParkingSessionsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           {/* 1. Tìm theo biển số */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Tìm theo biển số xe (VD: 30A-12345)..."
+              placeholder="Tìm theo biển số xe..."
               value={plateNumber}
               onChange={(e) => {
                 setPlateNumber(e.target.value);
                 setPageIndex(1);
               }}
-              className="pl-8.5 text-xs h-9"
+              className="pl-9 text-xs h-9 bg-background"
             />
           </div>
 
           {/* 2. Lọc theo trạng thái */}
-          <div className="min-w-[190px]">
+          <div className="min-w-[170px]">
             <Select
               value={statusFilter || 'all'}
               onValueChange={(val) => {
@@ -365,6 +414,26 @@ export function ParkingSessionsPage() {
                 <SelectItem value={String(ParkingSessionStatus.Completed)}>Đã hoàn thành (Completed)</SelectItem>
                 <SelectItem value={String(ParkingSessionStatus.UnmatchedOut)}>Ra không vào / Lệch biển</SelectItem>
                 <SelectItem value={String(ParkingSessionStatus.Cancelled)}>Đã hủy bỏ (Cancelled)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 3. Lọc theo đối tượng (Xe / Người) */}
+          <div className="min-w-[150px]">
+            <Select
+              value={targetTypeFilter || 'all'}
+              onValueChange={(val) => {
+                setTargetTypeFilter(val === 'all' ? '' : val);
+                setPageIndex(1);
+              }}
+            >
+              <SelectTrigger aria-label="Lọc theo đối tượng" className="w-full h-9 text-xs">
+                <SelectValue placeholder="Tất cả đối tượng" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">-- Tất cả đối tượng --</SelectItem>
+                <SelectItem value="0">🚗 Xe cơ giới</SelectItem>
+                <SelectItem value="1">🚶 Người đi bộ</SelectItem>
               </SelectContent>
             </Select>
           </div>

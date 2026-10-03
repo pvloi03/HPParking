@@ -16,7 +16,7 @@ describe('EvidenceImageGrid Component', () => {
     isActiveSession: false,
   };
 
-  it('hiển thị Slide chính và 4 thumbnail strip theo chuẩn PhuXuan', () => {
+  it('hiển thị Slide chính và 4 thumbnail strip', () => {
     render(<EvidenceImageGrid {...defaultProps} />);
 
     // Hero slide mặc định là Slide 1 (Toàn cảnh lúc vào)
@@ -44,11 +44,11 @@ describe('EvidenceImageGrid Component', () => {
     fireEvent.click(nextBtn);
     expect(screen.getByText('2. Cận Cảnh Biển Số Vào')).toBeInTheDocument();
 
-    // Click vào thumbnail số 3 (RA)
-    const raThumbs = screen.getAllByRole('button', { name: /#3/i });
+    // Click vào thumbnail số 4 (RA)
+    const raThumbs = screen.getAllByRole('button', { name: /#4/i });
     if (raThumbs.length > 0) {
       fireEvent.click(raThumbs[0]);
-      expect(screen.getByText('3. Toàn Cảnh Lúc Ra')).toBeInTheDocument();
+      expect(screen.getByText('4. Toàn Cảnh Lúc Ra')).toBeInTheDocument();
     }
   });
 
@@ -63,10 +63,11 @@ describe('EvidenceImageGrid Component', () => {
       />
     );
 
-    // Chuyển sang slide 3 (Toàn cảnh ra)
+    // Chuyển sang slide 4 (Toàn cảnh ra)
     const nextBtn = screen.getByTitle(/ảnh tiếp theo/i);
     fireEvent.click(nextBtn); // slide 2
     fireEvent.click(nextBtn); // slide 3
+    fireEvent.click(nextBtn); // slide 4
 
     expect(screen.getByText(/Xe đang đỗ trong bãi \(Chưa có ảnh toàn cảnh ra\)/i)).toBeInTheDocument();
   });

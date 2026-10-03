@@ -14,6 +14,8 @@ namespace HPParking.Api.DTOs.Devices
         /// Mật khẩu mới của thiết bị (nếu để trống hoặc null, giữ nguyên mật khẩu hiện tại)
         /// </summary>
         public string? Password { get; set; }
+        public string? RtspUrl { get; set; }
+        public int Channel { get; set; } = 1;
         public bool IsActive { get; set; } = true;
     }
 }

@@ -2,10 +2,8 @@ using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Repositories;
 using HPParking.Forms;
-using HPParking.Forms.ConfigManager;
 using HPParking.Interfaces;
 using HPParking.Services.Health;
-using HPParking.Services.HN212;
 using HPParking.Services.License;
 using HPParking.Services.LPR;
 using HPParking.Services.Parking;
@@ -58,14 +56,7 @@ namespace HPParking
                 services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
                 services.AddSingleton<IServerHealthService, ServerHealthService>();
 
-                services.AddSingleton<IHn212Client, Hn212Client>();
-                services.AddTransient<FrmRegisterClient>();
-
                 services.AddTransient<FrmMain>();
-                services.AddTransient<FrmConfigManager>();
-                services.AddTransient<FrmLogin>();
-                services.AddTransient<UcLanMotoManager>();
-                services.AddTransient<UcLanCarManager>();
 
                 ServiceProvider = services.BuildServiceProvider();
 

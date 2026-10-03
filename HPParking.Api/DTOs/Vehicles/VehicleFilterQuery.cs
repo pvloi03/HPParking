@@ -33,5 +33,15 @@ namespace HPParking.Api.DTOs.Vehicles
         /// Lọc theo trạng thái kích hoạt
         /// </summary>
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// Lọc theo xe dùng chung / phương tiện nội bộ
+        /// </summary>
+        public bool? IsShared { get; set; }
+
+        /// <summary>
+        /// Lọc theo tuyến đường đang được gán
+        /// </summary>
+        public string? AssignedRouteId { get; set; }
     }
 }

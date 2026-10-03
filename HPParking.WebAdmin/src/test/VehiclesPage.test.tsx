@@ -54,6 +54,9 @@ describe('VehiclesPage Component', () => {
           birthDay: '',
           address: 'Hà Nội',
           type: 0,
+          cardCode: '0001234567',
+          authMethods: ['FaceId'],
+          verifyVehiclePlate: true,
           avatar: '',
           gender: 1,
           phoneNumber: '0977888999',
@@ -79,6 +82,7 @@ describe('VehiclesPage Component', () => {
           plateNumber: '30A88888',
           type: VehicleType.Car,
           ownerClientId: 'client-1',
+          isShared: false,
           note: 'Xe giám đốc',
           isActive: true,
           createdAt: new Date().toISOString(),
@@ -110,6 +114,8 @@ describe('VehiclesPage Component', () => {
       expect(screen.getAllByText('30A88888').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Ô tô').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Trần Văn Bảo').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('0977888999').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/Hà Nội/)).not.toBeInTheDocument();
       expect(screen.getAllByText('Xe giám đốc').length).toBeGreaterThan(0);
     });
   });
@@ -120,6 +126,7 @@ describe('VehiclesPage Component', () => {
       plateNumber: '15B12345',
       type: VehicleType.Motorbike,
       ownerClientId: 'client-1',
+      isShared: false,
       note: 'Xe nhân viên kỹ thuật',
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -134,6 +141,9 @@ describe('VehiclesPage Component', () => {
           birthDay: '',
           address: 'Hà Nội',
           type: 0,
+          cardCode: '0001234567',
+          authMethods: ['FaceId'],
+          verifyVehiclePlate: true,
           avatar: '',
           gender: 1,
           phoneNumber: '0977888999',

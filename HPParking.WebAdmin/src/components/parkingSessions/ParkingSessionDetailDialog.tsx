@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EvidenceImageGrid, hasImagePath } from './EvidenceImageGrid';
+import { EvidenceImageGrid, hasImagePath, formatImageUrl } from './EvidenceImageGrid';
 import { parkingSessionApi } from '@/api/parkingSessionApi';
 import { ParkingSessionStatus } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
@@ -92,6 +92,7 @@ export function ParkingSessionDetailDialog({
 
   const isMismatch = session?.status === ParkingSessionStatus.UnmatchedOut;
   const isActive = session?.status === ParkingSessionStatus.Active;
+  const isPedestrian = session?.targetType === 2 || !session?.vehicleType;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,20 +102,24 @@ export function ParkingSessionDetailDialog({
           <div className="flex flex-col gap-2.5 pr-8">
             <DialogTitle className="flex items-center gap-2.5 text-base sm:text-lg font-bold">
               <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Car className="h-4.5 w-4.5" />
+                {isPedestrian ? <User className="h-4 w-4" /> : <Car className="h-4 w-4" />}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold tracking-wide">
-                  Chi Tiết Lượt Xe: {session?.plateNumber || 'Đang tải...'}
+                  {isPedestrian
+                    ? `Chi Tiết Lượt Người Đi Bộ: ${session?.personFullName || session?.personCode || 'Khách'}`
+                    : `Chi Tiết Lượt Xe: ${session?.plateNumber || 'Đang tải...'}`}
                 </span>
                 <span className="text-xs text-muted-foreground font-normal">
-                  ({session?.personFullName || 'Khách vãng lai'} • {session ? getVehicleTypeName(session.vehicleType) : ''})
+                  {isPedestrian
+                    ? `(${session?.personCode ? `Mã: ${session.personCode}` : 'Người đi bộ'})`
+                    : `(${session?.personFullName || 'Khách vãng lai'} • ${session ? getVehicleTypeName(session.vehicleType) : ''})`}
                 </span>
               </div>
             </DialogTitle>
 
             {/* Badges trạng thái & thời lượng cho xuống hàng */}
-            <div className="flex items-center gap-2 flex-wrap sm:pl-10.5">
+            <div className="flex items-center gap-2 flex-wrap sm:pl-10">
               {session && getStatusBadge(session.status)}
               {session?.inTime && (
                 <Badge
@@ -129,16 +134,15 @@ export function ParkingSessionDetailDialog({
             </div>
           </div>
 
-          {/* View Switcher Tabs (Chuẩn PhuXuan) */}
+          {/* View Switcher Tabs */}
           <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-border/60">
             <button
               type="button"
               onClick={() => setActiveTab('all')}
-              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'all'
+              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'all'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-muted-foreground hover:bg-muted'
-              }`}
+                }`}
             >
               <Layers className="h-3.5 w-3.5" />
               Tổng Quan (Ảnh & Thông Tin)
@@ -146,11 +150,10 @@ export function ParkingSessionDetailDialog({
             <button
               type="button"
               onClick={() => setActiveTab('slider')}
-              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'slider'
+              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'slider'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-muted-foreground hover:bg-muted'
-              }`}
+                }`}
             >
               <Eye className="h-3.5 w-3.5" />
               Slide Ảnh (4)
@@ -158,11 +161,10 @@ export function ParkingSessionDetailDialog({
             <button
               type="button"
               onClick={() => setActiveTab('details')}
-              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'details'
+              className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'details'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-muted-foreground hover:bg-muted'
-              }`}
+                }`}
             >
               <FileText className="h-3.5 w-3.5" />
               Bảng Thông Số Chi Tiết
@@ -207,11 +209,15 @@ export function ParkingSessionDetailDialog({
                   inPlateImagePath={session.inPlateImagePath}
                   outOverviewImagePath={session.outOverviewImagePath}
                   outPlateImagePath={session.outPlateImagePath}
+                  inFaceImagePath={session.inFaceImagePath}
+                  outFaceImagePath={session.outFaceImagePath}
                   inLaneName={session.inLaneName}
                   outLaneName={session.outLaneName}
                   inTime={session.inTime}
                   outTime={session.outTime}
                   isActiveSession={isActive}
+                  targetType={session.targetType}
+                  personAvatar={session.personAvatar}
                 />
               )}
 
@@ -227,32 +233,63 @@ export function ParkingSessionDetailDialog({
                     {/* Card 1: Phương Tiện & Chủ Xe */}
                     <div className="p-3.5 rounded-xl border border-border bg-card space-y-2.5 shadow-2xs">
                       <div className="flex items-center gap-1.5 font-bold text-primary border-b border-border/60 pb-1.5">
-                        <Car className="h-4 w-4" />
-                        <span>Phương Tiện & Chủ Xe</span>
+                        {isPedestrian ? <User className="h-4 w-4" /> : <Car className="h-4 w-4" />}
+                        <span>{isPedestrian ? 'Thông Tin Người Đi Bộ' : 'Phương Tiện & Chủ Xe'}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-0.5">
-                        <div>
-                          <span className="text-muted-foreground block text-[11px]">Biển số xe:</span>
-                          <span className="font-extrabold text-sm text-foreground font-mono">
-                            {session.plateNumber}
+                        {isPedestrian ? (
+                          <>
+                            <div>
+                              <span className="text-muted-foreground block text-[11px]">Đối tượng:</span>
+                              <span className="font-semibold text-foreground">Người đi bộ</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-[11px]">Mã định danh/CCCD:</span>
+                              <span className="font-extrabold text-sm text-foreground font-mono">
+                                {session.personCode || '--'}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              <span className="text-muted-foreground block text-[11px]">Biển số xe:</span>
+                              <span className="font-extrabold text-sm text-foreground font-mono">
+                                {session.plateNumber}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-[11px]">Loại phương tiện:</span>
+                              <span className="font-semibold text-foreground">
+                                {getVehicleTypeName(session.vehicleType)}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        <div className="col-span-2 sm:col-span-1">
+                          <span className="text-muted-foreground block text-[11px]">
+                            {isPedestrian ? 'Họ và tên:' : 'Họ tên chủ xe:'}
                           </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block text-[11px]">Loại phương tiện:</span>
-                          <span className="font-semibold text-foreground">
-                            {getVehicleTypeName(session.vehicleType)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground block text-[11px]">Họ tên chủ xe:</span>
-                          <span className="font-semibold text-foreground flex items-center gap-1">
-                            <User className="h-3 w-3 text-muted-foreground" />
-                            {session.personFullName || 'Khách vãng lai'}
-                          </span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {hasImagePath(session.inFaceImagePath || session.personAvatar) ? (
+                              <img
+                                src={formatImageUrl(session.inFaceImagePath || session.personAvatar)}
+                                alt={session.personFullName || 'Chủ xe'}
+                                className="h-8 w-8 rounded-full object-cover border border-slate-300 dark:border-slate-700 shadow-2xs shrink-0"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
+                                <User className="h-4 w-4" />
+                              </div>
+                            )}
+                            <span className="font-semibold text-foreground truncate">
+                              {session.personFullName || 'Khách vãng lai'}
+                            </span>
+                          </div>
                         </div>
                         <div>
                           <span className="text-muted-foreground block text-[11px]">Số điện thoại:</span>
-                          <span className="font-mono text-foreground flex items-center gap-1">
+                          <span className="font-mono text-foreground flex items-center gap-1 mt-1">
                             <Phone className="h-3 w-3 text-muted-foreground" />
                             {session.personPhoneNumber || '---'}
                           </span>

@@ -17,21 +17,25 @@ export type ParkingSessionStatus =
 export interface ParkingSessionDto {
   id: string;
   plateNumber: string;
-  vehicleType: VehicleType;
+  vehicleType?: VehicleType;
+  targetType?: number;
   status: ParkingSessionStatus;
   personId?: string;
+  faceMatchScore?: number;
 
   // --- LƯỢT VÀO ---
   inTime?: string;
   inLaneName?: string;
   inOverviewImagePath: string;
   inPlateImagePath: string;
+  inFaceImagePath?: string;
 
   // --- LƯỢT RA ---
   outTime?: string;
   outLaneName?: string;
   outOverviewImagePath: string;
   outPlateImagePath: string;
+  outFaceImagePath?: string;
 
   // --- TÍNH TOÁN ---
   durationMinutes?: number;
@@ -43,6 +47,7 @@ export interface ParkingSessionDto {
   personFullName?: string;
   personPhoneNumber?: string;
   personCode?: string;
+  personAvatar?: string;
 
   // --- AUDIT TRAIL (AuditableDto) ---
   createdAt: string;
@@ -60,8 +65,10 @@ export interface ParkingSessionDetailDto extends ParkingSessionDto {
  * Tham số lọc và phân trang tra cứu danh sách phiên đỗ xe (ParkingSessionFilterQuery.cs)
  */
 export interface ParkingSessionFilterQuery extends PaginationQuery {
+  keyword?: string;
   plateNumber?: string;
   vehicleType?: VehicleType;
+  targetType?: number;
   status?: ParkingSessionStatus;
   inLaneName?: string;
   outLaneName?: string;

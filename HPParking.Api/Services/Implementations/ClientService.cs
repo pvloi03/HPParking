@@ -25,6 +25,7 @@ namespace HPParking.Api.Services.Implementations
         private readonly IFaceIdService _faceIdService;
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<ClientService> _logger;
+        private readonly IRepository<Card>? _cardRepo;
 
         public ClientService(
             IRepository<Client> clientRepo,
@@ -37,7 +38,8 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Company>? companyRepo = null,
             IRepository<Department>? departmentRepo = null,
             IRepository<Contractor>? contractorRepo = null,
-            IAuditLogService? auditLogService = null)
+            IAuditLogService? auditLogService = null,
+            IRepository<Card>? cardRepo = null)
         {
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
@@ -50,6 +52,7 @@ namespace HPParking.Api.Services.Implementations
             _departmentRepo = departmentRepo;
             _contractorRepo = contractorRepo;
             _auditLogService = auditLogService;
+            _cardRepo = cardRepo;
         }
 
         public async Task<PagedResult<ClientDto>> GetClientsPagedAsync(ClientFilterQuery query, CancellationToken cancellationToken = default)
@@ -235,6 +238,31 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            var cleanCardCode = HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
+            var authMethods = (request.AuthMethods != null && request.AuthMethods.Count > 0)
+                ? request.AuthMethods
+                : [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+
+            if (!string.IsNullOrWhiteSpace(cleanCardCode))
+            {
+                var otherClient = await _clientRepo.FindOneAsync(c => c.CardCode == cleanCardCode && !c.IsDeleted, cancellationToken);
+                if (otherClient != null)
+                {
+                    throw new BadRequestException($"Mã thẻ '{cleanCardCode}' đang được sử dụng bởi khách hàng '{otherClient.Name}'.");
+                }
+
+                if (_cardRepo != null)
+                {
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (card != null && !string.IsNullOrWhiteSpace(card.ClientId))
+                    {
+                        var assignedClient = await _clientRepo.FindOneAsync(c => c.Id == card.ClientId && !c.IsDeleted, cancellationToken);
+                        var ownerName = assignedClient?.Name ?? card.ClientId;
+                        throw new BadRequestException($"Thẻ định danh '{cleanCardCode}' đã được gán cho nhân sự '{ownerName}'.");
+                    }
+                }
+            }
+
             // 5. Tạo thực thể Client
             var client = new Client
             {
@@ -249,6 +277,9 @@ namespace HPParking.Api.Services.Implementations
                 Email = request.Email?.Trim(),
                 Gender = request.Gender,
                 PhoneNumber = cleanPhone,
+                CardCode = cleanCardCode,
+                AuthMethods = authMethods,
+                VerifyVehiclePlate = request.VerifyVehiclePlate,
                 IsActive = request.IsActive,
                 Expired = request.Expired ?? new(),
                 Note = request.Note,
@@ -275,44 +306,59 @@ namespace HPParking.Api.Services.Implementations
                 vehicleDtos.Add(vehicle.Adapt<VehicleDto>());
             }
 
+            if (_cardRepo != null && !string.IsNullOrWhiteSpace(cleanCardCode))
+            {
+                var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                if (card != null)
+                {
+                    card.ClientId = client.Id;
+                    card.Status = CardStatus.InUse;
+                    await _cardRepo.UpdateAsync(card, cancellationToken);
+                }
+            }
+
             var detailDto = client.Adapt<ClientDetailDto>();
             detailDto.Vehicles = vehicleDtos;
 
-            // 6. Tự động nạp thông tin Khách hàng (User & Thẻ) lên toàn bộ FaceID active
-            try
+            // 6. Tự động nạp thông tin Khách hàng (User & Thẻ) lên toàn bộ FaceID active nếu có bật FaceId
+            if (client.AuthMethods.Contains(HPParking.Core.Constants.AuthMethodConstants.FaceId))
             {
-                var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
-                if (terminals.Count > 0)
+                try
                 {
-                    var pushResults = await ExecuteParallelFaceIdActionAsync(
-                        terminals,
-                        t => _faceIdService.PushUserAsync(
-                            t,
-                            client.Code,
-                            client.Name,
-                            client.Gender == 1,
-                            client.PhoneNumber,
-                            null,
-                            cancellationToken),
-                        cancellationToken);
-
-                    detailDto.FaceIdTerminals = pushResults.Select(r => new TerminalClientStatusDto
+                    var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                    if (terminals.Count > 0)
                     {
-                        DeviceIp = r.DeviceIp,
-                        DeviceName = r.DeviceName,
-                        IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
-                        UserExists = r.IsSuccess,
-                        HasFace = false,
-                        CardCount = r.IsSuccess ? 1 : 0,
-                        Cards = r.IsSuccess ? new List<string> { client.PhoneNumber } : new(),
-                        ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
-                        Timestamp = r.Timestamp
-                    }).ToList();
+                        string faceCardCode = client.CardCode ?? "";
+                        var pushResults = await ExecuteParallelFaceIdActionAsync(
+                            terminals,
+                            t => _faceIdService.PushUserAsync(
+                                t,
+                                client.Code,
+                                client.Name,
+                                client.Gender == 1,
+                                faceCardCode,
+                                null,
+                                cancellationToken),
+                            cancellationToken);
+
+                        detailDto.FaceIdTerminals = pushResults.Select(r => new TerminalClientStatusDto
+                        {
+                            DeviceIp = r.DeviceIp,
+                            DeviceName = r.DeviceName,
+                            IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
+                            UserExists = r.IsSuccess,
+                            HasFace = false,
+                            CardCount = (r.IsSuccess && !string.IsNullOrWhiteSpace(faceCardCode)) ? 1 : 0,
+                            Cards = (r.IsSuccess && !string.IsNullOrWhiteSpace(faceCardCode)) ? new List<string> { faceCardCode } : new(),
+                            ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
+                            Timestamp = r.Timestamp
+                        }).ToList();
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Lỗi nạp FaceID tự động khi tạo khách hàng {Id}: {Message}", client.Id, ex.Message);
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi nạp FaceID tự động khi tạo khách hàng {Id}: {Message}", client.Id, ex.Message);
+                }
             }
 
             if (_auditLogService != null)
@@ -411,9 +457,46 @@ namespace HPParking.Api.Services.Implementations
 
             var oldCode = client.Code;
             var oldPhone = client.PhoneNumber;
+            var oldCardCode = client.CardCode;
+            var cleanCardCode = HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
             var isCodeChanged = !string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase);
             var isPhoneChanged = !string.Equals(client.PhoneNumber, cleanPhone, StringComparison.OrdinalIgnoreCase);
+            var isCardChanged = !string.Equals(oldCardCode, cleanCardCode, StringComparison.OrdinalIgnoreCase);
             var isNameOrGenderChanged = !string.Equals(client.Name, request.Name.Trim(), StringComparison.Ordinal) || client.Gender != request.Gender;
+
+            var authMethods = (request.AuthMethods != null && request.AuthMethods.Count > 0)
+                ? request.AuthMethods
+                : [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+
+            if (isCardChanged && !string.IsNullOrWhiteSpace(cleanCardCode))
+            {
+                var otherClient = await _clientRepo.FindOneAsync(c => c.CardCode == cleanCardCode && c.Id != id && !c.IsDeleted, cancellationToken);
+                if (otherClient != null)
+                {
+                    throw new BadRequestException($"Mã thẻ '{cleanCardCode}' đang được sử dụng bởi khách hàng '{otherClient.Name}'.");
+                }
+
+                if (_cardRepo != null)
+                {
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (card != null && !string.IsNullOrWhiteSpace(card.ClientId) && card.ClientId != id)
+                    {
+                        var assignedClient = await _clientRepo.FindOneAsync(c => c.Id == card.ClientId && !c.IsDeleted, cancellationToken);
+                        var ownerName = assignedClient?.Name ?? card.ClientId;
+                        throw new BadRequestException($"Thẻ định danh '{cleanCardCode}' đã được gán cho nhân sự '{ownerName}'.");
+                    }
+                }
+            }
+
+            if (request.VerifyVehiclePlate)
+            {
+                var existingVehiclesCount = await _vehicleRepo.CountAsync(v => v.OwnerClientId == id && !v.IsDeleted, cancellationToken);
+                var newVehiclesCount = normalizedVehicles.Count;
+                if (existingVehiclesCount + newVehiclesCount == 0)
+                {
+                    throw new BadRequestException("Khi bật xác thực đối chiếu xe, bắt buộc khách hàng phải có ít nhất một phương tiện đăng ký.");
+                }
+            }
 
             client.Code = cleanCode;
             client.Name = request.Name.Trim();
@@ -426,6 +509,9 @@ namespace HPParking.Api.Services.Implementations
             client.Email = request.Email?.Trim();
             client.Gender = request.Gender;
             client.PhoneNumber = cleanPhone;
+            client.CardCode = cleanCardCode;
+            client.AuthMethods = authMethods;
+            client.VerifyVehiclePlate = request.VerifyVehiclePlate;
             client.IsActive = request.IsActive;
             client.Expired = request.Expired ?? new();
             client.Note = request.Note;
@@ -433,6 +519,32 @@ namespace HPParking.Api.Services.Implementations
 
             await _clientRepo.UpdateAsync(client, cancellationToken);
             _logger.LogInformation("Đã cập nhật khách hàng ID {Id}: {Name}", id, client.Name);
+
+            // Cập nhật quan hệ hai chiều với thực thể Thẻ (Card)
+            if (_cardRepo != null && isCardChanged)
+            {
+                if (!string.IsNullOrWhiteSpace(oldCardCode))
+                {
+                    var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (oldCard != null && oldCard.ClientId == id)
+                    {
+                        oldCard.ClientId = null;
+                        oldCard.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(oldCard, cancellationToken);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(cleanCardCode))
+                {
+                    var newCard = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (newCard != null)
+                    {
+                        newCard.ClientId = id;
+                        newCard.Status = CardStatus.InUse;
+                        await _cardRepo.UpdateAsync(newCard, cancellationToken);
+                    }
+                }
+            }
 
             // Thêm các phương tiện bổ sung vào CSDL
             foreach (var reqV in normalizedVehicles)
@@ -481,31 +593,39 @@ namespace HPParking.Api.Services.Implementations
                             terminals,
                             async t =>
                             {
-                                await _faceIdService.DeleteUserAsync(t, oldCode, oldPhone, cancellationToken);
+                                await _faceIdService.DeleteUserAsync(t, oldCode, oldCardCode ?? "", cancellationToken);
                                 return await _faceIdService.PushUserAsync(
                                     t,
                                     client.Code,
                                     client.Name,
                                     client.Gender == 1,
-                                    client.PhoneNumber,
+                                    client.CardCode ?? "",
                                     faceBytes,
                                     cancellationToken);
                             },
                             cancellationToken);
                     }
-                    else if (isPhoneChanged || isNameOrGenderChanged)
+                    else if (isCardChanged || isNameOrGenderChanged)
                     {
                         // 2. Không đổi CCCD:
-                        // - Nếu đổi SĐT: Self-Healing quét sạch thẻ cũ và gán thẻ mới
+                        // - Nếu đổi Thẻ: Self-Healing quét sạch thẻ cũ và gán thẻ mới (dùng client.CardCode chuẩn, KHÔNG dùng SĐT)
                         // - Nếu đổi Tên hoặc Giới tính: Cập nhật UserInfo
                         faceResults = await ExecuteParallelFaceIdActionAsync(
                             terminals,
                             async t =>
                             {
-                                if (isPhoneChanged)
+                                if (isCardChanged)
                                 {
-                                    var cardRes = await _faceIdService.CleanAndAssignCardAsync(t, client.Code, client.PhoneNumber, cancellationToken);
-                                    if (!cardRes.IsSuccess) return cardRes;
+                                    if (!string.IsNullOrWhiteSpace(client.CardCode))
+                                    {
+                                        var cardRes = await _faceIdService.CleanAndAssignCardAsync(t, client.Code, client.CardCode, cancellationToken);
+                                        if (!cardRes.IsSuccess) return cardRes;
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(oldCardCode))
+                                    {
+                                        var cardRes = await _faceIdService.DeleteCardAsync(t, oldCardCode, cancellationToken);
+                                        if (!cardRes.IsSuccess) return cardRes;
+                                    }
                                 }
 
                                 if (isNameOrGenderChanged)
@@ -540,8 +660,8 @@ namespace HPParking.Api.Services.Implementations
                             IsOnline = !r.ErrorMessage?.Contains("Mất kết nối") ?? true,
                             UserExists = r.IsSuccess,
                             HasFace = false,
-                            CardCount = r.IsSuccess ? 1 : 0,
-                            Cards = r.IsSuccess ? new List<string> { client.PhoneNumber } : new(),
+                            CardCount = (r.IsSuccess && !string.IsNullOrWhiteSpace(client.CardCode)) ? 1 : 0,
+                            Cards = (r.IsSuccess && !string.IsNullOrWhiteSpace(client.CardCode)) ? new List<string> { client.CardCode } : new(),
                             ErrorMessage = r.IsSuccess ? null : r.ErrorMessage,
                             Timestamp = r.Timestamp
                         })];
@@ -600,6 +720,17 @@ namespace HPParking.Api.Services.Implementations
                 await _clientRepo.DeleteAsync(id, softDelete: true, cancellationToken);
                 _logger.LogInformation("Đã XÓA MỀM khách hàng {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
 
+                if (_cardRepo != null && !string.IsNullOrWhiteSpace(client.CardCode))
+                {
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == client.CardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (card != null)
+                    {
+                        card.ClientId = null;
+                        card.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(card, cancellationToken);
+                    }
+                }
+
                 if (_auditLogService != null)
                 {
                     await _auditLogService.LogActivityAsync(
@@ -631,6 +762,17 @@ namespace HPParking.Api.Services.Implementations
 
             await _clientRepo.DeleteAsync(id, softDelete: false, cancellationToken);
 
+            if (_cardRepo != null && !string.IsNullOrWhiteSpace(client.CardCode))
+            {
+                var card = await _cardRepo.FindOneAsync(c => c.CardNumber == client.CardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                if (card != null)
+                {
+                    card.ClientId = null;
+                    card.Status = CardStatus.Available;
+                    await _cardRepo.UpdateAsync(card, cancellationToken);
+                }
+            }
+
             foreach (var v in deletedVehicles)
             {
                 await _vehicleRepo.DeleteAsync(v.Id, softDelete: false, cancellationToken);
@@ -649,7 +791,7 @@ namespace HPParking.Api.Services.Implementations
                 {
                     await ExecuteParallelFaceIdActionAsync(
                         terminals,
-                        t => _faceIdService.DeleteUserAsync(t, client.Code, client.PhoneNumber, cancellationToken),
+                        t => _faceIdService.DeleteUserAsync(t, client.Code, client.CardCode ?? "", cancellationToken),
                         cancellationToken);
                 }
             }
@@ -905,7 +1047,7 @@ namespace HPParking.Api.Services.Implementations
                     client.Code,
                     client.Name,
                     client.Gender == 1,
-                    client.PhoneNumber,
+                    client.CardCode ?? "",
                     faceBytes,
                     cancellationToken),
                 cancellationToken);
@@ -948,8 +1090,11 @@ namespace HPParking.Api.Services.Implementations
             {
                 try
                 {
-                    // 1. Fail-Fast Ping 600ms
-                    var isAlive = await _faceIdService.PingFastAsync(terminal.DeviceIp, 600, cancellationToken);
+                    // 1. Kiểm tra kết nối thiết bị với timeout 2000ms
+                    var targetIpWithPort = terminal.Port > 0 && terminal.Port != 80 && terminal.Port != 443
+                        ? $"{terminal.DeviceIp}:{terminal.Port}"
+                        : terminal.DeviceIp;
+                    var isAlive = await _faceIdService.PingFastAsync(targetIpWithPort, 2000, cancellationToken);
                     if (!isAlive)
                     {
                         return new FaceIdTerminalResultDto
@@ -957,7 +1102,7 @@ namespace HPParking.Api.Services.Implementations
                             DeviceIp = terminal.DeviceIp,
                             DeviceName = terminal.DeviceName,
                             IsSuccess = false,
-                            ErrorMessage = $"Mất kết nối tới thiết bị [{terminal.DeviceIp}] (Ping timeout 600ms)",
+                            ErrorMessage = $"Mất kết nối tới thiết bị [{terminal.DeviceIp}] (Kiểm tra lại nguồn, IP/Port và mạng LAN)",
                             Timestamp = DateTime.UtcNow
                         };
                     }
@@ -1017,6 +1162,8 @@ namespace HPParking.Api.Services.Implementations
                     uniqueConfigs.Add(new FaceIdTerminalConfig
                     {
                         DeviceIp = ip,
+                        // Cố định Port 443 (HTTPS) cho kết nối ISAPI từ API, bỏ qua port SDK (8000) lưu trong CSDL
+                        Port = 443,
                         DeviceName = string.IsNullOrWhiteSpace(device.Name) ? lane.Name : device.Name,
                         Username = string.IsNullOrWhiteSpace(device.UserName) ? "admin" : device.UserName.Trim(),
                         Password = device.Password?.Trim() ?? string.Empty

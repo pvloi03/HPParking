@@ -65,7 +65,26 @@ namespace HPParking.Api.Services.Implementations
             ParkingSessionFilterQuery query,
             CancellationToken cancellationToken = default)
         {
-            var filter = BuildParkingSessionFilter(query);
+            IReadOnlyCollection<string>? matchedClientIds = null;
+            if (!string.IsNullOrWhiteSpace(query.Keyword))
+            {
+                var kw = query.Keyword.Trim();
+                var kwRegex = new BsonRegularExpression(Regex.Escape(kw), "i");
+
+                var clientFilter = Builders<Client>.Filter.And(
+                    Builders<Client>.Filter.Eq(c => c.IsDeleted, false),
+                    Builders<Client>.Filter.Or(
+                        Builders<Client>.Filter.Regex(c => c.Name, kwRegex),
+                        Builders<Client>.Filter.Regex(c => c.Code, kwRegex),
+                        Builders<Client>.Filter.Regex(c => c.PhoneNumber, kwRegex)
+                    )
+                );
+
+                var matchedClients = await _clientRepo.FindAsync(clientFilter, cancellationToken: cancellationToken);
+                matchedClientIds = matchedClients.Select(c => c.Id).ToHashSet();
+            }
+
+            var filter = BuildParkingSessionFilter(query, matchedClientIds);
             var sort = BuildParkingSessionSort(query);
 
             var totalCount = await _sessionRepo.CountAsync(filter, cancellationToken);
@@ -278,15 +297,56 @@ namespace HPParking.Api.Services.Implementations
 
         #region Filter & Sort Builders
 
-        private static FilterDefinition<ParkingSession> BuildParkingSessionFilter(ParkingSessionFilterQuery query)
+        private static FilterDefinition<ParkingSession> BuildParkingSessionFilter(
+            ParkingSessionFilterQuery query,
+            IReadOnlyCollection<string>? matchedClientIds = null)
         {
             var builder = Builders<ParkingSession>.Filter;
             var filters = new List<FilterDefinition<ParkingSession>>();
+
+            if (query.TargetType.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.TargetType, query.TargetType.Value));
+            }
 
             if (!string.IsNullOrWhiteSpace(query.PlateNumber))
             {
                 var cleanPlate = PlateHelper.Normalize(query.PlateNumber);
                 filters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(cleanPlate, "i")));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.Keyword))
+            {
+                var kw = query.Keyword.Trim();
+                var cleanPlate = PlateHelper.Normalize(kw);
+                var isPlateSearch = !string.IsNullOrEmpty(cleanPlate) && query.TargetType != LaneTargetType.Pedestrian;
+                var clientIds = matchedClientIds ?? Array.Empty<string>();
+
+                if (query.TargetType == LaneTargetType.Pedestrian)
+                {
+                    filters.Add(builder.In(x => x.PersonId, clientIds));
+                }
+                else
+                {
+                    var orFilters = new List<FilterDefinition<ParkingSession>>();
+                    if (isPlateSearch)
+                    {
+                        orFilters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(cleanPlate, "i")));
+                    }
+                    if (clientIds.Count > 0)
+                    {
+                        orFilters.Add(builder.In(x => x.PersonId, clientIds));
+                    }
+
+                    if (orFilters.Count > 0)
+                    {
+                        filters.Add(builder.Or(orFilters));
+                    }
+                    else
+                    {
+                        filters.Add(builder.Regex(x => x.PlateNumber, new BsonRegularExpression(Regex.Escape(kw), "i")));
+                    }
+                }
             }
 
             if (query.VehicleType.HasValue)

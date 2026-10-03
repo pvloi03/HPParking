@@ -15,6 +15,10 @@ namespace HPParking.Services.Parking
         PlateMismatch,
         ConfirmRequired,
         BarrierFailed,
+        CardExpired,
+        AccessDenied,
+        FaceMismatch,
+        FeeRequired,
         Error
     }
 
@@ -27,7 +31,11 @@ namespace HPParking.Services.Parking
         public string RegisteredPlate => Vehicle?.PlateNumber ?? (!string.IsNullOrEmpty(ParkingSession?.PlateNumber) ? ParkingSession.PlateNumber : "");
         public string DepartmentName { get; set; } = "";
         public ParkingSession? ParkingSession { get; set; }
+        public VehicleDispatchTrip? DispatchTrip { get; set; }
         public LprResult? LprResult { get; set; }
         public Bitmap? OverviewImage { get; set; }
+        public Bitmap? PlateImage { get; set; }
+        public Bitmap? FaceImage { get; set; }
+        public double? FaceMatchScore { get; set; }
     }
 }

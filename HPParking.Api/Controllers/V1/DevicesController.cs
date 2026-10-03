@@ -164,5 +164,22 @@ namespace HPParking.Api.Controllers.V1
             var result = await _deviceService.PingMultipleDevicesAsync(request.IpAddresses, request.TimeoutMs);
             return OkApiResponse(result, $"Đã kiểm tra kết nối {result.Count} thiết bị.");
         }
+
+        /// <summary>
+        /// Kiểm tra kết nối trực tiếp (Ping / TCP Socket) tới thiết bị (hỗ trợ SDK Port 8000 và RTSP Port 554)
+        /// </summary>
+        [HttpPost("{id}/test-connection")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<DevicePingResultDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> TestConnection(string id, [FromQuery] int timeoutMs = 2000)
+        {
+            var device = await _deviceService.GetDeviceByIdAsync(id);
+            var result = await _deviceService.PingDeviceIpAsync(device.IpAddress, timeoutMs);
+            return OkApiResponse(result, result.Message);
+        }
     }
 }

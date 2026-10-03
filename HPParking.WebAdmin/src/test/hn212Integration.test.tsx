@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { parseCccdDate, base64ToFile, hn212Service } from '@/services/hn212Service';
 import { ClientFormDialog } from '@/components/clients/ClientFormDialog';
 import { Hn212CameraDialog } from '@/components/clients/Hn212CameraDialog';
@@ -49,6 +50,17 @@ describe('HN212 Smart Reader Integration', () => {
   });
 
   describe('ClientFormDialog với dữ liệu CCCD từ HN212', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    const renderWithClient = (ui: React.ReactElement) =>
+      render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+
     const dummyHn212Card: Hn212CardData = {
       DocumentNumber: '001200012345',
       FullName: 'NGUYỄN VĂN AN',
@@ -59,7 +71,7 @@ describe('HN212 Smart Reader Integration', () => {
     };
 
     it('tự động điền thông tin từ CCCD và cho phép người dùng chỉnh sửa các trường', () => {
-      render(
+      renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}
@@ -110,7 +122,7 @@ describe('HN212 Smart Reader Integration', () => {
         isActive: true,
       };
 
-      render(
+      renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}
@@ -145,7 +157,7 @@ describe('HN212 Smart Reader Integration', () => {
         isActive: true,
       };
 
-      render(
+      renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}
@@ -167,7 +179,7 @@ describe('HN212 Smart Reader Integration', () => {
     });
 
     it('hiển thị nút Thêm phương tiện và mở các trường nhập liệu khi người dùng nhấn', async () => {
-      render(
+      renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}
@@ -246,7 +258,7 @@ describe('HN212 Smart Reader Integration', () => {
       };
 
       // 1. Trường hợp Cán bộ nhân viên: Hiển thị Công ty & Phòng ban, KHÔNG hiển thị Nhà thầu
-      const { unmount: unmount1 } = render(
+      const { unmount: unmount1 } = renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}
@@ -263,7 +275,7 @@ describe('HN212 Smart Reader Integration', () => {
       unmount1();
 
       // 2. Trường hợp Nhà thầu: Hiển thị Nhà thầu, KHÔNG hiển thị Công ty & Phòng ban
-      const { unmount: unmount2 } = render(
+      const { unmount: unmount2 } = renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}
@@ -280,7 +292,7 @@ describe('HN212 Smart Reader Integration', () => {
       unmount2();
 
       // 3. Trường hợp Khách vãng lai: KHÔNG hiển thị cả Công ty, Phòng ban và Nhà thầu
-      render(
+      renderWithClient(
         <ClientFormDialog
           open={true}
           onOpenChange={vi.fn()}

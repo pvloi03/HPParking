@@ -136,16 +136,39 @@ namespace HPParking.Services.Camera
                     throw new InvalidOperationException("Camera biển số chưa kết nối.");
                 }
 
+                // Cách 1: Thử chụp trực tiếp vào bộ nhớ RAM qua HI_SDK_SnapJpeg
                 int result = HiSdk.HI_SDK_SnapJpeg(_loginHandle, _captureBuffer, CaptureBufferSize, out int imageSize);
 
-                if (result != HiConstants.Success || imageSize <= 0)
+                if (result == HiConstants.Success && imageSize > 0)
                 {
-                    throw new Exception($"Chụp ảnh camera biển số thất bại. Mã lỗi: {result}");
+                    using MemoryStream ms = new(_captureBuffer, 0, imageSize);
+                    using Bitmap temp = new(ms);
+                    return new Bitmap(temp);
                 }
 
-                using MemoryStream ms = new(_captureBuffer, 0, imageSize);
-                using Bitmap temp = new(ms);
-                return new Bitmap(temp);
+                Debug.WriteLine($"[PlateCameraService] HI_SDK_SnapJpeg thất bại (Mã: {result}, Size: {imageSize}). Thử fallback sang HI_SDK_CaptureJPEGPicture...");
+
+                // Cách 2 (Fallback): Chụp qua file tạm thời bằng HI_SDK_CaptureJPEGPicture
+                string tempFile = Path.Combine(Path.GetTempPath(), $"hi_snap_{Guid.NewGuid():N}.jpg");
+                try
+                {
+                    int capResult = HiSdk.HI_SDK_CaptureJPEGPicture(_loginHandle, tempFile);
+                    if (capResult == HiConstants.Success && File.Exists(tempFile))
+                    {
+                        byte[] bytes = File.ReadAllBytes(tempFile);
+                        using MemoryStream ms = new(bytes);
+                        using Bitmap temp = new(ms);
+                        return new Bitmap(temp);
+                    }
+                    else
+                    {
+                        throw new Exception($"Chụp ảnh camera biển số thất bại. SnapJpeg: {result}, CaptureJPEG: {capResult}");
+                    }
+                }
+                finally
+                {
+                    try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+                }
             }
         }
 

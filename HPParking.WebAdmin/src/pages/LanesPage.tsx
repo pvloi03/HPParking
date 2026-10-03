@@ -35,6 +35,7 @@ import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {
   LaneDirection,
+  LaneTargetType,
   type LaneDto,
   type CreateLaneRequest,
   type UpdateLaneRequest,
@@ -224,6 +225,26 @@ export function LanesPage() {
       accessorKey: 'name',
       className: 'font-semibold min-w-[170px]',
       mobileLabel: 'Tên làn',
+    },
+    {
+      header: 'Đối tượng',
+      accessorKey: 'targetType',
+      cell: (item) => {
+        if (item.targetType === LaneTargetType.Pedestrian) {
+          return (
+            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1 text-[11px] font-medium">
+              <span>🚶 Người</span>
+            </Badge>
+          );
+        }
+        return (
+          <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300 gap-1 text-[11px] font-medium">
+            <span>🚗 Xe</span>
+          </Badge>
+        );
+      },
+      className: 'w-24',
+      mobileLabel: 'Loại',
     },
     {
       header: 'Cổng trực thuộc',

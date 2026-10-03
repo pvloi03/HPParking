@@ -6,10 +6,18 @@ export const ClientType = {
   Contractor: 1,
   Visitor: 2,
   VIP: 3,
-  Other: 4,
+  Guest: 4,
 } as const;
 
 export type ClientType = (typeof ClientType)[keyof typeof ClientType];
+
+export const AuthMethod = {
+  Card: 'Card',
+  FaceId: 'FaceId',
+  None: 'None',
+} as const;
+
+export type AuthMethod = (typeof AuthMethod)[keyof typeof AuthMethod];
 
 export interface Expired {
   enable: boolean;
@@ -31,6 +39,9 @@ export interface ClientDto {
   avatar: string;
   gender: number;
   phoneNumber: string;
+  cardCode: string;
+  authMethods: string[];
+  verifyVehiclePlate: boolean;
   isActive: boolean;
   expired: Expired;
   note?: string;
@@ -87,6 +98,9 @@ export interface CreateClientRequest {
   email?: string;
   gender: number;
   phoneNumber: string;
+  cardCode?: string;
+  authMethods: string[];
+  verifyVehiclePlate: boolean;
   isActive: boolean;
   expired: Expired;
   note?: string;
@@ -105,6 +119,9 @@ export interface UpdateClientRequest {
   email?: string;
   gender: number;
   phoneNumber: string;
+  cardCode?: string;
+  authMethods: string[];
+  verifyVehiclePlate: boolean;
   isActive: boolean;
   expired: Expired;
   note?: string;

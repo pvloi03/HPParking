@@ -37,21 +37,22 @@ namespace HPParking.Forms
             // lblInfo
             // 
             lblInfo.Dock = System.Windows.Forms.DockStyle.Top;
-            lblInfo.Font = new System.Drawing.Font("Segoe UI", 10F);
+            lblInfo.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, 0);
             lblInfo.ForeColor = System.Drawing.Color.FromArgb(40, 40, 40);
             lblInfo.Location = new System.Drawing.Point(0, 0);
             lblInfo.Name = "lblInfo";
-            lblInfo.Size = new System.Drawing.Size(467, 100);
+            lblInfo.Size = new System.Drawing.Size(657, 122);
             lblInfo.TabIndex = 0;
             lblInfo.Text = "Làn: ...\r\nLý do: Camera lỗi hoặc không nhận diện được\r\nVui lòng nhập biển số xe thực tế:";
             // 
             // txtPlate
             // 
+            txtPlate.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             txtPlate.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
             txtPlate.Font = new System.Drawing.Font("Segoe UI", 16F, System.Drawing.FontStyle.Bold);
-            txtPlate.Location = new System.Drawing.Point(43, 131);
+            txtPlate.Location = new System.Drawing.Point(64, 137);
             txtPlate.Name = "txtPlate";
-            txtPlate.Size = new System.Drawing.Size(380, 50);
+            txtPlate.Size = new System.Drawing.Size(528, 50);
             txtPlate.TabIndex = 1;
             txtPlate.KeyDown += txtPlate_KeyDown;
             // 
@@ -63,7 +64,7 @@ namespace HPParking.Forms
             btnConfirm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnConfirm.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             btnConfirm.ForeColor = System.Drawing.Color.White;
-            btnConfirm.Location = new System.Drawing.Point(88, 196);
+            btnConfirm.Location = new System.Drawing.Point(442, 213);
             btnConfirm.Name = "btnConfirm";
             btnConfirm.Size = new System.Drawing.Size(150, 42);
             btnConfirm.TabIndex = 2;
@@ -80,7 +81,7 @@ namespace HPParking.Forms
             btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             btnCancel.ForeColor = System.Drawing.Color.White;
-            btnCancel.Location = new System.Drawing.Point(248, 196);
+            btnCancel.Location = new System.Drawing.Point(306, 213);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new System.Drawing.Size(130, 42);
             btnCancel.TabIndex = 3;
@@ -95,7 +96,7 @@ namespace HPParking.Forms
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             BackColor = System.Drawing.Color.FromArgb(245, 247, 250);
             CancelButton = btnCancel;
-            ClientSize = new System.Drawing.Size(467, 290);
+            ClientSize = new System.Drawing.Size(657, 299);
             Controls.Add(btnCancel);
             Controls.Add(btnConfirm);
             Controls.Add(txtPlate);

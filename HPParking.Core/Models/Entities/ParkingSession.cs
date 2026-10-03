@@ -16,14 +16,23 @@ namespace HPParking.Core.Models.Entities
         public string PlateNumber { get; set; } = string.Empty;
 
         [BsonRepresentation(BsonType.String)]
-        public VehicleType VehicleType { get; set; } = VehicleType.Car;
+        [BsonIgnoreIfNull]
+        public VehicleType? VehicleType { get; set; }
 
         [BsonRepresentation(BsonType.String)]
         public ParkingSessionStatus Status { get; set; } = ParkingSessionStatus.Active;
 
+        /// <summary>
+        /// Phân loại đối tượng phiên kiểm soát (Xe cơ giới / Người đi bộ)
+        /// </summary>
+        [BsonRepresentation(BsonType.String)]
+        public LaneTargetType TargetType { get; set; } = LaneTargetType.Vehicle;
+
         // --- ĐỊNH DANH ĐỐI TƯỢNG ---
         [BsonRepresentation(BsonType.ObjectId)]
         public string? PersonId { get; set; }
+
+        public double? FaceMatchScore { get; set; }
 
         // --- THÔNG TIN LƯỢT VÀO (CHECK-IN) ---
         [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
@@ -35,6 +44,8 @@ namespace HPParking.Core.Models.Entities
 
         public string InPlateImagePath { get; set; } = string.Empty;
 
+        public string InFaceImagePath { get; set; } = string.Empty;
+
         // --- THÔNG TIN LƯỢT RA (CHECK-OUT) ---
         [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
         public DateTime? OutTime { get; set; }
@@ -44,5 +55,7 @@ namespace HPParking.Core.Models.Entities
         public string OutOverviewImagePath { get; set; } = string.Empty;
 
         public string OutPlateImagePath { get; set; } = string.Empty;
+
+        public string OutFaceImagePath { get; set; } = string.Empty;
     }
 }

@@ -618,7 +618,7 @@ export function RecycleBinPage() {
             header: 'Hướng làn',
             cell: (item: any) => (
               <Badge variant="outline" className="text-[11px]">
-                {item.direction === 0 ? 'Làn Vào' : item.direction === 1 ? 'Làn Ra' : 'Hai Chiều'}
+                {item.direction === 1 ? 'Làn Vào' : item.direction === 2 ? 'Làn Ra' : 'Hai Chiều'}
               </Badge>
             ),
           },

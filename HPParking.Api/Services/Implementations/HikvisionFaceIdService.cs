@@ -30,7 +30,7 @@ namespace HPParking.Api.Services.Implementations
             string employeeNo,
             string name,
             bool isMale,
-            string phoneNumber,
+            string cardNumber,
             byte[]? faceImageBytes,
             CancellationToken cancellationToken = default)
         {
@@ -56,9 +56,9 @@ namespace HPParking.Api.Services.Implementations
                 }
 
                 // 2. Gán Thẻ CardInfo (tự động dọn thẻ cũ và gán thẻ mới)
-                if (!string.IsNullOrWhiteSpace(phoneNumber))
+                if (!string.IsNullOrWhiteSpace(cardNumber))
                 {
-                    var cleanCardResult = await CleanAndAssignCardInternalAsync(client, terminal, employeeNo, phoneNumber, cancellationToken);
+                    var cleanCardResult = await CleanAndAssignCardInternalAsync(client, terminal, employeeNo, cardNumber, cancellationToken);
                     if (!cleanCardResult.IsSuccess)
                     {
                         // Tuyệt đối không xóa User của khách hàng (No rollback), chỉ ghi nhận lỗi cho bước này
@@ -99,7 +99,7 @@ namespace HPParking.Api.Services.Implementations
         public async Task<FaceIdTerminalResultDto> DeleteUserAsync(
             FaceIdTerminalConfig terminal,
             string employeeNo,
-            string phoneNumber,
+            string cardNumber,
             CancellationToken cancellationToken = default)
         {
             var result = new FaceIdTerminalResultDto
@@ -115,9 +115,9 @@ namespace HPParking.Api.Services.Implementations
 
                 // Bước 1: Xóa toàn bộ Thẻ (CardInfo) của User
                 var userCards = await SearchUserCardsAsync(client, employeeNo, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(phoneNumber) && !userCards.Contains(phoneNumber))
+                if (!string.IsNullOrWhiteSpace(cardNumber) && !userCards.Contains(cardNumber))
                 {
-                    userCards.Add(phoneNumber);
+                    userCards.Add(cardNumber);
                 }
 
                 if (userCards.Count > 0)
@@ -180,11 +180,17 @@ namespace HPParking.Api.Services.Implementations
             }
         }
 
-        public async Task<bool> PingFastAsync(string deviceIp, int timeoutMs = 600, CancellationToken cancellationToken = default)
+        public async Task<bool> PingFastAsync(string deviceIp, int timeoutMs = 2000, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(deviceIp)) return false;
             var cleanIp = deviceIp.Trim();
-            if (cleanIp.Contains(':')) cleanIp = cleanIp.Split(':')[0];
+            int customPort = 0;
+            if (cleanIp.Contains(':'))
+            {
+                var parts = cleanIp.Split(':');
+                cleanIp = parts[0];
+                int.TryParse(parts[1], out customPort);
+            }
             if (cleanIp.Contains('/')) cleanIp = cleanIp.Split('/')[0];
 
             try
@@ -198,21 +204,33 @@ namespace HPParking.Api.Services.Implementations
             }
             catch
             {
-                // Fallback thử TCP socket connect cổng 443
+                // Fallback thử TCP socket connect
             }
 
-            try
+            var portsToTest = new List<int>();
+            if (customPort > 0 && customPort != 8000) portsToTest.Add(customPort);
+            portsToTest.AddRange([443, 80, 8000]);
+
+            foreach (var port in portsToTest.Distinct())
             {
-                using var tcpClient = new TcpClient();
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(timeoutMs);
-                await tcpClient.ConnectAsync(cleanIp, 443, cts.Token);
-                return tcpClient.Connected;
+                try
+                {
+                    using var tcpClient = new TcpClient();
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    cts.CancelAfter(Math.Min(timeoutMs, 1000));
+                    await tcpClient.ConnectAsync(cleanIp, port, cts.Token);
+                    if (tcpClient.Connected)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Thử cổng tiếp theo
+                }
             }
-            catch
-            {
-                return false;
-            }
+
+            return false;
         }
 
         public async Task<TerminalClientStatusDto> CheckUserStatusAsync(
@@ -230,7 +248,10 @@ namespace HPParking.Api.Services.Implementations
             try
             {
                 // 1. Ping nhanh trước
-                bool isAlive = await PingFastAsync(terminal.DeviceIp, 600, cancellationToken);
+                var targetIpWithPort = terminal.Port > 0 && terminal.Port != 80 && terminal.Port != 443
+                    ? $"{terminal.DeviceIp}:{terminal.Port}"
+                    : terminal.DeviceIp;
+                bool isAlive = await PingFastAsync(targetIpWithPort, 2000, cancellationToken);
                 if (!isAlive)
                 {
                     status.IsOnline = false;
@@ -615,7 +636,7 @@ namespace HPParking.Api.Services.Implementations
         private async Task<(bool Success, string? Error)> AssignCardAsync(
             HttpClient client,
             string employeeNo,
-            string phoneNumber,
+            string cardNumber,
             CancellationToken cancellationToken)
         {
             var cardPayload = new
@@ -623,7 +644,7 @@ namespace HPParking.Api.Services.Implementations
                 CardInfo = new
                 {
                     employeeNo,
-                    cardNo = phoneNumber,
+                    cardNo = cardNumber,
                     cardType = "normalCard"
                 }
             };
@@ -713,9 +734,10 @@ namespace HPParking.Api.Services.Implementations
             return (false, $"HTTP {(int)updateResponse.StatusCode}: {errBody}");
         }
 
-        private HttpClient GetOrCreateHttpClient(FaceIdTerminalConfig terminal)
+        internal HttpClient GetOrCreateHttpClient(FaceIdTerminalConfig terminal)
         {
-            var cacheKey = $"{terminal.DeviceIp}|{terminal.Username}|{terminal.Password}";
+            var effectivePort = (terminal.Port <= 0 || terminal.Port == 8000) ? 443 : terminal.Port;
+            var cacheKey = $"{terminal.DeviceIp}|{effectivePort}|{terminal.Username}|{terminal.Password}";
             return _clientCache.GetOrAdd(cacheKey, _ =>
             {
                 if (string.IsNullOrWhiteSpace(terminal.DeviceIp))
@@ -723,7 +745,11 @@ namespace HPParking.Api.Services.Implementations
                     throw new ArgumentException("Địa chỉ IP thiết bị không được để trống.", nameof(terminal.DeviceIp));
                 }
 
-                var baseUri = new Uri($"https://{terminal.DeviceIp}");
+                var scheme = effectivePort == 80 ? "http" : "https";
+                var hostWithPort = effectivePort != 80 && effectivePort != 443
+                    ? $"{terminal.DeviceIp}:{effectivePort}"
+                    : terminal.DeviceIp;
+                var baseUri = new Uri($"{scheme}://{hostWithPort}");
                 var credentialCache = new CredentialCache
                 {
                     { baseUri, "Digest", new NetworkCredential(terminal.Username, terminal.Password) }

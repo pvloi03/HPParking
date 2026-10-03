@@ -25,6 +25,27 @@ namespace HPParking.Core.Models.Entities
         public LaneDirection Direction { get; set; } = LaneDirection.In;
 
         /// <summary>
+        /// Phân loại đối tượng kiểm soát của làn (Xe cơ giới / Người đi bộ)
+        /// </summary>
+        [BsonRepresentation(BsonType.String)]
+        public LaneTargetType TargetType { get; set; } = LaneTargetType.Vehicle;
+
+        /// <summary>
+        /// Kích hoạt camera chụp ảnh toàn cảnh
+        /// </summary>
+        public bool UseOverviewCam { get; set; } = true;
+
+        /// <summary>
+        /// Kích hoạt camera nhận diện biển số
+        /// </summary>
+        public bool UsePlateCam { get; set; } = true;
+
+        /// <summary>
+        /// Kích hoạt camera/thiết bị nhận diện khuôn mặt
+        /// </summary>
+        public bool UseFaceCam { get; set; } = false;
+
+        /// <summary>
         /// [LƯU DB] ID Camera chụp ảnh toàn cảnh
         /// </summary>
         [BsonRepresentation(BsonType.ObjectId)]

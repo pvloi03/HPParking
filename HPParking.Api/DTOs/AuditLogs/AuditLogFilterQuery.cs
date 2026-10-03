@@ -11,6 +11,8 @@ namespace HPParking.Api.DTOs.AuditLogs
         public string? ActorUsername { get; set; }
         public AuditActionType? ActionType { get; set; }
         public string? TargetEntity { get; set; }
+        public string? TargetId { get; set; }
+        public string? TargetDisplay { get; set; }
         public bool? IsSuccess { get; set; }
         public string? Source { get; set; }
         public DateTime? FromDate { get; set; }

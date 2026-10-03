@@ -23,6 +23,9 @@ namespace HPParking.Api.Validators.Lanes
             RuleFor(x => x.Direction)
                 .IsInEnum().WithMessage("Hướng di chuyển của làn xe không hợp lệ (1: In, 2: Out, 3: Bidirectional).");
 
+            RuleFor(x => x.TargetType)
+                .IsInEnum().WithMessage("Loại đối tượng kiểm soát của làn không hợp lệ (0: Vehicle, 1: Pedestrian).");
+
             RuleFor(x => x.OutputRelay)
                 .GreaterThanOrEqualTo(0).WithMessage("Cổng OutputRelay phải lớn hơn hoặc bằng 0.");
 

@@ -9,7 +9,7 @@ namespace HPParking.Api.DTOs.Excel.Reports
     public class ParkingSessionExcelDto
     {
         public string PlateNumber { get; set; } = string.Empty;
-        public VehicleType VehicleType { get; set; } = VehicleType.Car;
+        public VehicleType? VehicleType { get; set; }
         public ParkingSessionStatus Status { get; set; } = ParkingSessionStatus.Active;
         public string? ClientCode { get; set; }
         public string? ClientName { get; set; }

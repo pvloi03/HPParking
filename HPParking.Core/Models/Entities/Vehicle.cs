@@ -16,6 +16,11 @@ namespace HPParking.Core.Models.Entities
         [BsonRepresentation(BsonType.ObjectId)]
         public string? OwnerClientId { get; set; }                                       // [LƯU DB] Khóa ngoại liên kết chủ xe (Person)
 
+        public bool IsShared { get; set; } = false;                                       // [LƯU DB] Đánh dấu phương tiện nội bộ / xe dùng chung
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? AssignedRouteId { get; set; }                                     // [LƯU DB] Tuyến cố định (nếu có), null nếu tự do
+
         public bool IsActive { get; set; } = true;
     }
 }
