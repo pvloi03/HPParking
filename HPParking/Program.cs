@@ -3,10 +3,12 @@ using HPParking.Core.Interfaces;
 using HPParking.Core.Repositories;
 using HPParking.Forms;
 using HPParking.Interfaces;
+using HPParking.Services.Hardware;
 using HPParking.Services.Health;
 using HPParking.Services.License;
 using HPParking.Services.LPR;
 using HPParking.Services.Parking;
+using HPParking.Services.Parking.Handlers;
 using HPParking.Services.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -53,6 +55,8 @@ namespace HPParking
 
                 services.AddSingleton<ILprService, LprService>();
                 services.AddSingleton<IImageStorageService, ImageStorageService>();
+                services.AddScoped<ILaneHardwareOrchestrator, LaneHardwareOrchestrator>();
+                services.AddScoped<ISharedVehicleWorkflowHandler, SharedVehicleWorkflowHandler>();
                 services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
                 services.AddSingleton<IServerHealthService, ServerHealthService>();
 

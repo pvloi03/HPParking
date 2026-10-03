@@ -14,11 +14,12 @@ namespace HPParking.Tests.Api
         private readonly IRepository<GateRouteConfig> _routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
         private readonly IRepository<Gate> _gateRepo = Substitute.For<IRepository<Gate>>();
         private readonly IRepository<Vehicle> _vehicleRepo = Substitute.For<IRepository<Vehicle>>();
+        private readonly IRepository<VehicleDispatchTrip> _tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
         private readonly GateRouteService _service;
 
         public GateRouteServiceVehicleAssignmentTests()
         {
-            _service = new GateRouteService(_routeRepo, _gateRepo, _vehicleRepo);
+            _service = new GateRouteService(_routeRepo, _gateRepo, _vehicleRepo, _tripRepo);
 
             // Mock gate lookup so step validation succeeds
             _gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>())

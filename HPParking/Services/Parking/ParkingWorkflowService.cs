@@ -6,7 +6,9 @@ using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Controller;
+using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
+using HPParking.Services.Parking.Handlers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,32 +18,53 @@ using System.Threading.Tasks;
 
 namespace HPParking.Services.Parking
 {
-    public class ParkingWorkflowService(
-        IRepository<Client> clientRepository,
-        IRepository<ParkingSession> sessionRepository,
-        ILprService lprService,
-        IImageStorageService imageStorageService,
-        IRepository<Department> departmentRepository,
-        IRepository<Contractor> contractorRepository,
-        IRepository<Company> companyRepository,
-        IRepository<Vehicle> vehicleRepository,
-        IRepository<Card> cardRepository,
-        IRepository<VehicleDispatchTrip> tripRepository,
-        IRepository<GateRouteConfig> gateRouteRepository,
-        IRepository<Gate> gateRepository) : IParkingWorkflowService
+    public class ParkingWorkflowService : IParkingWorkflowService
     {
-        private readonly IRepository<Client> _clientRepository = clientRepository;
-        private readonly IRepository<ParkingSession> _sessionRepository = sessionRepository;
-        private readonly ILprService _lprService = lprService;
-        private readonly IImageStorageService _imageStorageService = imageStorageService;
-        private readonly IRepository<Department> _departmentRepository = departmentRepository;
-        private readonly IRepository<Contractor> _contractorRepository = contractorRepository;
-        private readonly IRepository<Company> _companyRepository = companyRepository;
-        private readonly IRepository<Vehicle> _vehicleRepository = vehicleRepository;
-        private readonly IRepository<Card> _cardRepository = cardRepository;
-        private readonly IRepository<VehicleDispatchTrip> _tripRepository = tripRepository;
-        private readonly IRepository<GateRouteConfig> _gateRouteRepository = gateRouteRepository;
-        private readonly IRepository<Gate> _gateRepository = gateRepository;
+        private readonly IRepository<Client> _clientRepository;
+        private readonly IRepository<ParkingSession> _sessionRepository;
+        private readonly ILprService _lprService;
+        private readonly IImageStorageService _imageStorageService;
+        private readonly IRepository<Department> _departmentRepository;
+        private readonly IRepository<Contractor> _contractorRepository;
+        private readonly IRepository<Company> _companyRepository;
+        private readonly IRepository<Vehicle> _vehicleRepository;
+        private readonly IRepository<Card> _cardRepository;
+        private readonly IRepository<VehicleDispatchTrip> _tripRepository;
+        private readonly IRepository<GateRouteConfig> _gateRouteRepository;
+        private readonly IRepository<Gate> _gateRepository;
+        private readonly ISharedVehicleWorkflowHandler _sharedVehicleHandler;
+
+        public ParkingWorkflowService(
+            IRepository<Client> clientRepository,
+            IRepository<ParkingSession> sessionRepository,
+            ILprService lprService,
+            IImageStorageService imageStorageService,
+            IRepository<Department> departmentRepository,
+            IRepository<Contractor> contractorRepository,
+            IRepository<Company> companyRepository,
+            IRepository<Vehicle> vehicleRepository,
+            IRepository<Card> cardRepository,
+            IRepository<VehicleDispatchTrip> tripRepository,
+            IRepository<GateRouteConfig> gateRouteRepository,
+            IRepository<Gate> gateRepository,
+            ISharedVehicleWorkflowHandler? sharedVehicleHandler = null)
+        {
+            _clientRepository = clientRepository;
+            _sessionRepository = sessionRepository;
+            _lprService = lprService;
+            _imageStorageService = imageStorageService;
+            _departmentRepository = departmentRepository;
+            _contractorRepository = contractorRepository;
+            _companyRepository = companyRepository;
+            _vehicleRepository = vehicleRepository;
+            _cardRepository = cardRepository;
+            _tripRepository = tripRepository;
+            _gateRouteRepository = gateRouteRepository;
+            _gateRepository = gateRepository;
+            _sharedVehicleHandler = sharedVehicleHandler ?? new SharedVehicleWorkflowHandler(
+                tripRepository, vehicleRepository, gateRouteRepository, gateRepository,
+                imageStorageService, new LaneHardwareOrchestrator(lprService));
+        }
 
         #region --- 1. MASTER WORKFLOW DISPATCHER (TUPLE PATTERN MATCHING) ---
 
@@ -864,331 +887,8 @@ namespace HPParking.Services.Parking
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Thẻ xe dùng chung không hợp lệ." };
             }
 
-            var log = new RealtimeLog
-            {
-                CardNo = trigger.RawCardNo,
-                DoorId = trigger.DoorIndex,
-                Time = trigger.TriggerTime
-            };
-
-            return await ProcessSharedVehicleTripAsync(context, cardEntity, log, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
-        }
-
-        private async Task<ProcessResult> ProcessSharedVehicleTripAsync(
-            LaneRuntimeContext context,
-            Card vehicleCard,
-            RealtimeLog data,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
-        {
-            var vehicle = await _vehicleRepository!.GetByIdAsync(vehicleCard.VehicleId!);
-            if (vehicle == null || !vehicle.IsActive)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ClientNotFound,
-                    Message = "Phương tiện nội bộ gắn với thẻ này không tồn tại hoặc đã bị khóa."
-                };
-            }
-
-            string currentGateId = context.Lane?.GateId ?? "";
-            bool isEntry = context.Direction == LaneDirection.In;
-
-            Gate? currentGate = !string.IsNullOrEmpty(currentGateId) ? await _gateRepository.GetByIdAsync(currentGateId) : null;
-            string currentGateName = currentGate?.Name ?? (string.IsNullOrEmpty(currentGateId) ? "Cổng không xác định" : currentGateId);
-
-            VehicleDispatchTrip? activeTrip = await _tripRepository.FindOneAsync(t =>
-                t.VehicleId == vehicle.Id &&
-                t.Status != TripStatus.Completed &&
-                !t.IsDeleted);
-
-            var images = await CaptureLaneImagesAsync(context,
-                needOverview: context.Lane?.UseOverviewCam ?? true,
-                needPlate: context.Lane?.UsePlateCam ?? true,
-                needFace: context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId)));
-            var (plateSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, vehicle.PlateNumber ?? "", onManualPlateInput);
-
-            string registeredPlateNorm = NormalizePlate(vehicle.PlateNumber);
-            string detectedPlateNorm = NormalizePlate(detectedPlate);
-
-            if (string.IsNullOrEmpty(detectedPlateNorm))
-            {
-                bool capturedPlate = images.Plate != null;
-                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                    Message = $"Không nhận diện được biển số phương tiện {vehicle.PlateNumber} và không có biển số nhập tay.",
-                    Vehicle = vehicle,
-                    DepartmentName = "Không nhận diện được biển số",
-                    LprResult = lprResult,
-                    DispatchTrip = activeTrip,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap,
-                    OverviewImage = overviewSnap
-                };
-            }
-
-            if (detectedPlateNorm != registeredPlateNorm)
-            {
-                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.PlateMismatch,
-                    Message = "BIỂN SỐ KHÔNG ĐÚNG VỚI BIỂN SỐ ĐÃ ĐĂNG KÝ!",
-                    Vehicle = vehicle,
-                    DepartmentName = "Cảnh báo sai biển số phương tiện",
-                    LprResult = lprResult,
-                    DispatchTrip = activeTrip,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap,
-                    OverviewImage = overviewSnap
-                };
-            }
-
-            GateRouteConfig? assignedRoute = null;
-            if (!string.IsNullOrEmpty(vehicle.AssignedRouteId))
-            {
-                assignedRoute = await _gateRouteRepository.GetByIdAsync(vehicle.AssignedRouteId);
-            }
-            assignedRoute ??= await _gateRouteRepository.FindOneAsync(r => (r.IsDefault || r.RouteCode == "DEFAULT") && !r.IsDeleted);
-
-            DateTime now = (data.Time != default && data.Time != DateTime.MinValue)
-                ? (data.Time.Kind == DateTimeKind.Utc ? data.Time : data.Time.ToUniversalTime())
-                : DateTime.UtcNow;
-
-            bool isCheckpointOverdue = false;
-            double checkpointOverdueSeconds = 0;
-            if (activeTrip != null && activeTrip.NextDeadline.HasValue)
-            {
-                if (now > activeTrip.NextDeadline.Value)
-                {
-                    isCheckpointOverdue = true;
-                    checkpointOverdueSeconds = (now - activeTrip.NextDeadline.Value).TotalSeconds;
-                }
-            }
-
-            int defaultStay = assignedRoute?.DefaultStayMinutes ?? 60;
-            int defaultTravel = assignedRoute?.DefaultTravelMinutes ?? 30;
-
-            if (activeTrip == null)
-            {
-                if (isEntry)
-                {
-                    var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.ConfirmRequired,
-                        Vehicle = vehicle,
-                        DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                        LprResult = lprResult,
-                        OverviewImage = warnOverviewSnap,
-                        PlateImage = warnSmallPlate,
-                        FaceImage = warnFaceSnap,
-                        Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra nhưng lại quẹt vào cổng {currentGateName}!",
-                        DispatchTrip = null
-                    };
-                }
-
-                int firstDeadlineMinutes = defaultTravel;
-                if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                {
-                    var firstStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == 1);
-                    if (firstStep != null)
-                    {
-                        firstDeadlineMinutes = firstStep.MaxTravelMinutes;
-                    }
-                }
-
-                activeTrip = new VehicleDispatchTrip
-                {
-                    VehicleId = vehicle.Id,
-                    PlateNumber = vehicle.PlateNumber ?? "",
-                    CardId = vehicleCard.Id,
-                    CardNumber = vehicleCard.CardNumber,
-                    OriginGateId = currentGateId,
-                    CurrentGateId = currentGateId,
-                    AssignedRouteId = assignedRoute?.Id,
-                    CurrentStepIndex = 1,
-                    Status = TripStatus.InTransit,
-                    StartTime = now,
-                    LastEntryTime = null,
-                    LastExitTime = now,
-                    NextDeadline = now.AddMinutes(firstDeadlineMinutes),
-                    IsAlertSent = false,
-                    Checkpoints = []
-                };
-                await _tripRepository.AddAsync(activeTrip);
-            }
-            else
-            {
-                if (isEntry)
-                {
-                    if (activeTrip.Status == TripStatus.WorkingAtGate)
-                    {
-                        var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = ExtractWorkflowImages(images, lprResult);
-                        return new ProcessResult
-                        {
-                            Status = ProcessStatus.ConfirmRequired,
-                            Vehicle = vehicle,
-                            DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                            LprResult = lprResult,
-                            OverviewImage = warnOverviewSnap,
-                            PlateImage = warnSmallPlate,
-                            FaceImage = warnFaceSnap,
-                            Message = $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra khỏi cổng trước đó nhưng lại quẹt vào cổng {currentGateName}!",
-                            DispatchTrip = activeTrip
-                        };
-                    }
-
-                    activeTrip.LastEntryTime = now;
-                    if (activeTrip.CurrentStepIndex >= (assignedRoute?.GateSteps.Count ?? 1))
-                    {
-                        activeTrip.Status = TripStatus.Completed;
-                        activeTrip.EndTime = now;
-                        activeTrip.NextDeadline = null;
-                    }
-                    else
-                    {
-                        activeTrip.Status = TripStatus.WorkingAtGate;
-                        int stayMinutes = defaultStay;
-                        if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                        {
-                            var currentStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                            if (currentStep != null) stayMinutes = currentStep.MaxStayMinutes;
-                        }
-                        activeTrip.NextDeadline = now.AddMinutes(stayMinutes);
-                        activeTrip.IsAlertSent = false;
-                    }
-                }
-                else
-                {
-                    activeTrip.LastExitTime = now;
-                    activeTrip.CurrentStepIndex++;
-                    activeTrip.Status = TripStatus.InTransit;
-                    int travelMinutes = defaultTravel;
-                    if (assignedRoute != null && assignedRoute.GateSteps.Count > 0)
-                    {
-                        var nextStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                        if (nextStep != null) travelMinutes = nextStep.MaxTravelMinutes;
-                    }
-                    activeTrip.NextDeadline = now.AddMinutes(travelMinutes);
-                    activeTrip.IsAlertSent = false;
-                }
-
-                await _tripRepository.UpdateAsync(activeTrip);
-            }
-
-            bool isRouteCompliant = true;
-            if (assignedRoute != null && assignedRoute.GateSteps.Count > 0 && !assignedRoute.IsDefault)
-            {
-                var expectedStep = assignedRoute.GateSteps.FirstOrDefault(s => s.StepIndex == activeTrip.CurrentStepIndex);
-                if (expectedStep != null && !string.IsNullOrEmpty(expectedStep.GateId))
-                {
-                    if (expectedStep.GateId != currentGateId)
-                    {
-                        isRouteCompliant = false;
-                    }
-                }
-            }
-
-            var currentCheckpoint = new TripCheckpoint
-            {
-                StepIndex = activeTrip.CurrentStepIndex,
-                GateId = currentGateId,
-                GateName = currentGateName,
-                Direction = context.Direction,
-                Timestamp = now,
-                OverviewImagePath = "",
-                PlateImagePath = "",
-                PlateDetected = lprResult?.Plate ?? vehicle.PlateNumber,
-                IsRouteCompliant = isRouteCompliant,
-                Note = isEntry ? "Quẹt vào cổng" : "Quẹt ra khỏi cổng",
-                SlaOverdue = new SlaOverdueInfo
-                {
-                    IsOverdue = isCheckpointOverdue,
-                    OverdueSeconds = checkpointOverdueSeconds
-                }
-            };
-            activeTrip.Checkpoints ??= [];
-            activeTrip.Checkpoints.Add(currentCheckpoint);
-            await _tripRepository.UpdateAsync(activeTrip);
-
-            if (!isRouteCompliant)
-            {
-                SaveImagesBackground(null, images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        if (activeTrip != null && (!string.IsNullOrEmpty(oPath) || !string.IsNullOrEmpty(pPath)))
-                        {
-                            currentCheckpoint.OverviewImagePath = oPath;
-                            currentCheckpoint.PlateImagePath = pPath;
-                            await _tripRepository.UpdateAsync(activeTrip);
-                        }
-                    });
-                });
-
-                var (warnSmallPlate, warnFaceSnap, warnOverviewSnap) = ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ConfirmRequired,
-                    Vehicle = vehicle,
-                    DepartmentName = $"Tuyến: {assignedRoute?.RouteName ?? "Lạc tuyến"}",
-                    LprResult = lprResult,
-                    OverviewImage = warnOverviewSnap,
-                    PlateImage = warnSmallPlate,
-                    FaceImage = warnFaceSnap,
-                    Message = $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại {currentGateName} không đúng lộ trình tuyến {assignedRoute?.RouteName}!",
-                    DispatchTrip = activeTrip
-                };
-            }
-
-            if (!TryOpenBarrier(context, onBarrierOpenFailed))
-            {
-                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier cho phương tiện. Vui lòng kiểm tra thiết bị.",
-                    Vehicle = vehicle,
-                    DepartmentName = assignedRoute != null ? $"Tuyến: {assignedRoute.RouteName}" : "Phương tiện nội bộ / Điều vận",
-                    LprResult = lprResult,
-                    OverviewImage = overviewSnap,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap
-                };
-            }
-
-            SaveImagesBackground(null, images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
-            {
-                _ = Task.Run(async () =>
-                {
-                    if (activeTrip != null && (!string.IsNullOrEmpty(oPath) || !string.IsNullOrEmpty(pPath)))
-                    {
-                        currentCheckpoint.OverviewImagePath = oPath;
-                        currentCheckpoint.PlateImagePath = pPath;
-                        await _tripRepository.UpdateAsync(activeTrip);
-                    }
-                });
-            });
-
-            string routeDesc = assignedRoute != null ? assignedRoute.RouteName : "Tuyến tự do";
-            int totalSteps = assignedRoute?.GateSteps.Count ?? 1;
-            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Vehicle = vehicle,
-                DepartmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})",
-                LprResult = lprResult,
-                OverviewImage = succOverviewSnap,
-                PlateImage = succSmallPlate,
-                FaceImage = succFaceSnap,
-                Message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
-                DispatchTrip = activeTrip
-            };
+            return await _sharedVehicleHandler.ProcessSharedVehicleTripAsync(
+                context, trigger, cardEntity, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
         }
 
         // ======================== [E] MỞ CƯỠNG BỨC THỦ CÔNG ========================
@@ -1537,25 +1237,5 @@ namespace HPParking.Services.Parking
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// Đóng gói ảnh đa camera thu thập từ làn tại một thời điểm
-    /// </summary>
-    public sealed class CapturedLaneImages : IDisposable
-    {
-        public Bitmap? Overview { get; set; }
-        public Bitmap? Plate { get; set; }
-        public Bitmap? Face { get; set; }
-
-        public void Dispose()
-        {
-            Overview?.Dispose();
-            Plate?.Dispose();
-            Face?.Dispose();
-            Overview = null;
-            Plate = null;
-            Face = null;
-        }
     }
 }

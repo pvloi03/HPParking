@@ -16,6 +16,7 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Card> _cardRepo;
+        private readonly IRepository<VehicleDispatchTrip> _tripRepo;
         private readonly ILogger<VehicleService> _logger;
         private readonly VehicleService _service;
 
@@ -24,11 +25,13 @@ namespace HPParking.Tests.Api.Unit
             _vehicleRepo = Substitute.For<IRepository<Vehicle>>();
             _clientRepo = Substitute.For<IRepository<Client>>();
             _cardRepo = Substitute.For<IRepository<Card>>();
+            _tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
             _logger = Substitute.For<ILogger<VehicleService>>();
 
             _service = new VehicleService(
                 _vehicleRepo,
                 _clientRepo,
+                _tripRepo,
                 _logger,
                 auditLogService: null,
                 cardRepo: _cardRepo);
