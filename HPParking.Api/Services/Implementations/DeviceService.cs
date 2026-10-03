@@ -10,7 +10,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -122,6 +121,8 @@ namespace HPParking.Api.Services.Implementations
             device.IpAddress = ip;
             device.UserName = request.UserName?.Trim();
             device.Password = request.Password;
+            device.RtspUrl = request.RtspUrl?.Trim();
+            device.Channel = request.Channel;
 
             await _deviceRepo.AddAsync(device, cancellationToken);
             _logger.LogInformation("Đã tạo mới thiết bị {Id}: {Name} ({Code}) tại {Ip}:{Port}", device.Id, device.Name, device.Code, device.IpAddress, device.Port);
@@ -199,6 +200,8 @@ namespace HPParking.Api.Services.Implementations
             device.IpAddress = ip;
             device.Port = request.Port;
             device.UserName = request.UserName?.Trim();
+            device.RtspUrl = request.RtspUrl?.Trim();
+            device.Channel = request.Channel;
             device.IsActive = request.IsActive;
 
             // Nếu người dùng truyền mật khẩu mới, cập nhật mật khẩu; ngược lại giữ nguyên
@@ -415,6 +418,56 @@ namespace HPParking.Api.Services.Implementations
             result.Message = "Không có phản hồi từ thiết bị (Thiết bị có thể đang tắt nguồn hoặc đứt mạng LAN)";
             return result;
         }
+
+        public async Task<List<DevicePingResultDto>> PingMultipleDevicesAsync(IEnumerable<string> ipAddresses, int timeoutMs = 2000, CancellationToken cancellationToken = default)
+        {
+            if (ipAddresses == null)
+            {
+                return [];
+            }
+
+            var cleanIps = ipAddresses
+                .Where(ip => !string.IsNullOrWhiteSpace(ip))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (cleanIps.Count == 0)
+            {
+                return [];
+            }
+
+            // Tối ưu hóa: Ping song song tối đa 10 luồng đồng thời bằng SemaphoreSlim
+            using var semaphore = new SemaphoreSlim(10, 10);
+            var tasks = cleanIps.Select(async ip =>
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    return await PingDeviceIpAsync(ip, timeoutMs, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi kiểm tra kết nối thiết bị {Ip}: {Message}", ip, ex.Message);
+                    return new DevicePingResultDto
+                    {
+                        IpAddress = ip,
+                        IsAlive = false,
+                        RoundtripTimeMs = timeoutMs,
+                        Method = "ERROR",
+                        Message = $"Lỗi kiểm tra kết nối: {ex.Message}",
+                        Timestamp = DateTime.UtcNow
+                    };
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            return [.. results];
+        }
+
 
         private static DeviceDto MapToDto(Device device)
         {

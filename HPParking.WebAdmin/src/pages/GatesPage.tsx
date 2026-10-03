@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { DoorOpen, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { GateFormDialog } from '@/components/infrastructure/GateFormDialog';
+import { GateDetailDialog } from '@/components/infrastructure/GateDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { gatesApi, extractErrorMessage } from '@/api/infrastructureApi';
 import { companiesApi } from '@/api/masterDataApi';
@@ -24,6 +26,7 @@ import type {
   CreateGateRequest,
   UpdateGateRequest,
 } from '@/types/infrastructure';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export function GatesPage() {
@@ -32,7 +35,7 @@ export function GatesPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [companyFilter, setCompanyFilter] = useState<string>('all');
@@ -50,6 +53,7 @@ export function GatesPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedGate, setSelectedGate] = useState<GateDto | null>(null);
+  const [detailGateId, setDetailGateId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<GateDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -208,9 +212,9 @@ export function GatesPage() {
       header: 'Mã máy bốt trực',
       accessorKey: 'machineCode',
       cell: (item) => (
-        <span className="font-mono text-xs bg-muted/60 px-2 py-0.5 rounded text-foreground">
+        <Badge variant="outline" className="font-mono text-xs font-normal">
           {item.machineCode || '—'}
-        </span>
+        </Badge>
       ),
       className: 'w-44',
       mobileLabel: 'MachineCode',
@@ -218,17 +222,7 @@ export function GatesPage() {
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },
@@ -259,16 +253,7 @@ export function GatesPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -338,6 +323,7 @@ export function GatesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailGateId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedGate(item);
@@ -352,6 +338,22 @@ export function GatesPage() {
         }}
         emptyTitle="Không có cổng kiểm soát nào"
         emptyDescription="Chưa có dữ liệu cổng kiểm soát hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Cổng */}
+      <GateDetailDialog
+        open={Boolean(detailGateId)}
+        onOpenChange={(open) => !open && setDetailGateId(null)}
+        gateId={detailGateId}
+        companies={companies}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedGate(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa Cổng */}

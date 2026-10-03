@@ -34,6 +34,9 @@ describe('ClientDetailDialog Component', () => {
     companyId: 'comp-1',
     departmentId: 'dept-1',
     contractorId: undefined,
+    cardCode: '0001234567',
+    authMethods: ['FaceId', 'Card'],
+    verifyVehiclePlate: true,
     isActive: true,
     note: 'Cán bộ kỹ thuật cao cấp',
     expired: {
@@ -49,6 +52,7 @@ describe('ClientDetailDialog Component', () => {
         ownerClientId: 'cli-test-01',
         plateNumber: '15A-999.88',
         type: VehicleType.Car,
+        isShared: false,
         isActive: true,
         note: 'Xe cá nhân',
         createdAt: '2026-01-02T08:00:00Z',
@@ -81,7 +85,7 @@ describe('ClientDetailDialog Component', () => {
     });
   });
 
-  it('hiển thị đầy đủ thông tin cá nhân của khách hàng khi mở dialog', async () => {
+  it('hiển thị đầy đủ thông tin cá nhân của nhân sự khi mở dialog', async () => {
     vi.mocked(clientApi.getById).mockResolvedValueOnce(mockClientDetail);
 
     render(

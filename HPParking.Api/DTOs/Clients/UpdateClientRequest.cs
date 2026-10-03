@@ -17,6 +17,9 @@ namespace HPParking.Api.DTOs.Clients
         public string? Email { get; set; }
         public int Gender { get; set; }
         public string PhoneNumber { get; set; } = string.Empty;
+        public string CardCode { get; set; } = string.Empty;
+        public List<string> AuthMethods { get; set; } = [HPParking.Core.Constants.AuthMethodConstants.FaceId];
+        public bool VerifyVehiclePlate { get; set; } = true;
         public bool IsActive { get; set; } = true;
         public Expired Expired { get; set; } = new();
         public string? Note { get; set; }

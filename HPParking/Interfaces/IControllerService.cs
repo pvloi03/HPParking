@@ -23,6 +23,11 @@ namespace HPParking.Interfaces
         event Action<RealtimeLog>? OnCardSwiped;
 
         /// <summary>
+        /// Sự kiện phát ra khi cảm biến Radar sóng milimet / AUX IN phát hiện xe tiếp cận làn tự do
+        /// </summary>
+        event Action<RealtimeLog>? OnRadarTriggered;
+
+        /// <summary>
         /// Kết nối tới bộ điều khiển qua cấu hình ControllerConfig
         /// </summary>
         Task<bool> ConnectAsync(ControllerConfig? config, CancellationToken cancellationToken = default);

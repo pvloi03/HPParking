@@ -16,7 +16,7 @@ import { KeyRound, Eye, EyeOff, ShieldCheck, Lock } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { authApi } from '@/api/authApi';
 import { extractErrorMessage } from '@/api/userApi';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 
 const changePasswordSchema = z
   .object({

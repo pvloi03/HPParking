@@ -1,21 +1,27 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import {
   UserCog,
   KeyRound,
-  Trash2,
   User as UserIcon,
-  Phone,
-  Mail,
   Clock,
-  Edit,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { UserFormDialog } from '@/components/users/UserFormDialog';
+import { UserDetailDialog } from '@/components/users/UserDetailDialog';
 import { ResetPasswordDialog } from '@/components/users/ResetPasswordDialog';
 import { usersApi, extractErrorMessage } from '@/api/userApi';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,6 +32,7 @@ import {
   type UpdateUserRequest,
   type ResetPasswordRequest,
 } from '@/types/user';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export function UsersPage() {
   const queryClient = useQueryClient();
@@ -33,7 +40,7 @@ export function UsersPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
@@ -41,6 +48,7 @@ export function UsersPage() {
   // State Modal Form & Actions
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDto | null>(null);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [resetPasswordCandidate, setResetPasswordCandidate] = useState<UserDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<UserDto | null>(null);
 
@@ -244,23 +252,10 @@ export function UsersPage() {
     {
       header: 'Thông tin liên hệ',
       cell: (item) => (
-        <div className="space-y-0.5 text-xs">
-          {item.email ? (
-            <div className="flex items-center gap-1 text-muted-foreground truncate" title={item.email}>
-              <Mail className="h-3 w-3 shrink-0" />
-              <span className="truncate">{item.email}</span>
-            </div>
-          ) : null}
-          {item.phoneNumber ? (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Phone className="h-3 w-3 shrink-0" />
-              <span>{item.phoneNumber}</span>
-            </div>
-          ) : null}
-          {!item.email && !item.phoneNumber && (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
+        <ContactInfoCell
+          phoneNumber={item.phoneNumber}
+          email={item.email}
+        />
       ),
       className: 'w-48',
       mobileLabel: 'Liên hệ',
@@ -299,68 +294,14 @@ export function UsersPage() {
                 ? 'Nhấn để tạm khóa tài khoản'
                 : 'Nhấn để kích hoạt tài khoản'
             }
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all ${
-              item.isActive
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 hover:ring-1 hover:ring-emerald-400'
-                : 'bg-muted text-muted-foreground hover:ring-1 hover:ring-muted-foreground'
-            } ${isSelf ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}`}
+            className={isSelf ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'}
           >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                item.isActive ? 'bg-emerald-500' : 'bg-muted-foreground'
-              }`}
-            />
-            <span>{item.isActive ? 'Hoạt động' : 'Đã khóa'}</span>
+            <ActiveStatusBadge isActive={item.isActive} />
           </button>
         );
       },
       className: 'w-32',
       mobileLabel: 'Trạng thái',
-    },
-    {
-      header: 'Thao tác',
-      cell: (item) => {
-        const isSelf = currentUser?.id === item.id;
-        return (
-          <div className="flex items-center justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setResetPasswordCandidate(item)}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer"
-              title="Đặt lại mật khẩu"
-            >
-              <KeyRound className="h-4 w-4 text-amber-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedUser(item);
-                setIsFormOpen(true);
-              }}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-500/10 cursor-pointer"
-              title="Chỉnh sửa tài khoản"
-            >
-              <Edit className="h-4 w-4 text-blue-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isSelf}
-              onClick={() => setDeleteCandidate(item)}
-              className={`h-8 w-8 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer ${
-                isSelf ? 'opacity-40 cursor-not-allowed' : ''
-              }`}
-              title={isSelf ? 'Bạn không thể tự xóa tài khoản của chính mình' : 'Xóa vào thùng rác'}
-            >
-              <Trash2 className="h-4 w-4 text-rose-600" />
-            </Button>
-          </div>
-        );
-      },
-      className: 'w-32 text-right',
-      mobileLabel: 'Thao tác',
     },
   ];
 
@@ -389,16 +330,7 @@ export function UsersPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -414,22 +346,45 @@ export function UsersPage() {
         }}
         extraFilters={
           <div className="flex items-center gap-1.5">
-            <select
-              value={roleFilter}
-              onChange={(e) => {
-                const val = e.target.value;
+            <Select
+              value={String(roleFilter)}
+              onValueChange={(val) => {
                 setRoleFilter(val === 'all' ? 'all' : (Number(val) as UserRole));
                 setPageIndex(1);
               }}
-              className="h-9 px-2.5 rounded-lg border border-border bg-background text-xs text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-600"
             >
-              <option value="all">Tất cả vai trò</option>
-              <option value={UserRole.Admin}>Quản trị viên (Admin)</option>
-              <option value={UserRole.Manager}>Quản lý (Manager)</option>
-              <option value={UserRole.Viewer}>Người xem (Viewer)</option>
-            </select>
+              <SelectTrigger className="h-9 w-[190px] text-xs">
+                <SelectValue placeholder="Tất cả vai trò" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả vai trò</SelectItem>
+                <SelectItem value={String(UserRole.Admin)}>Quản trị viên (Admin)</SelectItem>
+                <SelectItem value={String(UserRole.Manager)}>Quản lý (Manager)</SelectItem>
+                <SelectItem value={String(UserRole.Viewer)}>Người xem (Viewer)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         }
+        actions={{
+          onView: (item) => setDetailUserId(item.id),
+          extraActions: (item) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setResetPasswordCandidate(item)}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 cursor-pointer min-h-[36px] min-w-[36px]"
+              title="Đặt lại mật khẩu"
+            >
+              <KeyRound className="h-4 w-4 text-amber-600" />
+            </Button>
+          ),
+          onEdit: (item) => {
+            setSelectedUser(item);
+            setIsFormOpen(true);
+          },
+          onDelete: (item) => setDeleteCandidate(item),
+          canDelete: (item) => item.username !== currentUser?.username,
+        }}
         onAddNew={() => {
           setSelectedUser(null);
           setIsFormOpen(true);
@@ -437,6 +392,20 @@ export function UsersPage() {
         addNewLabel="Thêm mới tài khoản"
         emptyTitle="Không có tài khoản nào"
         emptyDescription="Chưa có dữ liệu tài khoản hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Tài Khoản */}
+      <UserDetailDialog
+        open={Boolean(detailUserId)}
+        onOpenChange={(open) => !open && setDetailUserId(null)}
+        userId={detailUserId}
+        onEdit={(item) => {
+          setSelectedUser(item);
+          setIsFormOpen(true);
+        }}
+        onResetPassword={(item) => {
+          setResetPasswordCandidate(item);
+        }}
       />
 
       {/* Modal Form Thêm / Sửa */}

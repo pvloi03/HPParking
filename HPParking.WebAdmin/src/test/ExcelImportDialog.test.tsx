@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { DuplicateMode } from '@/types/excel';
 
 vi.mock('@/api/excelApi', () => ({
@@ -18,7 +18,7 @@ vi.mock('@/utils/downloadBlob', () => ({
   downloadBlob: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
+vi.mock('@/hooks/use-toast', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),

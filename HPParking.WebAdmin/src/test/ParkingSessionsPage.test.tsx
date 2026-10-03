@@ -25,7 +25,7 @@ vi.mock('@/utils/downloadBlob', () => ({
   downloadBlob: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
+vi.mock('@/hooks/use-toast', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
@@ -76,7 +76,7 @@ describe('ParkingSessionsPage Component', () => {
     items: mockSessions,
     pagination: {
       pageIndex: 1,
-      pageSize: 15,
+      pageSize: 10,
       totalCount: 2,
       totalPages: 1,
       hasPreviousPage: false,

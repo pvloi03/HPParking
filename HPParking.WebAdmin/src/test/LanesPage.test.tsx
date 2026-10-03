@@ -80,7 +80,7 @@ describe('LanesPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,
@@ -104,7 +104,90 @@ describe('LanesPage Component', () => {
       expect(screen.getAllByText('LAN_VAO_XE_MAY_1').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Làn Xe Máy Vào 1').length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Làn Vào/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Xem chi tiết/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('mở modal LaneDetailDialog khi click nút Xem chi tiết của một làn xe', async () => {
+    vi.mocked(gatesApi.getPaged).mockResolvedValue({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 100,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(devicesApi.getPaged).mockResolvedValue({
+      items: [],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 100,
+        totalCount: 0,
+        totalPages: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(lanesApi.getPaged).mockResolvedValue({
+      items: [
+        {
+          id: 'lane-101',
+          code: 'LANE_TEST_VIEW',
+          name: 'Làn Thử Nghiệm Xem Chi Tiết',
+          gateName: 'Cổng Số 1',
+          direction: LaneDirection.In,
+          outputRelay: 1,
+          inputReader: 1,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 10,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(lanesApi.getDetail).mockResolvedValue({
+      id: 'lane-101',
+      code: 'LANE_TEST_VIEW',
+      name: 'Làn Thử Nghiệm Xem Chi Tiết',
+      direction: LaneDirection.In,
+      outputRelay: 1,
+      inputReader: 1,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    });
+
+    const { fireEvent } = await import('@testing-library/react');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <LanesPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('LANE_TEST_VIEW').length).toBeGreaterThan(0);
+    });
+
+    const viewButtons = screen.getAllByRole('button', { name: /Xem chi tiết/i });
+    expect(viewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(viewButtons[0]);
+
+    await waitFor(() => {
+      expect(lanesApi.getDetail).toHaveBeenCalledWith('lane-101');
     });
   });
 });
+

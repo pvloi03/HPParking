@@ -9,7 +9,6 @@ using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Text.Json;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -17,6 +16,7 @@ namespace HPParking.Api.Services.Implementations
     {
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IRepository<Client> _clientRepo;
+        private readonly IRepository<Card>? _cardRepo;
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<VehicleService> _logger;
 
@@ -24,19 +24,21 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Vehicle> vehicleRepo,
             IRepository<Client> clientRepo,
             ILogger<VehicleService> logger,
-            IAuditLogService? auditLogService = null)
+            IAuditLogService? auditLogService = null,
+            IRepository<Card>? cardRepo = null)
         {
             _vehicleRepo = vehicleRepo;
             _clientRepo = clientRepo;
             _auditLogService = auditLogService;
             _logger = logger;
+            _cardRepo = cardRepo;
         }
 
         public VehicleService(
             IRepository<Vehicle> vehicleRepo,
             IRepository<Client> clientRepo,
             ILogger<VehicleService> logger)
-            : this(vehicleRepo, clientRepo, logger, null)
+            : this(vehicleRepo, clientRepo, logger, null, null)
         {
         }
 
@@ -66,6 +68,16 @@ namespace HPParking.Api.Services.Implementations
                 filters.Add(builder.Eq(x => x.IsActive, query.IsActive.Value));
             }
 
+            if (query.IsShared.HasValue)
+            {
+                filters.Add(builder.Eq(x => x.IsShared, query.IsShared.Value));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.AssignedRouteId))
+            {
+                filters.Add(builder.Eq(x => x.AssignedRouteId, query.AssignedRouteId));
+            }
+
             var filter = filters.Count > 0 ? builder.And(filters) : builder.Empty;
 
             var sort = query.SortOrder?.ToLower() == "asc"
@@ -76,6 +88,7 @@ namespace HPParking.Api.Services.Implementations
             var vehicles = await _vehicleRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: query.OnlyDeleted, cancellationToken);
 
             var dtos = vehicles.Adapt<List<VehicleDto>>();
+            await EnrichCardCodesAsync(dtos, cancellationToken);
             return new PagedResult<VehicleDto>(dtos, query.PageIndex, query.PageSize, totalCount);
         }
 
@@ -88,7 +101,9 @@ namespace HPParking.Api.Services.Implementations
             }
 
             var vehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == clientId && !v.IsDeleted, cancellationToken);
-            return vehicles.Adapt<List<VehicleDto>>();
+            var dtos = vehicles.Adapt<List<VehicleDto>>();
+            await EnrichCardCodesAsync(dtos, cancellationToken);
+            return dtos;
         }
 
         public async Task<VehicleDto> GetVehicleByIdAsync(string id, CancellationToken cancellationToken = default)
@@ -99,15 +114,31 @@ namespace HPParking.Api.Services.Implementations
                 throw new NotFoundException("Không tìm thấy phương tiện với Id đã chỉ định.", ErrorCodes.VEHICLE_NOT_FOUND);
             }
 
-            return vehicle.Adapt<VehicleDto>();
+            var dto = vehicle.Adapt<VehicleDto>();
+            await EnrichCardCodeAsync(dto, cancellationToken);
+            return dto;
         }
 
-        public async Task<VehicleDto> CreateVehicleAsync(string clientId, CreateVehicleRequest request, CancellationToken cancellationToken = default)
+        public async Task<VehicleDto> CreateVehicleAsync(string? clientId, CreateVehicleRequest request, CancellationToken cancellationToken = default)
         {
-            var client = await _clientRepo.GetByIdAsync(clientId, cancellationToken);
-            if (client == null || client.IsDeleted)
+            Client? client = null;
+            if (!request.IsShared)
             {
-                throw new NotFoundException("Không tìm thấy khách hàng để gắn phương tiện.", ErrorCodes.CLIENT_NOT_FOUND);
+                if (!string.IsNullOrWhiteSpace(request.CardCode))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân không được gán thẻ định danh phương tiện. Thẻ định danh thuộc về khách hàng / nhân sự sở hữu.");
+                }
+
+                if (string.IsNullOrWhiteSpace(clientId))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân yêu cầu chỉ định chủ sở hữu (ClientId).", ErrorCodes.CLIENT_NOT_FOUND);
+                }
+
+                client = await _clientRepo.GetByIdAsync(clientId, cancellationToken);
+                if (client == null || client.IsDeleted)
+                {
+                    throw new NotFoundException("Không tìm thấy khách hàng để gắn phương tiện.", ErrorCodes.CLIENT_NOT_FOUND);
+                }
             }
 
             var normalizedPlate = PlateHelper.Normalize(request.PlateNumber);
@@ -128,14 +159,16 @@ namespace HPParking.Api.Services.Implementations
             {
                 PlateNumber = normalizedPlate,
                 Type = request.Type,
-                OwnerClientId = clientId,
+                OwnerClientId = request.IsShared ? null : clientId,
+                IsShared = request.IsShared,
+                AssignedRouteId = request.IsShared ? request.AssignedRouteId : null,
                 IsActive = request.IsActive,
                 Note = request.Note,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _vehicleRepo.AddAsync(vehicle, cancellationToken);
-            _logger.LogInformation("Đã thêm phương tiện mới: {PlateNumber} cho khách hàng {ClientId}", normalizedPlate, clientId);
+            _logger.LogInformation("Đã thêm phương tiện mới: {PlateNumber} (IsShared: {IsShared}, Client: {ClientId})", normalizedPlate, request.IsShared, clientId);
 
             if (_auditLogService != null)
             {
@@ -144,11 +177,33 @@ namespace HPParking.Api.Services.Implementations
                     targetEntity: "Vehicle",
                     targetId: vehicle.Id,
                     targetDisplay: vehicle.PlateNumber,
-                    reason: $"Thêm phương tiện mới '{vehicle.PlateNumber}' cho khách hàng '{client.Name}'.",
+                    reason: request.IsShared
+                        ? $"Thêm phương tiện nội bộ mới '{vehicle.PlateNumber}'."
+                        : $"Thêm phương tiện mới '{vehicle.PlateNumber}' cho khách hàng '{client?.Name}'.",
                     cancellationToken: cancellationToken);
             }
 
-            return vehicle.Adapt<VehicleDto>();
+            if (_cardRepo != null && !string.IsNullOrWhiteSpace(request.CardCode))
+            {
+                var normCard = HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
+                var card = await _cardRepo.FindOneAsync(c => c.CardNumber == normCard && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
+                if (card != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(card.VehicleId))
+                    {
+                        var assignedVeh = await _vehicleRepo.FindOneAsync(v => v.Id == card.VehicleId && !v.IsDeleted, cancellationToken);
+                        var plate = assignedVeh?.PlateNumber ?? card.VehicleId;
+                        throw new BadRequestException($"Thẻ xe '{normCard}' đã được gán cho phương tiện '{plate}'.");
+                    }
+                    card.VehicleId = vehicle.Id;
+                    card.Status = CardStatus.InUse;
+                    await _cardRepo.UpdateAsync(card, cancellationToken);
+                }
+            }
+
+            var createdDto = vehicle.Adapt<VehicleDto>();
+            await EnrichCardCodeAsync(createdDto, cancellationToken);
+            return createdDto;
         }
 
         public async Task<VehicleDto> UpdateVehicleAsync(string id, UpdateVehicleRequest request, CancellationToken cancellationToken = default)
@@ -178,12 +233,110 @@ namespace HPParking.Api.Services.Implementations
 
             vehicle.PlateNumber = normalizedPlate;
             vehicle.Type = request.Type;
+            if (request.IsShared.HasValue)
+            {
+                vehicle.IsShared = request.IsShared.Value;
+                if (vehicle.IsShared)
+                {
+                    vehicle.OwnerClientId = null;
+                    vehicle.AssignedRouteId = request.AssignedRouteId;
+                }
+                else
+                {
+                    vehicle.AssignedRouteId = null;
+                }
+            }
+            else if (!string.IsNullOrEmpty(request.AssignedRouteId))
+            {
+                vehicle.AssignedRouteId = request.AssignedRouteId;
+            }
+
+            // Xử lý cập nhật chủ sở hữu cho phương tiện cá nhân
+            if (!vehicle.IsShared)
+            {
+                if (!string.IsNullOrWhiteSpace(request.CardCode))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân không được gán thẻ định danh phương tiện. Thẻ định danh thuộc về khách hàng / nhân sự sở hữu.");
+                }
+
+                var targetClientId = request.ClientId ?? vehicle.OwnerClientId;
+                if (string.IsNullOrWhiteSpace(targetClientId))
+                {
+                    throw new BadRequestException("Phương tiện cá nhân yêu cầu chỉ định chủ sở hữu (ClientId).", ErrorCodes.CLIENT_NOT_FOUND);
+                }
+
+                var client = await _clientRepo.GetByIdAsync(targetClientId, cancellationToken);
+                if (client == null || client.IsDeleted)
+                {
+                    throw new NotFoundException("Không tìm thấy khách hàng để gắn phương tiện.", ErrorCodes.CLIENT_NOT_FOUND);
+                }
+
+                if (!client.IsActive)
+                {
+                    throw new BadRequestException("Không thể gán phương tiện cho khách hàng đang bị vô hiệu hóa.", ErrorCodes.CLIENT_DEACTIVATED);
+                }
+
+                vehicle.OwnerClientId = targetClientId;
+            }
+            else
+            {
+                vehicle.OwnerClientId = null;
+            }
+
             vehicle.IsActive = request.IsActive;
             vehicle.Note = request.Note;
             vehicle.UpdatedAt = DateTime.UtcNow;
 
             await _vehicleRepo.UpdateAsync(vehicle, cancellationToken);
             _logger.LogInformation("Đã cập nhật phương tiện {Id}: {PlateNumber}", id, normalizedPlate);
+
+            // Xử lý thẻ định danh phương tiện: Chỉ xe dùng chung/nội bộ mới được gán thẻ xe
+            if (!vehicle.IsShared)
+            {
+                // Nếu xe cá nhân từng có thẻ xe liên kết từ trước, tự động giải phóng thẻ
+                if (_cardRepo != null)
+                {
+                    var currentCard = await _cardRepo.FindOneAsync(c => c.VehicleId == id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
+                    if (currentCard != null)
+                    {
+                        currentCard.VehicleId = null;
+                        currentCard.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(currentCard, cancellationToken);
+                    }
+                }
+            }
+            else if (_cardRepo != null && request.CardCode != null)
+            {
+                var normCard = string.IsNullOrWhiteSpace(request.CardCode) ? null : HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
+                var currentCard = await _cardRepo.FindOneAsync(c => c.VehicleId == id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
+
+                if (currentCard?.CardNumber != normCard)
+                {
+                    if (currentCard != null)
+                    {
+                        currentCard.VehicleId = null;
+                        currentCard.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(currentCard, cancellationToken);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(normCard))
+                    {
+                        var newCard = await _cardRepo.FindOneAsync(c => c.CardNumber == normCard && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
+                        if (newCard != null)
+                        {
+                            if (!string.IsNullOrWhiteSpace(newCard.VehicleId) && newCard.VehicleId != id)
+                            {
+                                var assignedVeh = await _vehicleRepo.FindOneAsync(v => v.Id == newCard.VehicleId && !v.IsDeleted, cancellationToken);
+                                var plate = assignedVeh?.PlateNumber ?? newCard.VehicleId;
+                                throw new BadRequestException($"Thẻ xe '{normCard}' đã được gán cho phương tiện '{plate}'.");
+                            }
+                            newCard.VehicleId = id;
+                            newCard.Status = CardStatus.InUse;
+                            await _cardRepo.UpdateAsync(newCard, cancellationToken);
+                        }
+                    }
+                }
+            }
 
             if (_auditLogService != null)
             {
@@ -196,7 +349,31 @@ namespace HPParking.Api.Services.Implementations
                     cancellationToken: cancellationToken);
             }
 
-            return vehicle.Adapt<VehicleDto>();
+            var updatedDto = vehicle.Adapt<VehicleDto>();
+            await EnrichCardCodeAsync(updatedDto, cancellationToken);
+            return updatedDto;
+        }
+
+        private async Task EnrichCardCodesAsync(List<VehicleDto> dtos, CancellationToken cancellationToken = default)
+        {
+            if (_cardRepo == null || dtos.Count == 0) return;
+            var vehicleIds = dtos.Select(d => d.Id).ToList();
+            var cards = await _cardRepo.FindAsync(c => c.VehicleId != null && vehicleIds.Contains(c.VehicleId) && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken: cancellationToken);
+            var cardDict = cards.GroupBy(c => c.VehicleId!).ToDictionary(g => g.Key, g => g.First().CardNumber);
+            foreach (var dto in dtos)
+            {
+                if (cardDict.TryGetValue(dto.Id, out var code))
+                {
+                    dto.CardCode = code;
+                }
+            }
+        }
+
+        private async Task EnrichCardCodeAsync(VehicleDto dto, CancellationToken cancellationToken = default)
+        {
+            if (_cardRepo == null) return;
+            var card = await _cardRepo.FindOneAsync(c => c.VehicleId == dto.Id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken);
+            dto.CardCode = card?.CardNumber;
         }
 
         public async Task<bool> DeleteVehicleAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default)
@@ -218,6 +395,17 @@ namespace HPParking.Api.Services.Implementations
             {
                 await _vehicleRepo.DeleteAsync(id, softDelete: true, cancellationToken);
                 _logger.LogInformation("Đã XÓA MỀM phương tiện {Id}.", id);
+            }
+
+            if (_cardRepo != null)
+            {
+                var vehicleCards = await _cardRepo.FindAsync(c => c.VehicleId == id && !c.IsDeleted, cancellationToken);
+                foreach (var vc in vehicleCards)
+                {
+                    vc.VehicleId = null;
+                    vc.Status = CardStatus.Available;
+                    await _cardRepo.UpdateAsync(vc, cancellationToken);
+                }
             }
 
             if (_auditLogService != null)

@@ -54,6 +54,8 @@ const deviceSchema = z.object({
     .max(65535, 'Cổng kết nối tối đa là 65535'),
   userName: z.string().trim().optional(),
   password: z.string().optional(),
+  rtspUrl: z.string().trim().optional(),
+  channel: z.coerce.number().int().min(1).max(256).optional(),
   isActive: z.boolean(),
 });
 
@@ -94,6 +96,8 @@ export function DeviceFormDialog({
       port: 80,
       userName: '',
       password: '',
+      rtspUrl: '',
+      channel: 1,
       isActive: true,
     },
   });
@@ -113,6 +117,8 @@ export function DeviceFormDialog({
           port: initialData.port,
           userName: initialData.userName || '',
           password: '',
+          rtspUrl: initialData.rtspUrl || '',
+          channel: initialData.channel || 1,
           isActive: initialData.isActive,
         });
       } else {
@@ -124,6 +130,8 @@ export function DeviceFormDialog({
           port: 80,
           userName: 'admin',
           password: '',
+          rtspUrl: '',
+          channel: 1,
           isActive: true,
         });
       }
@@ -139,6 +147,8 @@ export function DeviceFormDialog({
       port: formData.port,
       userName: formData.userName?.trim() || undefined,
       password: formData.password ? formData.password : undefined,
+      rtspUrl: formData.rtspUrl?.trim() || undefined,
+      channel: formData.channel || 1,
       isActive: formData.isActive,
     };
     await onSubmit(payload);
@@ -297,6 +307,31 @@ export function DeviceFormDialog({
               </div>
             </div>
           </div>
+
+          {/* Cấu hình RTSP Stream & Kênh (chỉ áp dụng cho Camera hoặc FaceID) */}
+          {(selectedType === DeviceType.Camera || selectedType === DeviceType.FaceId) && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-2.5 rounded-lg border border-dashed border-border bg-muted/30">
+              <div className="sm:col-span-2 space-y-1">
+                <label className="text-xs font-semibold text-foreground">
+                  Đường dẫn RTSP Stream (Tùy chọn)
+                </label>
+                <Input
+                  {...register('rtspUrl')}
+                  placeholder="rtsp://admin:pass@192.168.1.205:554/ch1/main/av_stream"
+                  className="text-xs font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">Kênh (Channel)</label>
+                <Input
+                  {...register('channel')}
+                  type="number"
+                  placeholder="1"
+                  className="text-xs font-mono"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Trạng thái hoạt động */}
           <div className="pt-2 border-t border-border flex items-center justify-between">

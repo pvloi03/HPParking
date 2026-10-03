@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Briefcase, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ContractorFormDialog } from '@/components/organizations/ContractorFormDialog';
+import { ContractorDetailDialog } from '@/components/organizations/ContractorDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { contractorsApi, extractErrorMessage } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import type {
-  ContractorDto,
-  CreateContractorRequest,
-  UpdateContractorRequest,
+import {
+  DEFAULT_PAGE_SIZE,
+  type ContractorDto,
+  type CreateContractorRequest,
+  type UpdateContractorRequest,
 } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -24,7 +27,7 @@ export function ContractorsPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
 
@@ -41,6 +44,7 @@ export function ContractorsPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorDto | null>(null);
+  const [detailContractorId, setDetailContractorId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<ContractorDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -132,7 +136,7 @@ export function ContractorsPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} nhà thầu vào thùng rác (${failed} bản ghi không thể xóa do có khách hàng trực thuộc).`
+          `Đã chuyển ${succeeded}/${results.length} nhà thầu vào thùng rác (${failed} bản ghi không thể xóa do có nhân sự trực thuộc).`
         );
       } else {
         toast.success(`Đã chuyển thành công ${succeeded} nhà thầu vào thùng rác.`);
@@ -185,33 +189,20 @@ export function ContractorsPage() {
       mobileLabel: 'Người liên hệ',
     },
     {
-      header: 'Số điện thoại',
-      accessorKey: 'phoneNumber',
-      cell: (item) => item.phoneNumber || <span className="text-muted-foreground">—</span>,
-      className: 'w-36',
-      mobileLabel: 'SĐT',
-    },
-    {
-      header: 'Email',
-      accessorKey: 'email',
-      cell: (item) => item.email || <span className="text-muted-foreground">—</span>,
-      className: 'w-48',
-      mobileLabel: 'Email',
+      header: 'Thông tin liên hệ',
+      cell: (item) => (
+        <ContactInfoCell
+          phoneNumber={item.phoneNumber}
+          email={item.email}
+        />
+      ),
+      className: 'min-w-[180px]',
+      mobileLabel: 'Liên hệ',
     },
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-            : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },
@@ -242,16 +233,7 @@ export function ContractorsPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -296,6 +278,7 @@ export function ContractorsPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailContractorId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedContractor(item);
@@ -310,6 +293,21 @@ export function ContractorsPage() {
         }}
         emptyTitle="Không có nhà thầu nào"
         emptyDescription="Chưa có nhà thầu hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Nhà Thầu */}
+      <ContractorDetailDialog
+        open={Boolean(detailContractorId)}
+        onOpenChange={(open) => !open && setDetailContractorId(null)}
+        contractorId={detailContractorId}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedContractor(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa */}
@@ -336,7 +334,7 @@ export function ContractorsPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xác Nhận Xóa Nhà Thầu"
-        description={`Bạn có chắc chắn muốn chuyển nhà thầu "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu nhà thầu này vẫn còn khách hàng/nhân sự trực thuộc.`}
+        description={`Bạn có chắc chắn muốn chuyển nhà thầu "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu nhà thầu này vẫn còn nhân sự trực thuộc.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"

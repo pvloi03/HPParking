@@ -9,21 +9,26 @@ namespace HPParking.Api.DTOs.ParkingSessions
     public class ParkingSessionDto : AuditableDto
     {
         public string PlateNumber { get; set; } = string.Empty;
-        public VehicleType VehicleType { get; set; } = VehicleType.Car;
+        public VehicleType? VehicleType { get; set; }
         public ParkingSessionStatus Status { get; set; } = ParkingSessionStatus.Active;
         public string? PersonId { get; set; }
+
+        public LaneTargetType TargetType { get; set; } = LaneTargetType.Vehicle;
+        public double? FaceMatchScore { get; set; }
 
         // --- LƯỢT VÀO ---
         public DateTime? InTime { get; set; }
         public string? InLaneName { get; set; }
         public string InOverviewImagePath { get; set; } = string.Empty;
         public string InPlateImagePath { get; set; } = string.Empty;
+        public string InFaceImagePath { get; set; } = string.Empty;
 
         // --- LƯỢT RA ---
         public DateTime? OutTime { get; set; }
         public string? OutLaneName { get; set; }
         public string OutOverviewImagePath { get; set; } = string.Empty;
         public string OutPlateImagePath { get; set; } = string.Empty;
+        public string OutFaceImagePath { get; set; } = string.Empty;
 
         // --- TÍNH TOÁN ---
         public double? DurationMinutes { get; set; }
@@ -35,5 +40,6 @@ namespace HPParking.Api.DTOs.ParkingSessions
         public string? PersonFullName { get; set; }
         public string? PersonPhoneNumber { get; set; }
         public string? PersonCode { get; set; }
+        public string? PersonAvatar { get; set; }
     }
 }

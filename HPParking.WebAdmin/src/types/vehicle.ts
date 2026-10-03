@@ -19,13 +19,34 @@ export function normalizePlateNumber(plate: string): string {
     .toUpperCase();
 }
 
+/**
+ * Lấy nhãn hiển thị tiếng Việt chuẩn hóa cho loại phương tiện
+ */
+export function getVehicleTypeLabel(type?: number): string {
+  switch (type) {
+    case VehicleType.Car:
+      return 'Ô tô';
+    case VehicleType.Motorbike:
+      return 'Xe máy';
+    case VehicleType.Bicycle:
+      return 'Xe đạp / Xe điện';
+    case VehicleType.Other:
+      return 'Phương tiện khác';
+    default:
+      return '—';
+  }
+}
+
 export interface VehicleDto {
   id: string;
   plateNumber: string;
   type: VehicleType;
   ownerClientId?: string;
+  isShared: boolean;
+  assignedRouteId?: string;
   isActive: boolean;
   note?: string;
+  cardCode?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -34,6 +55,8 @@ export interface VehicleFilterQuery extends PaginationQuery {
   keyword?: string;
   type?: VehicleType;
   ownerClientId?: string;
+  isShared?: boolean;
+  assignedRouteId?: string;
   isActive?: boolean;
   onlyDeleted?: boolean;
 }
@@ -42,13 +65,20 @@ export interface CreateVehicleRequest {
   clientId?: string;
   plateNumber: string;
   type: VehicleType;
+  isShared?: boolean;
+  assignedRouteId?: string;
   isActive: boolean;
   note?: string;
+  cardCode?: string;
 }
 
 export interface UpdateVehicleRequest {
+  clientId?: string;
   plateNumber: string;
   type: VehicleType;
+  isShared?: boolean;
+  assignedRouteId?: string;
   isActive: boolean;
   note?: string;
+  cardCode?: string;
 }

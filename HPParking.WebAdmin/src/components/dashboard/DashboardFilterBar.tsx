@@ -1,5 +1,12 @@
 import { Calendar, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { DashboardFilterState, DashboardFilterType } from '@/types/dashboard';
 
 interface DashboardFilterBarProps {
@@ -104,20 +111,22 @@ export function DashboardFilterBar({
         )}
 
         {filter.type === 'year' && (
-          <div className="relative flex items-center">
-            <Calendar className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <select
-              aria-label="Chọn năm xem báo cáo"
-              value={filter.year}
-              onChange={(e) => onFilterChange({ ...filter, year: e.target.value })}
-              className="h-8 pl-8 pr-4 text-xs rounded-lg border border-border bg-card text-foreground shadow-2xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+          <div className="flex items-center min-w-[130px]">
+            <Select
+              value={String(filter.year)}
+              onValueChange={(val) => onFilterChange({ ...filter, year: val })}
             >
-              {availableYears.map((y) => (
-                <option key={y} value={String(y)}>
-                  Năm {y}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger aria-label="Chọn năm xem báo cáo" className="h-8 text-xs">
+                <SelectValue placeholder="Chọn năm" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    Năm {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 

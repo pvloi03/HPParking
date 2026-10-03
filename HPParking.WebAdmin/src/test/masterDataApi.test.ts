@@ -58,7 +58,7 @@ describe('Master Data API & Error Extraction', () => {
       };
 
       const msg = extractErrorMessage(error);
-      expect(msg).toContain('vẫn còn khách hàng/nhân sự trực thuộc');
+      expect(msg).toContain('vẫn còn nhân sự trực thuộc');
     });
 
     it('ánh xạ chính xác mã lỗi CONTRACTOR_HAS_CLIENTS', () => {
@@ -77,7 +77,7 @@ describe('Master Data API & Error Extraction', () => {
       };
 
       const msg = extractErrorMessage(error);
-      expect(msg).toContain('vẫn còn nhân sự/khách hàng trực thuộc');
+      expect(msg).toContain('vẫn còn nhân sự trực thuộc');
     });
 
     it('ánh xạ chính xác mã lỗi PARENT_IS_DELETED khi khôi phục', () => {

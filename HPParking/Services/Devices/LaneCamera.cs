@@ -7,5 +7,7 @@ namespace HPParking.Services.Devices
         public PlateCameraService LicensePlateCamera { get; set; } = new();
 
         public OverviewCameraService OverviewCamera { get; set; } = new();
+
+        public OverviewCameraService? FaceCamera { get; set; }
     }
 }

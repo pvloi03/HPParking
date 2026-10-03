@@ -98,7 +98,7 @@ describe('RecycleBinPage Component', () => {
       items: [],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 0,
         totalPages: 0,
         hasPreviousPage: false,
@@ -110,7 +110,7 @@ describe('RecycleBinPage Component', () => {
 
     expect(screen.getByText('Thùng Rác Hệ Thống')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Tất cả/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Khách hàng/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Nhân sự/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Phương tiện/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Công ty/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Phòng ban/i })).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('RecycleBinPage Component', () => {
     renderComponent();
 
     expect(screen.getByRole('tab', { name: /Tất cả/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Khách hàng/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Nhân sự/i })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Tài khoản/i })).not.toBeInTheDocument();
     expect(usersApi.getPaged).not.toHaveBeenCalled();
   });
@@ -152,6 +152,9 @@ describe('RecycleBinPage Component', () => {
           birthDay: '',
           address: 'Hải Phòng',
           type: 0,
+          cardCode: '0000000001',
+          authMethods: ['None'],
+          verifyVehiclePlate: false,
           avatar: '',
           gender: 1,
           phoneNumber: '0988776655',
@@ -162,7 +165,7 @@ describe('RecycleBinPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,
@@ -194,7 +197,7 @@ describe('RecycleBinPage Component', () => {
       items: [],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 0,
         totalPages: 0,
         hasPreviousPage: false,
@@ -208,6 +211,7 @@ describe('RecycleBinPage Component', () => {
           id: 'v-del-1',
           plateNumber: '15A-999.99',
           type: 1,
+          isShared: false,
           isActive: false,
           ownerClientId: undefined,
           note: 'Xe đã thanh lý',
@@ -216,7 +220,7 @@ describe('RecycleBinPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,

@@ -1,20 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Building2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { CompanyFormDialog } from '@/components/organizations/CompanyFormDialog';
+import { CompanyDetailDialog } from '@/components/organizations/CompanyDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { companiesApi, extractErrorMessage } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import type {
-  CompanyDto,
-  CreateCompanyRequest,
-  UpdateCompanyRequest,
+import {
+  DEFAULT_PAGE_SIZE,
+  type CompanyDto,
+  type CreateCompanyRequest,
+  type UpdateCompanyRequest,
 } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -24,7 +27,7 @@ export function CompaniesPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
 
@@ -41,6 +44,7 @@ export function CompaniesPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<CompanyDto | null>(null);
+  const [detailCompanyId, setDetailCompanyId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<CompanyDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -133,7 +137,7 @@ export function CompaniesPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} công ty vào thùng rác (${failed} bản ghi không thể xóa do có phòng ban, cổng hoặc khách hàng trực thuộc).`
+          `Đã chuyển ${succeeded}/${results.length} công ty vào thùng rác (${failed} bản ghi không thể xóa do có phòng ban, cổng hoặc nhân sự trực thuộc).`
         );
       } else {
         toast.success(`Đã chuyển thành công ${succeeded} công ty vào thùng rác.`);
@@ -179,33 +183,20 @@ export function CompaniesPage() {
       mobileLabel: 'Tên đơn vị',
     },
     {
-      header: 'Số điện thoại',
-      accessorKey: 'phoneNumber',
-      cell: (item) => item.phoneNumber || <span className="text-muted-foreground">—</span>,
-      className: 'w-36',
-      mobileLabel: 'SĐT',
-    },
-    {
-      header: 'Email',
-      accessorKey: 'email',
-      cell: (item) => item.email || <span className="text-muted-foreground">—</span>,
-      className: 'w-48',
-      mobileLabel: 'Email',
+      header: 'Thông tin liên hệ',
+      cell: (item) => (
+        <ContactInfoCell
+          phoneNumber={item.phoneNumber}
+          email={item.email}
+        />
+      ),
+      className: 'min-w-[180px]',
+      mobileLabel: 'Liên hệ',
     },
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-            : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },
@@ -236,16 +227,7 @@ export function CompaniesPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -290,6 +272,7 @@ export function CompaniesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailCompanyId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedCompany(item);
@@ -304,6 +287,21 @@ export function CompaniesPage() {
         }}
         emptyTitle="Không có công ty nào"
         emptyDescription="Chưa có dữ liệu công ty hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Công Ty */}
+      <CompanyDetailDialog
+        open={Boolean(detailCompanyId)}
+        onOpenChange={(open) => !open && setDetailCompanyId(null)}
+        companyId={detailCompanyId}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedCompany(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa */}

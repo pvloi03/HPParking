@@ -12,5 +12,6 @@ namespace HPParking.Api.Services.Interfaces
         Task<bool> DeleteDeviceAsync(string id, bool hardDelete = false, CancellationToken cancellationToken = default);
         Task<DeviceDto> RestoreDeviceAsync(string id, CancellationToken cancellationToken = default);
         Task<DevicePingResultDto> PingDeviceIpAsync(string ipAddress, int timeoutMs = 2000, CancellationToken cancellationToken = default);
+        Task<List<DevicePingResultDto>> PingMultipleDevicesAsync(IEnumerable<string> ipAddresses, int timeoutMs = 2000, CancellationToken cancellationToken = default);
     }
 }

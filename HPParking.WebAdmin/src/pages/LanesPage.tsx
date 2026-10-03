@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import {
   Route,
   Trash2,
@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -34,10 +35,12 @@ import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {
   LaneDirection,
+  LaneTargetType,
   type LaneDto,
   type CreateLaneRequest,
   type UpdateLaneRequest,
 } from '@/types/infrastructure';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export function LanesPage() {
   const queryClient = useQueryClient();
@@ -45,7 +48,7 @@ export function LanesPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [gateFilter, setGateFilter] = useState<string>('all');
@@ -224,6 +227,26 @@ export function LanesPage() {
       mobileLabel: 'Tên làn',
     },
     {
+      header: 'Đối tượng',
+      accessorKey: 'targetType',
+      cell: (item) => {
+        if (item.targetType === LaneTargetType.Pedestrian) {
+          return (
+            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1 text-[11px] font-medium">
+              <span>🚶 Người</span>
+            </Badge>
+          );
+        }
+        return (
+          <Badge className="bg-sky-100 text-sky-800 hover:bg-sky-100 dark:bg-sky-950 dark:text-sky-300 gap-1 text-[11px] font-medium">
+            <span>🚗 Xe</span>
+          </Badge>
+        );
+      },
+      className: 'w-24',
+      mobileLabel: 'Loại',
+    },
+    {
       header: 'Cổng trực thuộc',
       accessorKey: 'gateName',
       cell: (item) => item.gateName || <span className="text-muted-foreground">—</span>,
@@ -279,17 +302,7 @@ export function LanesPage() {
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },
@@ -320,16 +333,7 @@ export function LanesPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -431,6 +435,7 @@ export function LanesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailLaneId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedLane(item);

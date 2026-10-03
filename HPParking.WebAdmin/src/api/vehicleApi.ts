@@ -21,7 +21,7 @@ export function extractErrorMessage(error: unknown): string {
         return 'Biển số xe này đã được đăng ký và đang hoạt động trong hệ thống.';
       }
       if (data.message.includes('CLIENT_NOT_FOUND')) {
-        return 'Không tìm thấy hồ sơ khách hàng để gán quyền sở hữu xe.';
+        return 'Không tìm thấy hồ sơ nhân sự để gán quyền sở hữu xe.';
       }
       if (data.message.includes('VEHICLE_NOT_FOUND')) {
         return 'Không tìm thấy thông tin phương tiện tương ứng.';
@@ -30,7 +30,7 @@ export function extractErrorMessage(error: unknown): string {
         return 'Không thể xóa phương tiện vì xe đang gửi trong bãi đỗ.';
       }
       if (data.message.includes('PARENT_IS_DELETED')) {
-        return 'Không thể khôi phục vì khách hàng chủ sở hữu đang nằm trong thùng rác hoặc đã bị xóa.';
+        return 'Không thể khôi phục vì nhân sự chủ sở hữu đang nằm trong thùng rác hoặc đã bị xóa.';
       }
       return data.message;
     }

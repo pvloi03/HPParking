@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,16 +10,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DoorOpen, Save } from 'lucide-react';
+import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
+import { companiesApi } from '@/api/masterDataApi';
 import type { CompanyDto } from '@/types/masterData';
 import type {
   GateDto,
@@ -93,6 +88,11 @@ export function GateFormDialog({
   const selectedCompanyId = watch('companyId');
   const isActive = watch('isActive');
 
+  const selectedCompany = useMemo(
+    () => (selectedCompanyId && companies ? companies.find((c) => c.id === selectedCompanyId) : undefined),
+    [companies, selectedCompanyId]
+  );
+
   useEffect(() => {
     if (open) {
       if (initialData) {
@@ -150,21 +150,16 @@ export function GateFormDialog({
             <label className="text-xs font-semibold text-foreground">
               Công ty quản lý <span className="text-destructive">*</span>
             </label>
-            <Select
+            <InfiniteSearchableSelect<CompanyDto>
+              queryKey={['companies-infinite-select']}
+              fetchFn={(params) => companiesApi.getPaged({ ...params, isActive: true })}
+              fetchById={(id) => companiesApi.getById(String(id))}
               value={selectedCompanyId}
               onValueChange={(val) => setValue('companyId', val, { shouldValidate: true })}
-            >
-              <SelectTrigger className="text-xs">
-                <SelectValue placeholder="-- Chọn công ty quản lý --" />
-              </SelectTrigger>
-              <SelectContent>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id} className="text-xs">
-                    {c.name} ({c.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              selectedItems={selectedCompany ? [selectedCompany] : undefined}
+              placeholder="-- Chọn công ty quản lý --"
+              getLabel={(c) => `${c.name} (${c.code})`}
+            />
             {errors.companyId && (
               <p className="text-[11px] text-destructive">{errors.companyId.message}</p>
             )}

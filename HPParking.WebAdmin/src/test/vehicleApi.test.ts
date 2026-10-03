@@ -63,7 +63,7 @@ describe('Vehicle API & Plate Normalization', () => {
       };
 
       const msg = extractErrorMessage(error);
-      expect(msg).toContain('Không tìm thấy hồ sơ khách hàng');
+      expect(msg).toContain('Không tìm thấy hồ sơ nhân sự');
     });
   });
 

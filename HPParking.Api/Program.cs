@@ -101,6 +101,13 @@ builder.Services.AddScoped<IClientExcelService, ClientExcelService>();
 builder.Services.AddScoped<IMasterDataExcelService, MasterDataExcelService>();
 builder.Services.AddScoped<IReportExcelService, ReportExcelService>();
 
+// Đăng ký dịch vụ Quản lý Thẻ, Tuyến đường phương tiện nội bộ và Email cảnh báo SLA
+builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
+builder.Services.AddScoped<ICardService, CardService>();
+builder.Services.AddScoped<IGateRouteService, GateRouteService>();
+builder.Services.AddScoped<IFleetDispatchService, FleetDispatchService>();
+builder.Services.AddHostedService<HPParking.Api.Services.Background.VehicleTransitWatcherService>();
+
 // Cấu hình Mapster Object Mapping
 builder.Services.RegisterMapsterConfiguration();
 
@@ -299,6 +306,8 @@ var app = builder.Build();
 
 // Khởi tạo tài khoản Quản trị viên mặc định (nếu CSDL chưa có Admin)
 await DbSeeder.SeedAdminUserAsync(app.Services);
+// Khởi tạo tuyến đường mặc định (Tuyến tự do SLA) nếu chưa có
+await DbSeeder.SeedDefaultGateRouteAsync(app.Services);
 
 // 1. Trace Context (Gắn W3C traceparent và TraceIdentifier ngay tại cửa ngõ đầu tiên)
 app.UseMiddleware<TraceIdMiddleware>();

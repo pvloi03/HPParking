@@ -265,7 +265,7 @@ export function DepartmentFormDialog({
                 Trạng thái hoạt động
               </span>
               <span className="text-[11px] text-muted-foreground block">
-                Cho phép khách hàng/nhân sự thuộc phòng ban này ra vào
+                Cho phép nhân sự thuộc phòng ban này ra vào
               </span>
             </div>
             <button

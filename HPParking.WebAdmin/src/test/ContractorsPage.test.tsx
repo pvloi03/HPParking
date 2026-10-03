@@ -11,6 +11,7 @@ vi.mock('@/api/masterDataApi', async (importOriginal) => {
     ...actual,
     contractorsApi: {
       getPaged: vi.fn(),
+      getById: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -47,7 +48,7 @@ describe('ContractorsPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,
@@ -71,6 +72,55 @@ describe('ContractorsPage Component', () => {
       expect(screen.getAllByText('NT_DELTA').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Nhà Thầu Cơ Điện Delta').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Phạm Kỹ Sư').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('mở modal ContractorDetailDialog khi click nút Xem chi tiết của một nhà thầu', async () => {
+    const mockContractor = {
+      id: 'con-2',
+      code: 'NT_GAMMA',
+      name: 'Nhà Thầu PCCC Gamma',
+      contactPerson: 'Đặng Văn PCCC',
+      phoneNumber: '0933222111',
+      email: 'gamma@pccc.vn',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    vi.mocked(contractorsApi.getPaged).mockResolvedValue({
+      items: [mockContractor],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 10,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(contractorsApi.getById).mockResolvedValue(mockContractor);
+
+    const { fireEvent } = await import('@testing-library/react');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ContractorsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('NT_GAMMA').length).toBeGreaterThan(0);
+    });
+
+    const viewButtons = screen.getAllByRole('button', { name: /Xem chi tiết/i });
+    expect(viewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(viewButtons[0]);
+
+    await waitFor(() => {
+      expect(contractorsApi.getById).toHaveBeenCalledWith('con-2');
     });
   });
 });

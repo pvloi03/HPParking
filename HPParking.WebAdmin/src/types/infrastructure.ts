@@ -7,6 +7,12 @@ export const LaneDirection = {
 } as const;
 export type LaneDirection = typeof LaneDirection[keyof typeof LaneDirection];
 
+export const LaneTargetType = {
+  Vehicle: 0,
+  Pedestrian: 1,
+} as const;
+export type LaneTargetType = typeof LaneTargetType[keyof typeof LaneTargetType];
+
 export const DeviceType = {
   Camera: 1,
   Controller: 2,
@@ -70,6 +76,8 @@ export interface DeviceDto {
   ipAddress: string;
   port: number;
   userName?: string;
+  rtspUrl?: string;
+  channel?: number;
   hasPassword?: boolean;
   isActive: boolean;
   createdAt: string;
@@ -83,6 +91,8 @@ export interface DeviceSummaryDto {
   type: DeviceType;
   ipAddress: string;
   port: number;
+  rtspUrl?: string;
+  channel?: number;
   isActive: boolean;
 }
 
@@ -100,6 +110,8 @@ export interface CreateDeviceRequest {
   port: number;
   userName?: string;
   password?: string;
+  rtspUrl?: string;
+  channel?: number;
   isActive: boolean;
 }
 
@@ -111,6 +123,8 @@ export interface UpdateDeviceRequest {
   port: number;
   userName?: string;
   password?: string;
+  rtspUrl?: string;
+  channel?: number;
   isActive: boolean;
 }
 
@@ -118,7 +132,10 @@ export interface DevicePingResultDto {
   ipAddress: string;
   isAlive: boolean;
   roundtripTimeMs: number;
-  status: string;
+  method?: string;
+  message?: string;
+  timestamp?: string;
+  status?: string;
 }
 
 // =================== LANES ===================
@@ -130,6 +147,10 @@ export interface LaneDto {
   gateId?: string;
   gateName?: string;
   direction: LaneDirection;
+  targetType?: LaneTargetType;
+  useOverviewCam?: boolean;
+  usePlateCam?: boolean;
+  useFaceCam?: boolean;
   overviewCameraDeviceId?: string;
   plateCameraDeviceId?: string;
   controllerDeviceId?: string;
@@ -152,6 +173,7 @@ export interface LaneDetailDto extends LaneDto {
 export interface LaneFilterQuery extends PaginationQuery {
   gateId?: string;
   direction?: LaneDirection;
+  targetType?: LaneTargetType;
   keyword?: string;
   isActive?: boolean;
 }
@@ -161,6 +183,10 @@ export interface CreateLaneRequest {
   name: string;
   gateId: string;
   direction: LaneDirection;
+  targetType?: LaneTargetType;
+  useOverviewCam?: boolean;
+  usePlateCam?: boolean;
+  useFaceCam?: boolean;
   overviewCameraDeviceId?: string;
   plateCameraDeviceId?: string;
   controllerDeviceId?: string;
@@ -175,6 +201,10 @@ export interface UpdateLaneRequest {
   name: string;
   gateId: string;
   direction: LaneDirection;
+  targetType?: LaneTargetType;
+  useOverviewCam?: boolean;
+  usePlateCam?: boolean;
+  useFaceCam?: boolean;
   overviewCameraDeviceId?: string;
   plateCameraDeviceId?: string;
   controllerDeviceId?: string;

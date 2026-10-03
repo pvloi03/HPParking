@@ -14,6 +14,7 @@ vi.mock('@/api/masterDataApi', async (importOriginal) => {
     },
     departmentsApi: {
       getPaged: vi.fn(),
+      getById: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -58,7 +59,7 @@ describe('DepartmentsPage Component', () => {
       ],
       pagination: {
         pageIndex: 1,
-        pageSize: 15,
+        pageSize: 10,
         totalCount: 1,
         totalPages: 1,
         hasPreviousPage: false,
@@ -82,6 +83,61 @@ describe('DepartmentsPage Component', () => {
       expect(screen.getAllByText('PB_IT').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Phòng Công Nghệ Thông Tin').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Hoàng Phát').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('mở modal DepartmentDetailDialog khi click nút Xem chi tiết của một phòng ban', async () => {
+    const mockDept = {
+      id: 'dept-2',
+      companyId: 'c1',
+      companyName: 'Hoàng Phát',
+      code: 'PB_HR',
+      name: 'Phòng Tổ Chức Nhân Sự',
+      managerName: 'Nguyễn Văn Nhân Sự',
+      phoneNumber: '0988777888',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    vi.mocked(companiesApi.getPaged).mockResolvedValue({
+      items: [{ id: 'c1', code: 'HP', name: 'Hoàng Phát', isActive: true, createdAt: '' }],
+      pagination: { pageIndex: 1, pageSize: 100, totalCount: 1, totalPages: 1, hasPreviousPage: false, hasNextPage: false },
+    });
+
+    vi.mocked(departmentsApi.getPaged).mockResolvedValue({
+      items: [mockDept],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 10,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    vi.mocked(departmentsApi.getById).mockResolvedValue(mockDept);
+
+    const { fireEvent } = await import('@testing-library/react');
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DepartmentsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('PB_HR').length).toBeGreaterThan(0);
+    });
+
+    const viewButtons = screen.getAllByRole('button', { name: /Xem chi tiết/i });
+    expect(viewButtons.length).toBeGreaterThan(0);
+    fireEvent.click(viewButtons[0]);
+
+    await waitFor(() => {
+      expect(departmentsApi.getById).toHaveBeenCalledWith('dept-2');
     });
   });
 });

@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { Car, Trash2, Bike, HelpCircle } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { Car, Trash2, Bike, HelpCircle, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog';
+import { VehicleDetailDialog } from '@/components/vehicles/VehicleDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { vehicleApi, extractErrorMessage } from '@/api/vehicleApi';
 import { clientApi } from '@/api/clientApi';
@@ -25,6 +27,7 @@ import {
   type CreateVehicleRequest,
   type UpdateVehicleRequest,
 } from '@/types/vehicle';
+import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export function VehiclesPage() {
@@ -33,7 +36,7 @@ export function VehiclesPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -51,6 +54,7 @@ export function VehiclesPage() {
   // State Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleDto | null>(null);
+  const [detailVehicleId, setDetailVehicleId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<VehicleDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -72,7 +76,7 @@ export function VehiclesPage() {
     }
   };
 
-  // Query: Lấy danh sách khách hàng để ánh xạ chủ sở hữu và chọn trong Form
+  // Query: Lấy danh sách nhân sự để ánh xạ chủ sở hữu và chọn trong Form
   const { data: clientsData } = useQuery({
     queryKey: ['clients-all'],
     queryFn: () => clientApi.getPaged({ pageIndex: 1, pageSize: 200, isActive: true }),
@@ -245,23 +249,32 @@ export function VehiclesPage() {
     {
       header: 'Chủ sở hữu',
       cell: (item) => {
+        if (item.isShared) {
+          return (
+            <Badge className="bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 text-[11px] font-medium">
+              Phương tiện dùng chung
+            </Badge>
+          );
+        }
         const owner = item.ownerClientId ? clientMap.get(item.ownerClientId) : null;
         if (!owner) {
           return <span className="text-muted-foreground text-xs">—</span>;
         }
         return (
-          <div className="text-xs">
+          <div className="text-xs space-y-1">
             <span className="font-semibold text-foreground block">
               {owner.name}
             </span>
-            <span className="font-mono text-[11px] text-muted-foreground block">
-              {owner.phoneNumber}
-              {owner.address ? ` • ${owner.address}` : ''}
-            </span>
+            {owner.phoneNumber && (
+              <span className="flex items-center gap-x-1 font-mono text-[11px] text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                {owner.phoneNumber}
+              </span>
+            )}
           </div>
         );
       },
-      className: 'min-w-[200px]',
+      className: 'min-w-[180px]',
       mobileLabel: 'Chủ xe',
     },
     {
@@ -274,14 +287,7 @@ export function VehiclesPage() {
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          className='text-[11px]'
-          variant={item.isActive ? 'success' : 'secondary'}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },
@@ -301,7 +307,7 @@ export function VehiclesPage() {
                 Quản Lý Phương Tiện &amp; Biển Số Xe
               </h1>
               <p className="text-xs text-muted-foreground">
-                Đăng ký biển số xe chuẩn hóa, phân loại ô tô/xe máy và gán quyền sở hữu với hồ sơ khách hàng.
+                Đăng ký biển số xe chuẩn hóa, phân loại ô tô/xe máy và gán quyền sở hữu với hồ sơ nhân sự.
               </p>
             </div>
           </div>
@@ -312,16 +318,7 @@ export function VehiclesPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -388,9 +385,9 @@ export function VehiclesPage() {
         onAddNew={
           canWrite
             ? () => {
-                setSelectedVehicle(null);
-                setIsFormOpen(true);
-              }
+              setSelectedVehicle(null);
+              setIsFormOpen(true);
+            }
             : undefined
         }
         addNewLabel="Đăng ký phương tiện"
@@ -398,20 +395,36 @@ export function VehiclesPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailVehicleId(item.id),
           onEdit: canWrite
             ? (item) => {
-                setSelectedVehicle(item);
-                setIsFormOpen(true);
-              }
+              setSelectedVehicle(item);
+              setIsFormOpen(true);
+            }
             : undefined,
           onDelete: canWrite
             ? (item) => {
-                setDeleteCandidate(item);
-              }
+              setDeleteCandidate(item);
+            }
             : undefined,
         }}
         emptyTitle="Không có phương tiện nào"
         emptyDescription="Chưa có dữ liệu phương tiện hoặc không có biển số nào khớp với từ khóa tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Phương Tiện */}
+      <VehicleDetailDialog
+        open={Boolean(detailVehicleId)}
+        onOpenChange={(open) => !open && setDetailVehicleId(null)}
+        vehicleId={detailVehicleId}
+        onEdit={
+          canWrite
+            ? (item) => {
+              setSelectedVehicle(item);
+              setIsFormOpen(true);
+            }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa Phương tiện */}

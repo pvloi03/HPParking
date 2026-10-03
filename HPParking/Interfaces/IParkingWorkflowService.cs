@@ -8,6 +8,13 @@ namespace HPParking.Interfaces
 {
     public interface IParkingWorkflowService
     {
+        Task<ProcessResult> ProcessWorkflowAsync(
+            LaneRuntimeContext context,
+            HPParking.Core.Models.Common.WorkflowTriggerEvent trigger,
+            string imageBasePath,
+            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null);
+
         Task<ProcessResult> ProcessEntryAsync(
             LaneRuntimeContext context,
             RealtimeLog data,

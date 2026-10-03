@@ -5,8 +5,6 @@ using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace HPParking.Api.Controllers.V1
 {

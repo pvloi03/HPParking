@@ -12,7 +12,7 @@ namespace HPParking.Api.Services.Interfaces
             string employeeNo,
             string name,
             bool isMale,
-            string phoneNumber,
+            string cardNumber,
             byte[]? faceImageBytes,
             CancellationToken cancellationToken = default);
 
@@ -22,7 +22,7 @@ namespace HPParking.Api.Services.Interfaces
         Task<FaceIdTerminalResultDto> DeleteUserAsync(
             FaceIdTerminalConfig terminal,
             string employeeNo,
-            string phoneNumber,
+            string cardNumber,
             CancellationToken cancellationToken = default);
 
         /// <summary>

@@ -1,3 +1,4 @@
+using HPParking.Core.Helpers;
 using HPParking.Interfaces;
 using HPParking.SDK.CtrlSDK;
 using HPParking.Services.Devices;
@@ -36,6 +37,7 @@ namespace HPParking.Services.Controller
 
         public event Action<bool, string>? OnStatusChanged;
         public event Action<RealtimeLog>? OnCardSwiped;
+        public event Action<RealtimeLog>? OnRadarTriggered;
         public event EventHandler<DeviceStatus>? OnConnectionStateChanged;
 
         public ControllerService() : this(null)
@@ -265,10 +267,19 @@ namespace HPParking.Services.Controller
                 }
 
                 RealtimeLog? data = RealtimeLog.Parse(trimmed, Config?.IP ?? "");
-                if (data != null && data.CardNo != "0")
+                if (data != null)
                 {
-                    Debug.WriteLine($"[ControllerService CardSwiped] Thẻ: {data.CardNo} | Cổng: {data.DoorId} | IP: {data.ControllerIp} | InOutState: {data.InOutState}");
-                    OnCardSwiped?.Invoke(data);
+                    if (data.IsRadarTrigger)
+                    {
+                        Debug.WriteLine($"[ControllerService RadarTrigger] Cảm biến radar/AUX IN kích hoạt: Cổng {data.DoorId} | IP: {data.ControllerIp}");
+                        OnRadarTriggered?.Invoke(data);
+                    }
+
+                    if (CardHelper.IsValidCardCode(data.CardNo))
+                    {
+                        Debug.WriteLine($"[ControllerService CardSwiped] Thẻ: {data.CardNo} | Cổng: {data.DoorId} | IP: {data.ControllerIp} | InOutState: {data.InOutState}");
+                        OnCardSwiped?.Invoke(data);
+                    }
                 }
             }
         }

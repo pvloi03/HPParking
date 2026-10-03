@@ -1,5 +1,5 @@
 /**
- * Chuẩn hóa URL ảnh đại diện (avatar) của khách hàng và thêm query param cache-busting (?t=...)
+ * Chuẩn hóa URL ảnh đại diện (avatar) của nhân sự và thêm query param cache-busting (?t=...)
  * nhằm đảm bảo trình duyệt luôn nhận diện và tải ảnh mới nhất ngay khi file ảnh trên máy chủ được cập nhật.
  *
  * @param url Đường dẫn ảnh từ server (ví dụ: '/Avatar/001201012345.jpg' hoặc URL đầy đủ)

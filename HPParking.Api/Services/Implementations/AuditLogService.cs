@@ -54,6 +54,17 @@ namespace HPParking.Api.Services.Implementations
                 filters.Add(builder.Regex(x => x.TargetEntity, new BsonRegularExpression(cleanTarget, "i")));
             }
 
+            if (!string.IsNullOrWhiteSpace(query.TargetId))
+            {
+                filters.Add(builder.Eq(x => x.TargetId, query.TargetId.Trim()));
+            }
+
+            if (!string.IsNullOrWhiteSpace(query.TargetDisplay))
+            {
+                var cleanTargetDisplay = Regex.Escape(query.TargetDisplay.Trim());
+                filters.Add(builder.Regex(x => x.TargetDisplay, new BsonRegularExpression(cleanTargetDisplay, "i")));
+            }
+
             if (query.IsSuccess.HasValue)
             {
                 filters.Add(builder.Eq(x => x.IsSuccess, query.IsSuccess.Value));

@@ -5,8 +5,6 @@ import {
   RotateCcw,
   Edit,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   Inbox,
   Download,
   Upload,
@@ -14,11 +12,20 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import { cn } from '@/lib/utils';
-import type { PaginationMetadata } from '@/types/masterData';
+import { DEFAULT_PAGE_SIZE, type PaginationMetadata } from '@/types/masterData';
 
 export interface ColumnDef<T> {
   header: string;
@@ -33,6 +40,7 @@ export interface ColumnDef<T> {
 
 export interface DataTableActions<T> {
   onView?: (item: T) => void;
+  extraActions?: (item: T) => React.ReactNode;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   onHardDelete?: (item: T) => void;
@@ -47,7 +55,7 @@ export interface DataTableActions<T> {
 interface DataTableProps<T> {
   data: T[];
   columns: ColumnDef<T>[];
-  pagination: PaginationMetadata;
+  pagination?: PaginationMetadata | null;
   onPageChange: (pageIndex: number) => void;
   isLoading?: boolean;
   searchKeyword: string;
@@ -101,7 +109,16 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
   onSelectedRowIdsChange,
   bulkActions,
 }: DataTableProps<T>) {
-  const hasActions = Boolean(actions?.onView || actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
+  const paginationMeta: PaginationMetadata = pagination || {
+    pageIndex: 1,
+    pageSize: DEFAULT_PAGE_SIZE,
+    totalCount: data.length,
+    totalPages: Math.max(1, Math.ceil(data.length / DEFAULT_PAGE_SIZE)),
+    hasPreviousPage: false,
+    hasNextPage: false,
+  };
+
+  const hasActions = Boolean(actions?.onView || actions?.extraActions || actions?.onEdit || actions?.onDelete || actions?.onHardDelete || actions?.onRestore);
 
   // Logic chọn tất cả / chọn một phần checkbox
   const isAllSelected = data.length > 0 && data.every((item) => selectedRowIds.includes(item.id));
@@ -180,6 +197,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
             <FileText className="h-4 w-4" />
           </Button>
         )}
+        {actions?.extraActions?.(item)}
         {actions?.onEdit && (actions.canEdit ? actions.canEdit(item) : true) && (
           <Button
             variant="ghost"
@@ -218,6 +236,41 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
         )}
       </div>
     );
+  };
+
+  const renderPaginationItems = () => {
+    const { pageIndex, totalPages } = paginationMeta;
+    const items: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        items.push(i);
+      }
+    } else {
+      items.push(1);
+
+      if (pageIndex <= 4) {
+        for (let i = 2; i <= 5; i++) {
+          items.push(i);
+        }
+        items.push('ellipsis-end');
+      } else if (pageIndex >= totalPages - 3) {
+        items.push('ellipsis-start');
+        for (let i = totalPages - 4; i < totalPages; i++) {
+          items.push(i);
+        }
+      } else {
+        items.push('ellipsis-start');
+        items.push(pageIndex - 1);
+        items.push(pageIndex);
+        items.push(pageIndex + 1);
+        items.push('ellipsis-end');
+      }
+
+      items.push(totalPages);
+    }
+
+    return items;
   };
 
   return (
@@ -265,7 +318,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                Đang hoạt động
+                Đã kích hoạt
               </button>
               <button
                 type="button"
@@ -277,7 +330,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                Ngừng
+                Chưa kích hoạt
               </button>
             </div>
           )}
@@ -304,7 +357,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
               </div>
             ) : (
               <span className="text-xs text-muted-foreground font-medium">
-                Tổng cộng: <strong className="text-foreground font-semibold">{pagination.totalCount}</strong> bản ghi
+                Tổng cộng: <strong className="text-foreground font-semibold">{paginationMeta.totalCount}</strong> bản ghi
               </span>
             )}
           </div>
@@ -552,17 +605,7 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
                       </div>
                     </div>
                     {item.isActive !== undefined && (
-                      <Badge
-                        variant={item.isActive ? 'default' : 'secondary'}
-                        className={cn(
-                          'text-[10px] shrink-0 font-medium',
-                          item.isActive
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {item.isActive ? 'Hoạt động' : 'Ngừng'}
-                      </Badge>
+                      <ActiveStatusBadge isActive={item.isActive} className="text-[10px]" />
                     )}
                   </div>
 
@@ -598,41 +641,52 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
       )}
 
       {/* PAGINATION CONTROLS */}
-      {pagination.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-xs text-muted-foreground">
+      {paginationMeta.totalPages > 1 && (
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-2 text-xs text-muted-foreground w-full">
           <div>
-            Hiển thị trang <strong>{pagination.pageIndex}</strong> /{' '}
-            <strong>{pagination.totalPages}</strong> (Tổng cộng{' '}
-            <strong>{pagination.totalCount}</strong> bản ghi)
+            Hiển thị trang <strong>{paginationMeta.pageIndex}</strong> /{' '}
+            <strong>{paginationMeta.totalPages}</strong> (Tổng cộng{' '}
+            <strong>{paginationMeta.totalCount}</strong> bản ghi)
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(pagination.pageIndex - 1)}
-              disabled={!pagination.hasPreviousPage || isLoading}
-              className="h-8 px-2.5 text-xs gap-1 cursor-pointer disabled:cursor-not-allowed min-h-[36px]"
-              aria-label="Trang trước"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              <span>Trang trước</span>
-            </Button>
-            <div className="px-2 font-medium text-foreground">
-              {pagination.pageIndex}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(pagination.pageIndex + 1)}
-              disabled={!pagination.hasNextPage || isLoading}
-              className="h-8 px-2.5 text-xs gap-1 cursor-pointer disabled:cursor-not-allowed min-h-[36px]"
-              aria-label="Trang sau"
-            >
-              <span>Trang sau</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <Pagination className="mx-0 w-auto justify-end">
+            <PaginationContent className="gap-1 flex-wrap justify-center">
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => onPageChange(paginationMeta.pageIndex - 1)}
+                  disabled={!paginationMeta.hasPreviousPage || isLoading}
+                />
+              </PaginationItem>
+
+              {renderPaginationItems().map((item, idx) => {
+                if (typeof item === 'string') {
+                  return (
+                    <PaginationItem key={`${item}-${idx}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+                return (
+                  <PaginationItem key={item}>
+                    <PaginationLink
+                      isActive={item === paginationMeta.pageIndex}
+                      onClick={() => onPageChange(item)}
+                      disabled={isLoading}
+                    >
+                      {item}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => onPageChange(paginationMeta.pageIndex + 1)}
+                  disabled={!paginationMeta.hasNextPage || isLoading}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
     </div>

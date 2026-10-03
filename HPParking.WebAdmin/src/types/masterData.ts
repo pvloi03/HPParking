@@ -1,3 +1,5 @@
+export { DEFAULT_PAGE_SIZE } from '@/constants/pagination';
+
 export interface PaginationMetadata {
   pageIndex: number;
   pageSize: number;

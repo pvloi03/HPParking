@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import { Building, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { ContactInfoCell } from '@/components/common/ContactInfoCell';
 import {
   Select,
   SelectContent,
@@ -14,6 +16,7 @@ import {
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DepartmentFormDialog } from '@/components/organizations/DepartmentFormDialog';
+import { DepartmentDetailDialog } from '@/components/organizations/DepartmentDetailDialog';
 import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import {
   departmentsApi,
@@ -22,10 +25,11 @@ import {
 } from '@/api/masterDataApi';
 import { excelApi } from '@/api/excelApi';
 import { downloadBlob } from '@/utils/downloadBlob';
-import type {
-  DepartmentDto,
-  CreateDepartmentRequest,
-  UpdateDepartmentRequest,
+import {
+  DEFAULT_PAGE_SIZE,
+  type DepartmentDto,
+  type CreateDepartmentRequest,
+  type UpdateDepartmentRequest,
 } from '@/types/masterData';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -35,7 +39,7 @@ export function DepartmentsPage() {
 
   // State bộ lọc và phân trang
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<boolean | 'all'>('all');
@@ -53,6 +57,7 @@ export function DepartmentsPage() {
   // State Modal Form & Confirm Delete
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDto | null>(null);
+  const [detailDepartmentId, setDetailDepartmentId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<DepartmentDto | null>(null);
   const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -156,7 +161,7 @@ export function DepartmentsPage() {
       const failed = results.length - succeeded;
       if (failed > 0) {
         toast.warning(
-          `Đã chuyển ${succeeded}/${results.length} phòng ban vào thùng rác (${failed} bản ghi không thể xóa do có khách hàng trực thuộc).`
+          `Đã chuyển ${succeeded}/${results.length} phòng ban vào thùng rác (${failed} bản ghi không thể xóa do có nhân sự trực thuộc).`
         );
       } else {
         toast.success(`Đã chuyển thành công ${succeeded} phòng ban vào thùng rác.`);
@@ -204,9 +209,12 @@ export function DepartmentsPage() {
       header: 'Công ty trực thuộc',
       accessorKey: 'companyName',
       cell: (item) => (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+        <Badge
+          variant="secondary"
+          className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-900"
+        >
           {item.companyName || '—'}
-        </span>
+        </Badge>
       ),
       className: 'min-w-[160px]',
       mobileLabel: 'Công ty',
@@ -221,24 +229,14 @@ export function DepartmentsPage() {
     {
       header: 'Số điện thoại',
       accessorKey: 'phoneNumber',
-      cell: (item) => item.phoneNumber || <span className="text-muted-foreground">—</span>,
+      cell: (item) => <ContactInfoCell phoneNumber={item.phoneNumber} />,
       className: 'w-36',
       mobileLabel: 'SĐT',
     },
     {
       header: 'Trạng thái',
       accessorKey: 'isActive',
-      cell: (item) => (
-        <Badge
-          variant={item.isActive ? 'default' : 'secondary'}
-          className={`text-[11px] font-medium ${item.isActive
-              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300'
-              : 'bg-muted text-muted-foreground'
-            }`}
-        >
-          {item.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
-        </Badge>
-      ),
+      cell: (item) => <ActiveStatusBadge isActive={item.isActive} />,
       className: 'w-36',
       mobileLabel: 'Trạng thái',
     },
@@ -269,16 +267,7 @@ export function DepartmentsPage() {
       <DataTable
         data={data?.items || []}
         columns={columns}
-        pagination={
-          data?.pagination || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}
@@ -348,6 +337,7 @@ export function DepartmentsPage() {
         onExportExcel={handleExportExcel}
         isExportingExcel={isExportingExcel}
         actions={{
+          onView: (item) => setDetailDepartmentId(item.id),
           onEdit: canWrite
             ? (item) => {
                 setSelectedDepartment(item);
@@ -362,6 +352,22 @@ export function DepartmentsPage() {
         }}
         emptyTitle="Không có phòng ban nào"
         emptyDescription="Chưa có phòng ban hoặc không có bản ghi nào khớp với điều kiện tìm kiếm."
+      />
+
+      {/* Modal Xem Chi Tiết Phòng Ban */}
+      <DepartmentDetailDialog
+        open={Boolean(detailDepartmentId)}
+        onOpenChange={(open) => !open && setDetailDepartmentId(null)}
+        departmentId={detailDepartmentId}
+        companies={companies}
+        onEdit={
+          canWrite
+            ? (item) => {
+                setSelectedDepartment(item);
+                setIsFormOpen(true);
+              }
+            : undefined
+        }
       />
 
       {/* Modal Form Thêm/Sửa */}
@@ -389,7 +395,7 @@ export function DepartmentsPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xác Nhận Xóa Phòng Ban"
-        description={`Bạn có chắc chắn muốn chuyển phòng ban "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu phòng ban này vẫn còn nhân sự hoặc khách hàng trực thuộc.`}
+        description={`Bạn có chắc chắn muốn chuyển phòng ban "${deleteCandidate?.name}" vào thùng rác không? Lưu ý: Hệ thống sẽ từ chối xóa nếu phòng ban này vẫn còn nhân sự trực thuộc.`}
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"

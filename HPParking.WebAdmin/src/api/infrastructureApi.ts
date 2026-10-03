@@ -202,4 +202,15 @@ export const devicesApi = {
     });
     return response.data.data;
   },
+
+  pingBatchDeviceIps: async (
+    ipAddresses: string[],
+    timeoutMs = 2000
+  ): Promise<DevicePingResultDto[]> => {
+    const response = await apiClient.post<ApiResponse<DevicePingResultDto[]>>(
+      '/v1/devices/ping-batch',
+      { ipAddresses, timeoutMs }
+    );
+    return response.data.data;
+  },
 };

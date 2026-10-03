@@ -19,6 +19,9 @@ import {
   LogOut,
   KeyRound,
   X,
+  CreditCard,
+  Truck,
+  UserCheck,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -71,11 +74,14 @@ const menuConfig: MenuItem[] = [
     },
   },
   {
-    type: 'single',
-    item: {
-      title: 'Lịch sử xe ra vào',
-      href: '/parking-sessions',
+    type: 'group',
+    group: {
+      title: 'Lịch sử vào ra',
       icon: History,
+      children: [
+        { title: 'Phương tiện vào ra', href: '/sessions/vehicles', icon: Car },
+        { title: 'Người vào ra', href: '/sessions/pedestrians', icon: UserCheck },
+      ],
     },
   },
   {
@@ -98,6 +104,18 @@ const menuConfig: MenuItem[] = [
       children: [
         { title: 'Nhân sự', href: '/clients', icon: Users },
         { title: 'Phương tiện', href: '/vehicles', icon: Car },
+        { title: 'Kho Thẻ RFID', href: '/cards', icon: CreditCard },
+      ],
+    },
+  },
+  {
+    type: 'group',
+    group: {
+      title: 'Điều vận phương tiện nội bộ',
+      icon: Truck,
+      children: [
+        { title: 'Giám sát điều vận', href: '/fleet-dispatch', icon: Truck },
+        { title: 'Tuyến liên nhà máy', href: '/gate-routes', icon: Route },
       ],
     },
   },
@@ -152,8 +170,10 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    'Lịch sử vào ra': true,
     'Tổ chức & đơn vị': true,
     'Nhân sự & phương tiện': true,
+    'Điều vận phương tiện nội bộ': true,
     'Hạ tầng': true,
     'Sổ cái & Kiểm toán': true,
   });
@@ -243,7 +263,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
         className={cn(
           isMobile
             ? 'flex flex-col h-full w-full bg-card select-none'
-            : 'relative hidden lg:flex flex-col border-r border-border bg-card transition-all duration-250 ease-in-out select-none shrink-0 z-30',
+            : 'relative hidden lg:flex flex-col h-full min-h-0 border-r border-border bg-card transition-all duration-250 ease-in-out select-none shrink-0 z-30',
           !isMobile && (effectiveCollapsed ? 'w-[68px]' : 'w-60')
         )}
       >
@@ -318,7 +338,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
         )}
 
         {/* Navigation list */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto py-3 px-2 space-y-1">
           {filteredMenuConfig.map((menu, idx) => {
             if (menu.type === 'single') {
               const { item } = menu;

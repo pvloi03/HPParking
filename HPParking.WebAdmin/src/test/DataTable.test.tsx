@@ -64,7 +64,7 @@ describe('DataTable Component', () => {
     const onStatusFilterChange = vi.fn();
     render(<DataTable {...defaultProps} onStatusFilterChange={onStatusFilterChange} />);
 
-    const activeBtn = screen.getByRole('button', { name: /đang hoạt động/i });
+    const activeBtn = screen.getByRole('button', { name: /đã kích hoạt/i });
     fireEvent.click(activeBtn);
 
     expect(onStatusFilterChange).toHaveBeenCalledWith(true);
@@ -111,5 +111,15 @@ describe('DataTable Component', () => {
     const deleteBtns = screen.getAllByRole('button', { name: /xóa/i });
     fireEvent.click(deleteBtns[0]);
     expect(onDelete).toHaveBeenCalledWith(defaultProps.data[0]);
+  });
+
+  it('hoạt động an toàn và áp dụng mặc định 10 phần tử khi không truyền pagination', () => {
+    const { pagination: _, ...propsWithoutPagination } = defaultProps;
+
+    render(<DataTable {...propsWithoutPagination} />);
+
+    // Kiểm tra render bình thường không crash
+    expect(screen.getAllByText('Công ty Alpha').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Tổng cộng:/i)).toBeInTheDocument();
   });
 });

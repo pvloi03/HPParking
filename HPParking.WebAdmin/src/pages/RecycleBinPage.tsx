@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast';
 import {
   Trash2,
   RotateCcw,
@@ -29,7 +29,7 @@ import { extractErrorMessage } from '@/api/clientApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { UserRole } from '@/types/user';
 import { cn } from '@/lib/utils';
-import type { PaginationMetadata } from '@/types/masterData';
+import { DEFAULT_PAGE_SIZE, type PaginationMetadata } from '@/types/masterData';
 
 type EntityType =
   | 'all'
@@ -53,7 +53,7 @@ interface EntityConfig {
 
 const ENTITY_CONFIGS: EntityConfig[] = [
   { id: 'all', label: 'Tất cả', icon: Layers, description: 'Toàn bộ bản ghi đã bị xóa trong hệ thống' },
-  { id: 'clients', label: 'Khách hàng', icon: Users, description: 'Hồ sơ định danh khách hàng & FaceID' },
+  { id: 'clients', label: 'Nhân sự', icon: Users, description: 'Hồ sơ định danh nhân sự & FaceID' },
   { id: 'vehicles', label: 'Phương tiện', icon: Car, description: 'Biển số xe & quyền sở hữu' },
   { id: 'companies', label: 'Công ty', icon: Building, description: 'Danh mục công ty & đơn vị gốc' },
   { id: 'departments', label: 'Phòng ban', icon: Building2, description: 'Phòng ban trực thuộc công ty' },
@@ -69,7 +69,7 @@ export function RecycleBinPage() {
 
   const [selectedEntity, setSelectedEntity] = useState<EntityType>('all');
   const [pageIndex, setPageIndex] = useState(1);
-  const pageSize = 15;
+  const pageSize = DEFAULT_PAGE_SIZE;
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
@@ -474,7 +474,7 @@ export function RecycleBinPage() {
       case 'clients':
         return [
           {
-            header: 'Mã khách hàng',
+            header: 'Mã nhân sự',
             accessorKey: 'code',
             cell: (item: any) => (
               <span className="font-mono text-xs font-semibold">{item.code || '—'}</span>
@@ -488,7 +488,7 @@ export function RecycleBinPage() {
             ),
           },
           {
-            header: 'Loại khách hàng',
+            header: 'Loại nhân sự',
             cell: (item: any) => {
               const types = ['Cán bộ NV', 'Nhà thầu', 'Khách vãng lai', 'VIP', 'Khác'];
               return (
@@ -618,7 +618,7 @@ export function RecycleBinPage() {
             header: 'Hướng làn',
             cell: (item: any) => (
               <Badge variant="outline" className="text-[11px]">
-                {item.direction === 0 ? 'Làn Vào' : item.direction === 1 ? 'Làn Ra' : 'Hai Chiều'}
+                {item.direction === 1 ? 'Làn Vào' : item.direction === 2 ? 'Làn Ra' : 'Hai Chiều'}
               </Badge>
             ),
           },
@@ -780,16 +780,7 @@ export function RecycleBinPage() {
       <DataTable
         data={data?.items || []}
         columns={getColumns()}
-        pagination={
-          (data?.pagination as PaginationMetadata) || {
-            pageIndex: 1,
-            pageSize: 15,
-            totalCount: 0,
-            totalPages: 1,
-            hasPreviousPage: false,
-            hasNextPage: false,
-          }
-        }
+        pagination={data?.pagination as PaginationMetadata | undefined}
         onPageChange={(p) => setPageIndex(p)}
         isLoading={isLoading}
         searchKeyword={searchKeyword}

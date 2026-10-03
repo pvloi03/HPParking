@@ -28,6 +28,7 @@ namespace HPParking.Api.Common.Exceptions
         public const string CLIENT_PHONE_DUPLICATE = "CLIENT_PHONE_DUPLICATE";
         public const string CLIENT_CODE_DUPLICATE = "CLIENT_CODE_DUPLICATE";
         public const string CLIENT_HAS_VEHICLES = "CLIENT_HAS_VEHICLES";
+        public const string CLIENT_DEACTIVATED = "CLIENT_DEACTIVATED";
 
         // Vehicle
         public const string VEHICLE_NOT_FOUND = "VEHICLE_NOT_FOUND";

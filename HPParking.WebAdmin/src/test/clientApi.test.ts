@@ -53,7 +53,7 @@ describe('Client API & FaceID Biometrics', () => {
       };
 
       const msg = extractErrorMessage(error);
-      expect(msg).toContain('Mã khách hàng / Số CCCD này đã tồn tại');
+      expect(msg).toContain('Mã nhân sự / Số CCCD này đã tồn tại');
     });
 
     it('ánh xạ chính xác mã lỗi FACEID_SYNC_FAILED', () => {

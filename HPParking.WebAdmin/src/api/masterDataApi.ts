@@ -35,13 +35,13 @@ export function extractErrorMessage(error: unknown): string {
         return 'Không thể xóa công ty vì vẫn còn cổng kiểm soát trực thuộc.';
       }
       if (data.message.includes('COMPANY_HAS_CLIENTS')) {
-        return 'Không thể xóa công ty vì vẫn còn khách hàng/nhân sự trực thuộc.';
+        return 'Không thể xóa công ty vì vẫn còn nhân sự trực thuộc.';
       }
       if (data.message.includes('DEPARTMENT_HAS_CLIENTS')) {
-        return 'Không thể xóa phòng ban vì vẫn còn khách hàng/nhân sự trực thuộc.';
+        return 'Không thể xóa phòng ban vì vẫn còn nhân sự trực thuộc.';
       }
       if (data.message.includes('CONTRACTOR_HAS_CLIENTS')) {
-        return 'Không thể xóa nhà thầu vì vẫn còn nhân sự/khách hàng trực thuộc.';
+        return 'Không thể xóa nhà thầu vì vẫn còn nhân sự trực thuộc.';
       }
       if (data.message.includes('PARENT_IS_DELETED')) {
         return 'Không thể khôi phục vì đơn vị cha đang nằm trong thùng rác hoặc đã bị xóa. Vui lòng khôi phục đơn vị cha trước.';

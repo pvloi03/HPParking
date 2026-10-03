@@ -11,7 +11,7 @@ describe('AvatarUploadField Component', () => {
       />
     );
 
-    const img = screen.getByAltText('Avatar khách hàng');
+    const img = screen.getByAltText('Avatar nhân sự');
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', 'https://example.com/avatar.jpg');
     expect(screen.getByText(/Gỡ ảnh/i)).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('AvatarUploadField Component', () => {
     );
 
     // Vẫn hiển thị avatar hiện tại của client
-    const img = screen.getByAltText('Avatar khách hàng');
+    const img = screen.getByAltText('Avatar nhân sự');
     expect(img).toHaveAttribute('src', 'https://example.com/existing-avatar.jpg');
 
     // Nút Dùng ảnh CCCD xuất hiện

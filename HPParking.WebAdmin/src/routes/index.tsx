@@ -13,10 +13,14 @@ import { LanesPage } from '@/pages/LanesPage';
 import { DevicesPage } from '@/pages/DevicesPage';
 import { ClientsPage } from '@/pages/ClientsPage';
 import { VehiclesPage } from '@/pages/VehiclesPage';
-import { ParkingSessionsPage } from '@/pages/ParkingSessionsPage';
+import { VehicleSessionsPage } from '@/pages/VehicleSessionsPage';
+import { PedestrianSessionsPage } from '@/pages/PedestrianSessionsPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
+import { CardsPage } from '@/pages/CardsPage';
+import { GateRoutesPage } from '@/pages/GateRoutesPage';
+import { FleetDispatchPage } from '@/pages/FleetDispatchPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -65,6 +69,10 @@ export const router = createBrowserRouter([
         element: <DevicesPage />,
       },
       {
+        path: 'devices/:id',
+        element: <Navigate to="/devices" replace />,
+      },
+      {
         path: 'clients',
         element: <ClientsPage />,
       },
@@ -73,8 +81,24 @@ export const router = createBrowserRouter([
         element: <VehiclesPage />,
       },
       {
-        path: 'parking-sessions',
-        element: <ParkingSessionsPage />,
+        path: 'cards',
+        element: <CardsPage />,
+      },
+      {
+        path: 'gate-routes',
+        element: <GateRoutesPage />,
+      },
+      {
+        path: 'fleet-dispatch',
+        element: <FleetDispatchPage />,
+      },
+      {
+        path: 'sessions/vehicles',
+        element: <VehicleSessionsPage />,
+      },
+      {
+        path: 'sessions/pedestrians',
+        element: <PedestrianSessionsPage />,
       },
       {
         path: 'audit-logs',
