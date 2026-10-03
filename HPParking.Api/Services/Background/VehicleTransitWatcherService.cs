@@ -68,7 +68,8 @@ namespace HPParking.Api.Services.Background
 
             // Truy vấn các chuyến đi đang hoạt động và đã vượt quá hạn chót mà chưa gửi cảnh báo
             var activeTrips = await tripRepo.FindAsync(t =>
-                (t.Status == TripStatus.InTransit || t.Status == TripStatus.WorkingAtGate) &&
+                (t.Status == TripStatus.InTransit || t.Status == TripStatus.WorkingAtGate ||
+                 t.Status == TripStatus.OverdueTransit || t.Status == TripStatus.OverdueStay) &&
                 t.NextDeadline != null &&
                 t.NextDeadline < now &&
                 !t.IsAlertSent &&
@@ -93,111 +94,130 @@ namespace HPParking.Api.Services.Background
             {
                 if (cancellationToken.IsCancellationRequested) break;
 
-                // Danh sách email nhận cảnh báo: tập hợp từ Tuyến cụ thể + Tuyến mặc định từ DB
-                var recipients = new HashSet<string>(defaultEmails, StringComparer.OrdinalIgnoreCase);
-
-                string routeName = "Tuyến tự do (Không chỉ định)";
-                if (!string.IsNullOrWhiteSpace(trip.AssignedRouteId))
+                try
                 {
-                    var route = await routeRepo.GetByIdAsync(trip.AssignedRouteId, cancellationToken);
-                    if (route != null)
+                    // Danh sách email nhận cảnh báo: tập hợp từ Tuyến cụ thể + Tuyến mặc định từ DB
+                    var recipients = new HashSet<string>(defaultEmails, StringComparer.OrdinalIgnoreCase);
+
+                    string routeName = "Tuyến tự do (Không chỉ định)";
+                    if (!string.IsNullOrWhiteSpace(trip.AssignedRouteId))
                     {
-                        routeName = $"{route.RouteName} ({route.RouteCode})";
-                        if (route.AlertEmails.Count > 0)
+                        var route = await routeRepo.GetByIdAsync(trip.AssignedRouteId, cancellationToken);
+                        if (route != null)
                         {
-                            foreach (var email in route.AlertEmails)
+                            routeName = $"{route.RouteName} ({route.RouteCode})";
+                            if (route.AlertEmails.Count > 0)
                             {
-                                recipients.Add(email.Trim());
+                                foreach (var email in route.AlertEmails)
+                                {
+                                    recipients.Add(email.Trim());
+                                }
                             }
                         }
                     }
-                }
 
-                string originGateName = "Không xác định";
-                if (!string.IsNullOrWhiteSpace(trip.OriginGateId))
-                {
-                    var originGate = await gateRepo.GetByIdAsync(trip.OriginGateId);
-                    if (originGate != null) originGateName = $"{originGate.Name} ({originGate.Code})";
-                }
-
-                string currentGateName = "Không xác định";
-                if (!string.IsNullOrWhiteSpace(trip.CurrentGateId))
-                {
-                    var currentGate = await gateRepo.GetByIdAsync(trip.CurrentGateId);
-                    if (currentGate != null) currentGateName = $"{currentGate.Name} ({currentGate.Code})";
-                }
-
-                string subject;
-                string violationType;
-
-                if (trip.Status == TripStatus.InTransit)
-                {
-                    trip.Status = TripStatus.OverdueTransit;
-                    violationType = "QUÁ THỜI GIAN DI CHUYỂN GIỮA CÁC CỔNG";
-                    subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} quá hạn di chuyển";
-                }
-                else
-                {
-                    trip.Status = TripStatus.OverdueStay;
-                    violationType = "QUÁ HẠN DỪNG ĐỖ LÀM VIỆC TẠI CỔNG";
-                    subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} dừng đỗ quá hạn tại bãi";
-                }
-
-                var rootPathConfig = configuration?["StorageSettings:RootPath"]
-                    ?? configuration?["StorageSettings:UploadPath"]
-                    ?? @"C:\Users\ADMIN\Pictures\hpparking";
-
-                var lastCheckpoint = trip.Checkpoints?.LastOrDefault();
-                string? physicalAttachmentPath = ResolveCheckpointImagePath(lastCheckpoint?.OverviewImagePath, rootPathConfig)
-                    ?? ResolveCheckpointImagePath(lastCheckpoint?.PlateImagePath, rootPathConfig);
-
-                bool hasAttachment = !string.IsNullOrWhiteSpace(physicalAttachmentPath);
-                string? attachmentDisplayName = null;
-                if (hasAttachment)
-                {
-                    var cleanPlate = Regex.Replace(trip.PlateNumber ?? "Xe", @"[^a-zA-Z0-9]", "");
-                    var ext = Path.GetExtension(physicalAttachmentPath);
-                    if (string.IsNullOrWhiteSpace(ext)) ext = ".jpg";
-                    attachmentDisplayName = $"AnhGiamSat_{cleanPlate}{ext}";
-                }
-
-                string emailBody = BuildSlaAlertEmailHtml(
-                    trip,
-                    violationType,
-                    routeName,
-                    originGateName,
-                    currentGateName,
-                    now,
-                    hasAttachment);
-
-                if (recipients.Count > 0)
-                {
-                    if (!string.IsNullOrWhiteSpace(attachmentDisplayName))
+                    string originGateName = "Không xác định";
+                    if (!string.IsNullOrWhiteSpace(trip.OriginGateId))
                     {
-                        await emailSender.SendEmailAsync(
-                            recipients,
-                            subject,
-                            emailBody,
-                            physicalAttachmentPath,
-                            attachmentDisplayName,
-                            cancellationToken);
+                        var originGate = await gateRepo.GetByIdAsync(trip.OriginGateId);
+                        if (originGate != null) originGateName = $"{originGate.Name} ({originGate.Code})";
+                    }
+
+                    string currentGateName = "Không xác định";
+                    if (!string.IsNullOrWhiteSpace(trip.CurrentGateId))
+                    {
+                        var currentGate = await gateRepo.GetByIdAsync(trip.CurrentGateId);
+                        if (currentGate != null) currentGateName = $"{currentGate.Name} ({currentGate.Code})";
+                    }
+
+                    string subject;
+                    string violationType;
+
+                    if (trip.Status == TripStatus.InTransit || trip.Status == TripStatus.OverdueTransit)
+                    {
+                        trip.Status = TripStatus.OverdueTransit;
+                        violationType = "QUÁ THỜI GIAN DI CHUYỂN GIỮA CÁC CỔNG";
+                        subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} quá hạn di chuyển";
                     }
                     else
                     {
-                        await emailSender.SendEmailAsync(
-                            recipients,
-                            subject,
-                            emailBody,
-                            physicalAttachmentPath,
-                            cancellationToken);
+                        trip.Status = TripStatus.OverdueStay;
+                        violationType = "QUÁ HẠN DỪNG ĐỖ LÀM VIỆC TẠI CỔNG";
+                        subject = $"[CẢNH BÁO SLA] Phương tiện {trip.PlateNumber} dừng đỗ quá hạn tại bãi";
                     }
+
+                    var rootPathConfig = configuration?["StorageSettings:RootPath"]
+                        ?? configuration?["StorageSettings:UploadPath"]
+                        ?? @"C:\Users\ADMIN\Pictures\hpparking";
+
+                    var lastCheckpoint = trip.Checkpoints?.LastOrDefault();
+                    string? physicalAttachmentPath = ResolveCheckpointImagePath(lastCheckpoint?.OverviewImagePath, rootPathConfig)
+                        ?? ResolveCheckpointImagePath(lastCheckpoint?.PlateImagePath, rootPathConfig);
+
+                    bool hasAttachment = !string.IsNullOrWhiteSpace(physicalAttachmentPath);
+                    string? attachmentDisplayName = null;
+                    if (hasAttachment)
+                    {
+                        var cleanPlate = Regex.Replace(trip.PlateNumber ?? "Xe", @"[^a-zA-Z0-9]", "");
+                        var ext = Path.GetExtension(physicalAttachmentPath);
+                        if (string.IsNullOrWhiteSpace(ext)) ext = ".jpg";
+                        attachmentDisplayName = $"AnhGiamSat_{cleanPlate}{ext}";
+                    }
+
+                    string emailBody = BuildSlaAlertEmailHtml(
+                        trip,
+                        violationType,
+                        routeName,
+                        originGateName,
+                        currentGateName,
+                        now,
+                        hasAttachment);
+
+                    bool emailSent = false;
+                    if (recipients.Count > 0)
+                    {
+                        if (!string.IsNullOrWhiteSpace(attachmentDisplayName))
+                        {
+                            emailSent = await emailSender.SendEmailAsync(
+                                recipients,
+                                subject,
+                                emailBody,
+                                physicalAttachmentPath,
+                                attachmentDisplayName,
+                                cancellationToken);
+                        }
+                        else
+                        {
+                            emailSent = await emailSender.SendEmailAsync(
+                                recipients,
+                                subject,
+                                emailBody,
+                                physicalAttachmentPath,
+                                cancellationToken);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Không tìm thấy người nhận email cảnh báo cho xe: {PlateNumber}", trip.PlateNumber);
+                    }
+
+                    if (emailSent)
+                    {
+                        trip.IsAlertSent = true;
+                        trip.AlertSentAt = now;
+                        _logger.LogInformation("Đã cập nhật trạng thái vi phạm và gửi email cảnh báo thành công cho xe: {PlateNumber}", trip.PlateNumber);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Chưa gửi được email cảnh báo SLA cho xe {PlateNumber} (sẽ được thử lại ở chu kỳ tiếp theo).", trip.PlateNumber);
+                    }
+
+                    await tripRepo.UpdateAsync(trip, cancellationToken);
                 }
-
-                trip.IsAlertSent = true;
-                trip.AlertSentAt = now;
-                await tripRepo.UpdateAsync(trip, cancellationToken);
-
-                _logger.LogInformation("Đã cập nhật trạng thái vi phạm và gửi cảnh báo cho xe: {PlateNumber}", trip.PlateNumber);
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Lỗi xảy ra khi xử lý giám sát SLA cho xe {PlateNumber} (Id: {TripId}): {Message}", trip.PlateNumber, trip.Id, ex.Message);
+                }
             }
         }
 

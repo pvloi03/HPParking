@@ -4,6 +4,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace HPParking.Core.Models.Entities
 {
@@ -163,5 +164,173 @@ namespace HPParking.Core.Models.Entities
         /// Toàn bộ lịch sử các mốc trạm kiểm soát đã đi qua trong chuyến
         /// </summary>
         public List<TripCheckpoint> Checkpoints { get; set; } = [];
+
+        #region --- RICH DOMAIN METHODS (ĐÓNG GÓI NGHIỆP VỤ MÁY TRẠNG THÁI) ---
+
+        /// <summary>
+        /// Khởi tạo và bắt đầu chuyến đi khi xe quẹt thẻ xuất phát tại OriginGate
+        /// </summary>
+        public void Start(string originGateId, int travelMinutes, DateTime now)
+        {
+            OriginGateId = originGateId;
+            CurrentGateId = originGateId;
+            CurrentStepIndex = 1;
+            Status = TripStatus.InTransit;
+            StartTime = now;
+            LastExitTime = now;
+            LastEntryTime = null;
+            NextDeadline = now.AddMinutes(travelMinutes);
+            IsAlertSent = false;
+            AlertSentAt = null;
+            Checkpoints ??= [];
+        }
+
+        /// <summary>
+        /// Xe đến và quẹt thẻ VÀO một cổng kiểm soát
+        /// </summary>
+        public void ArriveAtGate(string gateId, int stayMinutes, bool isCompleted, DateTime now)
+        {
+            CurrentGateId = gateId;
+            LastEntryTime = now;
+            if (isCompleted)
+            {
+                Status = TripStatus.Completed;
+                EndTime = now;
+                NextDeadline = null;
+            }
+            else
+            {
+                Status = TripStatus.WorkingAtGate;
+                NextDeadline = now.AddMinutes(stayMinutes);
+                IsAlertSent = false;
+                AlertSentAt = null;
+            }
+        }
+
+        /// <summary>
+        /// Xe hoàn thành làm việc và quẹt thẻ RA khỏi cổng để tiếp tục chặng tiếp theo
+        /// </summary>
+        public void DepartToNextStep(string currentGateId, int nextStepTravelMinutes, DateTime now)
+        {
+            CurrentGateId = currentGateId;
+            LastExitTime = now;
+            CurrentStepIndex++;
+            Status = TripStatus.InTransit;
+            NextDeadline = now.AddMinutes(nextStepTravelMinutes);
+            IsAlertSent = false;
+            AlertSentAt = null;
+        }
+
+        /// <summary>
+        /// Hoàn tất chuyến đi kết thúc hành trình
+        /// </summary>
+        public void Complete(DateTime now)
+        {
+            Status = TripStatus.Completed;
+            EndTime = now;
+            NextDeadline = null;
+        }
+
+        /// <summary>
+        /// Kiểm tra xem sự kiện quẹt vào cổng hiện tại có hoàn thành chuyến đi không
+        /// - Tuyến tự do: Chỉ hoàn thành khi quẹt vào lại đúng OriginGateId
+        /// - Tuyến cố định: Hoàn thành khi đạt chặng cuối cùng của tuyến
+        /// </summary>
+        public bool IsTripCompletedOnEntry(GateRouteConfig? route, string currentGateId)
+        {
+            bool isFreeRoam = route == null || route.IsDefault || route.RouteCode == "DEFAULT" || route.GateSteps.Count == 0;
+            if (isFreeRoam)
+            {
+                return string.Equals(OriginGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
+            }
+            return route != null && CurrentStepIndex >= route.GateSteps.Count;
+        }
+
+        /// <summary>
+        /// Kiểm tra tính tuân thủ lộ trình phân biệt rõ chiều Vào và chiều Ra
+        /// </summary>
+        public bool CheckRouteCompliance(GateRouteConfig? route, string currentGateId, bool isEntry)
+        {
+            // Tuyến tự do hoặc tuyến không có chặng cố định: Luôn hợp lệ
+            if (route == null || route.IsDefault || route.RouteCode == "DEFAULT" || route.GateSteps.Count == 0)
+            {
+                return true;
+            }
+
+            if (isEntry)
+            {
+                // Chiều VÀO: Cổng quẹt phải khớp với cổng quy định của chặng hiện tại
+                var expectedStep = route.GateSteps.FirstOrDefault(s => s.StepIndex == CurrentStepIndex);
+                if (expectedStep != null && !string.IsNullOrEmpty(expectedStep.GateId))
+                {
+                    return string.Equals(expectedStep.GateId, currentGateId, StringComparison.OrdinalIgnoreCase);
+                }
+                return true;
+            }
+            else
+            {
+                // Chiều RA:
+                // Nếu xuất phát ban đầu (chưa từng quẹt vào cổng nào): Luôn hợp lệ
+                if (CurrentStepIndex <= 1 && LastEntryTime == null)
+                {
+                    return true;
+                }
+
+                // Nếu rời cổng trung gian: Cổng rời đi phải là cổng mà xe vừa quẹt vào làm việc
+                if (!string.IsNullOrEmpty(CurrentGateId))
+                {
+                    return string.Equals(CurrentGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
+                }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Tính toán độ trễ SLA tại thời điểm kiểm tra
+        /// </summary>
+        public SlaOverdueInfo CalculateOverdue(DateTime now)
+        {
+            if (NextDeadline.HasValue && now > NextDeadline.Value)
+            {
+                return new SlaOverdueInfo
+                {
+                    IsOverdue = true,
+                    OverdueSeconds = (now - NextDeadline.Value).TotalSeconds
+                };
+            }
+            return new SlaOverdueInfo { IsOverdue = false, OverdueSeconds = 0 };
+        }
+
+        /// <summary>
+        /// Ghi nhận mốc kiểm soát checkpoint vào lịch sử hành trình
+        /// </summary>
+        public TripCheckpoint RecordCheckpoint(
+            string gateId,
+            string gateName,
+            LaneDirection direction,
+            string? plateDetected,
+            bool isRouteCompliant,
+            string? note,
+            DateTime timestamp,
+            SlaOverdueInfo slaOverdue)
+        {
+            Checkpoints ??= [];
+            var checkpoint = new TripCheckpoint
+            {
+                StepIndex = CurrentStepIndex,
+                GateId = gateId,
+                GateName = gateName,
+                Direction = direction,
+                Timestamp = timestamp,
+                PlateDetected = plateDetected,
+                IsRouteCompliant = isRouteCompliant,
+                Note = note,
+                SlaOverdue = slaOverdue
+            };
+            Checkpoints.Add(checkpoint);
+            return checkpoint;
+        }
+
+        #endregion
     }
 }

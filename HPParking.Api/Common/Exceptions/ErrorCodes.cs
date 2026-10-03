@@ -92,5 +92,10 @@ namespace HPParking.Api.Common.Exceptions
         // FaceID
         public const string FACEID_IMAGE_REJECTED = "FACEID_IMAGE_REJECTED";
         public const string FACEID_OPERATION_FAILED = "FACEID_OPERATION_FAILED";
+
+        // Fleet Dispatch & Shared Vehicle Referential Integrity
+        public const string VEHICLE_HAS_ACTIVE_TRIP = "VEHICLE_HAS_ACTIVE_TRIP";
+        public const string ROUTE_HAS_ACTIVE_TRIP = "ROUTE_HAS_ACTIVE_TRIP";
+        public const string GATE_IN_USE_BY_ROUTE_OR_TRIP = "GATE_IN_USE_BY_ROUTE_OR_TRIP";
     }
 }

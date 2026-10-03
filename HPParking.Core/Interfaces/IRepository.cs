@@ -96,6 +96,14 @@ namespace HPParking.Core.Interfaces
         /// </summary>
         Task<bool> UpdateAsync(T entity, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Cập nhật một phần bản ghi theo bộ lọc (Partial Update)
+        /// </summary>
+        Task<bool> UpdateOneAsync(
+            MongoDB.Driver.FilterDefinition<T> filter,
+            MongoDB.Driver.UpdateDefinition<T> update,
+            CancellationToken cancellationToken = default);
+
         // =========================================================================
         // --- 3. THAO TÁC XÓA (DELETE / SOFT-DELETE) ---
         // =========================================================================

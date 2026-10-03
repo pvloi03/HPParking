@@ -1363,6 +1363,13 @@ namespace HPParking.Tests.Api
             var scopeFactory = Substitute.For<IServiceScopeFactory>();
             scopeFactory.CreateScope().Returns(scope);
 
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
             var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
 
             // Act
