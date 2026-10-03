@@ -1,6 +1,7 @@
 using HPParking.Core.Models.Common;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -100,9 +101,14 @@ namespace HPParking.Core.Models.Entities
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// Mã định danh tuyến mặc định của hệ thống
+        /// </summary>
+        public const string DefaultRouteCode = "DEFAULT";
+
+        /// <summary>
         /// Tuyến tự do: Tuyến mặc định hoặc tuyến không cấu hình chặng cổng cố định
         /// </summary>
-        public bool IsFreeRoam => IsDefault || RouteCode == "DEFAULT" || GateSteps == null || GateSteps.Count == 0;
+        public bool IsFreeRoam => IsDefault || string.Equals(RouteCode, DefaultRouteCode, StringComparison.OrdinalIgnoreCase) || GateSteps == null || GateSteps.Count == 0;
 
         /// <summary>
         /// Tìm cấu hình chặng theo số thứ tự chặng (1-based)

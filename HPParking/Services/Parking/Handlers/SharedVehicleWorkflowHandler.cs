@@ -403,7 +403,11 @@ namespace HPParking.Services.Parking.Handlers
                     .Set("Checkpoints.$.OverviewImagePath", overviewPath)
                     .Set("Checkpoints.$.PlateImagePath", platePath);
 
-                await _tripRepository.UpdateOneAsync(filter, update);
+                var updated = await _tripRepository.UpdateOneAsync(filter, update);
+                if (!updated)
+                {
+                    _logger?.LogWarning("Không tìm thấy checkpoint {CheckpointId} để cập nhật ảnh nền cho chuyến {TripId}", cp.Id, tripId);
+                }
             }
             catch (Exception ex)
             {
