@@ -100,11 +100,21 @@ namespace HPParking.Core.Models.Entities
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// Tuyến tự do: Tuyến mặc định hoặc tuyến không cấu hình chặng cổng cố định
+        /// </summary>
+        public bool IsFreeRoam => IsDefault || RouteCode == "DEFAULT" || GateSteps == null || GateSteps.Count == 0;
+
+        /// <summary>
+        /// Tìm cấu hình chặng theo số thứ tự chặng (1-based)
+        /// </summary>
+        public RouteGateStep? FindStep(int stepIndex) => GateSteps?.Find(s => s.StepIndex == stepIndex);
+
+        /// <summary>
         /// Lấy thời gian di chuyển tối đa cho chặng chỉ định (phút)
         /// </summary>
         public int GetTravelMinutesForStep(int stepIndex)
         {
-            var step = GateSteps?.Find(s => s.StepIndex == stepIndex);
+            var step = FindStep(stepIndex);
             return (step != null && step.MaxTravelMinutes > 0) ? step.MaxTravelMinutes : DefaultTravelMinutes;
         }
 
@@ -113,7 +123,7 @@ namespace HPParking.Core.Models.Entities
         /// </summary>
         public int GetStayMinutesForStep(int stepIndex)
         {
-            var step = GateSteps?.Find(s => s.StepIndex == stepIndex);
+            var step = FindStep(stepIndex);
             return (step != null && step.MaxStayMinutes > 0) ? step.MaxStayMinutes : DefaultStayMinutes;
         }
 

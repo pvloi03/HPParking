@@ -218,5 +218,90 @@ namespace HPParking.Tests.Api.Unit
             result.Should().BeTrue();
             await gateRepo.Received(1).DeleteAsync("gate1", softDelete: true, Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task DeleteGate_WhenGateIsInInactiveRouteSteps_ThrowsConflictException()
+        {
+            // Arrange: Tuyến đang tắt (IsActive = false), nhưng cổng vẫn nằm trong GateSteps
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var companyRepo = Substitute.For<IRepository<Company>>();
+            var laneRepo = Substitute.For<IRepository<Lane>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var logger = Substitute.For<ILogger<GateService>>();
+
+            var gate = new Gate { Id = "gate1", Code = "G1", Name = "Cổng 1" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(gate);
+            laneRepo.CountAsync(Arg.Any<Expression<Func<Lane, bool>>>(), Arg.Any<CancellationToken>()).Returns(0);
+
+            var inactiveRoute = new GateRouteConfig
+            {
+                Id = "r_inactive",
+                RouteName = "Tuyến dự phòng tắt",
+                IsActive = false,
+                GateSteps = new List<RouteGateStep> { new() { StepIndex = 1, GateId = "gate1" } }
+            };
+            routeRepo.FindAsync(Arg.Any<Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(ci =>
+                {
+                    var predicate = ci.Arg<Expression<Func<GateRouteConfig, bool>>>().Compile();
+                    return predicate(inactiveRoute) ? new List<GateRouteConfig> { inactiveRoute } : new List<GateRouteConfig>();
+                });
+
+            var service = new GateService(gateRepo, companyRepo, laneRepo, routeRepo, tripRepo, logger);
+
+            // Act & Assert: Universal Restrict Deletion chặn xóa kể cả khi route inactive
+            var act = async () => await service.DeleteGateAsync("gate1");
+
+            var ex = await act.Should().ThrowAsync<ConflictException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
+            await gateRepo.DidNotReceive().DeleteAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task DeleteGate_WhenGateIsInActiveTripCheckpoints_ThrowsConflictException()
+        {
+            // Arrange: Chuyến xe đang chạy dở dang, hiện tại ở cổng khác (gate2) nhưng đã từng đi qua gate1 (lưu trong Checkpoints)
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var companyRepo = Substitute.For<IRepository<Company>>();
+            var laneRepo = Substitute.For<IRepository<Lane>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var logger = Substitute.For<ILogger<GateService>>();
+
+            var gate = new Gate { Id = "gate1", Code = "G1", Name = "Cổng 1" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(gate);
+            laneRepo.CountAsync(Arg.Any<Expression<Func<Lane, bool>>>(), Arg.Any<CancellationToken>()).Returns(0);
+            routeRepo.FindAsync(Arg.Any<Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<GateRouteConfig>());
+
+            var activeTripWithCheckpoint = new VehicleDispatchTrip
+            {
+                Id = "t1",
+                Status = TripStatus.InTransit,
+                OriginGateId = "origin_gate",
+                CurrentGateId = "gate2",
+                Checkpoints = new List<TripCheckpoint>
+                {
+                    new() { GateId = "gate1", StepIndex = 1 }
+                }
+            };
+
+            tripRepo.ExistsAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(ci =>
+                {
+                    var predicate = ci.Arg<Expression<Func<VehicleDispatchTrip, bool>>>().Compile();
+                    return predicate(activeTripWithCheckpoint);
+                });
+
+            var service = new GateService(gateRepo, companyRepo, laneRepo, routeRepo, tripRepo, logger);
+
+            // Act & Assert
+            var act = async () => await service.DeleteGateAsync("gate1");
+
+            var ex = await act.Should().ThrowAsync<ConflictException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
+            await gateRepo.DidNotReceive().DeleteAsync(Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        }
     }
 }

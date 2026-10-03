@@ -287,14 +287,14 @@ namespace HPParking.Api.Services.Implementations
             }
 
             var routesWithGate = await _routeRepo.FindAsync(
-                r => !r.IsDeleted && r.IsActive && r.GateSteps.Any(s => s.GateId == id),
+                r => !r.IsDeleted && r.GateSteps.Any(s => s.GateId == id),
                 cancellationToken);
 
             if (routesWithGate.Count > 0)
             {
                 var routeNames = string.Join(", ", routesWithGate.Select(r => r.RouteName));
                 throw new ConflictException(
-                    $"Không thể xóa Cổng '{gate.Name}' vì đang nằm trong danh sách chặng của các tuyến đang hoạt động: {routeNames}.",
+                    $"Không thể xóa Cổng '{gate.Name}' vì đang nằm trong danh sách chặng của các tuyến: {routeNames}.",
                     ErrorCodes.GATE_IN_USE_BY_ROUTE_OR_TRIP);
             }
 

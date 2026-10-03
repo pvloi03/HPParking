@@ -33,6 +33,8 @@ namespace HPParking.Core.Models.Entities
     [BsonIgnoreExtraElements]
     public class TripCheckpoint
     {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+
         public int StepIndex { get; set; }
 
         [BsonRepresentation(BsonType.ObjectId)]
@@ -238,13 +240,13 @@ namespace HPParking.Core.Models.Entities
         /// </summary>
         public bool IsTripCompletedOnEntry(GateRouteConfig? route, string currentGateId)
         {
-            if (route == null || route.IsDefault || route.RouteCode == "DEFAULT" || route.GateSteps.Count == 0)
+            if (route == null || route.IsFreeRoam)
             {
                 return string.Equals(OriginGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
             }
 
             var finalGateId = route.GetFinalGateId();
-            return CurrentStepIndex >= route.GateSteps.Count &&
+            return CurrentStepIndex >= (route.GateSteps?.Count ?? 0) &&
                    !string.IsNullOrEmpty(finalGateId) &&
                    string.Equals(finalGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
         }
@@ -255,7 +257,7 @@ namespace HPParking.Core.Models.Entities
         public bool CheckRouteCompliance(GateRouteConfig? route, string currentGateId, bool isEntry)
         {
             // Tuyến tự do hoặc tuyến không có chặng cố định: Luôn hợp lệ
-            if (route == null || route.IsDefault || route.RouteCode == "DEFAULT" || route.GateSteps.Count == 0)
+            if (route == null || route.IsFreeRoam)
             {
                 return true;
             }
@@ -263,7 +265,7 @@ namespace HPParking.Core.Models.Entities
             if (isEntry)
             {
                 // Chiều VÀO: Cổng quẹt phải khớp với cổng quy định của chặng hiện tại
-                var expectedStep = route.GateSteps.FirstOrDefault(s => s.StepIndex == CurrentStepIndex);
+                var expectedStep = route.FindStep(CurrentStepIndex);
                 if (expectedStep != null && !string.IsNullOrEmpty(expectedStep.GateId))
                 {
                     return string.Equals(expectedStep.GateId, currentGateId, StringComparison.OrdinalIgnoreCase);

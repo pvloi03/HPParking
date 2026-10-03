@@ -143,6 +143,25 @@ namespace HPParking.Tests.Core
         }
 
         [Fact]
+        public void IsTripCompletedOnEntry_OnFixedRoute_WhenGateIsNotFinalGate_ShouldReturnFalse()
+        {
+            // Arrange: Tuyến cố định 2 chặng: Step 1 -> gate_B, Step 2 -> gate_A (cổng đích)
+            var fixedRoute = new GateRouteConfig
+            {
+                IsDefault = false,
+                GateSteps = new List<RouteGateStep>
+                {
+                    new() { StepIndex = 1, GateId = "gate_B" },
+                    new() { StepIndex = 2, GateId = "gate_A" }
+                }
+            };
+            var trip = new VehicleDispatchTrip { OriginGateId = "gate_A", CurrentStepIndex = 2 };
+
+            // Act & Assert: Đã đến chặng 2 nhưng quẹt vào nhầm gate_X (không phải gate_A) -> false
+            Assert.False(trip.IsTripCompletedOnEntry(fixedRoute, "gate_X"));
+        }
+
+        [Fact]
         public void CheckRouteCompliance_OnEntry_ShouldCompareWithExpectedGate()
         {
             // Arrange
@@ -162,6 +181,26 @@ namespace HPParking.Tests.Core
 
             // Quẹt vào nhầm gate_C ở Step 1 -> Bất hợp lệ
             Assert.False(trip.CheckRouteCompliance(fixedRoute, "gate_C", isEntry: true));
+        }
+
+        [Fact]
+        public void CheckRouteCompliance_OnEntry_WhenExpectedStepNotFound_ShouldReturnFalse()
+        {
+            // Arrange: Tuyến chỉ có 2 chặng
+            var fixedRoute = new GateRouteConfig
+            {
+                IsDefault = false,
+                GateSteps = new List<RouteGateStep>
+                {
+                    new() { StepIndex = 1, GateId = "gate_B" },
+                    new() { StepIndex = 2, GateId = "gate_C" }
+                }
+            };
+            // Trip có CurrentStepIndex = 3 (vượt quá danh sách chặng)
+            var trip = new VehicleDispatchTrip { CurrentStepIndex = 3 };
+
+            // Act & Assert: Không tìm thấy chặng tương ứng -> Bất hợp lệ (false)
+            Assert.False(trip.CheckRouteCompliance(fixedRoute, "gate_B", isEntry: true));
         }
 
         [Fact]

@@ -12,6 +12,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Driver;
+using Microsoft.Extensions.Logging;
 
 namespace HPParking.Services.Parking.Handlers
 {
@@ -21,7 +22,8 @@ namespace HPParking.Services.Parking.Handlers
         IRepository<GateRouteConfig> gateRouteRepository,
         IRepository<Gate> gateRepository,
         IImageStorageService imageStorageService,
-        ILaneHardwareOrchestrator hardwareOrchestrator) : ISharedVehicleWorkflowHandler
+        ILaneHardwareOrchestrator hardwareOrchestrator,
+        Microsoft.Extensions.Logging.ILogger<SharedVehicleWorkflowHandler>? logger = null) : ISharedVehicleWorkflowHandler
     {
         private readonly IRepository<VehicleDispatchTrip> _tripRepository = tripRepository;
         private readonly IRepository<Vehicle> _vehicleRepository = vehicleRepository;
@@ -29,6 +31,7 @@ namespace HPParking.Services.Parking.Handlers
         private readonly IRepository<Gate> _gateRepository = gateRepository;
         private readonly IImageStorageService _imageStorageService = imageStorageService;
         private readonly ILaneHardwareOrchestrator _hardwareOrchestrator = hardwareOrchestrator;
+        private readonly Microsoft.Extensions.Logging.ILogger<SharedVehicleWorkflowHandler>? _logger = logger;
 
         public async Task<ProcessResult> ProcessSharedVehicleTripAsync(
             LaneRuntimeContext context,
@@ -349,9 +352,9 @@ namespace HPParking.Services.Parking.Handlers
                         onSaved?.Invoke(pPath, oPath, fPath);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Catch exception trong background thread
+                    _logger?.LogError(ex, "Lỗi khi lưu ảnh nền xe dùng chung");
                 }
             });
         }
@@ -393,7 +396,7 @@ namespace HPParking.Services.Parking.Handlers
                 var filter = Builders<VehicleDispatchTrip>.Filter.And(
                     Builders<VehicleDispatchTrip>.Filter.Eq(x => x.Id, tripId),
                     Builders<VehicleDispatchTrip>.Filter.ElemMatch(x => x.Checkpoints,
-                        c => c.GateId == cp.GateId && c.Timestamp == cp.Timestamp && c.Direction == cp.Direction)
+                        c => c.Id == cp.Id)
                 );
 
                 var update = Builders<VehicleDispatchTrip>.Update
@@ -402,9 +405,9 @@ namespace HPParking.Services.Parking.Handlers
 
                 await _tripRepository.UpdateOneAsync(filter, update);
             }
-            catch
+            catch (Exception ex)
             {
-                // Background update failure should not crash workflow
+                _logger?.LogError(ex, "Lỗi khi cập nhật ảnh nền checkpoint {CheckpointId} cho chuyến {TripId}", cp.Id, tripId);
             }
         }
     }
