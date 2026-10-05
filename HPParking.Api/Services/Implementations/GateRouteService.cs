@@ -95,9 +95,7 @@ namespace HPParking.Api.Services.Implementations
             if (existing != null)
                 throw new ConflictException($"Mã tuyến {code} đã tồn tại trong hệ thống.");
 
-            var steps = request.IsDefault && (request.GateSteps == null || request.GateSteps.Count == 0)
-                ? []
-                : await ValidateAndEnrichStepsAsync(request.GateSteps);
+            var steps = await ValidateAndEnrichStepsAsync(request.GateSteps, request.IsDefault);
 
             var route = new GateRouteConfig
             {
@@ -163,9 +161,8 @@ namespace HPParking.Api.Services.Implementations
             if (existing != null)
                 throw new ConflictException($"Mã tuyến {code} đã được sử dụng bởi tuyến khác.");
 
-            var steps = (route.IsDefault || request.IsDefault) && (request.GateSteps == null || request.GateSteps.Count == 0)
-                ? []
-                : await ValidateAndEnrichStepsAsync(request.GateSteps);
+            bool isDefault = request.IsDefault || route.IsDefault || string.Equals(route.RouteCode, GateRouteConfig.DefaultRouteCode, StringComparison.OrdinalIgnoreCase);
+            var steps = await ValidateAndEnrichStepsAsync(request.GateSteps, isDefault);
 
             route.RouteCode = code;
             route.RouteName = request.RouteName.Trim();
@@ -238,7 +235,7 @@ namespace HPParking.Api.Services.Implementations
             var route = await _routeRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy tuyến đường với ID: {id}");
 
-            if (route.IsDefault || route.RouteCode == "DEFAULT")
+            if (route.IsDefault || string.Equals(route.RouteCode, GateRouteConfig.DefaultRouteCode, StringComparison.OrdinalIgnoreCase))
                 throw new BadRequestException("Không thể xóa tuyến đường mặc định của hệ thống.");
 
             // Referential Integrity: Chặn xóa tuyến nếu còn xe đang được phân công tuyến này
@@ -256,15 +253,41 @@ namespace HPParking.Api.Services.Implementations
             await _routeRepo.DeleteAsync(id, softDelete: true, cancellationToken: cancellationToken);
         }
 
-        private async Task<List<RouteGateStep>> ValidateAndEnrichStepsAsync(List<RouteGateStep>? rawSteps)
+        private async Task<List<RouteGateStep>> ValidateAndEnrichStepsAsync(List<RouteGateStep>? rawSteps, bool isDefault)
         {
+            if (isDefault && (rawSteps == null || rawSteps.Count == 0))
+                return [];
+
             if (rawSteps == null || rawSteps.Count == 0)
                 throw new BadRequestException("Tuyến đường phải có ít nhất 1 chặng cổng kiểm soát.");
+
+            // 1. Sắp xếp trước theo StepIndex để chuẩn hóa thứ tự, tránh validate nhầm chặng
+            var orderedSteps = rawSteps.OrderBy(s => s.StepIndex).ToList();
+
+            // 2. Validate nghiệp vụ tuyến cố định trên danh sách đã sắp xếp
+            if (!isDefault)
+            {
+                if (orderedSteps.Count < 2)
+                    throw new BadRequestException("Tuyến cố định phải có tối thiểu 2 chặng (1 điểm xuất phát & quay về và ít nhất 1 điểm đến).");
+
+                if (orderedSteps[0].MaxTravelMinutes < 1)
+                    throw new BadRequestException("Thời gian quay về của điểm xuất phát (Chặng 1) phải tối thiểu 1 phút.");
+            }
+
+            // 3. Kiểm tra hai chặng cổng liền kề không được trùng nhau
+            for (int i = 1; i < orderedSteps.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(orderedSteps[i].GateId) &&
+                    string.Equals(orderedSteps[i].GateId, orderedSteps[i - 1].GateId, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new BadRequestException($"Chặng {i + 1} không được trùng với cổng của chặng liền trước (Chặng {i}).");
+                }
+            }
 
             var enriched = new List<RouteGateStep>();
             int index = 1;
 
-            foreach (var step in rawSteps)
+            foreach (var step in orderedSteps)
             {
                 if (string.IsNullOrWhiteSpace(step.GateId))
                     throw new BadRequestException($"Chặng thứ {index} chưa chọn cổng kiểm soát.");
@@ -279,7 +302,7 @@ namespace HPParking.Api.Services.Implementations
                     GateCode = gate.Code,
                     GateName = gate.Name,
                     MaxTravelMinutes = step.MaxTravelMinutes > 0 ? step.MaxTravelMinutes : 15,
-                    MaxStayMinutes = step.MaxStayMinutes > 0 ? step.MaxStayMinutes : 15
+                    MaxStayMinutes = step.MaxStayMinutes >= 0 ? step.MaxStayMinutes : 15
                 });
             }
 

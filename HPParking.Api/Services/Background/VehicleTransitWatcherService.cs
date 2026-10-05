@@ -170,8 +170,7 @@ namespace HPParking.Api.Services.Background
                         routeName,
                         originGateName,
                         currentGateName,
-                        now,
-                        hasAttachment);
+                        now);
 
                     bool emailSent = false;
                     if (recipients.Count > 0)
@@ -230,10 +229,8 @@ namespace HPParking.Api.Services.Background
             string routeName,
             string originGateName,
             string currentGateName,
-            DateTime now,
-            bool hasAttachment = false)
+            DateTime now)
         {
-            var overdueMinutes = (now - trip.NextDeadline!.Value).TotalMinutes.ToString("N0");
             string timeRowsHtml;
 
             if (trip.Status == TripStatus.OverdueTransit || trip.Status == TripStatus.InTransit)
@@ -292,17 +289,6 @@ namespace HPParking.Api.Services.Background
                       </td>
                     </tr>";
             }
-
-            string imageAttachmentNotice = hasAttachment
-                ? $@"
-                <tr>
-                  <td style='padding: 0 32px 20px 32px;'>
-                    <div style='background-color: #f1f5f9; border-radius: 8px; padding: 10px 16px; font-size: 13px; color: #475569;'>
-                      📷 <strong>Ảnh giám sát:</strong> Ảnh chụp xe/tài xế tại cổng đã được đính kèm cùng email cảnh báo này.
-                    </div>
-                  </td>
-                </tr>"
-                : "";
 
             return $@"
 <!DOCTYPE html>
@@ -372,14 +358,6 @@ namespace HPParking.Api.Services.Background
                       {trip.PlateNumber}
                     </div>
                   </td>
-                  <td align='right' style='vertical-align: middle;'>
-                    <div style='font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;'>
-                      Thời gian vượt hạn
-                    </div>
-                    <div style='display: inline-block; background-color: #dc2626; color: #ffffff; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 6px; margin-top: 4px;'>
-                      + {overdueMinutes} phút
-                    </div>
-                  </td>
                 </tr>
               </table>
             </td>
@@ -406,19 +384,9 @@ namespace HPParking.Api.Services.Background
                   </td>
                 </tr>
                 {timeRowsHtml}
-                <tr>
-                  <td style='padding: 10px 0; color: #64748b;'>
-                    Thời gian quá hạn:
-                  </td>
-                  <td style='padding: 10px 0; color: #dc2626; font-weight: 700;'>
-                    {overdueMinutes} phút
-                  </td>
-                </tr>
               </table>
             </td>
           </tr>
-
-          {imageAttachmentNotice}
 
           <!-- Recommendation Note -->
           <tr>

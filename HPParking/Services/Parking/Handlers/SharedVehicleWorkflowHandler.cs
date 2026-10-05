@@ -154,8 +154,27 @@ namespace HPParking.Services.Parking.Handlers
                         dispatchTrip: null);
                 }
 
+                // Kiểm tra xuất phát đúng cổng của tuyến cố định
+                if (assignedRoute != null && !assignedRoute.IsFreeRoam)
+                {
+                    string? originGateId = assignedRoute.GetOriginGateId();
+                    if (!string.IsNullOrEmpty(originGateId) &&
+                        !string.Equals(originGateId, currentGateId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        string originGateName = assignedRoute.GetOriginGateDisplayName();
+
+                        return CreateConfirmRequiredResult(
+                            vehicle,
+                            $"Tuyến: {assignedRoute.RouteName}",
+                            $"CẢNH BÁO SAI CỔNG XUẤT PHÁT: Phương tiện {vehicle.PlateNumber} phải xuất phát tại cổng {originGateName}!",
+                            images,
+                            lprResult,
+                            dispatchTrip: null);
+                    }
+                }
+
                 // Xuất phát chuyến mới: Sử dụng domain method trên assignedRoute
-                int firstDeadlineMinutes = assignedRoute?.GetTravelMinutesForStep(1) ?? defaultTravel;
+                int firstDeadlineMinutes = assignedRoute?.GetTravelMinutesForLeg(1) ?? defaultTravel;
 
                 activeTrip = new VehicleDispatchTrip
                 {
@@ -242,12 +261,12 @@ namespace HPParking.Services.Parking.Handlers
                 if (isEntry)
                 {
                     bool isCompleted = activeTrip.IsTripCompletedOnEntry(assignedRoute, currentGateId);
-                    int stayMinutes = assignedRoute?.GetStayMinutesForStep(activeTrip.CurrentStepIndex) ?? defaultStay;
+                    int stayMinutes = assignedRoute?.GetStayMinutesForLeg(activeTrip.CurrentStepIndex) ?? defaultStay;
                     activeTrip.ArriveAtGate(currentGateId, stayMinutes, isCompleted, now);
                 }
                 else
                 {
-                    int nextTravelMinutes = assignedRoute?.GetTravelMinutesForStep(activeTrip.CurrentStepIndex + 1) ?? defaultTravel;
+                    int nextTravelMinutes = assignedRoute?.GetTravelMinutesForLeg(activeTrip.CurrentStepIndex + 1) ?? defaultTravel;
                     activeTrip.DepartToNextStep(currentGateId, nextTravelMinutes, now);
                 }
             }
@@ -302,19 +321,34 @@ namespace HPParking.Services.Parking.Handlers
 
             // 10. Trả về kết quả thành công
             string routeDesc = assignedRoute != null ? assignedRoute.RouteName : "Tuyến tự do";
-            int totalSteps = assignedRoute?.GateSteps.Count ?? 1;
+            bool isFixedRoute = assignedRoute != null && !assignedRoute.IsFreeRoam;
+
+            string departmentName;
+            string message;
+            if (isFixedRoute)
+            {
+                int totalSteps = assignedRoute!.GateSteps?.Count ?? 1;
+                departmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})";
+                message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})";
+            }
+            else
+            {
+                departmentName = $"Tuyến: {routeDesc}";
+                message = $"Phương tiện nội bộ {vehicle.PlateNumber} ({activeTrip.Status})";
+            }
+
             var (succSmallPlate, succFaceSnap, succOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
 
             return new ProcessResult
             {
                 Status = ProcessStatus.Success,
                 Vehicle = vehicle,
-                DepartmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})",
+                DepartmentName = departmentName,
                 LprResult = lprResult,
                 OverviewImage = succOverviewSnap,
                 PlateImage = succSmallPlate,
                 FaceImage = succFaceSnap,
-                Message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})",
+                Message = message,
                 DispatchTrip = activeTrip
             };
         }

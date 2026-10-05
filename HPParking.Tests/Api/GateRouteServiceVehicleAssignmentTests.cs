@@ -49,7 +49,11 @@ namespace HPParking.Tests.Api
                 RouteCode = "ROUTE-SHARED",
                 RouteName = "Tuyến xe dùng chung",
                 ApplyToAllSharedVehicles = true,
-                GateSteps = [new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 10, MaxStayMinutes = 20 }]
+                GateSteps =
+                [
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 10, MaxStayMinutes = 0 },
+                    new() { GateId = "gate2", StepIndex = 2, MaxTravelMinutes = 15, MaxStayMinutes = 20 }
+                ]
             };
 
             // Act
@@ -81,7 +85,11 @@ namespace HPParking.Tests.Api
                 RouteName = "Tuyến chọn xe",
                 ApplyToAllSharedVehicles = false,
                 AssignedVehicleIds = ["v1", "v2"],
-                GateSteps = [new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 10, MaxStayMinutes = 20 }]
+                GateSteps =
+                [
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 10, MaxStayMinutes = 0 },
+                    new() { GateId = "gate2", StepIndex = 2, MaxTravelMinutes = 15, MaxStayMinutes = 20 }
+                ]
             };
 
             // Act
@@ -132,7 +140,11 @@ namespace HPParking.Tests.Api
                 RouteName = "Tuyến kiểm tra đồng bộ",
                 ApplyToAllSharedVehicles = false,
                 AssignedVehicleIds = ["v1", "v3"],
-                GateSteps = [new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 10, MaxStayMinutes = 20 }]
+                GateSteps =
+                [
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 10, MaxStayMinutes = 0 },
+                    new() { GateId = "gate2", StepIndex = 2, MaxTravelMinutes = 15, MaxStayMinutes = 20 }
+                ]
             };
 
             // Act
@@ -179,6 +191,143 @@ namespace HPParking.Tests.Api
             // Assert
             result.Should().NotBeNull();
             result.AssignedVehicleIds.Should().BeEquivalentTo(["v10", "v11"]);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenFixedRouteHasLessThanTwoSteps_ThrowsBadRequestException()
+        {
+            var request = new CreateGateRouteRequest
+            {
+                RouteCode = "ROUTE-INVALID-STEPS",
+                RouteName = "Tuyến 1 Chặng",
+                IsDefault = false,
+                GateSteps = [new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 15 }]
+            };
+
+            var act = async () => await _service.CreateAsync(request);
+
+            await act.Should().ThrowAsync<HPParking.Api.Common.Exceptions.BadRequestException>()
+                .WithMessage("*tối thiểu 2 chặng*");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenFixedRouteOriginTravelMinutesLessThanOne_ThrowsBadRequestException()
+        {
+            var request = new CreateGateRouteRequest
+            {
+                RouteCode = "ROUTE-INVALID-TIME",
+                RouteName = "Tuyến Sai Thời Gian",
+                IsDefault = false,
+                GateSteps =
+                [
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 0 },
+                    new() { GateId = "gate2", StepIndex = 2, MaxTravelMinutes = 15 }
+                ]
+            };
+
+            var act = async () => await _service.CreateAsync(request);
+
+            await act.Should().ThrowAsync<HPParking.Api.Common.Exceptions.BadRequestException>()
+                .WithMessage("*Thời gian quay về của điểm xuất phát (Chặng 1) phải tối thiểu 1 phút.*");
+        }
+
+        [Fact]
+        public async Task UpdateAsync_WhenFixedRouteHasLessThanTwoSteps_ThrowsBadRequestException()
+        {
+            var existingRoute = new GateRouteConfig
+            {
+                Id = "r-update",
+                RouteCode = "R-UPDATE",
+                IsDefault = false
+            };
+            _routeRepo.GetByIdAsync("r-update", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(existingRoute));
+
+            var request = new UpdateGateRouteRequest
+            {
+                RouteCode = "R-UPDATE",
+                RouteName = "Tuyến Sửa",
+                IsDefault = false,
+                GateSteps = [new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 15 }]
+            };
+
+            var act = async () => await _service.UpdateAsync("r-update", request);
+
+            await act.Should().ThrowAsync<HPParking.Api.Common.Exceptions.BadRequestException>()
+                .WithMessage("*tối thiểu 2 chặng*");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenConsecutiveStepsHaveSameGate_ThrowsBadRequestException()
+        {
+            var request = new CreateGateRouteRequest
+            {
+                RouteCode = "ROUTE-DUP-GATES",
+                RouteName = "Tuyến Trùng Cổng Liền Kề",
+                IsDefault = false,
+                GateSteps =
+                [
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 15 },
+                    new() { GateId = "gate1", StepIndex = 2, MaxTravelMinutes = 15 }
+                ]
+            };
+
+            var act = async () => await _service.CreateAsync(request);
+
+            await act.Should().ThrowAsync<HPParking.Api.Common.Exceptions.BadRequestException>()
+                .WithMessage("*không được trùng với cổng của chặng liền trước*");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenUnsortedStepsHaveInvalidOriginTravelMinutes_ThrowsBadRequestException()
+        {
+            // Arrange: StepIndex 2 is placed at index 0 (valid time: 20), StepIndex 1 is placed at index 1 (invalid time: 0)
+            var request = new CreateGateRouteRequest
+            {
+                RouteCode = "ROUTE-UNSORTED-INVALID-ORIGIN",
+                RouteName = "Tuyến Lộn Xộn Chặng 1 Không Hợp Lệ",
+                IsDefault = false,
+                GateSteps =
+                [
+                    new() { GateId = "gate2", StepIndex = 2, MaxTravelMinutes = 20 },
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 0 }
+                ]
+            };
+
+            var act = async () => await _service.CreateAsync(request);
+
+            await act.Should().ThrowAsync<HPParking.Api.Common.Exceptions.BadRequestException>()
+                .WithMessage("*Thời gian quay về của điểm xuất phát (Chặng 1) phải tối thiểu 1 phút.*");
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenStepsSentOutOfOrder_ProperlySortsAndValidatesSteps()
+        {
+            // Arrange: client passes StepIndex 2 first, StepIndex 1 second
+            var request = new CreateGateRouteRequest
+            {
+                RouteCode = "ROUTE-OUT-OF-ORDER",
+                RouteName = "Tuyến Gửi Ngược Thứ Tự",
+                IsDefault = false,
+                GateSteps =
+                [
+                    new() { GateId = "gate2", StepIndex = 2, MaxTravelMinutes = 20, MaxStayMinutes = 30 },
+                    new() { GateId = "gate1", StepIndex = 1, MaxTravelMinutes = 15, MaxStayMinutes = 0 }
+                ]
+            };
+
+            // Act
+            var result = await _service.CreateAsync(request);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.GateSteps.Should().HaveCount(2);
+            result.GateSteps[0].StepIndex.Should().Be(1);
+            result.GateSteps[0].GateId.Should().Be("gate1");
+            result.GateSteps[0].MaxTravelMinutes.Should().Be(15);
+            result.GateSteps[1].StepIndex.Should().Be(2);
+            result.GateSteps[1].GateId.Should().Be("gate2");
+            result.GateSteps[1].MaxTravelMinutes.Should().Be(20);
         }
     }
 }

@@ -179,7 +179,9 @@ export function FleetDispatchPage() {
               {isTransit ? (
                 <>
                   <Route className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                  <span className="text-blue-600 dark:text-blue-400 font-semibold">Đang trên đường</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold truncate">
+                    {trip.nextGateName ? `Đến: ${trip.nextGateName}` : 'Đang trên đường'}
+                  </span>
                 </>
               ) : (
                 <>
@@ -190,11 +192,15 @@ export function FleetDispatchPage() {
                 </>
               )}
             </div>
-            {isTransit && (
+            {isTransit ? (
               <span className="text-[11px] text-muted-foreground block truncate">
                 (Đã rời {trip.currentGateName || trip.originGateName || 'cổng xuất phát'})
               </span>
-            )}
+            ) : trip.nextGateName ? (
+              <span className="text-[11px] text-muted-foreground block truncate">
+                (Tiếp theo: {trip.nextGateName})
+              </span>
+            ) : null}
           </div>
         );
       },

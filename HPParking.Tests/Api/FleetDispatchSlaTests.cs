@@ -257,6 +257,85 @@ namespace HPParking.Tests.Api
         }
 
         [Fact]
+        public async Task GetTripByIdAsync_WhenTripOnFixedRoute_ShouldResolveNextGateCorrectly()
+        {
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+
+            var route = new GateRouteConfig
+            {
+                Id = "route-fixed",
+                RouteCode = "R-FIXED",
+                RouteName = "Tuyến Nhà Máy 1 - 2",
+                IsDefault = false,
+                GateSteps =
+                [
+                    new() { StepIndex = 1, GateId = "gate-1", GateName = "Cổng Nhà Máy 1", MaxTravelMinutes = 15 },
+                    new() { StepIndex = 2, GateId = "gate-2", GateName = "Cổng Nhà Máy 2", MaxTravelMinutes = 20, MaxStayMinutes = 30 }
+                ]
+            };
+            routeRepo.GetByIdAsync("route-fixed").Returns(Task.FromResult<GateRouteConfig?>(route));
+
+            // Chặng 1: Xe đang di chuyển từ Cổng 1 -> Cổng 2
+            var tripLeg1 = new VehicleDispatchTrip
+            {
+                Id = "trip-leg-1",
+                AssignedRouteId = "route-fixed",
+                CurrentStepIndex = 1,
+                CurrentGateId = "gate-1",
+                Status = TripStatus.InTransit,
+                Checkpoints = []
+            };
+            tripRepo.GetByIdAsync("trip-leg-1").Returns(Task.FromResult<VehicleDispatchTrip?>(tripLeg1));
+
+            // Chặng 2: Xe đang di chuyển từ Cổng 2 -> Cổng 1 (quay về)
+            var tripLeg2 = new VehicleDispatchTrip
+            {
+                Id = "trip-leg-2",
+                AssignedRouteId = "route-fixed",
+                CurrentStepIndex = 2,
+                CurrentGateId = "gate-2",
+                Status = TripStatus.InTransit,
+                Checkpoints = []
+            };
+            tripRepo.GetByIdAsync("trip-leg-2").Returns(Task.FromResult<VehicleDispatchTrip?>(tripLeg2));
+
+            // Xe đang đỗ làm việc tại Cổng 2 (WorkingAtGate, CurrentStepIndex = 1):
+            // Đích đến tiếp theo sau cổng này phải là Cổng 1 (quay về) chứ không phải Cổng 2 nơi đang đỗ
+            var tripWorking = new VehicleDispatchTrip
+            {
+                Id = "trip-working-gate2",
+                AssignedRouteId = "route-fixed",
+                CurrentStepIndex = 1,
+                CurrentGateId = "gate-2",
+                Status = TripStatus.WorkingAtGate,
+                Checkpoints = []
+            };
+            tripRepo.GetByIdAsync("trip-working-gate2").Returns(Task.FromResult<VehicleDispatchTrip?>(tripWorking));
+
+            var service = new FleetDispatchService(tripRepo, gateRepo, routeRepo);
+
+            // Act
+            var resultLeg1 = await service.GetTripByIdAsync("trip-leg-1");
+            var resultLeg2 = await service.GetTripByIdAsync("trip-leg-2");
+            var resultWorking = await service.GetTripByIdAsync("trip-working-gate2");
+
+            // Assert
+            // Chặng 1 (InTransit): Đích đến là Cổng 2 (GateSteps[1])
+            resultLeg1.NextGateId.Should().Be("gate-2");
+            resultLeg1.NextGateName.Should().Be("Cổng Nhà Máy 2");
+
+            // Chặng 2 (InTransit): Đích đến quay về Cổng 1 (GateSteps[0])
+            resultLeg2.NextGateId.Should().Be("gate-1");
+            resultLeg2.NextGateName.Should().Be("Cổng Nhà Máy 1");
+
+            // Đang làm việc tại Cổng 2: Đích đến tiếp theo là Cổng 1 (quay về)
+            resultWorking.NextGateId.Should().Be("gate-1");
+            resultWorking.NextGateName.Should().Be("Cổng Nhà Máy 1");
+        }
+
+        [Fact]
         public async Task GetTripByIdAsync_WhenTripWorkingAtGate_AndCurrentlyOverdue_ShouldMarkIsOverdueTrue()
         {
             // Case 1.5: Chuyến xe đang dừng đỗ làm việc tại cổng nhưng quá hạn MaxStay

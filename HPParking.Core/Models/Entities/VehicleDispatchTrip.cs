@@ -111,7 +111,12 @@ namespace HPParking.Core.Models.Entities
         public string? AssignedRouteId { get; set; }
 
         /// <summary>
-        /// Vị trí chặng hiện tại trên tuyến cố định
+        /// Chỉ số chặng hành trình hiện tại (Current Leg Index: 1..N).
+        /// - Chặng 1: Xuất phát từ OriginGate -> Điểm đến 1 (GateSteps[1])
+        /// - Chặng k: Điểm đến k-1 -> Điểm đến k
+        /// - Chặng N: Điểm đến cuối -> Quay về OriginGate (GateSteps[0])
+        /// LƯU Ý: Không dùng trực tiếp index này để truy cập mảng GateSteps (như gateSteps[CurrentStepIndex - 1]).
+        /// Để lấy cổng đích tương ứng của chặng hiện tại, luôn gọi route.GetTargetGateIdForLeg(CurrentStepIndex).
         /// </summary>
         public int CurrentStepIndex { get; set; } = 0;
 
@@ -236,7 +241,7 @@ namespace HPParking.Core.Models.Entities
         /// <summary>
         /// Kiểm tra xem sự kiện quẹt vào cổng hiện tại có hoàn thành chuyến đi không
         /// - Tuyến tự do: Chỉ hoàn thành khi quẹt vào lại đúng OriginGateId
-        /// - Tuyến cố định: Hoàn thành khi đạt chặng cuối cùng của tuyến VÀ cổng quẹt đúng là cổng đích của chặng cuối
+        /// - Tuyến cố định: Chỉ hoàn thành khi CurrentStepIndex >= route.GateSteps.Count VÀ currentGateId == route.GetOriginGateId()
         /// </summary>
         public bool IsTripCompletedOnEntry(GateRouteConfig? route, string currentGateId)
         {
@@ -245,10 +250,10 @@ namespace HPParking.Core.Models.Entities
                 return string.Equals(OriginGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
             }
 
-            var finalGateId = route.GetFinalGateId();
+            var originGateId = route.GetOriginGateId();
             return CurrentStepIndex >= (route.GateSteps?.Count ?? 0) &&
-                   !string.IsNullOrEmpty(finalGateId) &&
-                   string.Equals(finalGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
+                   !string.IsNullOrEmpty(originGateId) &&
+                   string.Equals(originGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -264,24 +269,38 @@ namespace HPParking.Core.Models.Entities
 
             if (isEntry)
             {
-                // Chiều VÀO: Cổng quẹt phải khớp với cổng quy định của chặng hiện tại
-                var expectedStep = route.FindStep(CurrentStepIndex);
-                if (expectedStep != null && !string.IsNullOrEmpty(expectedStep.GateId))
+                // Chiều VÀO:
+                // 1. Chặn tuyệt đối quẹt vào lại Cổng xuất phát (Cổng 1) khi đang ở Chặng 1
+                var originGateId = route.GetOriginGateId();
+                if (CurrentStepIndex <= 1 && !string.IsNullOrEmpty(originGateId) &&
+                    string.Equals(originGateId, currentGateId, StringComparison.OrdinalIgnoreCase))
                 {
-                    return string.Equals(expectedStep.GateId, currentGateId, StringComparison.OrdinalIgnoreCase);
+                    return false;
+                }
+
+                // 2. Cổng quẹt VÀO phải khớp với route.GetTargetGateIdForLeg(CurrentStepIndex)
+                var targetGateId = route.GetTargetGateIdForLeg(CurrentStepIndex);
+                if (!string.IsNullOrEmpty(targetGateId))
+                {
+                    return string.Equals(targetGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
                 }
                 return false;
             }
             else
             {
                 // Chiều RA:
-                // Nếu xuất phát ban đầu (chưa từng quẹt vào cổng nào): Luôn hợp lệ
+                // 1. Nếu xuất phát ban đầu (chưa từng quẹt vào cổng nào): Bắt buộc cổng quẹt RA phải là route.GetOriginGateId()
                 if (CurrentStepIndex <= 1 && LastEntryTime == null)
                 {
+                    var originGateId = route.GetOriginGateId();
+                    if (!string.IsNullOrEmpty(originGateId))
+                    {
+                        return string.Equals(originGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
+                    }
                     return true;
                 }
 
-                // Nếu rời cổng trung gian: Cổng rời đi phải là cổng mà xe vừa quẹt vào làm việc
+                // 2. Nếu rời cổng trung gian: Cổng rời đi phải là cổng mà xe vừa quẹt vào làm việc (CurrentGateId)
                 if (!string.IsNullOrEmpty(CurrentGateId))
                 {
                     return string.Equals(CurrentGateId, currentGateId, StringComparison.OrdinalIgnoreCase);

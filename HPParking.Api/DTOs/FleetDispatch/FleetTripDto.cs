@@ -14,6 +14,8 @@ namespace HPParking.Api.DTOs.FleetDispatch
         public string OriginGateName { get; set; } = string.Empty;
         public string? CurrentGateId { get; set; }
         public string? CurrentGateName { get; set; }
+        public string? NextGateId { get; set; }
+        public string? NextGateName { get; set; }
         public string? AssignedRouteId { get; set; }
         public string? RouteName { get; set; }
         public int CurrentStepIndex { get; set; }

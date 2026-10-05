@@ -76,19 +76,93 @@ const gateRouteSchema = z
     gateSteps: z.array(stepSchema),
   })
   .refine(
+    (data) => data.isDefault || (data.gateSteps && data.gateSteps.length >= 2),
+    {
+      message: 'Tuyến cố định phải có tối thiểu 2 chặng (1 điểm xuất phát & quay về + ít nhất 1 điểm đến)',
+      path: ['gateSteps'],
+    }
+  )
+  .refine(
     (data) => {
-      if (!data.isDefault && (!data.gateSteps || data.gateSteps.length === 0)) {
-        return false;
+      if (data.isDefault || !data.gateSteps || data.gateSteps.length < 2) return true;
+      for (let i = 1; i < data.gateSteps.length; i++) {
+        if (data.gateSteps[i].gateId && data.gateSteps[i].gateId === data.gateSteps[i - 1].gateId) {
+          return false;
+        }
       }
       return true;
     },
     {
-      message: 'Tuyến đường cố định phải có ít nhất 1 chặng cổng',
+      message: 'Hai chặng cổng liền kề không được chọn cùng một cổng kiểm soát',
       path: ['gateSteps'],
     }
   );
 
 type GateRouteFormData = z.infer<typeof gateRouteSchema>;
+
+export const DEFAULT_ROUTE_STEPS: z.infer<typeof stepSchema>[] = [
+  { gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 0 },
+  { gateId: '', stepIndex: 2, maxTravelMinutes: 15, maxStayMinutes: 30 },
+];
+
+function getArrayErrorMessage(error?: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  if ('message' in error && typeof (error as { message?: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  if ('root' in error && typeof (error as { root?: unknown }).root === 'object') {
+    const root = (error as { root?: { message?: unknown } }).root;
+    if (root && typeof root.message === 'string') {
+      return root.message;
+    }
+  }
+  return undefined;
+}
+
+const getStayMinutesForStepIndex = (stayMinutes: number | undefined, idx: number) =>
+  idx === 0 ? 0 : Number(stayMinutes ?? 0);
+
+interface GateSelectFieldProps {
+  label: string;
+  placeholder: string;
+  isOrigin?: boolean;
+  value?: string;
+  onChange: (val: string) => void;
+  error?: string;
+  gates: Array<{ id: string; name: string; code: string }>;
+}
+
+function GateSelectField({
+  label,
+  placeholder,
+  isOrigin,
+  value,
+  onChange,
+  error,
+  gates,
+}: GateSelectFieldProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+        <MapPin className={`h-3 w-3 shrink-0 ${isOrigin ? 'text-blue-600' : 'text-muted-foreground'}`} />
+        <span>{label}</span> <span className="text-destructive">*</span>
+      </label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="text-xs h-8">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {gates.map((g) => (
+            <SelectItem key={g.id} value={g.id} className="text-xs">
+              {g.name} ({g.code})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {error && <p className="text-[10px] text-destructive">{error}</p>}
+    </div>
+  );
+}
 
 interface GateRouteFormDialogProps {
   open: boolean;
@@ -163,9 +237,7 @@ export function GateRouteFormDialog({
       isClosedLoop: true,
       alertEmailsText: '',
       isActive: true,
-      gateSteps: [
-        { gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 },
-      ],
+      gateSteps: [...DEFAULT_ROUTE_STEPS],
     },
   });
 
@@ -176,6 +248,7 @@ export function GateRouteFormDialog({
 
   const isActive = watch('isActive');
   const isClosedLoop = watch('isClosedLoop');
+  const gateStepsErrorMessage = getArrayErrorMessage(errors.gateSteps);
 
   const isDefaultRoute = Boolean(initialData?.isDefault || initialData?.routeCode === 'DEFAULT');
   const initializedRouteIdRef = useRef<string | null>(null);
@@ -203,11 +276,11 @@ export function GateRouteFormDialog({
                     gateId: s.gateId,
                     stepIndex: idx + 1,
                     maxTravelMinutes: s.maxTravelMinutes,
-                    maxStayMinutes: s.maxStayMinutes,
+                    maxStayMinutes: getStayMinutesForStepIndex(s.maxStayMinutes, idx),
                   }))
                 : isDefaultRoute
                 ? []
-                : [{ gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 }],
+                : [...DEFAULT_ROUTE_STEPS],
           });
 
           // Điền trước các xe đã gán tuyến này
@@ -234,9 +307,7 @@ export function GateRouteFormDialog({
             defaultTravelMinutes: 15,
             defaultStayMinutes: 15,
             isActive: true,
-            gateSteps: [
-              { gateId: '', stepIndex: 1, maxTravelMinutes: 15, maxStayMinutes: 30 },
-            ],
+            gateSteps: [...DEFAULT_ROUTE_STEPS],
           });
           setSelectedVehicleIds([]);
           setApplyToAllShared(false);
@@ -286,7 +357,7 @@ export function GateRouteFormDialog({
       gateId: s.gateId,
       stepIndex: idx + 1,
       maxTravelMinutes: Number(s.maxTravelMinutes),
-      maxStayMinutes: Number(s.maxStayMinutes),
+      maxStayMinutes: getStayMinutesForStepIndex(s.maxStayMinutes, idx),
     }));
 
     const emails = formData.alertEmailsText
@@ -488,113 +559,163 @@ export function GateRouteFormDialog({
                 </Button>
               </div>
 
-              {errors.gateSteps && (
-                <p className="text-[11px] text-destructive">{errors.gateSteps.message}</p>
+              {gateStepsErrorMessage && (
+                <p className="text-[11px] text-destructive">
+                  {gateStepsErrorMessage}
+                </p>
               )}
 
               <div className="space-y-2.5">
-                {fields.map((field, idx) => (
-                  <div
-                    key={field.id}
-                    className="p-3 rounded-lg border border-border bg-muted/20 relative space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px]">
-                          {idx + 1}
-                        </span>
-                        Chặng {idx + 1}
-                      </span>
+                {fields.map((field, idx) => {
+                  const isOriginStep = idx === 0;
+                  return (
+                    <div
+                      key={field.id}
+                      className={`p-3 rounded-lg border relative space-y-2 ${
+                        isOriginStep
+                          ? 'border-blue-300 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20'
+                          : 'border-border bg-muted/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        {isOriginStep ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                              <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
+                                1
+                              </span>
+                              📍 Chặng 1: Điểm Xuất Phát & Quay Về
+                            </span>
+                            <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-300 bg-blue-50 dark:bg-blue-950/50">
+                              Cố định
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-[10px] font-bold">
+                              {idx + 1}
+                            </span>
+                            🏁 Chặng {idx + 1}: Điểm Đến {idx}
+                          </span>
+                        )}
 
-                      {fields.length > 1 && (
                         <button
                           type="button"
                           onClick={() => remove(idx)}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                          title="Xóa chặng này"
+                          disabled={isOriginStep}
+                          className={
+                            isOriginStep
+                              ? 'text-muted-foreground/30 cursor-not-allowed p-1'
+                              : 'text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer'
+                          }
+                          title={isOriginStep ? 'Không thể xóa chặng xuất phát & quay về' : 'Xóa chặng này'}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
+                      </div>
+
+                      {isOriginStep ? (
+                        /* Chặng 1: Cổng xuất phát & quay về + Thời gian quay về (ẩn maxStayMinutes) */
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-start">
+                          <GateSelectField
+                            label="Cổng xuất phát & quay về"
+                            placeholder="-- Chọn Cổng xuất phát & quay về --"
+                            isOrigin
+                            value={watch(`gateSteps.${idx}.gateId`)}
+                            onChange={(val) =>
+                              setValue(`gateSteps.${idx}.gateId`, val, { shouldValidate: true })
+                            }
+                            error={errors.gateSteps?.[idx]?.gateId?.message}
+                            gates={gates}
+                          />
+
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+                              <Clock className="h-3 w-3 text-blue-600 shrink-0" />
+                              <span>⏱️ Thời gian quay về (phút)</span> <span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              type="number"
+                              min={1}
+                              {...register(`gateSteps.${idx}.maxTravelMinutes`, { valueAsNumber: true })}
+                              className="text-xs h-8 font-mono"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                              Thời gian xe từ chặng cuối quay về lại cổng này
+                            </p>
+                            {errors.gateSteps?.[idx]?.maxTravelMinutes && (
+                              <p className="text-[10px] text-destructive">
+                                {errors.gateSteps[idx]?.maxTravelMinutes?.message}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Chặng 2 trở đi: Điểm đến, Tối đa di chuyển, Tối đa lưu lại */
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
+                          <GateSelectField
+                            label="Cổng đến"
+                            placeholder="-- Chọn cổng đến --"
+                            value={watch(`gateSteps.${idx}.gateId`)}
+                            onChange={(val) =>
+                              setValue(`gateSteps.${idx}.gateId`, val, { shouldValidate: true })
+                            }
+                            error={errors.gateSteps?.[idx]?.gateId?.message}
+                            gates={gates}
+                          />
+
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+                              <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span>⏱️ Tối đa di chuyển đến cổng này (phút)</span>
+                            </label>
+                            <Input
+                              type="number"
+                              min={1}
+                              {...register(`gateSteps.${idx}.maxTravelMinutes`, { valueAsNumber: true })}
+                              className="text-xs h-8"
+                            />
+                            {errors.gateSteps?.[idx]?.maxTravelMinutes && (
+                              <p className="text-[10px] text-destructive">
+                                {errors.gateSteps[idx]?.maxTravelMinutes?.message}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
+                              <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span>⏱️ Tối đa lưu lại (phút)</span>
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              {...register(`gateSteps.${idx}.maxStayMinutes`, { valueAsNumber: true })}
+                              className="text-xs h-8"
+                            />
+                            {errors.gateSteps?.[idx]?.maxStayMinutes && (
+                              <p className="text-[10px] text-destructive">
+                                {errors.gateSteps[idx]?.maxStayMinutes?.message}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {idx < fields.length - 1 ? (
+                        <div className="flex justify-center pt-1 text-muted-foreground/50">
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </div>
+                      ) : (
+                        fields.length >= 2 && (
+                          <div className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                            <span>↩ Quay về Cổng xuất phát & quay về (Chặng 1)</span>
+                          </div>
+                        )
                       )}
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
-                      {/* Chọn cổng */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
-                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span>Cổng đến</span> <span className="text-destructive">*</span>
-                        </label>
-                        <Select
-                          value={watch(`gateSteps.${idx}.gateId`)}
-                          onValueChange={(val) =>
-                            setValue(`gateSteps.${idx}.gateId`, val, { shouldValidate: true })
-                          }
-                        >
-                          <SelectTrigger className="text-xs h-8">
-                            <SelectValue placeholder="-- Chọn cổng --" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {gates.map((g) => (
-                              <SelectItem key={g.id} value={g.id} className="text-xs">
-                                {g.name} ({g.code})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {errors.gateSteps?.[idx]?.gateId && (
-                          <p className="text-[10px] text-destructive">
-                            {errors.gateSteps[idx]?.gateId?.message}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Max travel minutes */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
-                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span>Tối đa di chuyển (phút)</span>
-                        </label>
-                        <Input
-                          type="number"
-                          min={1}
-                          {...register(`gateSteps.${idx}.maxTravelMinutes`, { valueAsNumber: true })}
-                          className="text-xs h-8"
-                        />
-                        {errors.gateSteps?.[idx]?.maxTravelMinutes && (
-                          <p className="text-[10px] text-destructive">
-                            {errors.gateSteps[idx]?.maxTravelMinutes?.message}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Max stay minutes */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-medium text-foreground flex items-center gap-1 h-5">
-                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span>Tối đa lưu lại (phút)</span>
-                        </label>
-                        <Input
-                          type="number"
-                          min={0}
-                          {...register(`gateSteps.${idx}.maxStayMinutes`, { valueAsNumber: true })}
-                          className="text-xs h-8"
-                        />
-                        {errors.gateSteps?.[idx]?.maxStayMinutes && (
-                          <p className="text-[10px] text-destructive">
-                            {errors.gateSteps[idx]?.maxStayMinutes?.message}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {idx < fields.length - 1 && (
-                      <div className="flex justify-center pt-1 text-muted-foreground/50">
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
