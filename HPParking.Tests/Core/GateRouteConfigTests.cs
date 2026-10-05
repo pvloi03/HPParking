@@ -70,6 +70,16 @@ namespace HPParking.Tests.Core
         }
 
         [Fact]
+        public void GetReturnTravelMinutes_WhenStepsEmptyOrNull_ShouldFallbackToDefaultTravelMinutes()
+        {
+            var emptyRoute = new GateRouteConfig { DefaultTravelMinutes = 12, GateSteps = [] };
+            var nullStepsRoute = new GateRouteConfig { DefaultTravelMinutes = 12, GateSteps = null! };
+
+            Assert.Equal(12, emptyRoute.GetReturnTravelMinutes());
+            Assert.Equal(12, nullStepsRoute.GetReturnTravelMinutes());
+        }
+
+        [Fact]
         public void GetTargetGateIdForLeg_WithValid3LegSteps_ShouldResolveExpectedGatePerLeg()
         {
             // Route with 3 steps: g1 (origin & return, maxTravel=15), g2 (dest 1, travel=20, stay=30), g3 (dest 2, travel=25, stay=40)
@@ -177,6 +187,71 @@ namespace HPParking.Tests.Core
             Assert.Equal("gate1", route.GetTargetGateIdForLeg(3));
             Assert.Equal(15, route.GetTravelMinutesForLeg(3)); // Step 1's return travel minutes
             Assert.Equal(15, route.GetStayMinutesForLeg(3)); // Default stay minutes (no stay on return)
+        }
+
+        [Fact]
+        public void TotalSteps_ShouldReflectGateStepsCount()
+        {
+            var route = new GateRouteConfig
+            {
+                GateSteps = new List<RouteGateStep>
+                {
+                    new() { StepIndex = 1, GateId = "g1" },
+                    new() { StepIndex = 2, GateId = "g2" }
+                }
+            };
+            Assert.Equal(2, route.TotalSteps);
+
+            var emptyRoute = new GateRouteConfig { GateSteps = [] };
+            Assert.Equal(0, emptyRoute.TotalSteps);
+
+            var nullStepsRoute = new GateRouteConfig { GateSteps = null! };
+            Assert.Equal(0, nullStepsRoute.TotalSteps);
+        }
+
+        [Fact]
+        public void IsReturnLeg_WhenFreeRoamOrEmpty_ShouldReturnFalse()
+        {
+            var defaultRoute = new GateRouteConfig { IsDefault = true };
+            Assert.False(defaultRoute.IsReturnLeg(1));
+            Assert.False(defaultRoute.IsReturnLeg(2));
+
+            var emptyRoute = new GateRouteConfig { GateSteps = [] };
+            Assert.False(emptyRoute.IsReturnLeg(1));
+            Assert.False(emptyRoute.IsReturnLeg(2));
+
+            var nullStepsRoute = new GateRouteConfig { GateSteps = null! };
+            Assert.False(nullStepsRoute.IsReturnLeg(1));
+        }
+
+        [Fact]
+        public void IsReturnLeg_WhenFixedRoute_ShouldCorrectlyIdentifyReturnLeg()
+        {
+            // Route with 3 steps (Cổng 1 xuất phát/quay về, Cổng 2 đến #1, Cổng 3 đến #2)
+            var route = new GateRouteConfig
+            {
+                IsDefault = false,
+                GateSteps = new List<RouteGateStep>
+                {
+                    new() { StepIndex = 1, GateId = "g1" },
+                    new() { StepIndex = 2, GateId = "g2" },
+                    new() { StepIndex = 3, GateId = "g3" }
+                }
+            };
+
+            // Invalid / non-positive leg indices
+            Assert.False(route.IsReturnLeg(-1));
+            Assert.False(route.IsReturnLeg(0));
+
+            // Intermediate legs (Chặng 1 đến g2, Chặng 2 đến g3)
+            Assert.False(route.IsReturnLeg(1));
+            Assert.False(route.IsReturnLeg(2));
+
+            // Return leg (Chặng 3 quay về g1)
+            Assert.True(route.IsReturnLeg(3));
+
+            // Over-limit leg index (>= TotalSteps)
+            Assert.True(route.IsReturnLeg(4));
         }
     }
 }

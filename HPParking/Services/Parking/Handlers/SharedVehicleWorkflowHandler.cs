@@ -327,7 +327,8 @@ namespace HPParking.Services.Parking.Handlers
             string message;
             if (isFixedRoute)
             {
-                int totalSteps = assignedRoute!.GateSteps?.Count ?? 1;
+                // isFixedRoute ⇒ !IsFreeRoam ⇒ GateSteps.Count > 0, không cần clamp
+                int totalSteps = assignedRoute!.TotalSteps;
                 departmentName = $"Tuyến: {routeDesc} (Chặng {activeTrip.CurrentStepIndex}/{totalSteps})";
                 message = $"Phương tiện nội bộ {vehicle.PlateNumber} - Chặng {activeTrip.CurrentStepIndex}/{totalSteps} ({activeTrip.Status})";
             }

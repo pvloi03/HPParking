@@ -241,7 +241,7 @@ namespace HPParking.Core.Models.Entities
         /// <summary>
         /// Kiểm tra xem sự kiện quẹt vào cổng hiện tại có hoàn thành chuyến đi không
         /// - Tuyến tự do: Chỉ hoàn thành khi quẹt vào lại đúng OriginGateId
-        /// - Tuyến cố định: Chỉ hoàn thành khi CurrentStepIndex >= route.GateSteps.Count VÀ currentGateId == route.GetOriginGateId()
+        /// - Tuyến cố định: Chỉ hoàn thành khi CurrentStepIndex là chặng quay về (IsReturnLeg) VÀ currentGateId == route.GetOriginGateId()
         /// </summary>
         public bool IsTripCompletedOnEntry(GateRouteConfig? route, string currentGateId)
         {
@@ -251,7 +251,7 @@ namespace HPParking.Core.Models.Entities
             }
 
             var originGateId = route.GetOriginGateId();
-            return CurrentStepIndex >= (route.GateSteps?.Count ?? 0) &&
+            return route.IsReturnLeg(CurrentStepIndex) &&
                    !string.IsNullOrEmpty(originGateId) &&
                    string.Equals(originGateId, currentGateId, StringComparison.OrdinalIgnoreCase);
         }

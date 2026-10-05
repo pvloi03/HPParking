@@ -1447,6 +1447,7 @@ namespace HPParking.Tests.Api
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<string?>(),
+                Arg.Any<string?>(),
                 Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
 
             var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
@@ -1463,6 +1464,7 @@ namespace HPParking.Tests.Api
                 Arg.Is<IEnumerable<string>>(recipients => recipients.Contains("admin@company.com")),
                 Arg.Is<string>(subject => subject.Contains("dừng đỗ quá hạn")),
                 Arg.Is<string>(body => body.Contains("QUÁ HẠN DỪNG ĐỖ LÀM VIỆC TẠI CỔNG")),
+                Arg.Any<string?>(),
                 Arg.Any<string?>(),
                 Arg.Any<CancellationToken>());
         }

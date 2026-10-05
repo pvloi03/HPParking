@@ -1,10 +1,26 @@
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Background
 {
+    /// <summary>
+    /// ViewModel đóng gói dữ liệu cảnh báo vi phạm SLA để dựng nội dung Email (khử Data Clumps)
+    /// </summary>
+    public sealed class SlaAlertEmailViewModel
+    {
+        public required VehicleDispatchTrip Trip { get; init; }
+        public required string ViolationType { get; init; }
+        public required string RouteName { get; init; }
+        public required string OriginGateName { get; init; }
+        public required string CurrentGateName { get; init; }
+        public required string NextGateDisplayName { get; init; }
+        public required string OverdueDurationText { get; init; }
+        public required DateTime Timestamp { get; init; }
+    }
+
     /// <summary>
     /// Background Service chạy ngầm định kỳ mỗi 60 giây để giám sát SLA lộ trình phương tiện nội bộ
     /// Tự động phát hiện vi phạm quá hạn di chuyển (trốn việc) hoặc quá hạn dừng đỗ (chiếm dụng xe)
@@ -100,35 +116,100 @@ namespace HPParking.Api.Services.Background
                     var recipients = new HashSet<string>(defaultEmails, StringComparer.OrdinalIgnoreCase);
 
                     string routeName = "Tuyến tự do (Không chỉ định)";
+                    GateRouteConfig? assignedRoute = null;
                     if (!string.IsNullOrWhiteSpace(trip.AssignedRouteId))
                     {
-                        var route = await routeRepo.GetByIdAsync(trip.AssignedRouteId, cancellationToken);
-                        if (route != null)
+                        assignedRoute = await routeRepo.GetByIdAsync(trip.AssignedRouteId, cancellationToken);
+                        if (assignedRoute != null && assignedRoute.IsDeleted)
                         {
-                            routeName = $"{route.RouteName} ({route.RouteCode})";
-                            if (route.AlertEmails.Count > 0)
+                            assignedRoute = null;
+                        }
+
+                        if (assignedRoute != null)
+                        {
+                            routeName = $"{assignedRoute.RouteName} ({assignedRoute.RouteCode})";
+                            if (assignedRoute.AlertEmails != null)
                             {
-                                foreach (var email in route.AlertEmails)
+                                foreach (var email in assignedRoute.AlertEmails)
                                 {
-                                    recipients.Add(email.Trim());
+                                    if (!string.IsNullOrWhiteSpace(email))
+                                    {
+                                        recipients.Add(email.Trim());
+                                    }
                                 }
                             }
                         }
                     }
 
                     string originGateName = "Không xác định";
+                    Gate? originGate = null;
                     if (!string.IsNullOrWhiteSpace(trip.OriginGateId))
                     {
-                        var originGate = await gateRepo.GetByIdAsync(trip.OriginGateId);
+                        originGate = await gateRepo.GetByIdAsync(trip.OriginGateId, cancellationToken);
                         if (originGate != null) originGateName = $"{originGate.Name} ({originGate.Code})";
                     }
 
                     string currentGateName = "Không xác định";
                     if (!string.IsNullOrWhiteSpace(trip.CurrentGateId))
                     {
-                        var currentGate = await gateRepo.GetByIdAsync(trip.CurrentGateId);
-                        if (currentGate != null) currentGateName = $"{currentGate.Name} ({currentGate.Code})";
+                        if (string.Equals(trip.CurrentGateId, trip.OriginGateId, StringComparison.OrdinalIgnoreCase) && originGate != null)
+                        {
+                            currentGateName = originGateName;
+                        }
+                        else
+                        {
+                            var currentGate = await gateRepo.GetByIdAsync(trip.CurrentGateId, cancellationToken);
+                            if (currentGate != null) currentGateName = $"{currentGate.Name} ({currentGate.Code})";
+                        }
                     }
+
+                    // Tính toán điểm đến kế tiếp dựa trên tuyến và trạng thái
+                    string nextGateDisplayName;
+                    if (assignedRoute == null || assignedRoute.IsFreeRoam)
+                    {
+                        nextGateDisplayName = "Cổng bất kỳ (Tuyến tự do)";
+                    }
+                    else
+                    {
+                        int targetLegIndex = (trip.Status == TripStatus.WorkingAtGate || trip.Status == TripStatus.OverdueStay)
+                            ? trip.CurrentStepIndex + 1
+                            : trip.CurrentStepIndex;
+
+                        if (assignedRoute.IsReturnLeg(targetLegIndex))
+                        {
+                            nextGateDisplayName = $"{originGateName} (Chặng quay về kết thúc)";
+                        }
+                        else
+                        {
+                            var targetStep = assignedRoute.GetTargetStepForLeg(targetLegIndex);
+                            if (targetStep != null)
+                            {
+                                string gateLabel = targetStep.GetDisplayName();
+                                if (string.IsNullOrWhiteSpace(gateLabel) && !string.IsNullOrWhiteSpace(targetStep.GateId))
+                                {
+                                    var nextGate = await gateRepo.GetByIdAsync(targetStep.GateId, cancellationToken);
+                                    if (nextGate != null) gateLabel = $"{nextGate.Name} ({nextGate.Code})";
+                                }
+                                if (string.IsNullOrWhiteSpace(gateLabel))
+                                {
+                                    gateLabel = targetStep.GateId;
+                                }
+                                nextGateDisplayName = $"{gateLabel} (Chặng #{targetLegIndex})";
+                            }
+                            else
+                            {
+                                nextGateDisplayName = "Cổng chưa xác định (Tuyến cố định)";
+                            }
+                        }
+                    }
+
+                    // Tính toán thời gian đã quá hạn
+                    double overdueSeconds = 0;
+                    if (trip.NextDeadline.HasValue && now > trip.NextDeadline.Value)
+                    {
+                        overdueSeconds = (now - trip.NextDeadline.Value).TotalSeconds;
+                    }
+                    string overdueDurationText = FormatOverdueDuration(overdueSeconds);
 
                     string subject;
                     string violationType;
@@ -164,36 +245,30 @@ namespace HPParking.Api.Services.Background
                         attachmentDisplayName = $"AnhGiamSat_{cleanPlate}{ext}";
                     }
 
-                    string emailBody = BuildSlaAlertEmailHtml(
-                        trip,
-                        violationType,
-                        routeName,
-                        originGateName,
-                        currentGateName,
-                        now);
+                    var alertVm = new SlaAlertEmailViewModel
+                    {
+                        Trip = trip,
+                        ViolationType = violationType,
+                        RouteName = routeName,
+                        OriginGateName = originGateName,
+                        CurrentGateName = currentGateName,
+                        NextGateDisplayName = nextGateDisplayName,
+                        OverdueDurationText = overdueDurationText,
+                        Timestamp = now
+                    };
+
+                    string emailBody = BuildSlaAlertEmailHtml(alertVm);
 
                     bool emailSent = false;
                     if (recipients.Count > 0)
                     {
-                        if (!string.IsNullOrWhiteSpace(attachmentDisplayName))
-                        {
-                            emailSent = await emailSender.SendEmailAsync(
-                                recipients,
-                                subject,
-                                emailBody,
-                                physicalAttachmentPath,
-                                attachmentDisplayName,
-                                cancellationToken);
-                        }
-                        else
-                        {
-                            emailSent = await emailSender.SendEmailAsync(
-                                recipients,
-                                subject,
-                                emailBody,
-                                physicalAttachmentPath,
-                                cancellationToken);
-                        }
+                        emailSent = await emailSender.SendEmailAsync(
+                            recipients,
+                            subject,
+                            emailBody,
+                            physicalAttachmentPath,
+                            attachmentDisplayName,
+                            cancellationToken);
                     }
                     else
                     {
@@ -221,74 +296,87 @@ namespace HPParking.Api.Services.Background
         }
 
         /// <summary>
-        /// Tạo nội dung Email HTML chuyên nghiệp, hiển thị trực quan thông tin vi phạm SLA
+        /// Tạo một dòng bảng HTML tiêu chuẩn cho bảng chi tiết cảnh báo SLA (khử Duplicated Code)
         /// </summary>
-        private static string BuildSlaAlertEmailHtml(
-            VehicleDispatchTrip trip,
-            string violationType,
-            string routeName,
-            string originGateName,
-            string currentGateName,
-            DateTime now)
+        private static string BuildEmailTableRow(string label, string value, bool isHighlight = false, bool isBold = false)
         {
-            string timeRowsHtml;
+            string textColor = isHighlight ? "#dc2626" : "#0f172a";
+            string fontWeight = (isHighlight || isBold) ? "700" : "600";
 
-            if (trip.Status == TripStatus.OverdueTransit || trip.Status == TripStatus.InTransit)
-            {
-                timeRowsHtml = $@"
+            return $@"
                     <tr style='border-bottom: 1px solid #e2e8f0;'>
                       <td style='padding: 12px 18px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        🚩 Cổng xuất phát ban đầu
+                        {label}
                       </td>
-                      <td style='padding: 12px 18px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;'>
-                        {originGateName}
-                      </td>
-                    </tr>
-                    <tr style='border-bottom: 1px solid #e2e8f0;'>
-                      <td style='padding: 12px 18px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        🕒 Thời điểm ra gần nhất
-                      </td>
-                      <td style='padding: 12px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        {trip.LastExitTime?.ToLocalTime():dd/MM/yyyy HH:mm:ss}
-                      </td>
-                    </tr>
-                    <tr style='border-bottom: 1px solid #e2e8f0;'>
-                      <td style='padding: 12px 18px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        ⏰ Hạn chót quẹt vào cổng kế tiếp
-                      </td>
-                      <td style='padding: 12px 18px; color: #dc2626; font-weight: 700; border-bottom: 1px solid #e2e8f0;'>
-                        {trip.NextDeadline?.ToLocalTime():dd/MM/yyyy HH:mm:ss}
+                      <td style='padding: 12px 18px; color: {textColor}; font-weight: {fontWeight}; border-bottom: 1px solid #e2e8f0;'>
+                        {value}
                       </td>
                     </tr>";
+        }
+
+        /// <summary>
+        /// Tạo nội dung Email HTML chuyên nghiệp, hiển thị trực quan thông tin vi phạm SLA
+        /// </summary>
+        private static string BuildSlaAlertEmailHtml(SlaAlertEmailViewModel vm)
+        {
+            var trip = vm.Trip;
+            var violationType = vm.ViolationType;
+            var routeName = vm.RouteName;
+            var originGateName = vm.OriginGateName;
+            var currentGateName = vm.CurrentGateName;
+            var nextGateDisplayName = vm.NextGateDisplayName;
+            var overdueDurationText = vm.OverdueDurationText;
+            var now = vm.Timestamp;
+
+            bool isTransit = trip.Status == TripStatus.OverdueTransit || trip.Status == TripStatus.InTransit;
+
+            string currentGateLabel;
+            string originGateLabel;
+            bool showOriginGate;
+            string actionTimeLabel;
+            string? actionTimeValue;
+            string deadlineLabel;
+            string destinationLabel;
+            string overdueLabel;
+
+            if (isTransit)
+            {
+                bool isInitialDeparture = trip.CurrentStepIndex <= 1 &&
+                    string.Equals(trip.CurrentGateId, trip.OriginGateId, StringComparison.OrdinalIgnoreCase);
+
+                currentGateLabel = isInitialDeparture ? "🚩 Cổng xuất phát" : "🚩 Cổng vừa rời đi";
+                originGateLabel = "🏢 Cổng bắt đầu chuyến đi";
+                showOriginGate = !isInitialDeparture;
+                actionTimeLabel = "🕒 Thời điểm ra gần nhất";
+                actionTimeValue = trip.LastExitTime?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
+                deadlineLabel = "⏰ Hạn chót quẹt vào cổng kế tiếp";
+                destinationLabel = "🏁 Điểm đến dự kiến";
+                overdueLabel = "⚠️ Thời gian đã quá hạn";
             }
             else
             {
-                timeRowsHtml = $@"
-                    <tr style='border-bottom: 1px solid #e2e8f0;'>
-                      <td style='padding: 12px 18px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        🏢 Cổng đang dừng đỗ
-                      </td>
-                      <td style='padding: 12px 18px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;'>
-                        {currentGateName}
-                      </td>
-                    </tr>
-                    <tr style='border-bottom: 1px solid #e2e8f0;'>
-                      <td style='padding: 12px 18px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        🕒 Thời điểm vào gần nhất
-                      </td>
-                      <td style='padding: 12px 18px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        {trip.LastEntryTime?.ToLocalTime():dd/MM/yyyy HH:mm:ss}
-                      </td>
-                    </tr>
-                    <tr style='border-bottom: 1px solid #e2e8f0;'>
-                      <td style='padding: 12px 18px; color: #64748b; font-weight: 600; border-bottom: 1px solid #e2e8f0;'>
-                        ⏰ Hạn chót hoàn thành & rời cổng
-                      </td>
-                      <td style='padding: 12px 18px; color: #dc2626; font-weight: 700; border-bottom: 1px solid #e2e8f0;'>
-                        {trip.NextDeadline?.ToLocalTime():dd/MM/yyyy HH:mm:ss}
-                      </td>
-                    </tr>";
+                currentGateLabel = "🏢 Cổng đang dừng đỗ";
+                originGateLabel = "🚩 Cổng bắt đầu chuyến đi";
+                showOriginGate = !string.Equals(trip.CurrentGateId, trip.OriginGateId, StringComparison.OrdinalIgnoreCase);
+                actionTimeLabel = "🕒 Thời điểm vào gần nhất";
+                actionTimeValue = trip.LastEntryTime?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
+                deadlineLabel = "⏰ Hạn chót hoàn thành & rời cổng";
+                destinationLabel = "🏁 Điểm đến tiếp theo sau khi rời bãi";
+                overdueLabel = "⚠️ Thời gian dừng đỗ quá hạn";
             }
+
+            var sb = new StringBuilder();
+            sb.Append(BuildEmailTableRow(currentGateLabel, $"{currentGateName} (Chặng #{trip.CurrentStepIndex})", isBold: true));
+            if (showOriginGate)
+            {
+                sb.Append(BuildEmailTableRow(originGateLabel, originGateName));
+            }
+            sb.Append(BuildEmailTableRow(actionTimeLabel, actionTimeValue ?? string.Empty));
+            sb.Append(BuildEmailTableRow(deadlineLabel, trip.NextDeadline?.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") ?? string.Empty, isHighlight: true));
+            sb.Append(BuildEmailTableRow(destinationLabel, nextGateDisplayName));
+            sb.Append(BuildEmailTableRow(overdueLabel, $"Quá {overdueDurationText}", isHighlight: true));
+
+            string timeRowsHtml = sb.ToString();
 
             return $@"
 <!DOCTYPE html>
@@ -464,6 +552,21 @@ namespace HPParking.Api.Services.Background
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Định dạng thời gian vi phạm SLA sang chuỗi tiếng Việt trực quan
+        /// </summary>
+        internal static string FormatOverdueDuration(double seconds)
+        {
+            var totalSeconds = Math.Max(0, (int)Math.Floor(seconds));
+            var min = totalSeconds / 60;
+            var sec = totalSeconds % 60;
+            if (min > 0)
+            {
+                return sec > 0 ? $"{min} phút {sec} giây" : $"{min} phút";
+            }
+            return $"{sec} giây";
         }
     }
 }

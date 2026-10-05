@@ -207,8 +207,27 @@ namespace HPParking.Core.Models.Entities
         }
 
         /// <summary>
-        /// Lấy thời gian quay về từ chặng cuối cùng về lại Cổng 1 (Chặng 1)
+        /// Tổng số chặng được cấu hình trên tuyến
         /// </summary>
-        public int GetReturnTravelMinutes() => GetTravelMinutesForLeg(GateSteps?.Count ?? 1);
+        public int TotalSteps => GateSteps?.Count ?? 0;
+
+        /// <summary>
+        /// Kiểm tra xem chặng hành trình (legIndex: 1..N) có phải là chặng quay về điểm xuất phát hay không
+        /// - Tuyến tự do: Không có chặng quay về cố định (luôn false)
+        /// - Tuyến cố định: Là chặng quay về khi legIndex >= TotalSteps
+        /// </summary>
+        public bool IsReturnLeg(int legIndex)
+        {
+            if (IsFreeRoam || GateSteps == null || GateSteps.Count == 0 || legIndex < 1)
+                return false;
+
+            return legIndex >= GateSteps.Count;
+        }
+
+        /// <summary>
+        /// Lấy thời gian quay về từ chặng cuối cùng về lại Cổng 1 (Chặng 1).
+        /// Tuyến không có chặng: GetTravelMinutesForLeg tự fallback về DefaultTravelMinutes.
+        /// </summary>
+        public int GetReturnTravelMinutes() => GetTravelMinutesForLeg(TotalSteps);
     }
 }
