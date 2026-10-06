@@ -29,9 +29,7 @@ namespace HPParking.Services.Parking.Handlers
     {
         private readonly IRepository<Vehicle> _vehicleRepository = vehicleRepository;
         private readonly IRepository<ParkingSession> _sessionRepository = sessionRepository;
-        private readonly IImageStorageService _imageStorageService = imageStorageService;
         private readonly ILaneHardwareOrchestrator _hardwareOrchestrator = hardwareOrchestrator;
-        private readonly ILogger<ClientVehicleWorkflowHandler>? _logger = logger;
         private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator = imageOrchestrator ??
             new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository, logger);
 

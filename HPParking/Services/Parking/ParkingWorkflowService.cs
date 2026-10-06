@@ -9,6 +9,7 @@ using HPParking.Services.Controller;
 using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
 using HPParking.Services.Parking.Handlers;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,19 +24,48 @@ namespace HPParking.Services.Parking
         private readonly IRepository<Client> _clientRepository;
         private readonly IRepository<ParkingSession> _sessionRepository;
         private readonly ILprService _lprService;
-        private readonly IImageStorageService _imageStorageService;
         private readonly IRepository<Department> _departmentRepository;
         private readonly IRepository<Contractor> _contractorRepository;
         private readonly IRepository<Company> _companyRepository;
         private readonly IRepository<Vehicle> _vehicleRepository;
         private readonly IRepository<Card> _cardRepository;
-        private readonly IRepository<VehicleDispatchTrip> _tripRepository;
-        private readonly IRepository<GateRouteConfig> _gateRouteRepository;
-        private readonly IRepository<Gate> _gateRepository;
         private readonly ISharedVehicleWorkflowHandler _sharedVehicleHandler;
         private readonly IClientVehicleWorkflowHandler _clientVehicleHandler;
         private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator;
 
+        /// <summary>
+        /// Primary DI Constructor: Bộ điều phối gọn nhẹ (Lightweight Dispatcher) nhận trực tiếp các Handler chuyên trách.
+        /// </summary>
+        [ActivatorUtilitiesConstructor]
+        public ParkingWorkflowService(
+            IRepository<Client> clientRepository,
+            IRepository<ParkingSession> sessionRepository,
+            ILprService lprService,
+            IRepository<Department> departmentRepository,
+            IRepository<Contractor> contractorRepository,
+            IRepository<Company> companyRepository,
+            IRepository<Vehicle> vehicleRepository,
+            IRepository<Card> cardRepository,
+            ISharedVehicleWorkflowHandler sharedVehicleHandler,
+            IClientVehicleWorkflowHandler clientVehicleHandler,
+            IWorkflowImageStorageOrchestrator imageOrchestrator)
+        {
+            _clientRepository = clientRepository;
+            _sessionRepository = sessionRepository;
+            _lprService = lprService;
+            _departmentRepository = departmentRepository;
+            _contractorRepository = contractorRepository;
+            _companyRepository = companyRepository;
+            _vehicleRepository = vehicleRepository;
+            _cardRepository = cardRepository;
+            _sharedVehicleHandler = sharedVehicleHandler;
+            _clientVehicleHandler = clientVehicleHandler;
+            _imageOrchestrator = imageOrchestrator;
+        }
+
+        /// <summary>
+        /// Fallback Constructor: Duy trì tương thích ngược 100% cho caller và bộ kiểm thử cũ, tự khởi tạo các handler mặc định.
+        /// </summary>
         public ParkingWorkflowService(
             IRepository<Client> clientRepository,
             IRepository<ParkingSession> sessionRepository,
@@ -52,27 +82,24 @@ namespace HPParking.Services.Parking
             ISharedVehicleWorkflowHandler? sharedVehicleHandler = null,
             IClientVehicleWorkflowHandler? clientVehicleHandler = null,
             IWorkflowImageStorageOrchestrator? imageOrchestrator = null)
+            : this(
+                clientRepository,
+                sessionRepository,
+                lprService,
+                departmentRepository,
+                contractorRepository,
+                companyRepository,
+                vehicleRepository,
+                cardRepository,
+                sharedVehicleHandler ?? new SharedVehicleWorkflowHandler(
+                    tripRepository, vehicleRepository, gateRouteRepository, gateRepository,
+                    imageStorageService, new LaneHardwareOrchestrator(lprService),
+                    imageOrchestrator: imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository)),
+                clientVehicleHandler ?? new ClientVehicleWorkflowHandler(
+                    vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService),
+                    imageOrchestrator: imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository)),
+                imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository))
         {
-            _clientRepository = clientRepository;
-            _sessionRepository = sessionRepository;
-            _lprService = lprService;
-            _imageStorageService = imageStorageService;
-            _departmentRepository = departmentRepository;
-            _contractorRepository = contractorRepository;
-            _companyRepository = companyRepository;
-            _vehicleRepository = vehicleRepository;
-            _cardRepository = cardRepository;
-            _tripRepository = tripRepository;
-            _gateRouteRepository = gateRouteRepository;
-            _gateRepository = gateRepository;
-            _imageOrchestrator = imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository);
-            _sharedVehicleHandler = sharedVehicleHandler ?? new SharedVehicleWorkflowHandler(
-                tripRepository, vehicleRepository, gateRouteRepository, gateRepository,
-                imageStorageService, new LaneHardwareOrchestrator(lprService),
-                imageOrchestrator: _imageOrchestrator);
-            _clientVehicleHandler = clientVehicleHandler ?? new ClientVehicleWorkflowHandler(
-                vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService),
-                imageOrchestrator: _imageOrchestrator);
         }
 
         #region --- 1. MASTER WORKFLOW DISPATCHER (TUPLE PATTERN MATCHING) ---

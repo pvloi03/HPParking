@@ -365,6 +365,24 @@ namespace HPParking.Tests.Services.Parking
         }
 
         [Fact]
+        public void ParkingWorkflowService_WhenConstructedViaPrimaryDiConstructor_ShouldInitializeSuccessfully()
+        {
+            // Arrange
+            var sharedHandler = Substitute.For<ISharedVehicleWorkflowHandler>();
+            var clientHandler = Substitute.For<IClientVehicleWorkflowHandler>();
+            var imageOrchestrator = Substitute.For<IWorkflowImageStorageOrchestrator>();
+
+            // Act
+            var service = new ParkingWorkflowService(
+                _clientRepo, _sessionRepo, _lprService,
+                _deptRepo, _contractorRepo, _companyRepo, _vehicleRepo, _cardRepo,
+                sharedHandler, clientHandler, imageOrchestrator);
+
+            // Assert
+            service.Should().NotBeNull();
+        }
+
+        [Fact]
         public void ServiceCollection_WhenConfiguredAsInProgram_ShouldResolveAllWorkflowServices()
         {
             // Arrange - mô phỏng đăng ký tương đương Program.cs

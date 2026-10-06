@@ -31,7 +31,6 @@ namespace HPParking.Services.Parking.Handlers
         private readonly IRepository<Vehicle> _vehicleRepository = vehicleRepository;
         private readonly IRepository<GateRouteConfig> _gateRouteRepository = gateRouteRepository;
         private readonly IRepository<Gate> _gateRepository = gateRepository;
-        private readonly IImageStorageService _imageStorageService = imageStorageService;
         private readonly ILaneHardwareOrchestrator _hardwareOrchestrator = hardwareOrchestrator;
         private readonly Microsoft.Extensions.Logging.ILogger<SharedVehicleWorkflowHandler>? _logger = logger;
         private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator = imageOrchestrator ??
