@@ -7,6 +7,8 @@ import { vehicleApi } from '@/api/vehicleApi';
 import { gatesApi } from '@/api/infrastructureApi';
 import { VehicleType } from '@/types/vehicle';
 import type { PagedResult } from '@/types/masterData';
+import type { GateDto } from '@/types/infrastructure';
+import type { GateRouteDto } from '@/types/gateRoute';
 
 vi.mock('@/api/vehicleApi', () => ({
   vehicleApi: {
@@ -19,6 +21,27 @@ vi.mock('@/api/infrastructureApi', () => ({
     getPaged: vi.fn(),
   },
 }));
+
+const createMockGate = (id: string, name: string, code: string): GateDto => ({
+  id,
+  name,
+  code,
+  isActive: true,
+  createdAt: '2026-01-01T00:00:00Z',
+});
+
+const createMockRoute = (overrides: Partial<GateRouteDto> = {}): GateRouteDto => ({
+  id: 'route-1',
+  routeCode: 'ROUTE-01',
+  routeName: 'Tuyến Mock',
+  description: '',
+  gateSteps: [],
+  isClosedLoop: true,
+  alertEmails: [],
+  isActive: true,
+  createdAt: '2026-01-01T00:00:00Z',
+  ...overrides,
+});
 
 function renderWithClient(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -39,12 +62,13 @@ describe('GateRouteFormDialog Infinite Vehicles Assignment', () => {
 
     vi.mocked(gatesApi.getPaged).mockResolvedValue({
       items: [
-        { id: 'gate-1', name: 'Cổng 1', code: 'G01' } as any,
+        createMockGate('gate-1', 'Cổng 1', 'G01'),
+        createMockGate('gate-2', 'Cổng 2', 'G02'),
       ],
       pagination: {
         pageIndex: 1,
         pageSize: 200,
-        totalCount: 1,
+        totalCount: 2,
         totalPages: 1,
         hasNextPage: false,
         hasPreviousPage: false,
@@ -135,23 +159,27 @@ describe('GateRouteFormDialog Infinite Vehicles Assignment', () => {
         open={true}
         onOpenChange={() => {}}
         onSubmit={handleSubmit}
-        initialData={
-          {
-            id: 'route-1',
-            routeCode: 'ROUTE-01',
-            routeName: 'Tuyến Nhà Máy A -> B',
-            isClosedLoop: true,
-            isActive: true,
-            gateSteps: [
-              {
-                gateId: 'gate-1',
-                stepIndex: 1,
-                maxTravelMinutes: 15,
-                maxStayMinutes: 30,
-              },
-            ],
-          } as any
-        }
+        initialData={createMockRoute({
+          id: 'route-1',
+          routeCode: 'ROUTE-01',
+          routeName: 'Tuyến Nhà Máy A -> B',
+          isClosedLoop: true,
+          isActive: true,
+          gateSteps: [
+            {
+              gateId: 'gate-1',
+              stepIndex: 1,
+              maxTravelMinutes: 15,
+              maxStayMinutes: 0,
+            },
+            {
+              gateId: 'gate-2',
+              stepIndex: 2,
+              maxTravelMinutes: 20,
+              maxStayMinutes: 30,
+            },
+          ],
+        })}
       />
     );
 

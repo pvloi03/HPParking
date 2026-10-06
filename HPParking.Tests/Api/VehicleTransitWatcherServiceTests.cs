@@ -93,6 +93,7 @@ namespace HPParking.Tests.Api
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<string?>(),
+                Arg.Any<string?>(),
                 Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
 
             var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
@@ -112,6 +113,7 @@ namespace HPParking.Tests.Api
                     System.Linq.Enumerable.Contains(recipients, "default_admin@test.com")),
                 Arg.Is<string>(subject => subject.Contains("30A-99999") && subject.Contains("quá hạn di chuyển")),
                 Arg.Is<string>(body => body.Contains("Cổng Chính Nhà Máy") && body.Contains("30A-99999")),
+                Arg.Any<string?>(),
                 Arg.Any<string?>(),
                 Arg.Any<CancellationToken>());
 
@@ -348,6 +350,1114 @@ namespace HPParking.Tests.Api
 
             service.CardRepo.Should().NotBeNull();
             service.VehicleRepo.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WhenEmailFails_DoesNotMarkAlertSent_AndRetriesSuccessfully()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var defaultRoute = new GateRouteConfig
+            {
+                Id = "defaultRouteId",
+                RouteCode = "DEFAULT",
+                RouteName = "Tuyến tự do mặc định",
+                IsDefault = true,
+                AlertEmails = new List<string> { "admin@test.com" }
+            };
+            routeRepo.FindOneAsync(Arg.Any<System.Linq.Expressions.Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var now = DateTime.UtcNow;
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_fail_then_retry",
+                VehicleId = "veh_retry",
+                PlateNumber = "29A-88888",
+                Status = TripStatus.InTransit,
+                NextDeadline = now.AddMinutes(-5),
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            // First run: SendEmailAsync fails (returns false)
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(false));
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act 1
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert 1: status is overdue, but IsAlertSent remains false
+            trip.Status.Should().Be(TripStatus.OverdueTransit);
+            trip.IsAlertSent.Should().BeFalse();
+            trip.AlertSentAt.Should().BeNull();
+
+            // Act 2: email succeeds on next retry
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert 2: now IsAlertSent is true!
+            trip.IsAlertSent.Should().BeTrue();
+            trip.AlertSentAt.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WhenOneTripThrows_OtherTripsContinueProcessing()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var defaultRoute = new GateRouteConfig
+            {
+                Id = "defaultRouteId",
+                RouteCode = "DEFAULT",
+                IsDefault = true,
+                AlertEmails = new List<string> { "admin@test.com" }
+            };
+            routeRepo.FindOneAsync(Arg.Any<System.Linq.Expressions.Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var now = DateTime.UtcNow;
+            var trip1 = new VehicleDispatchTrip
+            {
+                Id = "trip1_error",
+                VehicleId = "veh1",
+                PlateNumber = "29A-11111",
+                AssignedRouteId = "bad_route_id",
+                Status = TripStatus.InTransit,
+                NextDeadline = now.AddMinutes(-10),
+                IsAlertSent = false
+            };
+
+            var trip2 = new VehicleDispatchTrip
+            {
+                Id = "trip2_ok",
+                VehicleId = "veh2",
+                PlateNumber = "29A-22222",
+                Status = TripStatus.WorkingAtGate,
+                NextDeadline = now.AddMinutes(-5),
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip1, trip2 }));
+
+            // Make trip1 route query throw
+            routeRepo.GetByIdAsync("bad_route_id", Arg.Any<CancellationToken>())
+                .Returns<Task<GateRouteConfig?>>(_ => throw new InvalidOperationException("DB connection error for trip1"));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert: trip1 failed, but trip2 was processed successfully
+            trip1.IsAlertSent.Should().BeFalse();
+            trip2.IsAlertSent.Should().BeTrue();
+            trip2.Status.Should().Be(TripStatus.OverdueStay);
+            trip2.AlertSentAt.Should().NotBeNull();
+        }
+
+        [Theory]
+        [InlineData(0, "0 giây")]
+        [InlineData(45, "45 giây")]
+        [InlineData(60, "1 phút")]
+        [InlineData(75, "1 phút 15 giây")]
+        [InlineData(120, "2 phút")]
+        [InlineData(204, "3 phút 24 giây")]
+        public void FormatOverdueDuration_FormatsSecondsCorrectly(double seconds, string expected)
+        {
+            var result = VehicleTransitWatcherService.FormatOverdueDuration(seconds);
+            result.Should().Be(expected);
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_TransitOverdue_Leg2_DisplaysDepartedGateAndReturnOriginCorrectly()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var fixedRoute = new GateRouteConfig
+            {
+                Id = "route_fixed",
+                RouteCode = "TUYEN_01",
+                RouteName = "Tuyến Nhà Máy 1 - Nhà Máy 2",
+                IsDefault = false,
+                AlertEmails = new List<string> { "manager@factory.com" },
+                GateSteps = new List<RouteGateStep>
+                {
+                    new RouteGateStep { StepIndex = 1, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5 },
+                    new RouteGateStep { StepIndex = 2, GateId = "gate2", GateName = "Cổng nhà máy 2", MaxTravelMinutes = 5, MaxStayMinutes = 10 }
+                }
+            };
+            routeRepo.GetByIdAsync("route_fixed", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(fixedRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            var gate2 = new Gate { Id = "gate2", Code = "GATE_02", Name = "Cổng nhà máy 2" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+            gateRepo.GetByIdAsync("gate2", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate2));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-85); // Overdue by 1 minute 25 seconds
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_leg2",
+                PlateNumber = "35B-263.37",
+                CardNumber = "3800201218",
+                AssignedRouteId = "route_fixed",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate2", // Xe vừa rời Cổng nhà máy 2
+                CurrentStepIndex = 2,    // Chặng 2 (Chặng quay về cổng 1)
+                Status = TripStatus.InTransit,
+                LastExitTime = deadline.AddMinutes(-5),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            trip.Status.Should().Be(TripStatus.OverdueTransit);
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("Cổng vừa rời đi");
+            capturedBody.Should().Contain("Cổng nhà máy 2");
+            capturedBody.Should().Contain("Chặng #2");
+            capturedBody.Should().Contain("Cổng bắt đầu chuyến đi");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy (GATE_01) (Chặng quay về kết thúc)");
+            capturedBody.Should().Contain("Quá 1 phút 25 giây");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_TransitOverdue_FreeRoam_DisplaysAnyGateCorrectly()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var defaultRoute = new GateRouteConfig
+            {
+                Id = "route_free",
+                RouteCode = "DEFAULT",
+                RouteName = "Tuyến tự do mặc định (Free-roam SLA)",
+                IsDefault = true,
+                AlertEmails = new List<string> { "freeroam_alert@factory.com" },
+                GateSteps = []
+            };
+            routeRepo.FindOneAsync(Arg.Any<System.Linq.Expressions.Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+            routeRepo.GetByIdAsync("route_free", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-65); // Overdue by 1 minute 5 seconds
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_free",
+                PlateNumber = "29C-111.22",
+                CardNumber = "3800209999",
+                AssignedRouteId = "route_free",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate1",
+                CurrentStepIndex = 1,
+                Status = TripStatus.InTransit,
+                LastExitTime = deadline.AddMinutes(-5),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            trip.Status.Should().Be(TripStatus.OverdueTransit);
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("🚩 Cổng xuất phát");
+            capturedBody.Should().NotContain("Cổng vừa rời đi");
+            capturedBody.Should().NotContain("Cổng bắt đầu chuyến đi");
+            capturedBody.Should().Contain("Cổng bất kỳ (Tuyến tự do)");
+            capturedBody.Should().Contain("Quá 1 phút 5 giây");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_TransitOverdue_Leg1_DisplaysOriginGateTitleWithoutRedundantTripOrigin()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var fixedRoute = new GateRouteConfig
+            {
+                Id = "route_fixed_leg1",
+                RouteCode = "TUYEN_03",
+                RouteName = "Tuyến Nhà Máy 1 - Nhà Máy 2",
+                IsDefault = false,
+                AlertEmails = new List<string> { "manager@factory.com" },
+                GateSteps = new List<RouteGateStep>
+                {
+                    new RouteGateStep { StepIndex = 1, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5 },
+                    new RouteGateStep { StepIndex = 2, GateId = "gate2", GateName = "Cổng nhà máy 2", MaxTravelMinutes = 5, MaxStayMinutes = 10 }
+                }
+            };
+            routeRepo.GetByIdAsync("route_fixed_leg1", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(fixedRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            var gate2 = new Gate { Id = "gate2", Code = "GATE_02", Name = "Cổng nhà máy 2" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+            gateRepo.GetByIdAsync("gate2", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate2));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-45); // Overdue by 45 seconds
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_leg1",
+                PlateNumber = "35B-263.37",
+                CardNumber = "3800201218",
+                AssignedRouteId = "route_fixed_leg1",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate1", // Xe vừa xuất phát từ Cổng Chính Nhà Máy
+                CurrentStepIndex = 1,    // Chặng 1
+                Status = TripStatus.InTransit,
+                LastExitTime = deadline.AddMinutes(-5),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            trip.Status.Should().Be(TripStatus.OverdueTransit);
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("🚩 Cổng xuất phát");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy");
+            capturedBody.Should().Contain("Chặng #1");
+            capturedBody.Should().NotContain("Cổng vừa rời đi");
+            capturedBody.Should().NotContain("Cổng bắt đầu chuyến đi");
+            capturedBody.Should().Contain("Cổng nhà máy 2");
+            capturedBody.Should().Contain("Quá 45 giây");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_TransitOverdue_Leg1_WhenCurrentGateDiffersFromOrigin_DisplaysDepartedGateAndOriginGate()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var fixedRoute = new GateRouteConfig
+            {
+                Id = "route_fixed_leg1_diff",
+                RouteCode = "TUYEN_04",
+                RouteName = "Tuyến Nhà Máy 1 - Nhà Máy 2",
+                IsDefault = false,
+                AlertEmails = new List<string> { "manager@factory.com" },
+                GateSteps = new List<RouteGateStep>
+                {
+                    new RouteGateStep { StepIndex = 1, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5 },
+                    new RouteGateStep { StepIndex = 2, GateId = "gate2", GateName = "Cổng nhà máy 2", MaxTravelMinutes = 5, MaxStayMinutes = 10 }
+                }
+            };
+            routeRepo.GetByIdAsync("route_fixed_leg1_diff", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(fixedRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            var gate2 = new Gate { Id = "gate2", Code = "GATE_02", Name = "Cổng nhà máy 2" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+            gateRepo.GetByIdAsync("gate2", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate2));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-45);
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_leg1_diff",
+                PlateNumber = "35B-263.37",
+                CardNumber = "3800201218",
+                AssignedRouteId = "route_fixed_leg1_diff",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate2", // Chặng 1 nhưng quẹt rời đi tại gate2 (khác OriginGateId gate1)
+                CurrentStepIndex = 1,
+                Status = TripStatus.InTransit,
+                LastExitTime = deadline.AddMinutes(-5),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            trip.Status.Should().Be(TripStatus.OverdueTransit);
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("🚩 Cổng vừa rời đi");
+            capturedBody.Should().Contain("Cổng nhà máy 2");
+            capturedBody.Should().Contain("Chặng #1");
+            capturedBody.Should().NotContain("🚩 Cổng xuất phát");
+            capturedBody.Should().Contain("🏢 Cổng bắt đầu chuyến đi");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_TransitOverdue_Leg2_WhenDepartedFromOriginGate_DisplaysDepartedGateAndOriginGate()
+        {
+            // Arrange: Xe ở Chặng 2 rời đi từ cổng có ID trùng OriginGateId (lộ trình vòng ghé lại cổng ban đầu)
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var fixedRoute = new GateRouteConfig
+            {
+                Id = "route_fixed_leg2_origin",
+                RouteCode = "TUYEN_HUB",
+                RouteName = "Tuyến Trung Chuyển Nội Bộ",
+                IsDefault = false,
+                AlertEmails = ["manager@factory.com"],
+                GateSteps =
+                [
+                    new RouteGateStep { StepIndex = 1, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5 },
+                    new RouteGateStep { StepIndex = 2, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5, MaxStayMinutes = 10 }
+                ]
+            };
+            routeRepo.GetByIdAsync("route_fixed_leg2_origin", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(fixedRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-45);
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_leg2_origin",
+                PlateNumber = "35B-263.37",
+                CardNumber = "3800201218",
+                AssignedRouteId = "route_fixed_leg2_origin",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate1", // Chặng 2 nhưng rời đi từ cổng gate1 (trùng OriginGateId)
+                CurrentStepIndex = 2,
+                Status = TripStatus.InTransit,
+                LastExitTime = deadline.AddMinutes(-5),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            trip.Status.Should().Be(TripStatus.OverdueTransit);
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("🚩 Cổng vừa rời đi");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy");
+            capturedBody.Should().Contain("Chặng #2");
+            capturedBody.Should().NotContain("🚩 Cổng xuất phát");
+            capturedBody.Should().Contain("🏢 Cổng bắt đầu chuyến đi");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WhenTargetLegIndexExceedsStepCount_ShouldStillIdentifyReturnLeg()
+        {
+            // Arrange: Tuyến có 2 chặng (GateSteps.Count = 2), nhưng xe có targetLegIndex = 3 > 2 (ví dụ CurrentStepIndex = 3 trong InTransit)
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var fixedRoute = new GateRouteConfig
+            {
+                Id = "route_fixed_2steps",
+                RouteCode = "TUYEN_2S",
+                RouteName = "Tuyến 2 Chặng",
+                IsDefault = false,
+                AlertEmails = new List<string> { "manager@factory.com" },
+                GateSteps = new List<RouteGateStep>
+                {
+                    new RouteGateStep { StepIndex = 1, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5 },
+                    new RouteGateStep { StepIndex = 2, GateId = "gate2", GateName = "Cổng nhà máy 2", MaxTravelMinutes = 5, MaxStayMinutes = 10 }
+                }
+            };
+            routeRepo.GetByIdAsync("route_fixed_2steps", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(fixedRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            var gate2 = new Gate { Id = "gate2", Code = "GATE_02", Name = "Cổng nhà máy 2" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+            gateRepo.GetByIdAsync("gate2", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate2));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-30);
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_overshoot",
+                PlateNumber = "35B-263.37",
+                CardNumber = "3800201218",
+                AssignedRouteId = "route_fixed_2steps",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate2",
+                CurrentStepIndex = 3, // 3 > GateSteps.Count (2)
+                Status = TripStatus.InTransit,
+                LastExitTime = deadline.AddMinutes(-5),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy (GATE_01) (Chặng quay về kết thúc)");
+            capturedBody.Should().NotContain("Cổng chưa xác định");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_StayOverdue_DisplaysWorkingGateAndNextDestination()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var fixedRoute = new GateRouteConfig
+            {
+                Id = "route_fixed_stay",
+                RouteCode = "TUYEN_02",
+                RouteName = "Tuyến Giao Nhận Phụ Tùng",
+                IsDefault = false,
+                AlertEmails = new List<string> { "warehouse@factory.com" },
+                GateSteps = new List<RouteGateStep>
+                {
+                    new RouteGateStep { StepIndex = 1, GateId = "gate1", GateName = "Cổng Chính Nhà Máy", MaxTravelMinutes = 5 },
+                    new RouteGateStep { StepIndex = 2, GateId = "gate2", GateName = "Cổng nhà máy 2", MaxTravelMinutes = 5, MaxStayMinutes = 10 }
+                }
+            };
+            routeRepo.GetByIdAsync("route_fixed_stay", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(fixedRoute));
+
+            var gate1 = new Gate { Id = "gate1", Code = "GATE_01", Name = "Cổng Chính Nhà Máy" };
+            var gate2 = new Gate { Id = "gate2", Code = "GATE_02", Name = "Cổng nhà máy 2" };
+            gateRepo.GetByIdAsync("gate1", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate1));
+            gateRepo.GetByIdAsync("gate2", Arg.Any<CancellationToken>()).Returns(Task.FromResult<Gate?>(gate2));
+
+            var now = DateTime.UtcNow;
+            var deadline = now.AddSeconds(-90); // Overdue by 1 minute 30 seconds
+            var trip = new VehicleDispatchTrip
+            {
+                Id = "trip_stay",
+                PlateNumber = "35B-263.37",
+                CardNumber = "3800201218",
+                AssignedRouteId = "route_fixed_stay",
+                OriginGateId = "gate1",
+                CurrentGateId = "gate2", // Đang dừng đỗ tại Cổng nhà máy 2
+                CurrentStepIndex = 1,    // Chặng 1 đến làm việc tại Cổng 2
+                Status = TripStatus.WorkingAtGate,
+                LastEntryTime = deadline.AddMinutes(-10),
+                NextDeadline = deadline,
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { trip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            trip.IsAlertSent.Should().BeTrue();
+            trip.Status.Should().Be(TripStatus.OverdueStay);
+            capturedBody.Should().NotBeNullOrEmpty();
+            capturedBody.Should().Contain("Cổng đang dừng đỗ");
+            capturedBody.Should().Contain("Cổng nhà máy 2");
+            capturedBody.Should().Contain("Chặng #1");
+            capturedBody.Should().Contain("Cổng bắt đầu chuyến đi");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy");
+            capturedBody.Should().Contain("Điểm đến tiếp theo sau khi rời bãi");
+            capturedBody.Should().Contain("Cổng Chính Nhà Máy (GATE_01) (Chặng quay về kết thúc)");
+            capturedBody.Should().Contain("Thời gian dừng đỗ quá hạn");
+            capturedBody.Should().Contain("Quá 1 phút 30 giây");
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WithAssignedRoute_QueriesRouteRepoOnlyOnce()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var defaultRoute = new GateRouteConfig
+            {
+                Id = "defaultRouteId",
+                RouteCode = "DEFAULT",
+                RouteName = "Tuyến tự do mặc định",
+                IsDefault = true,
+                AlertEmails = new List<string> { "default_admin@test.com" }
+            };
+            routeRepo.FindOneAsync(Arg.Any<System.Linq.Expressions.Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+
+            var assignedRoute = new GateRouteConfig
+            {
+                Id = "route123",
+                RouteCode = "ROUTE_123",
+                RouteName = "Tuyến kiểm tra",
+                AlertEmails = new List<string> { "alert@test.com" },
+                GateSteps = new List<RouteGateStep>()
+            };
+            routeRepo.GetByIdAsync("route123", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(assignedRoute));
+
+            var now = DateTime.UtcNow;
+            var overdueTrip = new VehicleDispatchTrip
+            {
+                Id = "trip1",
+                PlateNumber = "30A-99999",
+                CardNumber = "0000012345",
+                AssignedRouteId = "route123",
+                Status = TripStatus.InTransit,
+                NextDeadline = now.AddMinutes(-10),
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { overdueTrip }));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert: verify routeRepo.GetByIdAsync was called exactly once for trip.AssignedRouteId
+            await routeRepo.Received(1).GetByIdAsync("route123", Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WhenAssignedRouteAlertEmailsIsNull_DoesNotThrowAndCompletesSuccessfully()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var defaultRoute = new GateRouteConfig
+            {
+                Id = "defaultRouteId",
+                RouteCode = "DEFAULT",
+                RouteName = "Tuyến tự do mặc định",
+                IsDefault = true,
+                AlertEmails = new List<string> { "default_admin@test.com" }
+            };
+            routeRepo.FindOneAsync(Arg.Any<System.Linq.Expressions.Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+
+            // AlertEmails is explicitly null, simulating MongoDB document without alertEmails field
+            var assignedRoute = new GateRouteConfig
+            {
+                Id = "route_null_emails",
+                RouteCode = "ROUTE_NULL_EMAILS",
+                RouteName = "Tuyến null emails",
+                AlertEmails = null!,
+                GateSteps = new List<RouteGateStep>()
+            };
+            routeRepo.GetByIdAsync("route_null_emails", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(assignedRoute));
+
+            var now = DateTime.UtcNow;
+            var overdueTrip = new VehicleDispatchTrip
+            {
+                Id = "trip_null_emails",
+                PlateNumber = "29A-88888",
+                CardNumber = "0000088888",
+                AssignedRouteId = "route_null_emails",
+                Status = TripStatus.InTransit,
+                NextDeadline = now.AddMinutes(-5),
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { overdueTrip }));
+
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert
+            overdueTrip.IsAlertSent.Should().BeTrue();
+            await emailSender.Received(1).SendEmailAsync(
+                Arg.Is<IEnumerable<string>>(recipients => recipients.Contains("default_admin@test.com")),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WhenOriginAndCurrentGateAreSame_QueriesGateRepoOnlyOnce()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var gate1 = new Gate { Id = "gate_same", Code = "G_SAME", Name = "Cổng Chung" };
+            gateRepo.GetByIdAsync("gate_same", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Gate?>(gate1));
+
+            var now = DateTime.UtcNow;
+            var overdueTrip = new VehicleDispatchTrip
+            {
+                Id = "trip_same_gate",
+                PlateNumber = "29A-77777",
+                CardNumber = "0000077777",
+                OriginGateId = "gate_same",
+                CurrentGateId = "gate_same",
+                Status = TripStatus.InTransit,
+                NextDeadline = now.AddMinutes(-5),
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { overdueTrip }));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert: verify gateRepo was called only once for gate_same instead of twice
+            await gateRepo.Received(1).GetByIdAsync("gate_same", Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task CheckOverdueTripsAsync_WhenAssignedRouteIsDeleted_FallsBackToFreeRoam()
+        {
+            // Arrange
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+            var emailSender = Substitute.For<IEmailSenderService>();
+            var logger = Substitute.For<ILogger<VehicleTransitWatcherService>>();
+
+            var defaultRoute = new GateRouteConfig
+            {
+                Id = "defaultRouteId",
+                RouteCode = "DEFAULT",
+                RouteName = "Tuyến tự do mặc định",
+                IsDefault = true,
+                AlertEmails = new List<string> { "default_admin@test.com" }
+            };
+            routeRepo.FindOneAsync(Arg.Any<System.Linq.Expressions.Expression<Func<GateRouteConfig, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(defaultRoute));
+
+            var deletedRoute = new GateRouteConfig
+            {
+                Id = "route_deleted",
+                RouteCode = "DEL_01",
+                RouteName = "Tuyến Đã Xóa",
+                IsDeleted = true,
+                AlertEmails = new List<string> { "deleted_route@test.com" }
+            };
+            routeRepo.GetByIdAsync("route_deleted", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<GateRouteConfig?>(deletedRoute));
+
+            var now = DateTime.UtcNow;
+            var overdueTrip = new VehicleDispatchTrip
+            {
+                Id = "trip_deleted_route",
+                PlateNumber = "29A-66666",
+                CardNumber = "0000066666",
+                AssignedRouteId = "route_deleted",
+                Status = TripStatus.InTransit,
+                NextDeadline = now.AddMinutes(-5),
+                IsAlertSent = false
+            };
+
+            tripRepo.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<VehicleDispatchTrip, bool>>>())
+                .Returns(Task.FromResult<IReadOnlyList<VehicleDispatchTrip>>(new List<VehicleDispatchTrip> { overdueTrip }));
+
+            string capturedBody = string.Empty;
+            emailSender.SendEmailAsync(
+                Arg.Any<IEnumerable<string>>(),
+                Arg.Any<string>(),
+                Arg.Do<string>(body => capturedBody = body),
+                Arg.Any<string?>(),
+                Arg.Any<string?>(),
+                Arg.Any<CancellationToken>()).Returns(Task.FromResult(true));
+
+            var serviceProvider = Substitute.For<IServiceProvider>();
+            serviceProvider.GetService(typeof(IRepository<VehicleDispatchTrip>)).Returns(tripRepo);
+            serviceProvider.GetService(typeof(IRepository<GateRouteConfig>)).Returns(routeRepo);
+            serviceProvider.GetService(typeof(IRepository<Gate>)).Returns(gateRepo);
+            serviceProvider.GetService(typeof(IEmailSenderService)).Returns(emailSender);
+
+            var scope = Substitute.For<IServiceScope>();
+            scope.ServiceProvider.Returns(serviceProvider);
+            var scopeFactory = Substitute.For<IServiceScopeFactory>();
+            scopeFactory.CreateScope().Returns(scope);
+
+            var watcher = new VehicleTransitWatcherService(scopeFactory, logger);
+
+            // Act
+            await watcher.CheckOverdueTripsAsync(CancellationToken.None);
+
+            // Assert: Route falls back to Free Roam and deleted route email is NOT included
+            capturedBody.Should().Contain("Cổng bất kỳ (Tuyến tự do)");
+            capturedBody.Should().NotContain("Tuyến Đã Xóa");
         }
     }
 }

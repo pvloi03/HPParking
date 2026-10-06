@@ -17,29 +17,24 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Card>? _cardRepo;
+        private readonly IRepository<VehicleDispatchTrip> _tripRepo;
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<VehicleService> _logger;
 
         public VehicleService(
             IRepository<Vehicle> vehicleRepo,
             IRepository<Client> clientRepo,
+            IRepository<VehicleDispatchTrip> tripRepo,
             ILogger<VehicleService> logger,
             IAuditLogService? auditLogService = null,
             IRepository<Card>? cardRepo = null)
         {
             _vehicleRepo = vehicleRepo;
             _clientRepo = clientRepo;
-            _auditLogService = auditLogService;
+            _tripRepo = tripRepo;
             _logger = logger;
+            _auditLogService = auditLogService;
             _cardRepo = cardRepo;
-        }
-
-        public VehicleService(
-            IRepository<Vehicle> vehicleRepo,
-            IRepository<Client> clientRepo,
-            ILogger<VehicleService> logger)
-            : this(vehicleRepo, clientRepo, logger, null, null)
-        {
         }
 
         public async Task<PagedResult<VehicleDto>> GetVehiclesPagedAsync(VehicleFilterQuery query, CancellationToken cancellationToken = default)
@@ -384,6 +379,17 @@ namespace HPParking.Api.Services.Implementations
             if (vehicle == null)
             {
                 throw new NotFoundException("Không tìm thấy phương tiện cần xóa.", ErrorCodes.VEHICLE_NOT_FOUND);
+            }
+
+            var hasActiveTrip = await _tripRepo.ExistsAsync(
+                t => t.VehicleId == id && t.Status != TripStatus.Completed && !t.IsDeleted,
+                cancellationToken);
+
+            if (hasActiveTrip)
+            {
+                throw new ConflictException(
+                    $"Không thể xóa phương tiện '{vehicle.PlateNumber}' vì đang có chuyến điều vận chưa hoàn thành.",
+                    ErrorCodes.VEHICLE_HAS_ACTIVE_TRIP);
             }
 
             if (hardDelete)

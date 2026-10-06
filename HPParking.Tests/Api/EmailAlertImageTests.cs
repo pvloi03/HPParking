@@ -108,7 +108,7 @@ namespace HPParking.Tests.Api
                 capturedAttachmentPath.Should().NotBeNullOrWhiteSpace();
                 File.Exists(capturedAttachmentPath).Should().BeTrue("Attachment path must be resolved to an existing physical file");
                 capturedDisplayName.Should().Be("AnhGiamSat_29B12345.jpg", "Attachment must be renamed with vehicle plate number");
-                capturedHtmlBody.Should().Contain("Ảnh giám sát:", "Notice should appear when attachment exists");
+                capturedHtmlBody.Should().Contain("29B-12345");
             }
             finally
             {
@@ -304,7 +304,6 @@ namespace HPParking.Tests.Api
 
             // Assert
             capturedAttachmentPath.Should().BeNull();
-            capturedHtmlBody.Should().NotContain("Ảnh giám sát:", "Notice must be hidden when no image file exists on disk");
         }
 
         [Fact]

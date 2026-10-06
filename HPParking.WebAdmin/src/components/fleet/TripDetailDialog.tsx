@@ -184,6 +184,13 @@ export function TripDetailDialog({
                     <span className="text-xs font-semibold text-foreground mt-0.5 block truncate">
                       {trip.currentGateName || trip.currentGateId || '---'}
                     </span>
+                    {trip.nextGateName && trip.status !== TripStatus.Completed && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block truncate mt-0.5">
+                        {trip.status === TripStatus.InTransit || trip.status === TripStatus.OverdueTransit
+                          ? `➔ Đang đến: ${trip.nextGateName}`
+                          : `➔ Điểm tiếp theo: ${trip.nextGateName}`}
+                      </span>
+                    )}
                   </div>
 
                   <div>

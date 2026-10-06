@@ -216,6 +216,21 @@ namespace HPParking.Core.Repositories
             return result.MatchedCount > 0;
         }
 
+        public virtual async Task<bool> UpdateOneAsync(
+            FilterDefinition<T> filter,
+            UpdateDefinition<T> update,
+            CancellationToken cancellationToken = default)
+        {
+            if (filter == null) throw new ArgumentNullException(nameof(filter));
+            if (update == null) throw new ArgumentNullException(nameof(update));
+
+            var combinedFilter = CombineSoftDeleteFilter(filter);
+            var updateWithTimestamp = update.Set(x => x.UpdatedAt, DateTime.Now);
+
+            var result = await _collection.UpdateOneAsync(combinedFilter, updateWithTimestamp, null, cancellationToken);
+            return result.MatchedCount > 0;
+        }
+
         public virtual async Task<bool> DeleteAsync(string id, bool softDelete = true, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(id)) return false;

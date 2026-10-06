@@ -15,6 +15,14 @@ import type {
 } from '@/types/gateRoute';
 import { Badge } from '@/components/ui/badge';
 
+export function getStepGateDisplayName(step?: RouteGateStep | null, fallback = 'Cổng không xác định'): string {
+  if (!step) return fallback;
+  if (step.gateName) return step.gateName;
+  if (step.gateCode) return `Cổng ${step.gateCode}`;
+  if (step.gateId) return `Cổng ID: ${step.gateId.slice(0, 8)}`;
+  return fallback;
+}
+
 export function GateRoutesPage() {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -197,32 +205,65 @@ export function GateRoutesPage() {
               ) : (
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                    Lộ trình di chuyển ({(route.gateSteps || []).length} chặng):
+                    Lộ trình khứ hồi ({(route.gateSteps || []).length} chặng):
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(route.gateSteps || []).map((step: RouteGateStep, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/40 text-xs">
-                          <span className="w-4 h-4 rounded-full bg-blue-600 text-white font-bold text-[9px] flex items-center justify-center shrink-0">
-                            {step.stepIndex}
-                          </span>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-foreground">
-                              {step.gateName || `Cổng ID: ${step.gateId.slice(0, 8)}`}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <span>SLA: {step.maxTravelMinutes}p di chuyển</span>
-                              <span>•</span>
-                              <span>{step.maxStayMinutes}p dừng đỗ</span>
-                            </span>
-                          </div>
-                        </div>
+                    {(() => {
+                      const originStep = route.gateSteps?.find((s) => s.stepIndex === 1) || route.gateSteps?.[0];
+                      return (route.gateSteps || []).map((step: RouteGateStep, idx: number) => {
+                        const isOrigin = idx === 0;
+                        return (
+                          <div key={idx} className="flex items-center gap-2">
+                            <div
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${
+                                isOrigin
+                                  ? 'border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30'
+                                  : 'border-border bg-muted/40'
+                              }`}
+                            >
+                              <span
+                                className={`w-4 h-4 rounded-full text-white font-bold text-[9px] flex items-center justify-center shrink-0 ${
+                                  isOrigin ? 'bg-blue-600' : 'bg-emerald-600'
+                                }`}
+                              >
+                                {step.stepIndex}
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-foreground">
+                                  {isOrigin
+                                    ? `📍 Xuất phát: ${getStepGateDisplayName(step)}`
+                                    : `🏁 Điểm ${idx}: ${getStepGateDisplayName(step)}`}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  {isOrigin ? (
+                                    <span>Quay về: {step.maxTravelMinutes} phút</span>
+                                  ) : (
+                                    <>
+                                      <span>SLA: {step.maxTravelMinutes}p di chuyển</span>
+                                      <span>•</span>
+                                      <span>{step.maxStayMinutes}p dừng đỗ</span>
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
 
-                        {idx < (route.gateSteps || []).length - 1 && (
-                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                        )}
-                      </div>
-                    ))}
+                            {idx < (route.gateSteps || []).length - 1 ? (
+                              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                            ) : (
+                              route.gateSteps &&
+                              route.gateSteps.length >= 2 && (
+                                <div className="flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-1 rounded border border-blue-200 dark:border-blue-900">
+                                  <span>
+                                    ↩ Về lại {getStepGateDisplayName(originStep, 'Cổng 1')} ({originStep?.maxTravelMinutes ?? 15}p)
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}

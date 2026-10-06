@@ -112,10 +112,37 @@ namespace HPParking.Api.Services.Implementations
             }
 
             string? routeName = null;
+            string? nextGateId = null;
+            string? nextGateName = null;
             if (!string.IsNullOrWhiteSpace(trip.AssignedRouteId))
             {
                 var route = await _routeRepo.GetByIdAsync(trip.AssignedRouteId);
-                if (route != null) routeName = route.RouteName;
+                if (route != null)
+                {
+                    routeName = route.RouteName;
+
+                    if (!route.IsFreeRoam && trip.Status != TripStatus.Completed)
+                    {
+                        int targetLegIndex = (trip.Status == TripStatus.WorkingAtGate || trip.Status == TripStatus.OverdueStay)
+                            ? trip.CurrentStepIndex + 1
+                            : trip.CurrentStepIndex;
+
+                        nextGateId = route.GetTargetGateIdForLeg(targetLegIndex);
+                        if (!string.IsNullOrWhiteSpace(nextGateId))
+                        {
+                            var step = route.GateSteps?.Find(s => string.Equals(s.GateId, nextGateId, StringComparison.OrdinalIgnoreCase));
+                            if (step != null)
+                            {
+                                nextGateName = step.GetDisplayName();
+                            }
+                            else
+                            {
+                                var nextGate = await _gateRepo.GetByIdAsync(nextGateId);
+                                nextGateName = nextGate?.Name ?? nextGateId;
+                            }
+                        }
+                    }
+                }
             }
 
             var now = DateTime.UtcNow;
@@ -143,6 +170,8 @@ namespace HPParking.Api.Services.Implementations
                 OriginGateName = originGateName,
                 CurrentGateId = trip.CurrentGateId,
                 CurrentGateName = currentGateName,
+                NextGateId = nextGateId,
+                NextGateName = nextGateName,
                 AssignedRouteId = trip.AssignedRouteId,
                 RouteName = routeName,
                 CurrentStepIndex = trip.CurrentStepIndex,
