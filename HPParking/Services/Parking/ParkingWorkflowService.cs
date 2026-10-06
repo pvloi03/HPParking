@@ -33,6 +33,7 @@ namespace HPParking.Services.Parking
         private readonly IRepository<GateRouteConfig> _gateRouteRepository;
         private readonly IRepository<Gate> _gateRepository;
         private readonly ISharedVehicleWorkflowHandler _sharedVehicleHandler;
+        private readonly IClientVehicleWorkflowHandler _clientVehicleHandler;
 
         public ParkingWorkflowService(
             IRepository<Client> clientRepository,
@@ -47,7 +48,8 @@ namespace HPParking.Services.Parking
             IRepository<VehicleDispatchTrip> tripRepository,
             IRepository<GateRouteConfig> gateRouteRepository,
             IRepository<Gate> gateRepository,
-            ISharedVehicleWorkflowHandler? sharedVehicleHandler = null)
+            ISharedVehicleWorkflowHandler? sharedVehicleHandler = null,
+            IClientVehicleWorkflowHandler? clientVehicleHandler = null)
         {
             _clientRepository = clientRepository;
             _sessionRepository = sessionRepository;
@@ -64,6 +66,8 @@ namespace HPParking.Services.Parking
             _sharedVehicleHandler = sharedVehicleHandler ?? new SharedVehicleWorkflowHandler(
                 tripRepository, vehicleRepository, gateRouteRepository, gateRepository,
                 imageStorageService, new LaneHardwareOrchestrator(lprService));
+            _clientVehicleHandler = clientVehicleHandler ?? new ClientVehicleWorkflowHandler(
+                vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService));
         }
 
         #region --- 1. MASTER WORKFLOW DISPATCHER (TUPLE PATTERN MATCHING) ---
@@ -100,9 +104,9 @@ namespace HPParking.Services.Parking
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when trigger.IsSharedVehicle
                     => await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
-                    => await ProcessVehicleCardEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+                    => await DispatchVehicleCardEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
-                    => await ProcessVehicleCardExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+                    => await DispatchVehicleCardExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
 
                 // 3. XE CƠ GIỚI - CẢM BIẾN RADAR KÍCH HOẠT (FREE-FLOW)
                 (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.In)
@@ -374,7 +378,7 @@ namespace HPParking.Services.Parking
 
         // ======================== [B] XE CƠ GIỚI - QUẸT THẺ ========================
 
-        private async Task<ProcessResult> ProcessVehicleCardEntryAsync(
+        private async Task<ProcessResult> DispatchVehicleCardEntryAsync(
             LaneRuntimeContext context,
             WorkflowTriggerEvent trigger,
             string imageBasePath,
@@ -394,154 +398,11 @@ namespace HPParking.Services.Parking
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
-            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
-            if (isExpired)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ConfirmRequired,
-                    Message = expiryMsg,
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            var parkingInProgress = await _sessionRepository.FindOneAsync(x => x.PersonId == client.Id && x.Status == ParkingSessionStatus.Active && !x.IsDeleted);
-            if (parkingInProgress != null)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.AlreadyInParking,
-                    Message = "Khách hàng này đang có xe trong bãi.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            List<Vehicle> clientVehicles = [];
-            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
-            {
-                var vehicles = await _vehicleRepository.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted);
-                clientVehicles = vehicles?.ToList() ?? [];
-            }
-
-            bool requirePlateVerification = client.VerifyVehiclePlate;
-            if (requirePlateVerification && clientVehicles.Count == 0)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.PlateMismatch,
-                    Message = "Khách hàng chưa đăng ký biển số xe trong hệ thống.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            string defaultPlate = clientVehicles.Count > 0
-                ? string.Join("; ", clientVehicles.Select(v => v.PlateNumber).Where(p => !string.IsNullOrWhiteSpace(p)))
-                : "";
-
-            var images = await CaptureLaneImagesAsync(context,
-                needOverview: context.Lane.UseOverviewCam,
-                needPlate: context.Lane.UsePlateCam,
-                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
-            var (plateSuccess, recognizedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate, onManualPlateInput);
-
-            Vehicle? matchedVehicle = null;
-
-            if (!requirePlateVerification)
-            {
-                if (string.IsNullOrEmpty(recognizedPlate)) recognizedPlate = defaultPlate;
-            }
-            else
-            {
-                if (!plateSuccess || string.IsNullOrEmpty(recognizedPlate))
-                {
-                    bool capturedPlate = images.Plate != null;
-                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = "Không nhận diện được biển số và không có biển số nhập tay.",
-                        Client = client,
-                        Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
-                }
-
-                string actualPlate = NormalizePlate(recognizedPlate);
-                matchedVehicle = clientVehicles.FirstOrDefault(v =>
-                    NormalizePlate(v.PlateNumber) == actualPlate);
-
-                if (matchedVehicle == null && clientVehicles.Count > 0)
-                {
-                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.PlateMismatch,
-                        Message = "Biển số xe không đúng với biển số đăng ký.",
-                        Client = client,
-                        Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
-                }
-            }
-
-            if (!TryOpenBarrier(context, onBarrierOpenFailed))
-            {
-                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
-                    Client = client,
-                    Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                    DepartmentName = departmentName,
-                    LprResult = lprResult,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap,
-                    OverviewImage = overviewSnap
-                };
-            }
-
-            var parking = new ParkingSession
-            {
-                PersonId = client.Id,
-                PlateNumber = !requirePlateVerification ? defaultPlate : (matchedVehicle?.PlateNumber ?? recognizedPlate ?? ""),
-                VehicleType = matchedVehicle?.Type ?? VehicleType.Car,
-                TargetType = LaneTargetType.Vehicle,
-                InTime = trigger.TriggerTime,
-                InLaneName = context.Lane.Name,
-                Status = ParkingSessionStatus.Active,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _sessionRepository.AddAsync(parking);
-            SaveImagesBackground(parking, images, isEntry: true, imageBasePath, client: client);
-
-            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Client = client,
-                Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                DepartmentName = departmentName,
-                LprResult = lprResult,
-                ParkingSession = parking,
-                OverviewImage = succOverviewSnap,
-                PlateImage = succSmallPlate,
-                FaceImage = succFaceSnap
-            };
+            return await _clientVehicleHandler.ProcessEntryAsync(
+                context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName);
         }
 
-        private async Task<ProcessResult> ProcessVehicleCardExitAsync(
+        private async Task<ProcessResult> DispatchVehicleCardExitAsync(
             LaneRuntimeContext context,
             WorkflowTriggerEvent trigger,
             string imageBasePath,
@@ -561,135 +422,8 @@ namespace HPParking.Services.Parking
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
-            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
-            if (isExpired)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.ConfirmRequired,
-                    Message = expiryMsg,
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            var parking = await _sessionRepository.FindOneAsync(x => x.PersonId == client.Id && x.Status == ParkingSessionStatus.Active && !x.IsDeleted);
-            if (parking == null)
-            {
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.NotInParking,
-                    Message = "Khách hàng này không có xe trong bãi.",
-                    Client = client,
-                    DepartmentName = departmentName
-                };
-            }
-
-            List<Vehicle> clientVehicles = [];
-            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
-            {
-                var vehicles = await _vehicleRepository.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted);
-                clientVehicles = vehicles?.ToList() ?? [];
-            }
-
-            Vehicle? matchedVehicle = clientVehicles.FirstOrDefault(v =>
-                !string.IsNullOrWhiteSpace(parking.PlateNumber) &&
-                (v.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant() ==
-                (parking.PlateNumber ?? "").Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant())
-                ?? clientVehicles.FirstOrDefault();
-
-            bool requirePlateVerification = client.VerifyVehiclePlate;
-            var images = await CaptureLaneImagesAsync(context,
-                needOverview: context.Lane.UseOverviewCam,
-                needPlate: context.Lane.UsePlateCam,
-                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
-            var (plateSuccess, exitPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, parking.PlateNumber ?? "", onManualPlateInput);
-
-            if (!requirePlateVerification)
-            {
-                if (string.IsNullOrEmpty(exitPlate)) exitPlate = parking.PlateNumber ?? "";
-            }
-            else
-            {
-                string cleanInPlate = NormalizePlate(parking.PlateNumber);
-                string cleanExitPlate = NormalizePlate(exitPlate);
-
-                if (string.IsNullOrEmpty(cleanExitPlate))
-                {
-                    bool capturedPlate = images.Plate != null;
-                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = "Không nhận diện được biển số ra và không có biển số nhập tay.",
-                        Client = client,
-                        Vehicle = matchedVehicle,
-                        DepartmentName = departmentName,
-                        ParkingSession = parking,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
-                }
-
-                if (cleanExitPlate != cleanInPlate)
-                {
-                    var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.PlateMismatch,
-                        Message = $"Biển số ra ({exitPlate}) không khớp với biển số vào ({parking.PlateNumber}).",
-                        Client = client,
-                        Vehicle = matchedVehicle,
-                        DepartmentName = departmentName,
-                        ParkingSession = parking,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
-                }
-            }
-
-            if (!TryOpenBarrier(context, onBarrierOpenFailed))
-            {
-                var (smallPlate, faceSnap, overviewSnap) = ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
-                    Client = client,
-                    Vehicle = matchedVehicle,
-                    DepartmentName = departmentName,
-                    ParkingSession = parking,
-                    LprResult = lprResult,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap,
-                    OverviewImage = overviewSnap
-                };
-            }
-
-            parking.OutTime = trigger.TriggerTime;
-            parking.OutLaneName = context.Lane.Name;
-            parking.Status = ParkingSessionStatus.Completed;
-            parking.UpdatedAt = DateTime.UtcNow;
-            await _sessionRepository.UpdateAsync(parking);
-            SaveImagesBackground(parking, images, isEntry: false, imageBasePath, client: client);
-
-            var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Client = client,
-                Vehicle = matchedVehicle,
-                DepartmentName = departmentName,
-                ParkingSession = parking,
-                LprResult = lprResult,
-                OverviewImage = succOverviewSnap,
-                PlateImage = succSmallPlate,
-                FaceImage = succFaceSnap
-            };
+            return await _clientVehicleHandler.ProcessExitAsync(
+                context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName);
         }
 
         // ======================== [C] XE CƠ GIỚI - CẢM BIẾN RADAR ========================

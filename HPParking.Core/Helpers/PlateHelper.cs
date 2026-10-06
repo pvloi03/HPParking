@@ -16,14 +16,15 @@ namespace HPParking.Core.Helpers
             if (string.IsNullOrWhiteSpace(plate))
                 return string.Empty;
 
-            var cleaned = plate.Trim()
-                .Replace(".", "")
-                .Replace("-", "")
-                .Replace(" ", "")
-                .Replace("_", "")
-                .ToUpperInvariant();
-
-            return cleaned;
+            var sb = new System.Text.StringBuilder(plate.Length);
+            foreach (char c in plate)
+            {
+                if (!char.IsWhiteSpace(c) && c != '.' && c != '-' && c != '_' && c != ':')
+                {
+                    sb.Append(char.ToUpperInvariant(c));
+                }
+            }
+            return sb.ToString();
         }
 
         /// <summary>
