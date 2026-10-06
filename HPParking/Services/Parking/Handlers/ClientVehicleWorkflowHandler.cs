@@ -79,15 +79,7 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 3. Tra cứu danh sách phương tiện đã đăng ký của khách hàng
-            List<Vehicle> clientVehicles = [];
-            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
-            {
-                var vehicles = await _vehicleRepository.FindAsync(v =>
-                    v.OwnerClientId == client.Id &&
-                    v.IsActive &&
-                    !v.IsDeleted);
-                clientVehicles = vehicles?.ToList() ?? [];
-            }
+            var clientVehicles = await GetActiveClientVehiclesAsync(client.Id);
 
             bool requirePlateVerification = client.RequiresPlateVerification();
             if (requirePlateVerification && clientVehicles.Count == 0)
@@ -259,18 +251,9 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 3. Tra cứu xe tương ứng với phiên gửi
-            List<Vehicle> clientVehicles = [];
-            if (_vehicleRepository != null && !string.IsNullOrEmpty(client.Id))
-            {
-                var vehicles = await _vehicleRepository.FindAsync(v =>
-                    v.OwnerClientId == client.Id &&
-                    v.IsActive &&
-                    !v.IsDeleted);
-                clientVehicles = vehicles?.ToList() ?? [];
-            }
+            var clientVehicles = await GetActiveClientVehiclesAsync(client.Id);
 
-            Vehicle? matchedVehicle = client.FindMatchingVehicle(parking.PlateNumber, clientVehicles)
-                ?? clientVehicles.FirstOrDefault();
+            Vehicle? matchedVehicle = client.FindMatchingVehicle(parking.PlateNumber, clientVehicles);
 
             bool requirePlateVerification = client.RequiresPlateVerification();
             var images = await _hardwareOrchestrator.CaptureLaneImagesAsync(context,
@@ -285,6 +268,7 @@ namespace HPParking.Services.Parking.Handlers
             if (!requirePlateVerification)
             {
                 if (string.IsNullOrEmpty(exitPlate)) exitPlate = parking.PlateNumber ?? "";
+                matchedVehicle ??= client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault();
             }
             else
             {
@@ -300,7 +284,7 @@ namespace HPParking.Services.Parking.Handlers
                         Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
                         Message = "Không nhận diện được biển số ra và không có biển số nhập tay.",
                         Client = client,
-                        Vehicle = matchedVehicle,
+                        Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
                         DepartmentName = departmentName ?? string.Empty,
                         ParkingSession = parking,
                         LprResult = lprResult,
@@ -310,8 +294,9 @@ namespace HPParking.Services.Parking.Handlers
                     };
                 }
 
-                bool plateMatches = (matchedVehicle != null && matchedVehicle.MatchesPlate(exitPlate))
-                    || cleanExitPlate == cleanInPlate;
+                // Strict Exit Lockout: Biển số ra PHẢI khớp với biển số lúc vào của phiên gửi xe.
+                // Tuyệt đối không cho phép tráo sang xe khác của cùng một chủ xe.
+                bool plateMatches = cleanExitPlate == cleanInPlate;
 
                 if (!plateMatches)
                 {
@@ -321,7 +306,7 @@ namespace HPParking.Services.Parking.Handlers
                         Status = ProcessStatus.PlateMismatch,
                         Message = $"Biển số ra ({exitPlate}) không khớp với biển số vào ({parking.PlateNumber}).",
                         Client = client,
-                        Vehicle = matchedVehicle,
+                        Vehicle = matchedVehicle ?? client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault(),
                         DepartmentName = departmentName ?? string.Empty,
                         ParkingSession = parking,
                         LprResult = lprResult,
@@ -330,6 +315,8 @@ namespace HPParking.Services.Parking.Handlers
                         OverviewImage = overviewSnap
                     };
                 }
+
+                matchedVehicle ??= client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault();
             }
 
             // 5. Thao tác mở thanh chắn Barrier
@@ -372,6 +359,19 @@ namespace HPParking.Services.Parking.Handlers
                 PlateImage = succSmallPlate,
                 FaceImage = succFaceSnap
             };
+        }
+
+        private async Task<List<Vehicle>> GetActiveClientVehiclesAsync(string? clientId)
+        {
+            if (_vehicleRepository == null || string.IsNullOrEmpty(clientId))
+                return [];
+
+            var vehicles = await _vehicleRepository.FindAsync(v =>
+                v.OwnerClientId == clientId &&
+                v.IsActive &&
+                !v.IsDeleted);
+
+            return vehicles?.ToList() ?? [];
         }
 
         private static Bitmap? SafeClone(Bitmap? src)

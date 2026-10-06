@@ -503,6 +503,43 @@ namespace HPParking.Tests.Services.Parking
             await _sessionRepo.Received(1).AddAsync(Arg.Is<ParkingSession>(s => s.VehicleType == VehicleType.Motorbike));
         }
 
+        [Fact]
+        public async Task ProcessExitAsync_WhenClientHasMultipleVehicles_AndExitPlateDoesNotMatchEntryPlate_ShouldBlockAndReturnPlateMismatch()
+        {
+            var context = CreateContext(LaneDirection.Out);
+            var trigger = CreateTrigger();
+            var client = new Client { Id = "c1", Name = "Multi Vehicle Owner", VerifyVehiclePlate = true, IsActive = true };
+            var car1 = new Vehicle { Id = "v1", PlateNumber = "30A-111.11", Type = VehicleType.Car, OwnerClientId = client.Id, IsActive = true };
+            var car2 = new Vehicle { Id = "v2", PlateNumber = "29B-222.22", Type = VehicleType.Car, OwnerClientId = client.Id, IsActive = true };
+
+            // Active parking session was entered with car2
+            var session = new ParkingSession
+            {
+                Id = "s1",
+                PersonId = client.Id,
+                PlateNumber = "29B-222.22",
+                Status = ParkingSessionStatus.Active
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([car1, car2]));
+
+            // At exit, driver tries to exit with car1 (plate 30A-111.11)
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+
+            // Strict Exit Lockout MUST block exit because 30A-111.11 != 29B-222.22
+            result.Status.Should().Be(ProcessStatus.PlateMismatch);
+            result.Message.Should().Contain("không khớp");
+            _hardwareOrchestrator.DidNotReceive().TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>());
+            await _sessionRepo.DidNotReceive().UpdateAsync(Arg.Any<ParkingSession>(), Arg.Any<CancellationToken>());
+        }
+
         #endregion
     }
 }

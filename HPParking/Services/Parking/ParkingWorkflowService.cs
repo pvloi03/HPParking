@@ -104,9 +104,9 @@ namespace HPParking.Services.Parking
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when trigger.IsSharedVehicle
                     => await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
-                    => await DispatchVehicleCardEntryAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+                    => await DispatchVehicleCardWorkflowAsync(context, trigger, imageBasePath, isEntry: true, onBarrierOpenFailed, onManualPlateInput),
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
-                    => await DispatchVehicleCardExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+                    => await DispatchVehicleCardWorkflowAsync(context, trigger, imageBasePath, isEntry: false, onBarrierOpenFailed, onManualPlateInput),
 
                 // 3. XE CƠ GIỚI - CẢM BIẾN RADAR KÍCH HOẠT (FREE-FLOW)
                 (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.In)
@@ -378,10 +378,11 @@ namespace HPParking.Services.Parking
 
         // ======================== [B] XE CƠ GIỚI - QUẸT THẺ ========================
 
-        private async Task<ProcessResult> DispatchVehicleCardEntryAsync(
+        private async Task<ProcessResult> DispatchVehicleCardWorkflowAsync(
             LaneRuntimeContext context,
             WorkflowTriggerEvent trigger,
             string imageBasePath,
+            bool isEntry,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
             Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
         {
@@ -398,32 +399,9 @@ namespace HPParking.Services.Parking
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
-            return await _clientVehicleHandler.ProcessEntryAsync(
-                context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName);
-        }
-
-        private async Task<ProcessResult> DispatchVehicleCardExitAsync(
-            LaneRuntimeContext context,
-            WorkflowTriggerEvent trigger,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
-        {
-            var (cardEntity, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
-
-            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(cardEntity.VehicleId))
-            {
-                return await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
-            }
-
-            if (client == null)
-            {
-                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
-            }
-
-            string departmentName = await GetDepartmentNameAsync(client);
-            return await _clientVehicleHandler.ProcessExitAsync(
-                context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName);
+            return isEntry
+                ? await _clientVehicleHandler.ProcessEntryAsync(context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)
+                : await _clientVehicleHandler.ProcessExitAsync(context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName);
         }
 
         // ======================== [C] XE CƠ GIỚI - CẢM BIẾN RADAR ========================
