@@ -127,7 +127,7 @@ namespace HPParking.Core.Models.Entities
         public RouteGateStep? GetOriginStep()
         {
             if (GateSteps == null || GateSteps.Count == 0) return null;
-            return GateSteps.Find(s => s.StepIndex == 1) 
+            return GateSteps.Find(s => s.StepIndex == 1)
                 ?? GateSteps.OrderBy(s => s.StepIndex).FirstOrDefault();
         }
 

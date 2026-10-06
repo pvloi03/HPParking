@@ -1,5 +1,4 @@
 using HPParking.Core.Models.Entities;
-using System.Collections.Generic;
 using Xunit;
 
 namespace HPParking.Tests.Core

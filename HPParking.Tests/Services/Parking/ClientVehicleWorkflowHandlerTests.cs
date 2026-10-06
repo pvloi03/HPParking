@@ -5,18 +5,13 @@ using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
 using HPParking.Models;
-using HPParking.Services.Controller;
 using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
 using HPParking.Services.Parking;
 using HPParking.Services.Parking.Handlers;
 using NSubstitute;
-using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Services.Parking

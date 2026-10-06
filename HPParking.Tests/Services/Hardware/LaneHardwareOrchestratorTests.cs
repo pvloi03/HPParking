@@ -1,12 +1,10 @@
 using HPParking.Core.Models.Entities;
 using HPParking.Interfaces;
 using HPParking.Models;
-using HPParking.Services.Controller;
 using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
 using NSubstitute;
 using System.Drawing;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Services.Hardware

@@ -5,15 +5,12 @@ using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
 using HPParking.Models;
-using HPParking.Services.Controller;
 using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
-using System;
-using System.Drawing;
-using System.Linq;
-using System.Threading.Tasks;
-using MongoDB.Driver;
 using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using System;
+using System.Threading.Tasks;
 
 namespace HPParking.Services.Parking.Handlers
 {

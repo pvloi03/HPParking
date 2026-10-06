@@ -1,6 +1,4 @@
-using HPParking.Interfaces;
 using HPParking.Models;
-using HPParking.Services.Controller;
 using HPParking.Services.LPR;
 using System;
 using System.Drawing;

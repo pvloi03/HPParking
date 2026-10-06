@@ -3,7 +3,6 @@ using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Enums;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using System;
 
 namespace HPParking.Core.Models.Entities
 {

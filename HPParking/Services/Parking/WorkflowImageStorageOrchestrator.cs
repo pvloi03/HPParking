@@ -77,23 +77,30 @@ namespace HPParking.Services.Parking
 
                         if (session != null)
                         {
-                            if (isEntry)
-                            {
-                                session.InPlateImagePath = pPath;
-                                session.InOverviewImagePath = oPath;
-                                session.InFaceImagePath = fPath;
-                            }
-                            else
-                            {
-                                session.OutPlateImagePath = pPath;
-                                session.OutOverviewImagePath = oPath;
-                                session.OutFaceImagePath = fPath;
-                            }
-                            session.UpdatedAt = DateTime.UtcNow;
+                            bool hasNewImages = !string.IsNullOrEmpty(pPath) ||
+                                                !string.IsNullOrEmpty(oPath) ||
+                                                !string.IsNullOrEmpty(fPath);
 
-                            if (!string.IsNullOrEmpty(session.Id) && _sessionRepository != null)
+                            if (hasNewImages)
                             {
-                                await _sessionRepository.UpdateAsync(session);
+                                if (isEntry)
+                                {
+                                    session.InPlateImagePath = pPath;
+                                    session.InOverviewImagePath = oPath;
+                                    session.InFaceImagePath = fPath;
+                                }
+                                else
+                                {
+                                    session.OutPlateImagePath = pPath;
+                                    session.OutOverviewImagePath = oPath;
+                                    session.OutFaceImagePath = fPath;
+                                }
+                                session.UpdatedAt = DateTime.UtcNow;
+
+                                if (!string.IsNullOrEmpty(session.Id) && _sessionRepository != null)
+                                {
+                                    await _sessionRepository.UpdateAsync(session);
+                                }
                             }
                         }
 

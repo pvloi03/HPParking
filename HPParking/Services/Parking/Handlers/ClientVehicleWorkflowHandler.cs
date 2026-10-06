@@ -1,6 +1,5 @@
 using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
-using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
@@ -10,7 +9,6 @@ using HPParking.Services.LPR;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 

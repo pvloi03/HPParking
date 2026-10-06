@@ -1,7 +1,5 @@
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using System;
-using System.Collections.Generic;
 using Xunit;
 
 namespace HPParking.Tests.Core

@@ -1,4 +1,3 @@
-using HPParking.Models;
 using System.Threading.Tasks;
 
 namespace HPParking.Services.Parking.Handlers

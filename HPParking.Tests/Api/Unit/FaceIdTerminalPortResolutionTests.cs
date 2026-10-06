@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Threading;
-using System.Threading.Tasks;
 using FluentAssertions;
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.Services.Implementations;
@@ -11,6 +6,7 @@ using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using System.Linq.Expressions;
 using Xunit;
 
 namespace HPParking.Tests.Api.Unit

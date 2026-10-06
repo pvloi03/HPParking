@@ -29,13 +29,15 @@ namespace HPParking.Tests.Services.Parking
         private readonly IRepository<VehicleDispatchTrip> _tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
         private readonly IRepository<GateRouteConfig> _routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
         private readonly IRepository<Gate> _gateRepo = Substitute.For<IRepository<Gate>>();
+        private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator = Substitute.For<IWorkflowImageStorageOrchestrator>();
 
         private ParkingWorkflowService CreateService()
         {
             return new ParkingWorkflowService(
                 _clientRepo, _sessionRepo, _lprService, _imageStorage,
                 _deptRepo, _contractorRepo, _companyRepo, _vehicleRepo,
-                _cardRepo, _tripRepo, _routeRepo, _gateRepo);
+                _cardRepo, _tripRepo, _routeRepo, _gateRepo,
+                imageOrchestrator: _imageOrchestrator);
         }
 
         [Fact]
@@ -231,7 +233,7 @@ namespace HPParking.Tests.Services.Parking
             result.Status.Should().Be(ProcessStatus.Success);
             session.Status.Should().Be(ParkingSessionStatus.Completed);
             session.OutTime.Should().NotBeNull();
-            await _sessionRepo.Received().UpdateAsync(session);
+            await _sessionRepo.Received(1).UpdateAsync(session);
         }
 
         [Fact]

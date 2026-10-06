@@ -11,10 +11,7 @@ using HPParking.Services.LPR;
 using HPParking.Services.Parking.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace HPParking.Services.Parking
