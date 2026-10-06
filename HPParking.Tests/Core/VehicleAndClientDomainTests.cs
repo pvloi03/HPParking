@@ -162,8 +162,8 @@ namespace HPParking.Tests.Core
         public void Client_FindMatchingVehicle_WhenVehicleMatches_ShouldReturnVehicle()
         {
             var client = new Client { Id = "c1" };
-            var v1 = new Vehicle { Id = "v1", PlateNumber = "30E-111.11" };
-            var v2 = new Vehicle { Id = "v2", PlateNumber = "29A-222.22" };
+            var v1 = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", OwnerClientId = client.Id, IsActive = true };
+            var v2 = new Vehicle { Id = "v2", PlateNumber = "29A-222.22", OwnerClientId = client.Id, IsActive = true };
             var list = new List<Vehicle> { v1, v2 };
 
             var matched = client.FindMatchingVehicle("29A 222.22", list);
@@ -176,7 +176,7 @@ namespace HPParking.Tests.Core
         public void Client_FindMatchingVehicle_WhenNoMatch_ShouldReturnNull()
         {
             var client = new Client { Id = "c1" };
-            var v1 = new Vehicle { Id = "v1", PlateNumber = "30E-111.11" };
+            var v1 = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", OwnerClientId = client.Id, IsActive = true };
             var list = new List<Vehicle> { v1 };
 
             var matched = client.FindMatchingVehicle("51F-999.99", list);
@@ -198,8 +198,8 @@ namespace HPParking.Tests.Core
         public void Client_FindMatchingVehicle_WhenDetectedPlateContainsMultipleDelimitedPlates_ShouldMatch()
         {
             var client = new Client { Id = "c1" };
-            var v1 = new Vehicle { Id = "v1", PlateNumber = "30E-111.11" };
-            var v2 = new Vehicle { Id = "v2", PlateNumber = "29A-222.22" };
+            var v1 = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", OwnerClientId = client.Id, IsActive = true };
+            var v2 = new Vehicle { Id = "v2", PlateNumber = "29A-222.22", OwnerClientId = client.Id, IsActive = true };
             var list = new List<Vehicle> { v1, v2 };
 
             var matched = client.FindMatchingVehicle("51F-999.99; 29A-222.22", list);
@@ -212,12 +212,36 @@ namespace HPParking.Tests.Core
         public void Client_FindMatchingVehicle_WhenVehicleIsInactiveOrDeleted_ShouldIgnoreIt()
         {
             var client = new Client { Id = "c1" };
-            var vInactive = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", IsActive = false };
-            var vDeleted = new Vehicle { Id = "v2", PlateNumber = "29A-222.22", IsDeleted = true };
+            var vInactive = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", OwnerClientId = client.Id, IsActive = false };
+            var vDeleted = new Vehicle { Id = "v2", PlateNumber = "29A-222.22", OwnerClientId = client.Id, IsDeleted = true };
             var list = new List<Vehicle> { vInactive, vDeleted };
 
             client.FindMatchingVehicle("30E-111.11", list).Should().BeNull();
             client.FindMatchingVehicle("29A-222.22", list).Should().BeNull();
+        }
+
+        [Fact]
+        public void Client_FindMatchingVehicle_WhenVehicleBelongsToDifferentOwner_ShouldReturnNull()
+        {
+            var client = new Client { Id = "c1" };
+            var vehicleOfOtherClient = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", OwnerClientId = "c2", IsActive = true };
+            var list = new List<Vehicle> { vehicleOfOtherClient };
+
+            var matched = client.FindMatchingVehicle("30E-111.11", list);
+
+            matched.Should().BeNull("phương tiện thuộc về khách hàng khác (c2) không được phép khớp với client (c1)");
+        }
+
+        [Fact]
+        public void Client_FindMatchingVehicle_WhenVehicleHasNoOwner_ShouldReturnNull()
+        {
+            var client = new Client { Id = "c1" };
+            var unownedVehicle = new Vehicle { Id = "v1", PlateNumber = "30E-111.11", OwnerClientId = null, IsActive = true };
+            var list = new List<Vehicle> { unownedVehicle };
+
+            var matched = client.FindMatchingVehicle("30E-111.11", list);
+
+            matched.Should().BeNull("phương tiện không có chủ sở hữu (OwnerClientId == null) không được phép khớp với client");
         }
 
         [Fact]

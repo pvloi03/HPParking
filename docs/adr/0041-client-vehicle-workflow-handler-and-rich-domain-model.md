@@ -31,7 +31,7 @@ Quyết định kiến trúc về việc tái cấu trúc luồng kiểm soát x
    - Thêm phương thức `MatchesPlate(string? candidatePlate)`: Tự chuẩn hóa biển số (loại bỏ khoảng trắng, dấu gạch nối, dấu chấm và viết hoa) và so khớp với biển số của chính xe đó. Thống nhất một quy chuẩn so khớp duy nhất trong toàn hệ thống.
 2. **Thực thể [Client.cs](../../HPParking.Core/Models/Entities/Client.cs)**:
    - Thêm phương thức `CanPassGate(DateTime atTime, out string reason)`: Tự kiểm tra trạng thái kích hoạt (`IsActive`) và hạn sử dụng (`Expired`), đóng gói logic kiểm tra hợp lệ mà không phụ thuộc vào helper bên ngoài.
-   - Thêm phương thức `FindMatchingVehicle(string? detectedPlate, IEnumerable<Vehicle> activeVehicles)`: Tra cứu trong danh sách xe thuộc quyền sở hữu xem có phương tiện nào khớp với biển số nhận diện từ camera hay không.
+   - Thêm phương thức `FindMatchingVehicle(string? detectedPlate, IEnumerable<Vehicle> activeVehicles)`: Tra cứu trong danh sách xe thuộc quyền sở hữu xem có phương tiện nào khớp với biển số nhận diện từ camera hay không (xác thực điều kiện bất biến miền `v.OwnerClientId == this.Id` và `v.IsActive && !v.IsDeleted`, ngăn ngừa rủi ro nhận vơ xe của khách hàng khác).
    - Thêm phương thức `RequiresPlateVerification()`: Trả về giá trị của cờ `VerifyVehiclePlate`.
 
 ### 2. Định Nghĩa Giao Diện Chuyên Trách `IClientVehicleWorkflowHandler` và `ClientVehicleExecutionContext`

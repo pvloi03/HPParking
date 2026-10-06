@@ -106,22 +106,29 @@ namespace HPParking.Core.Models.Entities
 
         /// <summary>
         /// Tìm kiếm phương tiện thuộc quyền sở hữu của người dùng khớp với biển số nhận diện từ camera hoặc nhập tay.
+        /// Xác thực điều kiện bất biến quyền sở hữu (v.OwnerClientId == this.Id) và trạng thái hoạt động của xe.
         /// </summary>
         /// <param name="detectedPlate">Biển số nhận diện từ camera LPR hoặc nhập tay</param>
         /// <param name="activeVehicles">Danh sách các xe của khách hàng</param>
-        /// <returns>Phương tiện khớp đầu tiên, hoặc null nếu không có xe nào khớp</returns>
+        /// <returns>Phương tiện khớp đầu tiên thuộc quyền sở hữu của người dùng, hoặc null nếu không có xe nào khớp</returns>
         public Vehicle? FindMatchingVehicle(string? detectedPlate, IEnumerable<Vehicle>? activeVehicles)
         {
             if (activeVehicles == null || string.IsNullOrWhiteSpace(detectedPlate))
                 return null;
 
+            bool IsOwnedAndActive(Vehicle v) =>
+                v.IsActive &&
+                !v.IsDeleted &&
+                !string.IsNullOrEmpty(Id) &&
+                v.OwnerClientId == Id;
+
             if (detectedPlate.Contains(';') || detectedPlate.Contains(','))
             {
                 var plates = detectedPlate.Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                return activeVehicles.FirstOrDefault(v => v.IsActive && !v.IsDeleted && plates.Any(p => v.MatchesPlate(p)));
+                return activeVehicles.FirstOrDefault(v => IsOwnedAndActive(v) && plates.Any(p => v.MatchesPlate(p)));
             }
 
-            return activeVehicles.FirstOrDefault(v => v.IsActive && !v.IsDeleted && v.MatchesPlate(detectedPlate));
+            return activeVehicles.FirstOrDefault(v => IsOwnedAndActive(v) && v.MatchesPlate(detectedPlate));
         }
     }
 

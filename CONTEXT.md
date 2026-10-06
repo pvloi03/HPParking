@@ -7,7 +7,7 @@ Hệ thống quản lý kiểm soát ra vào và quản lý bãi đỗ xe thông
 ### Core Entities
 
 **Client**:
-Hồ sơ nhân sự (cán bộ công nhân viên công ty, phòng ban hoặc nhân sự nhà thầu/khách đến thăm) đã đăng ký phương tiện, thẻ định danh hoặc khuôn mặt trong hệ thống để được cấp quyền ra vào bãi xe. Thực thể miền giàu hành vi cung cấp các phương thức tự thân: `CanPassGate(DateTime, out string)` kiểm tra tính hợp lệ và thời hạn, `FindMatchingVehicle(string, IEnumerable<Vehicle>)` tra cứu xe sở hữu khớp biển số, và `RequiresPlateVerification()` kiểm tra cờ xác thực biển số.
+Hồ sơ nhân sự (cán bộ công nhân viên công ty, phòng ban hoặc nhân sự nhà thầu/khách đến thăm) đã đăng ký phương tiện, thẻ định danh hoặc khuôn mặt trong hệ thống để được cấp quyền ra vào bãi xe. Thực thể miền giàu hành vi cung cấp các phương thức tự thân: `CanPassGate(DateTime, out string)` kiểm tra tính hợp lệ và thời hạn, `FindMatchingVehicle(string, IEnumerable<Vehicle>)` tra cứu xe sở hữu khớp biển số (bảo vệ bất biến miền: chỉ chấp nhận phương tiện đang hoạt động có `OwnerClientId` trùng khớp với `Id` của `Client`), và `RequiresPlateVerification()` kiểm tra cờ xác thực biển số.
 _Avoid_: Khách hàng, Customer, User, Account, Driver
 
 **Vehicle**:
