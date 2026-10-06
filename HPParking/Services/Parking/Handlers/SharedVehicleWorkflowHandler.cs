@@ -73,11 +73,11 @@ namespace HPParking.Services.Parking.Handlers
                 t.Status != TripStatus.Completed &&
                 !t.IsDeleted);
 
-            // 3. Chụp ảnh làn và nhận diện biển số LPR
+            // 3. Chụp ảnh làn và nhận diện biển số LPR (Xe công vụ / dùng chung tuyệt đối không thao tác FaceID)
             var images = await _hardwareOrchestrator.CaptureLaneImagesAsync(context,
                 needOverview: context.Lane?.UseOverviewCam ?? true,
                 needPlate: context.Lane?.UsePlateCam ?? true,
-                needFace: context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId)));
+                needFace: false);
 
             var (plateSuccess, detectedPlate, lprResult) = await _hardwareOrchestrator.RecognizePlateAsync(
                 context, images.Plate, vehicle.PlateNumber ?? string.Empty, onManualPlateInput);

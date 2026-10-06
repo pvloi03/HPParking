@@ -1,4 +1,5 @@
 using FluentAssertions;
+using HPParking.Core.Constants;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Entities;
@@ -677,6 +678,293 @@ namespace HPParking.Tests.Services.Parking
             session.Status.Should().Be(ParkingSessionStatus.Completed);
             _hardwareOrchestrator.Received(1).TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>());
             await _sessionRepo.Received(1).UpdateAsync(session);
+        }
+
+        #endregion
+
+        #region --- 3. FaceID Capture Capability Tests ---
+
+        [Fact]
+        public async Task ProcessEntryAsync_WhenLaneHasFaceAndClientHasFaceAuth_ShouldCaptureWithNeedFaceTrue()
+        {
+            var lane = new Lane
+            {
+                Id = "lane-face",
+                Name = "Làn Vào Có FaceID",
+                Direction = LaneDirection.In,
+                UseFaceCam = true
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c1",
+                Name = "User Face",
+                IsActive = true,
+                VerifyVehiclePlate = false,
+                AuthMethods = [AuthMethodConstants.FaceId, AuthMethodConstants.Card]
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(null));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
+        }
+
+        [Fact]
+        public async Task ProcessEntryAsync_WhenLaneHasFaceButClientHasOnlyCardAuth_ShouldCaptureWithNeedFaceFalse()
+        {
+            var lane = new Lane
+            {
+                Id = "lane-face",
+                Name = "Làn Vào Có FaceID",
+                Direction = LaneDirection.In,
+                UseFaceCam = true,
+                FaceDeviceId = "face-dev-01"
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c1",
+                Name = "User Card Only",
+                IsActive = true,
+                VerifyVehiclePlate = false,
+                AuthMethods = [AuthMethodConstants.Card]
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(null));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: false,
+                timeoutMs: Arg.Any<int>());
+
+            await _hardwareOrchestrator.DidNotReceive().CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
+        }
+
+        [Fact]
+        public async Task ProcessEntryAsync_WhenLaneHasNoFaceEvenThoughClientHasFaceAuth_ShouldCaptureWithNeedFaceFalse()
+        {
+            var lane = new Lane
+            {
+                Id = "lane-no-face",
+                Name = "Làn Vào Không Có FaceID",
+                Direction = LaneDirection.In,
+                UseFaceCam = false,
+                FaceDeviceId = null
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c1",
+                Name = "User Face",
+                IsActive = true,
+                VerifyVehiclePlate = false,
+                AuthMethods = [AuthMethodConstants.FaceId]
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(null));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: false,
+                timeoutMs: Arg.Any<int>());
+
+            await _hardwareOrchestrator.DidNotReceive().CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
+        }
+
+        [Fact]
+        public async Task ProcessExitAsync_WhenLaneHasFaceAndClientHasFaceAuth_ShouldCaptureWithNeedFaceTrue()
+        {
+            var lane = new Lane
+            {
+                Id = "lane-face-exit",
+                Name = "Làn Ra Có FaceID",
+                Direction = LaneDirection.Out,
+                FaceDeviceId = "face-dev-exit"
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c1",
+                Name = "User Face",
+                IsActive = true,
+                VerifyVehiclePlate = false,
+                AuthMethods = [AuthMethodConstants.FaceId]
+            };
+
+            var session = new ParkingSession
+            {
+                Id = "s1",
+                PersonId = client.Id,
+                PlateNumber = "30A-111.11",
+                Status = ParkingSessionStatus.Active
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
+        }
+
+        [Fact]
+        public async Task ProcessExitAsync_WhenLaneHasFaceButClientHasOnlyCardAuth_ShouldCaptureWithNeedFaceFalse()
+        {
+            var lane = new Lane
+            {
+                Id = "lane-face-exit",
+                Name = "Làn Ra Có FaceID",
+                Direction = LaneDirection.Out,
+                UseFaceCam = true
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c1",
+                Name = "User Card",
+                IsActive = true,
+                VerifyVehiclePlate = false,
+                AuthMethods = [AuthMethodConstants.Card]
+            };
+
+            var session = new ParkingSession
+            {
+                Id = "s1",
+                PersonId = client.Id,
+                PlateNumber = "30A-111.11",
+                Status = ParkingSessionStatus.Active
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: false,
+                timeoutMs: Arg.Any<int>());
+
+            await _hardwareOrchestrator.DidNotReceive().CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
+        }
+
+        [Fact]
+        public async Task ProcessExitAsync_WhenLaneHasNoFaceEvenThoughClientHasFaceAuth_ShouldCaptureWithNeedFaceFalse()
+        {
+            var lane = new Lane
+            {
+                Id = "lane-no-face-exit",
+                Name = "Làn Ra Không Có FaceID",
+                Direction = LaneDirection.Out,
+                UseFaceCam = false,
+                FaceDeviceId = null
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c1",
+                Name = "User Face",
+                IsActive = true,
+                VerifyVehiclePlate = false,
+                AuthMethods = [AuthMethodConstants.FaceId]
+            };
+
+            var session = new ParkingSession
+            {
+                Id = "s1",
+                PersonId = client.Id,
+                PlateNumber = "30A-111.11",
+                Status = ParkingSessionStatus.Active
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
+
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: false,
+                timeoutMs: Arg.Any<int>());
+
+            await _hardwareOrchestrator.DidNotReceive().CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
         }
 
         #endregion

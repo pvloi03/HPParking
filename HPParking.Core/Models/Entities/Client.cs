@@ -74,6 +74,18 @@ namespace HPParking.Core.Models.Entities
         public bool RequiresPlateVerification() => VerifyVehiclePlate;
 
         /// <summary>
+        /// Kiểm tra người dùng có đăng ký và sử dụng phương thức xác thực khuôn mặt (FaceID) hay không.
+        /// </summary>
+        public bool UsesFaceAuth() =>
+            AuthMethods != null && AuthMethods.Any(m => string.Equals(m?.Trim(), AuthMethodConstants.FaceId, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Kiểm tra người dùng có đăng ký và sử dụng phương thức xác thực bằng thẻ từ (Card) hay không.
+        /// </summary>
+        public bool UsesCardAuth() =>
+            AuthMethods != null && AuthMethods.Any(m => string.Equals(m?.Trim(), AuthMethodConstants.Card, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
         /// Kiểm tra tính hợp lệ về trạng thái hoạt động và thời hạn ra vào qua cổng của người dùng.
         /// </summary>
         /// <param name="atTime">Thời điểm quẹt thẻ / kích hoạt kiểm soát</param>

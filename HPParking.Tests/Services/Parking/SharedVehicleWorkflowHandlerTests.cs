@@ -618,5 +618,52 @@ namespace HPParking.Tests.Services.Parking
             Assert.Equal("Tuyến: Tuyến tự do", result.DepartmentName);
             Assert.Contains("Phương tiện nội bộ 29A-11111 (InTransit)", result.Message);
         }
+
+        [Fact]
+        public async Task ProcessAsync_WhenLaneHasFaceDevice_ShouldNeverEnableNeedFace()
+        {
+            // Arrange
+            var card = new Card { Id = "c1", CardNumber = "123456", VehicleId = "veh1" };
+            var vehicle = new Vehicle { Id = "veh1", PlateNumber = "29A-11111", IsActive = true };
+            _vehicleRepo.GetByIdAsync("veh1").Returns(vehicle);
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>?>())
+                .Returns((true, "29A-11111", new LprResult { Success = true, Plate = "29A-11111" }));
+            _hardwareOrchestrator.TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>?>())
+                .Returns(true);
+
+            // Làn có trang bị cả UseFaceCam và FaceDeviceId
+            var lane = new Lane
+            {
+                Id = "l1",
+                Direction = LaneDirection.Out,
+                GateId = "gate_A",
+                UseFaceCam = true,
+                FaceDeviceId = "face-device-01"
+            };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = new WorkflowTriggerEvent { RawCardNo = "123456", TriggerTime = DateTime.UtcNow };
+
+            _tripRepo.FindOneAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>()).Returns((VehicleDispatchTrip?)null);
+
+            // Act
+            var result = await _handler.ProcessSharedVehicleTripAsync(context, trigger, card, "C:\\img");
+
+            // Assert: Luồng xe dùng chung tuyệt đối không bật needFace
+            Assert.Equal(ProcessStatus.Success, result.Status);
+            await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: false,
+                timeoutMs: Arg.Any<int>());
+
+            await _hardwareOrchestrator.DidNotReceive().CaptureLaneImagesAsync(
+                context,
+                needOverview: Arg.Any<bool>(),
+                needPlate: Arg.Any<bool>(),
+                needFace: true,
+                timeoutMs: Arg.Any<int>());
+        }
     }
 }

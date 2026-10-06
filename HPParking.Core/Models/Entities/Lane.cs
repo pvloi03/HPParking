@@ -74,5 +74,10 @@ namespace HPParking.Core.Models.Entities
         public int InputReader { get; set; }
 
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Kiểm tra làn có được trang bị hoặc kích hoạt thiết bị/camera nhận diện khuôn mặt (FaceID) hay không.
+        /// </summary>
+        public bool HasFaceDevice() => UseFaceCam || !string.IsNullOrEmpty(FaceDeviceId);
     }
 }

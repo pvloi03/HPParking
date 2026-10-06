@@ -33,6 +33,8 @@ Quyết định kiến trúc về việc tái cấu trúc luồng kiểm soát x
    - Thêm phương thức `CanPassGate(DateTime atTime, out string reason)`: Tự kiểm tra trạng thái kích hoạt (`IsActive`) và hạn sử dụng (`Expired`), đóng gói logic kiểm tra hợp lệ mà không phụ thuộc vào helper bên ngoài.
    - Thêm phương thức `FindMatchingVehicle(string? detectedPlate, IEnumerable<Vehicle> activeVehicles)`: Tra cứu trong danh sách xe thuộc quyền sở hữu xem có phương tiện nào khớp với biển số nhận diện từ camera hay không (xác thực điều kiện bất biến miền `v.OwnerClientId == this.Id` và `v.IsActive && !v.IsDeleted`, ngăn ngừa rủi ro nhận vơ xe của khách hàng khác).
    - Thêm phương thức `RequiresPlateVerification()`: Trả về giá trị của cờ `VerifyVehiclePlate`.
+   - Thêm phương thức `UsesFaceAuth()`: Kiểm tra người dùng có đăng ký và sử dụng phương thức xác thực khuôn mặt (`FaceId`) hay không.
+   - Thêm phương thức `UsesCardAuth()`: Kiểm tra người dùng có đăng ký phương thức xác thực bằng thẻ từ (`Card`) hay không.
 
 ### 2. Định Nghĩa Giao Diện Chuyên Trách `IClientVehicleWorkflowHandler` và `ClientVehicleExecutionContext`
 Áp dụng mẫu thiết kế **Introduce Parameter Object** nhằm triệt tiêu mùi mã **Data Clumps** (7 tham số lặp lại), tạo mới DTO `ClientVehicleExecutionContext` và giao diện [IClientVehicleWorkflowHandler.cs](../../HPParking/Services/Parking/Handlers/IClientVehicleWorkflowHandler.cs) tại tầng Service:
@@ -76,6 +78,12 @@ Lớp `ClientVehicleWorkflowHandler` đóng gói toàn bộ quy trình kiểm so
      - Nếu `VerifyVehiclePlate == true`: Áp dụng **Strict Exit Lockout**, nếu biển số ra không khớp biển số vào (`Vehicle.MatchesPlate`), chặn cứng 100%, không mở barrier và trả về `PlateMismatch`.
      - Nếu `VerifyVehiclePlate == false` (VIP): Miễn trừ Strict Exit Lockout, mở barrier ra và đóng phiên thành công bất kể biển số ra đọc được hay không.
   4. Mở barrier ra, cập nhật phiên `ParkingSession` (`Status = Completed`, `OutTime`) và lưu ảnh ra nền ngầm.
+- **Quy tắc Kiểm Soát Chụp FaceID (`needFace`)**:
+  - Tại cả `ProcessEntryAsync` và `ProcessExitAsync`: Chỉ kích hoạt chụp FaceID (`needFace: true`) khi thỏa mãn đồng thời:
+    1. Làn có thiết bị/camera FaceID: `context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId))`.
+    2. Hồ sơ Client có đăng ký phương thức FaceID: `client.UsesFaceAuth()`.
+  - Nếu Client chỉ dùng thẻ (`Card`) hoặc làn không có FaceID: thiết lập `needFace: false`.
+  - Đối với xe dùng chung / công vụ (`SharedVehicleWorkflowHandler`): Tuyệt đối không kích hoạt FaceID (`needFace: false`).
 
 ### 4. Mỏng Hóa `ParkingWorkflowService` (Thin Dispatcher)
 - Inject `IClientVehicleWorkflowHandler` vào constructor của `ParkingWorkflowService`.

@@ -276,6 +276,62 @@ namespace HPParking.Tests.Core
             vehicle.MatchesPlate(candidatePlate).Should().Be(expected);
         }
 
+        [Fact]
+        public void Client_UsesFaceAuth_DefaultClient_ShouldReturnTrue()
+        {
+            var client = new Client();
+            client.UsesFaceAuth().Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData("FaceId", true)]
+        [InlineData("faceid", true)]
+        [InlineData(" FACEID ", true)]
+        [InlineData("Card", false)]
+        [InlineData("None", false)]
+        public void Client_UsesFaceAuth_WithSingleMethod_ShouldReturnExpected(string authMethod, bool expected)
+        {
+            var client = new Client { AuthMethods = [authMethod] };
+            client.UsesFaceAuth().Should().Be(expected);
+        }
+
+        [Fact]
+        public void Client_UsesFaceAuth_WhenMultiAuth_ShouldReturnTrueIfFaceIdPresent()
+        {
+            var clientWithFaceAndCard = new Client { AuthMethods = [HPParking.Core.Constants.AuthMethodConstants.Card, HPParking.Core.Constants.AuthMethodConstants.FaceId] };
+            clientWithFaceAndCard.UsesFaceAuth().Should().BeTrue();
+
+            var clientCardOnly = new Client { AuthMethods = [HPParking.Core.Constants.AuthMethodConstants.Card] };
+            clientCardOnly.UsesFaceAuth().Should().BeFalse();
+        }
+
+        [Fact]
+        public void Client_UsesFaceAuth_WhenAuthMethodsNullOrEmpty_ShouldReturnFalse()
+        {
+            var clientNull = new Client { AuthMethods = null! };
+            clientNull.UsesFaceAuth().Should().BeFalse();
+
+            var clientEmpty = new Client { AuthMethods = [] };
+            clientEmpty.UsesFaceAuth().Should().BeFalse();
+        }
+
+        [Theory]
+        [InlineData(true, null, true)]
+        [InlineData(false, "face-device-01", true)]
+        [InlineData(true, "face-device-01", true)]
+        [InlineData(false, null, false)]
+        [InlineData(false, "", false)]
+        public void Lane_HasFaceDevice_ShouldEvaluateCorrectly(bool useFaceCam, string? faceDeviceId, bool expected)
+        {
+            var lane = new Lane
+            {
+                UseFaceCam = useFaceCam,
+                FaceDeviceId = faceDeviceId
+            };
+
+            lane.HasFaceDevice().Should().Be(expected);
+        }
+
         #endregion
     }
 }
