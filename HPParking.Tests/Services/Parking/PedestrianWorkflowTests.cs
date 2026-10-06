@@ -161,7 +161,7 @@ namespace HPParking.Tests.Services.Parking
             result.Client!.Name.Should().Be("Trần Thị B");
             activeSession.Status.Should().Be(ParkingSessionStatus.Completed);
             activeSession.OutTime.Should().NotBeNull();
-            await _sessionRepo.Received(1).UpdateAsync(activeSession);
+            await _sessionRepo.Received().UpdateAsync(activeSession);
         }
 
         [Fact]
