@@ -50,7 +50,8 @@ namespace HPParking.Services.Parking
             IRepository<GateRouteConfig> gateRouteRepository,
             IRepository<Gate> gateRepository,
             ISharedVehicleWorkflowHandler? sharedVehicleHandler = null,
-            IClientVehicleWorkflowHandler? clientVehicleHandler = null)
+            IClientVehicleWorkflowHandler? clientVehicleHandler = null,
+            IWorkflowImageStorageOrchestrator? imageOrchestrator = null)
         {
             _clientRepository = clientRepository;
             _sessionRepository = sessionRepository;
@@ -64,10 +65,11 @@ namespace HPParking.Services.Parking
             _tripRepository = tripRepository;
             _gateRouteRepository = gateRouteRepository;
             _gateRepository = gateRepository;
-            _imageOrchestrator = new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository);
+            _imageOrchestrator = imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository);
             _sharedVehicleHandler = sharedVehicleHandler ?? new SharedVehicleWorkflowHandler(
                 tripRepository, vehicleRepository, gateRouteRepository, gateRepository,
-                imageStorageService, new LaneHardwareOrchestrator(lprService));
+                imageStorageService, new LaneHardwareOrchestrator(lprService),
+                imageOrchestrator: _imageOrchestrator);
             _clientVehicleHandler = clientVehicleHandler ?? new ClientVehicleWorkflowHandler(
                 vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService),
                 imageOrchestrator: _imageOrchestrator);

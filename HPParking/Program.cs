@@ -53,9 +53,12 @@ namespace HPParking
 
                 services.AddScoped<LicenseManager>();
 
+                services.AddLogging();
+
                 services.AddSingleton<ILprService, LprService>();
                 services.AddSingleton<IImageStorageService, ImageStorageService>();
                 services.AddScoped<ILaneHardwareOrchestrator, LaneHardwareOrchestrator>();
+                services.AddScoped<IWorkflowImageStorageOrchestrator, WorkflowImageStorageOrchestrator>();
                 services.AddScoped<ISharedVehicleWorkflowHandler, SharedVehicleWorkflowHandler>();
                 services.AddScoped<IClientVehicleWorkflowHandler, ClientVehicleWorkflowHandler>();
                 services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();

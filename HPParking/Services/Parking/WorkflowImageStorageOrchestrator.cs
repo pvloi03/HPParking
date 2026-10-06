@@ -13,14 +13,28 @@ namespace HPParking.Services.Parking
     /// <summary>
     /// Triển khai điều phối lưu trữ ảnh quy trình ngầm ra ổ đĩa và cập nhật phiên đỗ xe (Deep Module)
     /// </summary>
-    public class WorkflowImageStorageOrchestrator(
-        IImageStorageService imageStorageService,
-        IRepository<ParkingSession>? sessionRepository = null,
-        ILogger? logger = null) : IWorkflowImageStorageOrchestrator
+    public class WorkflowImageStorageOrchestrator : IWorkflowImageStorageOrchestrator
     {
-        private readonly IImageStorageService _imageStorageService = imageStorageService;
-        private readonly IRepository<ParkingSession>? _sessionRepository = sessionRepository;
-        private readonly ILogger? _logger = logger;
+        private readonly IImageStorageService _imageStorageService;
+        private readonly IRepository<ParkingSession>? _sessionRepository;
+        private readonly ILogger? _logger;
+
+        public WorkflowImageStorageOrchestrator(
+            IImageStorageService imageStorageService,
+            IRepository<ParkingSession>? sessionRepository = null,
+            ILogger? logger = null)
+        {
+            _imageStorageService = imageStorageService ?? throw new ArgumentNullException(nameof(imageStorageService));
+            _sessionRepository = sessionRepository;
+            _logger = logger;
+        }
+
+        public WorkflowImageStorageOrchestrator(
+            IImageStorageService imageStorageService,
+            IRepository<ParkingSession>? sessionRepository)
+            : this(imageStorageService, sessionRepository, null)
+        {
+        }
 
         public void SaveSessionImagesBackground(
             ParkingSession? session,

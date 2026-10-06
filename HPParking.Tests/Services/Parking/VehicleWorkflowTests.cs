@@ -5,7 +5,10 @@ using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
 using HPParking.Models;
+using HPParking.Services.Hardware;
 using HPParking.Services.Parking;
+using HPParking.Services.Parking.Handlers;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using System.Linq.Expressions;
 using Xunit;
@@ -342,6 +345,69 @@ namespace HPParking.Tests.Services.Parking
                 t.Status == TripStatus.InTransit &&
                 t.LastExitTime != null &&
                 t.LastEntryTime == null));
+        }
+
+        [Fact]
+        public void ParkingWorkflowService_WhenCustomImageOrchestratorProvided_ShouldConstructSuccessfully()
+        {
+            // Arrange
+            var customOrchestrator = Substitute.For<IWorkflowImageStorageOrchestrator>();
+
+            // Act
+            var service = new ParkingWorkflowService(
+                _clientRepo, _sessionRepo, _lprService, _imageStorage,
+                _deptRepo, _contractorRepo, _companyRepo, _vehicleRepo,
+                _cardRepo, _tripRepo, _routeRepo, _gateRepo,
+                imageOrchestrator: customOrchestrator);
+
+            // Assert
+            service.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void ServiceCollection_WhenConfiguredAsInProgram_ShouldResolveAllWorkflowServices()
+        {
+            // Arrange - mô phỏng đăng ký tương đương Program.cs
+            var services = new ServiceCollection();
+            services.AddLogging();
+
+            // Đăng ký mock cho các repository nghiệp vụ
+            services.AddScoped(_ => Substitute.For<IRepository<Client>>());
+            services.AddScoped(_ => Substitute.For<IRepository<ParkingSession>>());
+            services.AddScoped(_ => Substitute.For<IRepository<Department>>());
+            services.AddScoped(_ => Substitute.For<IRepository<Contractor>>());
+            services.AddScoped(_ => Substitute.For<IRepository<Company>>());
+            services.AddScoped(_ => Substitute.For<IRepository<Vehicle>>());
+            services.AddScoped(_ => Substitute.For<IRepository<Card>>());
+            services.AddScoped(_ => Substitute.For<IRepository<VehicleDispatchTrip>>());
+            services.AddScoped(_ => Substitute.For<IRepository<GateRouteConfig>>());
+            services.AddScoped(_ => Substitute.For<IRepository<Gate>>());
+
+            // Đăng ký hardware & storage services
+            services.AddSingleton(Substitute.For<ILprService>());
+            services.AddSingleton(Substitute.For<IImageStorageService>());
+            services.AddScoped<ILaneHardwareOrchestrator, LaneHardwareOrchestrator>();
+
+            // Đăng ký các workflow handlers và orchestrators
+            services.AddScoped<IWorkflowImageStorageOrchestrator, WorkflowImageStorageOrchestrator>();
+            services.AddScoped<ISharedVehicleWorkflowHandler, SharedVehicleWorkflowHandler>();
+            services.AddScoped<IClientVehicleWorkflowHandler, ClientVehicleWorkflowHandler>();
+            services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
+
+            var sp = services.BuildServiceProvider();
+
+            // Act
+            using var scope = sp.CreateScope();
+            var imageOrchestrator = scope.ServiceProvider.GetService<IWorkflowImageStorageOrchestrator>();
+            var clientHandler = scope.ServiceProvider.GetService<IClientVehicleWorkflowHandler>();
+            var sharedHandler = scope.ServiceProvider.GetService<ISharedVehicleWorkflowHandler>();
+            var workflowService = scope.ServiceProvider.GetService<IParkingWorkflowService>();
+
+            // Assert
+            imageOrchestrator.Should().NotBeNull();
+            clientHandler.Should().NotBeNull();
+            sharedHandler.Should().NotBeNull();
+            workflowService.Should().NotBeNull();
         }
     }
 }
