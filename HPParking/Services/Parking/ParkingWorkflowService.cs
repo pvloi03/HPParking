@@ -84,7 +84,11 @@ namespace HPParking.Services.Parking
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
             Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
         {
-            // Kiểm tra thẻ hợp lệ nếu nguồn kích hoạt là quẹt thẻ
+            Card? cardEntity = null;
+            Client? client = null;
+            string? departmentName = null;
+
+            // Kiểm tra thẻ hợp lệ và tra cứu danh tính nếu nguồn kích hoạt là quẹt thẻ
             if (trigger.Source == TriggerSource.CardSwipe)
             {
                 string raw = trigger.RawCardNo?.Trim() ?? string.Empty;
@@ -92,6 +96,12 @@ namespace HPParking.Services.Parking
                 if (!CardHelper.IsValidCardCode(raw) && !CardHelper.IsValidCardCode(norm))
                 {
                     return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = string.Empty };
+                }
+
+                (cardEntity, _, client) = await ResolveIdentityAsync(raw);
+                if (client != null)
+                {
+                    departmentName = await GetDepartmentNameAsync(client);
                 }
             }
 
@@ -105,13 +115,18 @@ namespace HPParking.Services.Parking
                 (LaneTargetType.Pedestrian, TriggerSource.FaceTerminal, _)
                     => await ProcessPedestrianFacePassAsync(context, trigger, imageBasePath, onBarrierOpenFailed),
 
-                // 2. XE CƠ GIỚI - QUẸT THẺ THỦ CÔNG
-                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when trigger.IsSharedVehicle
+                // 2. XE CƠ GIỚI - QUẸT THẺ THỦ CÔNG (ADR 0041 §4: Dispatch trực tiếp tới Handler)
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when trigger.IsSharedVehicle || (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(cardEntity.VehicleId))
                     => await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when client == null
+                    => new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." },
+
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
-                    => await DispatchVehicleCardWorkflowAsync(context, trigger, imageBasePath, isEntry: true, onBarrierOpenFailed, onManualPlateInput),
+                    => await _clientVehicleHandler.ProcessEntryAsync(context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName),
+
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
-                    => await DispatchVehicleCardWorkflowAsync(context, trigger, imageBasePath, isEntry: false, onBarrierOpenFailed, onManualPlateInput),
+                    => await _clientVehicleHandler.ProcessExitAsync(context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName),
 
                 // 3. XE CƠ GIỚI - CẢM BIẾN RADAR KÍCH HOẠT (FREE-FLOW)
                 (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.In)
@@ -378,34 +393,7 @@ namespace HPParking.Services.Parking
             }
             return await ProcessPedestrianExitAsync(context, trigger, imageBasePath, onBarrierOpenFailed);
         }
-
-        // ======================== [B] XE CƠ GIỚI - QUẸT THẺ ========================
-
-        private async Task<ProcessResult> DispatchVehicleCardWorkflowAsync(
-            LaneRuntimeContext context,
-            WorkflowTriggerEvent trigger,
-            string imageBasePath,
-            bool isEntry,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
-        {
-            var (cardEntity, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
-
-            if (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(cardEntity.VehicleId))
-            {
-                return await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
-            }
-
-            if (client == null)
-            {
-                return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." };
-            }
-
-            string departmentName = await GetDepartmentNameAsync(client);
-            return isEntry
-                ? await _clientVehicleHandler.ProcessEntryAsync(context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)
-                : await _clientVehicleHandler.ProcessExitAsync(context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName);
-        }
+        // ======================== [B] XE CƠ GIỚI - QUẸT THẺ (Đã chuyển giao trực tiếp sang IClientVehicleWorkflowHandler theo ADR 0041 §4) ========================
 
         // ======================== [C] XE CƠ GIỚI - CẢM BIẾN RADAR ========================
 
