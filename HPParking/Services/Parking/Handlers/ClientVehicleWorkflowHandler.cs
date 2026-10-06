@@ -35,15 +35,10 @@ namespace HPParking.Services.Parking.Handlers
         private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator = imageOrchestrator ??
             new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository, logger);
 
-        public async Task<ProcessResult> ProcessEntryAsync(
-            LaneRuntimeContext context,
-            WorkflowTriggerEvent trigger,
-            Client client,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
-            string? departmentName = null)
+        public async Task<ProcessResult> ProcessEntryAsync(ClientVehicleExecutionContext request)
         {
+            var (context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName) = request;
+
             if (client == null)
             {
                 return new ProcessResult
@@ -191,15 +186,10 @@ namespace HPParking.Services.Parking.Handlers
                 lprResult);
         }
 
-        public async Task<ProcessResult> ProcessExitAsync(
-            LaneRuntimeContext context,
-            WorkflowTriggerEvent trigger,
-            Client client,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
-            string? departmentName = null)
+        public async Task<ProcessResult> ProcessExitAsync(ClientVehicleExecutionContext request)
         {
+            var (context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName) = request;
+
             if (client == null)
             {
                 return new ProcessResult

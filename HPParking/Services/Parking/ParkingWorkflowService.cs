@@ -123,10 +123,12 @@ namespace HPParking.Services.Parking
                     => new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." },
 
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
-                    => await _clientVehicleHandler.ProcessEntryAsync(context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName),
+                    => await _clientVehicleHandler.ProcessEntryAsync(new ClientVehicleExecutionContext(
+                        context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)),
 
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
-                    => await _clientVehicleHandler.ProcessExitAsync(context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName),
+                    => await _clientVehicleHandler.ProcessExitAsync(new ClientVehicleExecutionContext(
+                        context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)),
 
                 // 3. XE CƠ GIỚI - CẢM BIẾN RADAR KÍCH HOẠT (FREE-FLOW)
                 (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.In)

@@ -83,7 +83,7 @@ namespace HPParking.Tests.Services.Parking
             var context = CreateContext(LaneDirection.In);
             var trigger = CreateTrigger();
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, null!, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, null!, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.ClientNotFound);
         }
@@ -95,7 +95,7 @@ namespace HPParking.Tests.Services.Parking
             var trigger = CreateTrigger();
             var client = new Client { Id = "c1", Name = "User 1", IsActive = false };
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.ConfirmRequired);
             result.Message.Should().Contain("khóa hoặc ngừng hoạt động");
@@ -119,7 +119,7 @@ namespace HPParking.Tests.Services.Parking
                 }
             };
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.ConfirmRequired);
             result.Message.Should().Contain("Người dùng chỉ được ra vào từ");
@@ -136,7 +136,7 @@ namespace HPParking.Tests.Services.Parking
             _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<ParkingSession?>(activeSession));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.AlreadyInParking);
             result.Message.Should().Contain("đang có xe trong bãi");
@@ -154,7 +154,7 @@ namespace HPParking.Tests.Services.Parking
             _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([]));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.PlateMismatch);
             result.Message.Should().Contain("chưa đăng ký biển số xe");
@@ -180,7 +180,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((false, string.Empty, null));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.LprFailed);
             result.Message.Should().Contain("Không nhận diện được biển số");
@@ -205,7 +205,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((false, string.Empty, null));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.CaptureFailed);
         }
@@ -226,7 +226,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "51F-999.99", new LprResult { Success = true, Plate = "51F-999.99" }));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.PlateMismatch);
             result.Message.Should().Contain("không đúng với biển số đăng ký");
@@ -249,7 +249,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "30E12345", new LprResult { Success = true, Plate = "30E12345" }));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images", departmentName: "Ban Quản Trị");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images", DepartmentName: "Ban Quản Trị"));
 
             result.Status.Should().Be(ProcessStatus.Success);
             result.Client.Should().Be(client);
@@ -276,7 +276,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((false, string.Empty, null));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.Success);
             await _sessionRepo.Received(1).AddAsync(Arg.Is<ParkingSession>(s => s.PersonId == client.Id));
@@ -300,7 +300,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>())
                 .Returns(false);
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.BarrierFailed);
             result.Message.Should().Contain("Không thể mở barrier");
@@ -317,7 +317,7 @@ namespace HPParking.Tests.Services.Parking
             var context = CreateContext(LaneDirection.Out);
             var trigger = CreateTrigger();
 
-            var result = await _handler.ProcessExitAsync(context, trigger, null!, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, null!, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.ClientNotFound);
         }
@@ -340,7 +340,7 @@ namespace HPParking.Tests.Services.Parking
                 }
             };
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.ConfirmRequired);
             result.Message.Should().Contain("Người dùng chỉ được ra vào từ");
@@ -356,7 +356,7 @@ namespace HPParking.Tests.Services.Parking
             _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<ParkingSession?>(null));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.NotInParking);
             result.Message.Should().Contain("không có xe trong bãi");
@@ -379,7 +379,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((false, string.Empty, null));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.LprFailed);
             result.Message.Should().Contain("Không nhận diện được biển số ra");
@@ -400,7 +400,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "29A-888.88", new LprResult { Success = true, Plate = "29A-888.88" }));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.PlateMismatch);
             result.Message.Should().Contain("không khớp với biển số vào");
@@ -425,7 +425,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "30E.12345", new LprResult { Success = true, Plate = "30E.12345" }));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images", departmentName: "Kế Toán");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images", DepartmentName: "Kế Toán"));
 
             result.Status.Should().Be(ProcessStatus.Success);
             result.DepartmentName.Should().Be("Kế Toán");
@@ -452,7 +452,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "30e:123-45", new LprResult { Success = true, Plate = "30e:123-45" }));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.Success);
             session.Status.Should().Be(ParkingSessionStatus.Completed);
@@ -473,7 +473,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((false, string.Empty, null));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.Success);
             session.Status.Should().Be(ParkingSessionStatus.Completed);
@@ -496,7 +496,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>())
                 .Returns(false);
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.BarrierFailed);
             session.Status.Should().Be(ParkingSessionStatus.Active);
@@ -519,7 +519,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "29M1-999.99", new LprResult { Success = true, Plate = "29M1-999.99" }));
 
-            var result = await _handler.ProcessEntryAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             result.Status.Should().Be(ProcessStatus.Success);
             result.ParkingSession.Should().NotBeNull();
@@ -556,7 +556,7 @@ namespace HPParking.Tests.Services.Parking
             _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
                 .Returns((true, "30A-111.11", new LprResult { Success = true, Plate = "30A-111.11" }));
 
-            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
 
             // Strict Exit Lockout MUST block exit because 30A-111.11 != 29B-222.22
             result.Status.Should().Be(ProcessStatus.PlateMismatch);

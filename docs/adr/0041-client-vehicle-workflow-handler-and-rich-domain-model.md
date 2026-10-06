@@ -34,31 +34,26 @@ Quyết định kiến trúc về việc tái cấu trúc luồng kiểm soát x
    - Thêm phương thức `FindMatchingVehicle(string? detectedPlate, IEnumerable<Vehicle> activeVehicles)`: Tra cứu trong danh sách xe thuộc quyền sở hữu xem có phương tiện nào khớp với biển số nhận diện từ camera hay không.
    - Thêm phương thức `RequiresPlateVerification()`: Trả về giá trị của cờ `VerifyVehiclePlate`.
 
-### 2. Định Nghĩa Giao Diện Chuyên Trách `IClientVehicleWorkflowHandler`
-Tạo mới giao diện [IClientVehicleWorkflowHandler.cs](../../HPParking/Services/Parking/Handlers/IClientVehicleWorkflowHandler.cs) tại tầng Service:
+### 2. Định Nghĩa Giao Diện Chuyên Trách `IClientVehicleWorkflowHandler` và `ClientVehicleExecutionContext`
+Áp dụng mẫu thiết kế **Introduce Parameter Object** nhằm triệt tiêu mùi mã **Data Clumps** (7 tham số lặp lại), tạo mới DTO `ClientVehicleExecutionContext` và giao diện [IClientVehicleWorkflowHandler.cs](../../HPParking/Services/Parking/Handlers/IClientVehicleWorkflowHandler.cs) tại tầng Service:
 
 ```csharp
 namespace HPParking.Services.Parking.Handlers
 {
+    public record ClientVehicleExecutionContext(
+        LaneRuntimeContext Context,
+        WorkflowTriggerEvent Trigger,
+        Client Client,
+        string ImageBasePath,
+        Func<LaneRuntimeContext, bool>? OnBarrierOpenFailed = null,
+        Func<LaneRuntimeContext, string?, Task<string?>>? OnManualPlateInput = null,
+        string? DepartmentName = null);
+
     public interface IClientVehicleWorkflowHandler
     {
-        Task<ProcessResult> ProcessEntryAsync(
-            LaneRuntimeContext context,
-            WorkflowTriggerEvent trigger,
-            Client client,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
-            string? departmentName = null);
+        Task<ProcessResult> ProcessEntryAsync(ClientVehicleExecutionContext request);
 
-        Task<ProcessResult> ProcessExitAsync(
-            LaneRuntimeContext context,
-            WorkflowTriggerEvent trigger,
-            Client client,
-            string imageBasePath,
-            Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
-            string? departmentName = null);
+        Task<ProcessResult> ProcessExitAsync(ClientVehicleExecutionContext request);
     }
 }
 ```
@@ -84,9 +79,11 @@ Lớp `ClientVehicleWorkflowHandler` đóng gói toàn bộ quy trình kiểm so
 - Xóa bỏ hoàn toàn hai private methods cồng kềnh `ProcessVehicleCardEntryAsync` và `ProcessVehicleCardExitAsync`, chuyển giao ủy quyền trực tiếp cho handler:
   ```csharp
   (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
-      => await _clientVehicleHandler.ProcessEntryAsync(context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+      => await _clientVehicleHandler.ProcessEntryAsync(new ClientVehicleExecutionContext(
+          context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)),
   (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
-      => await _clientVehicleHandler.ProcessExitAsync(context, trigger, client, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
+      => await _clientVehicleHandler.ProcessExitAsync(new ClientVehicleExecutionContext(
+          context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)),
   ```
 
 ---
