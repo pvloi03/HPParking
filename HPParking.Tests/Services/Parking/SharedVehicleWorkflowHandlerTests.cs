@@ -619,8 +619,10 @@ namespace HPParking.Tests.Services.Parking
             Assert.Contains("Phương tiện nội bộ 29A-11111 (InTransit)", result.Message);
         }
 
-        [Fact]
-        public async Task ProcessAsync_WhenLaneHasFaceDevice_ShouldNeverEnableNeedFace()
+        [Theory]
+        [InlineData(LaneDirection.Out)]
+        [InlineData(LaneDirection.In)]
+        public async Task ProcessAsync_WhenLaneHasFaceDevice_ShouldNeverEnableNeedFace(LaneDirection direction)
         {
             // Arrange
             var card = new Card { Id = "c1", CardNumber = "123456", VehicleId = "veh1" };
@@ -636,7 +638,7 @@ namespace HPParking.Tests.Services.Parking
             var lane = new Lane
             {
                 Id = "l1",
-                Direction = LaneDirection.Out,
+                Direction = direction,
                 GateId = "gate_A",
                 UseFaceCam = true,
                 FaceDeviceId = "face-device-01"
@@ -644,12 +646,28 @@ namespace HPParking.Tests.Services.Parking
             var context = new LaneRuntimeContext(lane);
             var trigger = new WorkflowTriggerEvent { RawCardNo = "123456", TriggerTime = DateTime.UtcNow };
 
-            _tripRepo.FindOneAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>()).Returns((VehicleDispatchTrip?)null);
+            if (direction == LaneDirection.In)
+            {
+                var existingTrip = new VehicleDispatchTrip
+                {
+                    Id = "trip1",
+                    VehicleId = "veh1",
+                    OriginGateId = "gate_A",
+                    CurrentGateId = "gate_A",
+                    Status = TripStatus.InTransit,
+                    CurrentStepIndex = 1
+                };
+                _tripRepo.FindOneAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>()).Returns(existingTrip);
+            }
+            else
+            {
+                _tripRepo.FindOneAsync(Arg.Any<Expression<Func<VehicleDispatchTrip, bool>>>()).Returns((VehicleDispatchTrip?)null);
+            }
 
             // Act
             var result = await _handler.ProcessSharedVehicleTripAsync(context, trigger, card, "C:\\img");
 
-            // Assert: Luồng xe dùng chung tuyệt đối không bật needFace
+            // Assert: Luồng xe dùng chung tuyệt đối không bật needFace bất kể làn vào hay làn ra
             Assert.Equal(ProcessStatus.Success, result.Status);
             await _hardwareOrchestrator.Received(1).CaptureLaneImagesAsync(
                 context,

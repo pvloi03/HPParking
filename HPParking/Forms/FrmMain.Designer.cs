@@ -895,7 +895,7 @@ namespace HPParking.Forms
             lblLane3Dept.Padding = new Padding(6, 0, 0, 0);
             lblLane3Dept.Size = new Size(222, 63);
             lblLane3Dept.TabIndex = 1;
-            lblLane3Dept.Text = "Phòng ban:";
+            lblLane3Dept.Text = "Đơn vị:";
             lblLane3Dept.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblLane3TimeIn

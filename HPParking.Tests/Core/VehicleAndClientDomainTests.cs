@@ -313,6 +313,10 @@ namespace HPParking.Tests.Core
 
             var clientEmpty = new Client { AuthMethods = [] };
             clientEmpty.UsesFaceAuth().Should().BeFalse();
+
+            var clientWithNullAndWhitespace = new Client { AuthMethods = [null!, "   ", ""] };
+            clientWithNullAndWhitespace.UsesFaceAuth().Should().BeFalse();
+            clientWithNullAndWhitespace.UsesCardAuth().Should().BeFalse();
         }
 
         [Theory]
@@ -321,6 +325,7 @@ namespace HPParking.Tests.Core
         [InlineData(true, "face-device-01", true)]
         [InlineData(false, null, false)]
         [InlineData(false, "", false)]
+        [InlineData(false, "   ", false)]
         public void Lane_HasFaceDevice_ShouldEvaluateCorrectly(bool useFaceCam, string? faceDeviceId, bool expected)
         {
             var lane = new Lane

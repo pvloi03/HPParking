@@ -80,7 +80,7 @@ Lớp `ClientVehicleWorkflowHandler` đóng gói toàn bộ quy trình kiểm so
   4. Mở barrier ra, cập nhật phiên `ParkingSession` (`Status = Completed`, `OutTime`) và lưu ảnh ra nền ngầm.
 - **Quy tắc Kiểm Soát Chụp FaceID (`needFace`)**:
   - Tại cả `ProcessEntryAsync` và `ProcessExitAsync`: Chỉ kích hoạt chụp FaceID (`needFace: true`) khi thỏa mãn đồng thời:
-    1. Làn có thiết bị/camera FaceID: `context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId))`.
+    1. Làn có thiết bị/camera FaceID: `context.Lane?.HasFaceDevice() ?? false`.
     2. Hồ sơ Client có đăng ký phương thức FaceID: `client.UsesFaceAuth()`.
   - Nếu Client chỉ dùng thẻ (`Card`) hoặc làn không có FaceID: thiết lập `needFace: false`.
   - Đối với xe dùng chung / công vụ (`SharedVehicleWorkflowHandler`): Tuyệt đối không kích hoạt FaceID (`needFace: false`).

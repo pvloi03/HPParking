@@ -109,7 +109,7 @@ Tình huống cảnh báo an ninh khi biển số xe nhận diện được khô
 _Avoid_: WrongPlate, InvalidPlateMatch
 
 **Lane FaceID Verification**:
-Quy tắc kiểm soát khuôn mặt tại làn xe: chỉ kích hoạt chụp và nhận diện FaceID (`needFace: true`) khi làn được trang bị phần cứng FaceID (`UseFaceCam` hoặc `FaceDeviceId`) VÀ hồ sơ Client có đăng ký phương thức xác thực `FaceId` (`client.UsesFaceAuth()`). Với Client chỉ dùng thẻ hoặc làn không có FaceID, và đối với toàn bộ luồng xe công vụ / dùng chung (`SharedVehicle`), FaceID luôn ở trạng thái tắt (`needFace: false`).
+Quy tắc kiểm soát khuôn mặt tại làn xe: chỉ kích hoạt chụp và nhận diện FaceID (`needFace: true`) khi làn được trang bị phần cứng FaceID (`Lane.HasFaceDevice()`) VÀ hồ sơ Client có đăng ký phương thức xác thực `FaceId` (`client.UsesFaceAuth()`). Với Client chỉ dùng thẻ hoặc làn không có FaceID, và đối với toàn bộ luồng xe công vụ / dùng chung (`SharedVehicle`), FaceID luôn ở trạng thái tắt (`needFace: false`).
 _Avoid_: ForceLaneFace, AlwaysFaceCapture, SharedVehicleFaceScan
 
 ### Hardware & Peripherals

@@ -275,7 +275,7 @@ namespace HPParking.Services.Parking
             var images = await CaptureLaneImagesAsync(context,
                 needOverview: context.Lane.UseOverviewCam,
                 needPlate: false,
-                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId) || context.Lane.TargetType == LaneTargetType.Pedestrian);
+                needFace: context.Lane.HasFaceDevice() || context.Lane.TargetType == LaneTargetType.Pedestrian);
 
             // Mở Turnstile
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
@@ -352,7 +352,7 @@ namespace HPParking.Services.Parking
             var images = await CaptureLaneImagesAsync(context,
                 needOverview: context.Lane.UseOverviewCam,
                 needPlate: false,
-                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId) || context.Lane.TargetType == LaneTargetType.Pedestrian);
+                needFace: context.Lane.HasFaceDevice() || context.Lane.TargetType == LaneTargetType.Pedestrian);
 
             if (!TryOpenBarrier(context, onBarrierOpenFailed))
             {
@@ -432,7 +432,7 @@ namespace HPParking.Services.Parking
             var images = await CaptureLaneImagesAsync(context,
                 needOverview: context.Lane.UseOverviewCam,
                 needPlate: context.Lane.UsePlateCam,
-                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
+                needFace: context.Lane.HasFaceDevice());
             var (lprSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate: trigger.ManualPlateNumber ?? "", onManualPlateInput: null);
 
             if (!lprSuccess || string.IsNullOrEmpty(detectedPlate))
@@ -520,7 +520,7 @@ namespace HPParking.Services.Parking
             var images = await CaptureLaneImagesAsync(context,
                 needOverview: context.Lane.UseOverviewCam,
                 needPlate: context.Lane.UsePlateCam,
-                needFace: context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
+                needFace: context.Lane.HasFaceDevice());
             var (lprSuccess, detectedPlate, lprResult) = await RecognizePlateAsync(context, images.Plate, defaultPlate: trigger.ManualPlateNumber ?? "", onManualPlateInput: null);
 
             if (!lprSuccess || string.IsNullOrEmpty(detectedPlate))

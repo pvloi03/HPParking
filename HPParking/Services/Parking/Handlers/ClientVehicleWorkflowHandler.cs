@@ -93,8 +93,7 @@ namespace HPParking.Services.Parking.Handlers
                 : "";
 
             // 4. Chụp ảnh song song đa camera và nhận diện biển số LPR
-            bool hasLaneFace = context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
-            bool needFace = hasLaneFace && client.UsesFaceAuth();
+            bool needFace = (context.Lane?.HasFaceDevice() ?? false) && client.UsesFaceAuth();
 
             var images = await _hardwareOrchestrator.CaptureLaneImagesAsync(context,
                 needOverview: context.Lane?.UseOverviewCam ?? true,
@@ -239,8 +238,7 @@ namespace HPParking.Services.Parking.Handlers
             Vehicle? matchedVehicle = client.FindMatchingVehicle(parking.PlateNumber, clientVehicles);
 
             bool requirePlateVerification = client.RequiresPlateVerification();
-            bool hasLaneFace = context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
-            bool needFace = hasLaneFace && client.UsesFaceAuth();
+            bool needFace = (context.Lane?.HasFaceDevice() ?? false) && client.UsesFaceAuth();
 
             var images = await _hardwareOrchestrator.CaptureLaneImagesAsync(context,
                 needOverview: context.Lane?.UseOverviewCam ?? true,
