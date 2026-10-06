@@ -1,4 +1,5 @@
 using FluentAssertions;
+using HPParking.Core.Helpers;
 using HPParking.Core.Models.Entities;
 using System;
 using System.Collections.Generic;
@@ -47,9 +48,9 @@ namespace HPParking.Tests.Core
         [InlineData("30E-123.45", "29A-888.88", false)]
         [InlineData(null, "29A-888.88", false)]
         [InlineData("30E-123.45", null, false)]
-        public void Vehicle_StaticMatchesPlate_ShouldMatchCorrectly(string? plateA, string? plateB, bool expected)
+        public void PlateHelper_Matches_ShouldMatchCorrectly(string? plateA, string? plateB, bool expected)
         {
-            Vehicle.MatchesPlate(plateA, plateB).Should().Be(expected);
+            PlateHelper.Matches(plateA, plateB).Should().Be(expected);
         }
 
         #endregion

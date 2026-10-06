@@ -1,3 +1,4 @@
+using System;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Core.Helpers
@@ -37,6 +38,20 @@ namespace HPParking.Core.Helpers
                 return false;
 
             return PlateRegex.IsMatch(normalized);
+        }
+
+        /// <summary>
+        /// So khớp hai chuỗi biển số bất kỳ sau khi đã chuẩn hóa (bỏ qua ký tự phân cách, khoảng trắng và chữ hoa/thường)
+        /// </summary>
+        public static bool Matches(string? plateA, string? plateB)
+        {
+            string normA = Normalize(plateA);
+            string normB = Normalize(plateB);
+
+            if (string.IsNullOrEmpty(normA) || string.IsNullOrEmpty(normB))
+                return false;
+
+            return string.Equals(normA, normB, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
