@@ -810,60 +810,32 @@ namespace HPParking.Services.Parking
 
         private async Task<string> GetDepartmentNameAsync(Client client)
         {
-            switch (client.Type)
+            // 1. Kiểm tra Tên phòng ban
+            if (!string.IsNullOrWhiteSpace(client.DepartmentId) && _departmentRepository != null)
             {
-                case ClientType.Contractor:
-                    if (!string.IsNullOrWhiteSpace(client.ContractorId) && _contractorRepository != null)
-                    {
-                        var contractor = await _contractorRepository.GetByIdAsync(client.ContractorId);
-                        if (contractor != null && !string.IsNullOrWhiteSpace(contractor.Name))
-                            return contractor.Name;
-                    }
-                    return "Nhà thầu / Đối tác";
-
-                case ClientType.Visitor:
-                    if (!string.IsNullOrWhiteSpace(client.CompanyId) && _companyRepository != null)
-                    {
-                        var company = await _companyRepository.GetByIdAsync(client.CompanyId);
-                        if (company != null && !string.IsNullOrWhiteSpace(company.Name))
-                            return company.Name;
-                    }
-                    return "Khách vãng lai";
-
-                case ClientType.VIP:
-                    if (!string.IsNullOrWhiteSpace(client.DepartmentId) && _departmentRepository != null)
-                    {
-                        var dept = await _departmentRepository.GetByIdAsync(client.DepartmentId);
-                        if (dept != null && !string.IsNullOrWhiteSpace(dept.Name))
-                            return dept.Name;
-                    }
-                    return "Khách VIP / Ban giám đốc";
-
-                case ClientType.Guest:
-                    if (!string.IsNullOrWhiteSpace(client.ContractorId) && _contractorRepository != null)
-                    {
-                        var contractor = await _contractorRepository.GetByIdAsync(client.ContractorId);
-                        if (contractor != null && !string.IsNullOrWhiteSpace(contractor.Name))
-                            return contractor.Name;
-                    }
-                    return "Khách đến thăm";
-
-                case ClientType.Employee:
-                default:
-                    if (!string.IsNullOrWhiteSpace(client.DepartmentId) && _departmentRepository != null)
-                    {
-                        var dept = await _departmentRepository.GetByIdAsync(client.DepartmentId);
-                        if (dept != null && !string.IsNullOrWhiteSpace(dept.Name))
-                            return dept.Name;
-                    }
-                    if (!string.IsNullOrWhiteSpace(client.CompanyId) && _companyRepository != null)
-                    {
-                        var company = await _companyRepository.GetByIdAsync(client.CompanyId);
-                        if (company != null && !string.IsNullOrWhiteSpace(company.Name))
-                            return company.Name;
-                    }
-                    return string.Empty;
+                var dept = await _departmentRepository.GetByIdAsync(client.DepartmentId);
+                if (dept != null && !string.IsNullOrWhiteSpace(dept.Name))
+                    return dept.Name;
             }
+
+            // 2. Nếu không có phòng ban -> kiểm tra Tên công ty
+            if (!string.IsNullOrWhiteSpace(client.CompanyId) && _companyRepository != null)
+            {
+                var company = await _companyRepository.GetByIdAsync(client.CompanyId);
+                if (company != null && !string.IsNullOrWhiteSpace(company.Name))
+                    return company.Name;
+            }
+
+            // 3. Nếu không có công ty -> kiểm tra Tên nhà thầu
+            if (!string.IsNullOrWhiteSpace(client.ContractorId) && _contractorRepository != null)
+            {
+                var contractor = await _contractorRepository.GetByIdAsync(client.ContractorId);
+                if (contractor != null && !string.IsNullOrWhiteSpace(contractor.Name))
+                    return contractor.Name;
+            }
+
+            // 4. Nếu không có cả 3 -> Vãng lai
+            return "Vãng lai";
         }
 
         #endregion

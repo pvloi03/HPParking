@@ -615,6 +615,16 @@ namespace HPParking.Forms
             old?.Dispose();
         }
 
+        private static string FormatClientTypeVietnamese(ClientType type) => type switch
+        {
+            ClientType.Employee => "Nhân viên",
+            ClientType.Contractor => "Nhà thầu",
+            ClientType.Visitor => "Khách vãng lai",
+            ClientType.VIP => "Khách VIP",
+            ClientType.Guest => "Khách",
+            _ => type.ToString()
+        };
+
         private void UpdateLaneSlotUI(int slotIndex, LaneRuntimeContext context, ProcessResult result)
         {
             string timeStr = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
@@ -637,15 +647,19 @@ namespace HPParking.Forms
                 string name = result.Client?.Name ?? string.Empty;
                 string code = result.Client?.Code 
                     ?? (!string.IsNullOrEmpty(result.Client?.CardCode) ? result.Client.CardCode : string.Empty);
-                string dept = result.DepartmentName ?? string.Empty;
-                string role = result.Client != null ? result.Client.Type.ToString() : string.Empty;
+
+                // Yêu cầu 1: Đơn vị: tên phòng ban nếu không có thì tên công ty nếu không có thì tên nhà thầu nếu cả 3 đều không có thì vãng lai
+                string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
+                string deptText = $"Đơn vị: {unitName}";
+
+                // Yêu cầu 2: lblLaneRole hiện dạng tiếng Việt
+                string roleVi = result.Client != null ? FormatClientTypeVietnamese(result.Client.Type) : "Vãng lai";
+                string roleText = $"Đối tượng: {roleVi}";
 
                 Color flashColor = isSuccess ? Color.LightGreen : Color.LightCoral;
 
                 string nameText = !string.IsNullOrEmpty(name) ? $"Họ và tên: {name}" : "Họ và tên:";
-                string deptText = !string.IsNullOrEmpty(dept) ? $"Phòng ban: {dept}" : "Phòng ban:";
                 string codeText = !string.IsNullOrEmpty(code) ? $"CCCD/Mã: {code}" : "CCCD/Mã:";
-                string roleText = !string.IsNullOrEmpty(role) ? $"Đối tượng: {role}" : "Đối tượng:";
 
                 if (slotIndex == 0)
                 {
@@ -715,12 +729,42 @@ namespace HPParking.Forms
                     ? result.RegisteredPlate
                     : (result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? string.Empty);
                 string driver = result.Client?.Name ?? string.Empty;
-                string dept = result.DepartmentName ?? string.Empty;
+                bool isSharedVehicle = result.DispatchTrip != null 
+                    || result.Vehicle?.IsShared == true
+                    || (result.DepartmentName?.StartsWith("Tuyến:") == true)
+                    || (result.DepartmentName?.Contains("Điều vận") == true);
+
+                string deptText;
+                if (isSharedVehicle)
+                {
+                    // Yêu cầu 3: Nếu là xe chung thì hiện tuyến: tên tuyến hoặc vãng lai
+                    string routeName = result.DepartmentName ?? string.Empty;
+                    if (routeName.StartsWith("Tuyến:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        routeName = routeName.Substring(6).Trim();
+                    }
+
+                    if (string.IsNullOrWhiteSpace(routeName) 
+                        || routeName.Equals("Tuyến tự do", StringComparison.OrdinalIgnoreCase)
+                        || routeName.Contains("Điều vận", StringComparison.OrdinalIgnoreCase))
+                    {
+                        deptText = "Tuyến: Vãng lai";
+                    }
+                    else
+                    {
+                        deptText = $"Tuyến: {routeName}";
+                    }
+                }
+                else
+                {
+                    // Yêu cầu 1: Xe riêng thì Đơn vị: tên phòng ban / tên công ty / tên nhà thầu / vãng lai
+                    string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
+                    deptText = $"Đơn vị: {unitName}";
+                }
 
                 Color flashColor = isSuccess ? Color.Honeydew : Color.LightCoral;
 
                 string driverText = !string.IsNullOrEmpty(driver) ? $"Tài xế/Chủ xe: {driver}" : "Tài xế/Chủ xe:";
-                string deptText = !string.IsNullOrEmpty(dept) ? $"Phòng ban: {dept}" : "Phòng ban:";
                 string regPlateText = !string.IsNullOrEmpty(regPlate) ? $"Biển số đăng ký: {regPlate}" : "Biển số đăng ký:";
                 string detPlateText = !string.IsNullOrEmpty(plate) ? $"Biển số nhận diện: {plate}" : "Biển số nhận diện:";
 

@@ -145,7 +145,7 @@ namespace HPParking.Services.Parking.Handlers
                     return CreateConfirmRequiredResult(
                         vehicle,
                         defaultDeptName,
-                        $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra nhưng lại quẹt vào cổng {currentGateName}!",
+                        $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} đi sai tuyến!",
                         images,
                         lprResult,
                         dispatchTrip: null);
@@ -197,7 +197,7 @@ namespace HPParking.Services.Parking.Handlers
                         return CreateConfirmRequiredResult(
                             vehicle,
                             defaultDeptName,
-                            $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt ra khỏi cổng trước đó nhưng lại quẹt vào cổng {currentGateName}!",
+                            $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} đi sai tuyến!",
                             images,
                             lprResult,
                             activeTrip);
@@ -210,7 +210,7 @@ namespace HPParking.Services.Parking.Handlers
                         return CreateConfirmRequiredResult(
                             vehicle,
                             defaultDeptName,
-                            $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} chưa có bản ghi quẹt vào cổng tiếp theo nhưng lại quẹt ra!",
+                            $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} đi sai tuyến!",
                             images,
                             lprResult,
                             activeTrip);
@@ -244,8 +244,8 @@ namespace HPParking.Services.Parking.Handlers
 
                     return CreateConfirmRequiredResult(
                         vehicle,
-                        $"Tuyến: {assignedRoute?.RouteName ?? "Lạc tuyến"}",
-                        $"CẢNH BÁO LẠC TUYẾN: Xe {vehicle.PlateNumber} quẹt tại {currentGateName} không đúng lộ trình tuyến {assignedRoute?.RouteName}!",
+                        $"Tuyến: {assignedRoute?.RouteName ?? "Sai tuyến"}",
+                        $"CẢNH BÁO XE ĐI SAI TUYẾN: Phương tiện {vehicle.PlateNumber} đi sai tuyến!",
                         images,
                         lprResult,
                         activeTrip);

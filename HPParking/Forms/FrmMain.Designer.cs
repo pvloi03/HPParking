@@ -377,7 +377,7 @@ namespace HPParking.Forms
             lblLane1Dept.Padding = new Padding(6, 0, 0, 0);
             lblLane1Dept.Size = new Size(222, 63);
             lblLane1Dept.TabIndex = 1;
-            lblLane1Dept.Text = "Phòng ban:";
+            lblLane1Dept.Text = "Đơn vị:";
             lblLane1Dept.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblLane1TimeIn
@@ -636,7 +636,7 @@ namespace HPParking.Forms
             lblLane2Dept.Padding = new Padding(6, 0, 0, 0);
             lblLane2Dept.Size = new Size(222, 63);
             lblLane2Dept.TabIndex = 1;
-            lblLane2Dept.Text = "Nhà thầu:";
+            lblLane2Dept.Text = "Đơn vị:";
             lblLane2Dept.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblLane2TimeIn
@@ -693,7 +693,7 @@ namespace HPParking.Forms
             lblLane2Role.BorderStyle = BorderStyle.FixedSingle;
             lblLane2Role.Dock = DockStyle.Fill;
             lblLane2Role.Font = new Font("Arial", 8F);
-            lblLane2Role.ForeColor = Color.DarkGoldenrod;
+            lblLane2Role.ForeColor = Color.DarkBlue;
             lblLane2Role.Location = new Point(230, 141);
             lblLane2Role.Margin = new Padding(3);
             lblLane2Role.Name = "lblLane2Role";
