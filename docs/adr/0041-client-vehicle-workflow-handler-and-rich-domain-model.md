@@ -65,12 +65,16 @@ Lớp `ClientVehicleWorkflowHandler` đóng gói toàn bộ quy trình kiểm so
   1. Kiểm tra phiên gửi đang hoạt động (`AlreadyInParking`) thông qua `ParkingSessionStatus.Active`.
   2. Tra cứu xe của Client và kiểm tra điều kiện biển số qua `Client.FindMatchingVehicle`.
   3. Chụp camera song song và nhận diện OCR qua `ILaneHardwareOrchestrator`.
-  4. Đối soát biển số (nếu `VerifyVehiclePlate == true` mà không khớp -> trả về `PlateMismatch`).
-  5. Mở barrier và tạo phiên `ParkingSession` mới, lưu ảnh ngầm qua `IImageStorageService`.
+  4. Đối soát biển số:
+     - Nếu `VerifyVehiclePlate == true`: Không nhận diện được hoặc không khớp danh mục xe đã đăng ký -> Trả về `LprFailed` hoặc `PlateMismatch`.
+     - Nếu `VerifyVehiclePlate == false` (VIP Seamless Gate Access): Miễn xác thực biển số và mở barie ngay. Nếu LPR nhận diện được biển số thực tế, lưu biển số đó (`matchedVehicle?.PlateNumber ?? recognizedPlate`). Nếu LPR không nhận diện được, bỏ qua và lưu `PlateNumber = ""` (chuỗi rỗng), tuyệt đối không nối chuỗi `; ` hay gán bừa xe khác.
+  5. Mở barrier và tạo phiên `ParkingSession` mới, lưu ảnh ngầm qua `IWorkflowImageStorageOrchestrator`.
 - **Quy trình Lúc Ra (`ProcessExitAsync`)**:
   1. Kiểm tra phiên gửi đang hoạt động (`NotInParking`).
   2. Chụp camera làn ra và chạy LPR nhận diện biển số ra.
-  3. Thực thi chính sách **Strict Exit Lockout**: Nếu biển số ra không khớp biển số vào (`Vehicle.MatchesPlate`), chặn cứng 100%, không mở barrier và trả về `PlateMismatch`.
+  3. Thực thi chính sách kiểm soát ra:
+     - Nếu `VerifyVehiclePlate == true`: Áp dụng **Strict Exit Lockout**, nếu biển số ra không khớp biển số vào (`Vehicle.MatchesPlate`), chặn cứng 100%, không mở barrier và trả về `PlateMismatch`.
+     - Nếu `VerifyVehiclePlate == false` (VIP): Miễn trừ Strict Exit Lockout, mở barrier ra và đóng phiên thành công bất kể biển số ra đọc được hay không.
   4. Mở barrier ra, cập nhật phiên `ParkingSession` (`Status = Completed`, `OutTime`) và lưu ảnh ra nền ngầm.
 
 ### 4. Mỏng Hóa `ParkingWorkflowService` (Thin Dispatcher)

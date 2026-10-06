@@ -15,7 +15,7 @@ Phương tiện giao thông cơ giới (ô tô, xe máy...) đã đăng ký tron
 _Avoid_: Car, Bike, Motorbike, TransportUnit
 
 **ParkingSession**:
-Bản ghi phiên gửi xe theo dõi chu trình từ lúc phương tiện/người đi vào (`InTime`) đến khi rời đi (`OutTime`), liên kết với nhân sự (`PersonId`), thẻ định danh (`CardNumber`), loại đối tượng (`TargetType`), biển số xe (`PlateNumber` - cho phép rỗng khi là phiên đi bộ), trạng thái phiên (`ParkingSessionStatus`), ảnh bằng chứng lúc vào/ra (ảnh biển số, ảnh toàn cảnh, ảnh khuôn mặt `InFaceImagePath`/`OutFaceImagePath`) và điểm khớp khuôn mặt (`FaceMatchScore`).
+Bản ghi phiên gửi xe theo dõi chu trình từ lúc phương tiện/người đi vào (`InTime`) đến khi rời đi (`OutTime`), liên kết với nhân sự (`PersonId`), thẻ định danh (`CardNumber`), loại đối tượng (`TargetType`), biển số xe (`PlateNumber` - cho phép rỗng khi là phiên đi bộ hoặc phiên VIP không nhận diện được biển số; tuyệt đối không nối chuỗi dấu chấm phẩy hay gán bừa), trạng thái phiên (`ParkingSessionStatus`), ảnh bằng chứng lúc vào/ra (ảnh biển số, ảnh toàn cảnh, ảnh khuôn mặt `InFaceImagePath`/`OutFaceImagePath`) và điểm khớp khuôn mặt (`FaceMatchScore`).
 _Avoid_: EventParking, Ticket, Transaction, HistoryLog
 
 **AuditLog**:
@@ -223,6 +223,12 @@ _Avoid_: ForcePlate, ManualOverride, Bỏ qua biển số
 **Strict Exit Lockout (Chặn Cứng Khi Ra)**:
 Chính sách an ninh nghiêm ngặt tại cổng ra: nếu biển số xe ra không trùng khớp với biển số xe lúc vào (`LicensePlateOut != LicensePlateIn`) hoặc thông tin gửi xe không tồn tại trong bãi, hệ thống lập tức chặn cứng 100%, tuyệt đối không mở barrier tự động và hiển thị cảnh báo đỏ trên màn hình để nhân viên giữ xe lại làm việc trực tiếp.
 _Avoid_: SoftMismatch, AutoBypassExit
+
+**VIP Seamless Gate Access (Truy Cập Liền Mạch Cho Khách VIP / Miễn Xác Thực Biển Số)**:
+Chính sách đặc quyền dành cho nhân sự hoặc khách có cờ xác thực biển số tắt (`VerifyVehiclePlate == false`):
+- Lúc Vào: Barie luôn mở ngay khi quẹt thẻ hợp lệ. Nếu camera LPR nhận diện được biển số thực tế, hệ thống liên kết đúng xe của khách (`matchedVehicle?.PlateNumber ?? recognizedPlate`). Nếu LPR không nhận diện được (ảnh mờ, biển bẩn), hệ thống bỏ qua nhận diện và lưu `PlateNumber = ""` (chuỗi rỗng), tuyệt đối không ép gán xe đầu tiên hay nối chuỗi danh sách xe bằng dấu chấm phẩy, không chặn barie hay bắt bảo vệ nhập tay.
+- Lúc Ra: Barie luôn mở ngay khi xác nhận có phiên đỗ xe đang hoạt động (`Active Session`), miễn trừ chính sách Strict Exit Lockout để đảm bảo trải nghiệm lưu thông nhanh chóng, đồng thời lưu trữ đầy đủ hình ảnh làn ra để phục vụ hậu kiểm.
+_Avoid_: EnforcedPlateOnVip, ConcatenatedPlateSession, DummyPlateAssignment
 
 **Plate & Avatar Dual-Display (Cặp Ô Biển Số & Avatar)**:
 Bố cục hiển thị ảnh gồm 2 ô trong cụm thông tin của mỗi làn: ô trái hiển thị luân phiên ảnh chụp biển số xe hoặc ảnh sự kiện vào/ra và ô phải hiển thị ảnh đại diện khuôn mặt (Avatar) của nhân sự từ hồ sơ hoặc ảnh chụp khuôn mặt thời gian thực (`InFaceImagePath`/`OutFaceImagePath`).

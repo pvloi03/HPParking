@@ -98,16 +98,19 @@ namespace HPParking.Services.Parking.Handlers
                 needPlate: context.Lane?.UsePlateCam ?? true,
                 needFace: context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId)));
 
+            // Với khách VIP: Không bắt buộc nhập tay nếu camera không nhận diện được
             var (plateSuccess, recognizedPlate, lprResult) = await _hardwareOrchestrator.RecognizePlateAsync(
-                context, images.Plate, defaultPlate, onManualPlateInput);
+                context, images.Plate, requirePlateVerification ? defaultPlate : string.Empty, requirePlateVerification ? onManualPlateInput : null);
 
             Vehicle? matchedVehicle = null;
 
             if (!requirePlateVerification)
             {
-                if (string.IsNullOrEmpty(recognizedPlate)) recognizedPlate = defaultPlate;
-                matchedVehicle = client.FindMatchingVehicle(recognizedPlate, clientVehicles)
-                    ?? clientVehicles.FirstOrDefault();
+                // Đối với khách VIP: Không bắt buộc nhận diện biển số (bỏ qua nếu không nhận diện được)
+                if (!string.IsNullOrWhiteSpace(recognizedPlate))
+                {
+                    matchedVehicle = client.FindMatchingVehicle(recognizedPlate, clientVehicles);
+                }
             }
             else
             {
@@ -157,10 +160,13 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 6. Ghi nhận phiên đỗ xe (ParkingSession) mới
+            string sessionPlate = matchedVehicle?.PlateNumber
+                ?? (!string.IsNullOrWhiteSpace(recognizedPlate) ? recognizedPlate : string.Empty);
+
             var parking = new ParkingSession
             {
                 PersonId = client.Id,
-                PlateNumber = !requirePlateVerification ? defaultPlate : (matchedVehicle?.PlateNumber ?? recognizedPlate ?? ""),
+                PlateNumber = sessionPlate,
                 VehicleType = matchedVehicle?.Type ?? clientVehicles.FirstOrDefault()?.Type ?? VehicleType.Car,
                 TargetType = LaneTargetType.Vehicle,
                 InTime = (trigger.TriggerTime != default && trigger.TriggerTime != DateTime.MinValue) ? trigger.TriggerTime : DateTime.Now,
@@ -235,14 +241,24 @@ namespace HPParking.Services.Parking.Handlers
                 needPlate: context.Lane?.UsePlateCam ?? true,
                 needFace: context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId)));
 
+            // Với khách VIP: Không bắt buộc nhập tay nếu camera không nhận diện được
             var (plateSuccess, exitPlate, lprResult) = await _hardwareOrchestrator.RecognizePlateAsync(
-                context, images.Plate, parking.PlateNumber ?? "", onManualPlateInput);
+                context, images.Plate, parking.PlateNumber ?? "", requirePlateVerification ? onManualPlateInput : null);
 
             // 4. Đối soát biển số ra và thực thi chính sách Strict Exit Lockout
             if (!requirePlateVerification)
             {
-                if (string.IsNullOrEmpty(exitPlate)) exitPlate = parking.PlateNumber ?? "";
-                matchedVehicle ??= client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault();
+                if (!string.IsNullOrEmpty(exitPlate))
+                {
+                    matchedVehicle = client.FindMatchingVehicle(exitPlate, clientVehicles)
+                        ?? client.FindMatchingVehicle(parking.PlateNumber, clientVehicles)
+                        ?? clientVehicles.FirstOrDefault();
+                }
+                else
+                {
+                    matchedVehicle = client.FindMatchingVehicle(parking.PlateNumber, clientVehicles)
+                        ?? clientVehicles.FirstOrDefault();
+                }
             }
             else
             {

@@ -592,6 +592,93 @@ namespace HPParking.Tests.Services.Parking
             await _sessionRepo.Received(1).UpdateAsync(session);
         }
 
+        [Fact]
+        public async Task ProcessEntryAsync_WhenVerifyPlateFalse_AndLprFails_ShouldSaveEmptyPlateAndNotConcatenate()
+        {
+            var context = CreateContext(LaneDirection.In);
+            var trigger = CreateTrigger();
+            var client = new Client { Id = "c-vip", Name = "VIP Multi Vehicle Owner", VerifyVehiclePlate = false, IsActive = true };
+            var car1 = new Vehicle { Id = "v1", PlateNumber = "30A-111.11", OwnerClientId = client.Id, IsActive = true };
+            var car2 = new Vehicle { Id = "v2", PlateNumber = "29B-222.22", OwnerClientId = client.Id, IsActive = true };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(null));
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([car1, car2]));
+
+            // LPR không nhận diện được biển số
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((false, string.Empty, null));
+
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            result.ParkingSession.Should().NotBeNull();
+            result.ParkingSession!.PlateNumber.Should().Be(string.Empty, "khi LPR không nhận diện được thì phải bỏ qua, không nối chuỗi danh sách xe bằng dấu chấm phẩy");
+            _hardwareOrchestrator.Received(1).TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>());
+            await _sessionRepo.Received(1).AddAsync(Arg.Is<ParkingSession>(s => s.PlateNumber == string.Empty));
+        }
+
+        [Fact]
+        public async Task ProcessEntryAsync_WhenVerifyPlateFalse_AndLprSucceeds_ShouldSaveRecognizedPlateAndMatchVehicle()
+        {
+            var context = CreateContext(LaneDirection.In);
+            var trigger = CreateTrigger();
+            var client = new Client { Id = "c-vip", Name = "VIP Multi Vehicle Owner", VerifyVehiclePlate = false, IsActive = true };
+            var car1 = new Vehicle { Id = "v1", PlateNumber = "30A-111.11", OwnerClientId = client.Id, IsActive = true };
+            var car2 = new Vehicle { Id = "v2", PlateNumber = "29B-222.22", OwnerClientId = client.Id, IsActive = true };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(null));
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([car1, car2]));
+
+            // LPR nhận diện đúng xe car2
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "29B-222.22", new LprResult { Success = true, Plate = "29B-222.22" }));
+
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            result.ParkingSession.Should().NotBeNull();
+            result.ParkingSession!.PlateNumber.Should().Be("29B-222.22");
+            result.Vehicle.Should().Be(car2);
+            await _sessionRepo.Received(1).AddAsync(Arg.Is<ParkingSession>(s => s.PlateNumber == "29B-222.22"));
+        }
+
+        [Fact]
+        public async Task ProcessExitAsync_WhenVerifyPlateFalse_AndSessionPlateEmpty_ShouldCompleteSuccessfullyWithoutLockout()
+        {
+            var context = CreateContext(LaneDirection.Out);
+            var trigger = CreateTrigger();
+            var client = new Client { Id = "c-vip", Name = "VIP Multi Vehicle Owner", VerifyVehiclePlate = false, IsActive = true };
+            var car1 = new Vehicle { Id = "v1", PlateNumber = "30A-111.11", OwnerClientId = client.Id, IsActive = true };
+            var car2 = new Vehicle { Id = "v2", PlateNumber = "29B-222.22", OwnerClientId = client.Id, IsActive = true };
+            var session = new ParkingSession
+            {
+                Id = "s-empty-plate",
+                PersonId = client.Id,
+                PlateNumber = string.Empty, // Phiên vào trước đó không đọc được biển số
+                Status = ParkingSessionStatus.Active
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([car1, car2]));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "29B-222.22", new LprResult { Success = true, Plate = "29B-222.22" }));
+
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            result.Vehicle.Should().Be(car2);
+            session.Status.Should().Be(ParkingSessionStatus.Completed);
+            _hardwareOrchestrator.Received(1).TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>());
+            await _sessionRepo.Received(1).UpdateAsync(session);
+        }
+
         #endregion
     }
 }
