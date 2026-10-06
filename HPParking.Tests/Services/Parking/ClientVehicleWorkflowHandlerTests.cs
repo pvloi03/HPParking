@@ -565,6 +565,38 @@ namespace HPParking.Tests.Services.Parking
             await _sessionRepo.DidNotReceive().UpdateAsync(Arg.Any<ParkingSession>(), Arg.Any<CancellationToken>());
         }
 
+        [Fact]
+        public async Task ProcessExitAsync_WhenClientHasNoRegisteredVehicles_AndPlateMatchesSession_ShouldSucceedWithoutThrowawayVehicle()
+        {
+            var context = CreateContext(LaneDirection.Out);
+            var trigger = CreateTrigger();
+            var client = new Client { Id = "c-unregistered", Name = "Client Without Registered Vehicle", VerifyVehiclePlate = true, IsActive = true };
+            var session = new ParkingSession
+            {
+                Id = "s-unregistered",
+                PersonId = client.Id,
+                PlateNumber = "51F-999.99",
+                Status = ParkingSessionStatus.Active
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([]));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "51F-999.99", new LprResult { Success = true, Plate = "51F-999.99" }));
+
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            result.Vehicle.Should().BeNull("không được khởi tạo thực thể dummy throwaway Vehicle khi khách hàng không đăng ký xe trong hệ thống");
+            session.Status.Should().Be(ParkingSessionStatus.Completed);
+            _hardwareOrchestrator.Received(1).TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>>());
+            await _sessionRepo.Received(1).UpdateAsync(session);
+        }
+
         #endregion
     }
 }

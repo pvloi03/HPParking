@@ -250,8 +250,6 @@ namespace HPParking.Services.Parking.Handlers
             }
             else
             {
-                Vehicle vehicleInSession = matchedVehicle ?? new Vehicle { PlateNumber = parking.PlateNumber ?? string.Empty };
-
                 if (string.IsNullOrEmpty(PlateHelper.Normalize(exitPlate)))
                 {
                     bool capturedPlate = images.Plate != null;
@@ -266,9 +264,11 @@ namespace HPParking.Services.Parking.Handlers
                         lprResult);
                 }
 
-                // Strict Exit Lockout: Biển số ra PHẢI khớp với biển số lúc vào của phiên gửi xe theo quy chuẩn Vehicle.MatchesPlate.
+                // Strict Exit Lockout: Biển số ra PHẢI khớp với biển số lúc vào của phiên gửi xe theo quy chuẩn PlateHelper.Matches.
                 // Tuyệt đối không cho phép tráo sang xe khác của cùng một chủ xe.
-                bool plateMatches = vehicleInSession.MatchesPlate(exitPlate);
+                bool plateMatches = matchedVehicle != null
+                    ? matchedVehicle.MatchesPlate(exitPlate)
+                    : PlateHelper.Matches(parking.PlateNumber, exitPlate);
 
                 if (!plateMatches)
                 {
@@ -282,8 +282,6 @@ namespace HPParking.Services.Parking.Handlers
                         images,
                         lprResult);
                 }
-
-                matchedVehicle = vehicleInSession;
             }
 
             // 5. Thao tác mở thanh chắn Barrier
