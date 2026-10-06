@@ -41,6 +41,17 @@ namespace HPParking.Tests.Core
             vehicle.MatchesPlate(null).Should().BeFalse();
         }
 
+        [Theory]
+        [InlineData("30E-123.45", "30E12345", true)]
+        [InlineData("29A-888.88", "29A-888.88", true)]
+        [InlineData("30E-123.45", "29A-888.88", false)]
+        [InlineData(null, "29A-888.88", false)]
+        [InlineData("30E-123.45", null, false)]
+        public void Vehicle_StaticMatchesPlate_ShouldMatchCorrectly(string? plateA, string? plateB, bool expected)
+        {
+            Vehicle.MatchesPlate(plateA, plateB).Should().Be(expected);
+        }
+
         #endregion
 
         #region --- 2. Client Rich Domain Tests ---

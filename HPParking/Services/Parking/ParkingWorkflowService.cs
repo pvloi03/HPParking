@@ -34,6 +34,7 @@ namespace HPParking.Services.Parking
         private readonly IRepository<Gate> _gateRepository;
         private readonly ISharedVehicleWorkflowHandler _sharedVehicleHandler;
         private readonly IClientVehicleWorkflowHandler _clientVehicleHandler;
+        private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator;
 
         public ParkingWorkflowService(
             IRepository<Client> clientRepository,
@@ -63,11 +64,13 @@ namespace HPParking.Services.Parking
             _tripRepository = tripRepository;
             _gateRouteRepository = gateRouteRepository;
             _gateRepository = gateRepository;
+            _imageOrchestrator = new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository);
             _sharedVehicleHandler = sharedVehicleHandler ?? new SharedVehicleWorkflowHandler(
                 tripRepository, vehicleRepository, gateRouteRepository, gateRepository,
                 imageStorageService, new LaneHardwareOrchestrator(lprService));
             _clientVehicleHandler = clientVehicleHandler ?? new ClientVehicleWorkflowHandler(
-                vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService));
+                vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService),
+                imageOrchestrator: _imageOrchestrator);
         }
 
         #region --- 1. MASTER WORKFLOW DISPATCHER (TUPLE PATTERN MATCHING) ---
@@ -196,13 +199,12 @@ namespace HPParking.Services.Parking
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
-            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
-            if (isExpired)
+            if (!client.CanPassGate(trigger.TriggerTime, out string rejectReason))
             {
                 return new ProcessResult
                 {
-                    Status = ProcessStatus.CardExpired,
-                    Message = expiryMsg,
+                    Status = !client.IsActive ? ProcessStatus.AccessDenied : ProcessStatus.CardExpired,
+                    Message = rejectReason,
                     Client = client,
                     DepartmentName = departmentName
                 };
@@ -259,7 +261,7 @@ namespace HPParking.Services.Parking
             };
             await _sessionRepository.AddAsync(session);
 
-            SaveImagesBackground(session, images, isEntry: true, imageBasePath, client: client);
+            _imageOrchestrator.SaveSessionImagesBackground(session, images, isEntry: true, imageBasePath, client: client);
 
             var (_, pedFace, pedOverview) = ExtractWorkflowImages(images, null);
             return new ProcessResult
@@ -287,13 +289,12 @@ namespace HPParking.Services.Parking
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
-            var (isExpired, expiryMsg) = ValidateClientExpiry(client);
-            if (isExpired)
+            if (!client.CanPassGate(trigger.TriggerTime, out string rejectReason))
             {
                 return new ProcessResult
                 {
-                    Status = ProcessStatus.CardExpired,
-                    Message = expiryMsg,
+                    Status = !client.IsActive ? ProcessStatus.AccessDenied : ProcessStatus.CardExpired,
+                    Message = rejectReason,
                     Client = client,
                     DepartmentName = departmentName
                 };
@@ -331,7 +332,7 @@ namespace HPParking.Services.Parking
                 activeSession.Status = ParkingSessionStatus.Completed;
                 activeSession.UpdatedAt = DateTime.UtcNow;
                 await _sessionRepository.UpdateAsync(activeSession);
-                SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath, client: client);
+                _imageOrchestrator.SaveSessionImagesBackground(activeSession, images, isEntry: false, imageBasePath, client: client);
             }
             else
             {
@@ -346,7 +347,7 @@ namespace HPParking.Services.Parking
                     CreatedAt = DateTime.UtcNow
                 };
                 await _sessionRepository.AddAsync(newSession);
-                SaveImagesBackground(newSession, images, isEntry: false, imageBasePath, client: client);
+                _imageOrchestrator.SaveSessionImagesBackground(newSession, images, isEntry: false, imageBasePath, client: client);
                 activeSession = newSession;
             }
 
@@ -432,10 +433,10 @@ namespace HPParking.Services.Parking
                 };
             }
 
-            string cleanPlate = NormalizePlate(detectedPlate);
+            string cleanPlate = PlateHelper.Normalize(detectedPlate);
 
             var vehicle = await _vehicleRepository.FindOneAsync(v =>
-                NormalizePlate(v.PlateNumber) == cleanPlate &&
+                PlateHelper.Normalize(v.PlateNumber) == cleanPlate &&
                 v.IsActive && !v.IsDeleted);
 
             if (vehicle == null)
@@ -478,7 +479,7 @@ namespace HPParking.Services.Parking
                 CreatedAt = DateTime.UtcNow
             };
             await _sessionRepository.AddAsync(session);
-            SaveImagesBackground(session, images, isEntry: true, imageBasePath);
+            _imageOrchestrator.SaveSessionImagesBackground(session, images, isEntry: true, imageBasePath);
 
             var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
             return new ProcessResult
@@ -520,10 +521,10 @@ namespace HPParking.Services.Parking
                 };
             }
 
-            string cleanPlate = NormalizePlate(detectedPlate);
+            string cleanPlate = PlateHelper.Normalize(detectedPlate);
 
             var vehicle = await _vehicleRepository.FindOneAsync(v =>
-                NormalizePlate(v.PlateNumber) == cleanPlate &&
+                PlateHelper.Normalize(v.PlateNumber) == cleanPlate &&
                 v.IsActive && !v.IsDeleted);
 
             if (vehicle == null)
@@ -541,7 +542,7 @@ namespace HPParking.Services.Parking
             }
 
             var activeSession = await _sessionRepository.FindOneAsync(s =>
-                NormalizePlate(s.PlateNumber) == cleanPlate &&
+                PlateHelper.Normalize(s.PlateNumber) == cleanPlate &&
                 s.Status == ParkingSessionStatus.Active &&
                 !s.IsDeleted);
 
@@ -567,7 +568,7 @@ namespace HPParking.Services.Parking
                 activeSession.Status = ParkingSessionStatus.Completed;
                 activeSession.UpdatedAt = DateTime.UtcNow;
                 await _sessionRepository.UpdateAsync(activeSession);
-                SaveImagesBackground(activeSession, images, isEntry: false, imageBasePath);
+                _imageOrchestrator.SaveSessionImagesBackground(activeSession, images, isEntry: false, imageBasePath);
             }
 
             var (succSmallPlate, succFaceSnap, succOverviewSnap) = ExtractWorkflowImages(images, lprResult);
@@ -731,14 +732,6 @@ namespace HPParking.Services.Parking
             }, TaskContinuationOptions.OnlyOnRanToCompletion);
         }
 
-        /// <summary>
-        /// Chuẩn hóa chuỗi biển số: loại bỏ dấu cách, dấu gạch nối, dấu chấm và in hoa
-        /// </summary>
-        private static string NormalizePlate(string? plate)
-        {
-            if (string.IsNullOrWhiteSpace(plate)) return string.Empty;
-            return plate.Replace(" ", "").Replace("-", "").Replace(".", "").ToUpperInvariant();
-        }
 
         /// <summary>
         /// Khối 3: OCR biển số phương tiện qua SimpleLPR3 kèm fallback nhập tay
@@ -791,103 +784,12 @@ namespace HPParking.Services.Parking
         }
 
         /// <summary>
-        /// Khối 4: Kiểm tra ngày hết hạn đối tượng / khách
-        /// </summary>
-        private static (bool IsExpired, string Message) ValidateClientExpiry(Client client)
-        {
-            if (client.Expired.Enable)
-            {
-                DateTime now = DateTime.Now;
-                if (client.Expired.StartDay.Date > now.Date || client.Expired.EndDay.Date < now.Date)
-                {
-                    return (true, $"Người dùng chỉ được ra vào từ {client.Expired.StartDay:dd/MM/yyyy} - {client.Expired.EndDay:dd/MM/yyyy}");
-                }
-            }
-            return (false, string.Empty);
-        }
-
-        /// <summary>
-        /// Khối 5: Kích hoạt rơ-le mở barie / turnstile và xử lý lỗi phần cứng
+        /// Kích hoạt rơ-le mở barie / turnstile và xử lý lỗi phần cứng
         /// </summary>
         private static bool TryOpenBarrier(LaneRuntimeContext context, Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
         {
             if (context.OpenBarrier()) return true;
             return onBarrierOpenFailed?.Invoke(context) ?? false;
-        }
-
-        /// <summary>
-        /// Khối 6: Lưu ảnh ngầm ra ổ cứng mà không chặn luồng giao diện chính
-        /// </summary>
-        private void SaveImagesBackground(
-            ParkingSession? session,
-            CapturedLaneImages images,
-            bool isEntry,
-            string imageBasePath,
-            Action<string, string, string>? onSaved = null,
-            Client? client = null)
-        {
-            Bitmap? plateSave = images.Plate != null ? (Bitmap)images.Plate.Clone() : null;
-            Bitmap? overviewSave = images.Overview != null ? (Bitmap)images.Overview.Clone() : null;
-            Bitmap? faceSave = images.Face != null ? (Bitmap)images.Face.Clone() : null;
-
-            string folder = isEntry ? "ImageIn" : "ImageOut";
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    using (plateSave)
-                    using (overviewSave)
-                    using (faceSave)
-                    {
-                        string pPath = plateSave != null
-                            ? _imageStorageService.SaveImage(plateSave, folder, "BienSo", imageBasePath)
-                            : "";
-                        string oPath = overviewSave != null
-                            ? _imageStorageService.SaveImage(overviewSave, folder, "ToanCanh", imageBasePath)
-                            : "";
-                        string fPath = faceSave != null
-                            ? _imageStorageService.SaveImage(faceSave, folder, "KhuonMat", imageBasePath)
-                            : "";
-
-                        // Fallback nếu camera chưa chụp được ảnh khuôn mặt trực tiếp nhưng người dùng có Avatar đăng ký
-                        if (string.IsNullOrEmpty(fPath) && client != null && !string.IsNullOrWhiteSpace(client.Avatar))
-                        {
-                            fPath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
-                                ? client.Avatar
-                                : $"Avatar/{client.Avatar}".Replace('\\', '/');
-                        }
-
-                        if (session != null)
-                        {
-                            if (isEntry)
-                            {
-                                session.InPlateImagePath = pPath;
-                                session.InOverviewImagePath = oPath;
-                                session.InFaceImagePath = fPath;
-                            }
-                            else
-                            {
-                                session.OutPlateImagePath = pPath;
-                                session.OutOverviewImagePath = oPath;
-                                session.OutFaceImagePath = fPath;
-                            }
-                            session.UpdatedAt = DateTime.UtcNow;
-
-                            if (!string.IsNullOrEmpty(session.Id))
-                            {
-                                await _sessionRepository.UpdateAsync(session);
-                            }
-                        }
-
-                        onSaved?.Invoke(pPath, oPath, fPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[SaveImagesBackground Error] {ex.Message}");
-                }
-            });
         }
 
         private async Task<string> GetDepartmentNameAsync(Client client)

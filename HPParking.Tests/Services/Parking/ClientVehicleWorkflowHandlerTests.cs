@@ -435,6 +435,31 @@ namespace HPParking.Tests.Services.Parking
         }
 
         [Fact]
+        public async Task ProcessExitAsync_WhenPlateMatchesWithSpecialFormatting_ShouldSucceedViaDomainModel()
+        {
+            var context = CreateContext(LaneDirection.Out);
+            var trigger = CreateTrigger();
+            var client = new Client { Id = "c1", Name = "User 1", VerifyVehiclePlate = true, IsActive = true };
+            var vehicle = new Vehicle { Id = "v1", PlateNumber = "30E-123.45", OwnerClientId = client.Id, IsActive = true };
+            var session = new ParkingSession { Id = "s1", PersonId = client.Id, PlateNumber = "30E-123.45", Status = ParkingSessionStatus.Active };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([vehicle]));
+
+            // Test plate format with colon, hyphen, dot, and lowercase matching
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30e:123-45", new LprResult { Success = true, Plate = "30e:123-45" }));
+
+            var result = await _handler.ProcessExitAsync(context, trigger, client, "C:\\Images");
+
+            result.Status.Should().Be(ProcessStatus.Success);
+            session.Status.Should().Be(ParkingSessionStatus.Completed);
+            await _sessionRepo.Received(1).UpdateAsync(session);
+        }
+
+        [Fact]
         public async Task ProcessExitAsync_WhenVerifyPlateFalse_ShouldCompleteSessionRegardlessOfExitPlate()
         {
             var context = CreateContext(LaneDirection.Out);

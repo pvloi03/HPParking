@@ -1,3 +1,4 @@
+using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Entities;
@@ -23,7 +24,8 @@ namespace HPParking.Services.Parking.Handlers
         IRepository<Gate> gateRepository,
         IImageStorageService imageStorageService,
         ILaneHardwareOrchestrator hardwareOrchestrator,
-        Microsoft.Extensions.Logging.ILogger<SharedVehicleWorkflowHandler>? logger = null) : ISharedVehicleWorkflowHandler
+        Microsoft.Extensions.Logging.ILogger<SharedVehicleWorkflowHandler>? logger = null,
+        IWorkflowImageStorageOrchestrator? imageOrchestrator = null) : ISharedVehicleWorkflowHandler
     {
         private readonly IRepository<VehicleDispatchTrip> _tripRepository = tripRepository;
         private readonly IRepository<Vehicle> _vehicleRepository = vehicleRepository;
@@ -32,6 +34,8 @@ namespace HPParking.Services.Parking.Handlers
         private readonly IImageStorageService _imageStorageService = imageStorageService;
         private readonly ILaneHardwareOrchestrator _hardwareOrchestrator = hardwareOrchestrator;
         private readonly Microsoft.Extensions.Logging.ILogger<SharedVehicleWorkflowHandler>? _logger = logger;
+        private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator = imageOrchestrator ??
+            new WorkflowImageStorageOrchestrator(imageStorageService, null, logger);
 
         public async Task<ProcessResult> ProcessSharedVehicleTripAsync(
             LaneRuntimeContext context,
@@ -82,10 +86,7 @@ namespace HPParking.Services.Parking.Handlers
             var (plateSuccess, detectedPlate, lprResult) = await _hardwareOrchestrator.RecognizePlateAsync(
                 context, images.Plate, vehicle.PlateNumber ?? string.Empty, onManualPlateInput);
 
-            string registeredPlateNorm = _hardwareOrchestrator.NormalizePlate(vehicle.PlateNumber);
-            string detectedPlateNorm = _hardwareOrchestrator.NormalizePlate(detectedPlate);
-
-            if (string.IsNullOrEmpty(detectedPlateNorm))
+            if (string.IsNullOrEmpty(PlateHelper.Normalize(detectedPlate)))
             {
                 bool capturedPlate = images.Plate != null;
                 var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
@@ -103,7 +104,7 @@ namespace HPParking.Services.Parking.Handlers
                 };
             }
 
-            if (detectedPlateNorm != registeredPlateNorm)
+            if (!vehicle.MatchesPlate(detectedPlate))
             {
                 var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
                 return new ProcessResult
@@ -237,7 +238,7 @@ namespace HPParking.Services.Parking.Handlers
 
                     await _tripRepository.UpdateAsync(activeTrip);
 
-                    SaveImagesBackground(images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
+                    _imageOrchestrator.SaveSessionImagesBackground(null, images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
                     {
                         _ = Task.Run(async () =>
                         {
@@ -311,7 +312,7 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 9. Lưu ảnh nền
-            SaveImagesBackground(images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
+            _imageOrchestrator.SaveSessionImagesBackground(null, images, isEntry, imageBasePath, onSaved: (pPath, oPath, fPath) =>
             {
                 _ = Task.Run(async () =>
                 {
@@ -352,46 +353,6 @@ namespace HPParking.Services.Parking.Handlers
                 Message = message,
                 DispatchTrip = activeTrip
             };
-        }
-
-        private void SaveImagesBackground(
-            CapturedLaneImages images,
-            bool isEntry,
-            string imageBasePath,
-            Action<string, string, string>? onSaved = null)
-        {
-            Bitmap? plateSave = images.Plate != null ? (Bitmap)images.Plate.Clone() : null;
-            Bitmap? overviewSave = images.Overview != null ? (Bitmap)images.Overview.Clone() : null;
-            Bitmap? faceSave = images.Face != null ? (Bitmap)images.Face.Clone() : null;
-
-            string folder = isEntry ? "ImageIn" : "ImageOut";
-
-            _ = Task.Run(() =>
-            {
-                try
-                {
-                    using (plateSave)
-                    using (overviewSave)
-                    using (faceSave)
-                    {
-                        string pPath = plateSave != null
-                            ? _imageStorageService.SaveImage(plateSave, folder, "BienSo", imageBasePath)
-                            : "";
-                        string oPath = overviewSave != null
-                            ? _imageStorageService.SaveImage(overviewSave, folder, "ToanCanh", imageBasePath)
-                            : "";
-                        string fPath = faceSave != null
-                            ? _imageStorageService.SaveImage(faceSave, folder, "KhuonMat", imageBasePath)
-                            : "";
-
-                        onSaved?.Invoke(pPath, oPath, fPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogError(ex, "Lỗi khi lưu ảnh nền xe dùng chung");
-                }
-            });
         }
 
         private ProcessResult CreateConfirmRequiredResult(

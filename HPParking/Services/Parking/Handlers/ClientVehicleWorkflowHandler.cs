@@ -1,3 +1,4 @@
+using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Entities;
@@ -23,13 +24,16 @@ namespace HPParking.Services.Parking.Handlers
         IRepository<ParkingSession> sessionRepository,
         IImageStorageService imageStorageService,
         ILaneHardwareOrchestrator hardwareOrchestrator,
-        ILogger<ClientVehicleWorkflowHandler>? logger = null) : IClientVehicleWorkflowHandler
+        ILogger<ClientVehicleWorkflowHandler>? logger = null,
+        IWorkflowImageStorageOrchestrator? imageOrchestrator = null) : IClientVehicleWorkflowHandler
     {
         private readonly IRepository<Vehicle> _vehicleRepository = vehicleRepository;
         private readonly IRepository<ParkingSession> _sessionRepository = sessionRepository;
         private readonly IImageStorageService _imageStorageService = imageStorageService;
         private readonly ILaneHardwareOrchestrator _hardwareOrchestrator = hardwareOrchestrator;
         private readonly ILogger<ClientVehicleWorkflowHandler>? _logger = logger;
+        private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator = imageOrchestrator ??
+            new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository, logger);
 
         public async Task<ProcessResult> ProcessEntryAsync(
             LaneRuntimeContext context,
@@ -119,19 +123,15 @@ namespace HPParking.Services.Parking.Handlers
                 if (!plateSuccess || string.IsNullOrEmpty(recognizedPlate))
                 {
                     bool capturedPlate = images.Plate != null;
-                    var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = "Không nhận diện được biển số và không có biển số nhập tay.",
-                        Client = client,
-                        Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName ?? string.Empty,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
+                    return BuildResult(
+                        !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                        "Không nhận diện được biển số và không có biển số nhập tay.",
+                        client,
+                        clientVehicles.FirstOrDefault(),
+                        departmentName,
+                        null,
+                        images,
+                        lprResult);
                 }
 
                 // Đối soát biển số qua phương thức giàu hành vi Client.FindMatchingVehicle
@@ -139,38 +139,30 @@ namespace HPParking.Services.Parking.Handlers
 
                 if (matchedVehicle == null && clientVehicles.Count > 0)
                 {
-                    var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.PlateMismatch,
-                        Message = "Biển số xe không đúng với biển số đăng ký.",
-                        Client = client,
-                        Vehicle = clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName ?? string.Empty,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
+                    return BuildResult(
+                        ProcessStatus.PlateMismatch,
+                        "Biển số xe không đúng với biển số đăng ký.",
+                        client,
+                        clientVehicles.FirstOrDefault(),
+                        departmentName,
+                        null,
+                        images,
+                        lprResult);
                 }
             }
 
             // 5. Thao tác mở thanh chắn Barrier
             if (!_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
-                    Client = client,
-                    Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                    DepartmentName = departmentName ?? string.Empty,
-                    LprResult = lprResult,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap,
-                    OverviewImage = overviewSnap
-                };
+                return BuildResult(
+                    ProcessStatus.BarrierFailed,
+                    "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
+                    client,
+                    matchedVehicle ?? clientVehicles.FirstOrDefault(),
+                    departmentName,
+                    null,
+                    images,
+                    lprResult);
             }
 
             // 6. Ghi nhận phiên đỗ xe (ParkingSession) mới
@@ -186,21 +178,17 @@ namespace HPParking.Services.Parking.Handlers
                 CreatedAt = DateTime.UtcNow
             };
             await _sessionRepository.AddAsync(parking);
-            SaveImagesBackground(parking, images, isEntry: true, imageBasePath, client: client);
+            _imageOrchestrator.SaveSessionImagesBackground(parking, images, isEntry: true, imageBasePath, client: client);
 
-            var (succSmallPlate, succFaceSnap, succOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Client = client,
-                Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                DepartmentName = departmentName ?? string.Empty,
-                LprResult = lprResult,
-                ParkingSession = parking,
-                OverviewImage = succOverviewSnap,
-                PlateImage = succSmallPlate,
-                FaceImage = succFaceSnap
-            };
+            return BuildResult(
+                ProcessStatus.Success,
+                string.Empty,
+                client,
+                matchedVehicle ?? clientVehicles.FirstOrDefault(),
+                departmentName,
+                parking,
+                images,
+                lprResult);
         }
 
         public async Task<ProcessResult> ProcessExitAsync(
@@ -272,70 +260,54 @@ namespace HPParking.Services.Parking.Handlers
             }
             else
             {
-                string cleanInPlate = _hardwareOrchestrator.NormalizePlate(parking.PlateNumber);
-                string cleanExitPlate = _hardwareOrchestrator.NormalizePlate(exitPlate);
+                Vehicle vehicleInSession = matchedVehicle ?? new Vehicle { PlateNumber = parking.PlateNumber ?? string.Empty };
 
-                if (string.IsNullOrEmpty(cleanExitPlate))
+                if (string.IsNullOrEmpty(PlateHelper.Normalize(exitPlate)))
                 {
                     bool capturedPlate = images.Plate != null;
-                    var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
-                        Message = "Không nhận diện được biển số ra và không có biển số nhập tay.",
-                        Client = client,
-                        Vehicle = matchedVehicle ?? clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName ?? string.Empty,
-                        ParkingSession = parking,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
+                    return BuildResult(
+                        !capturedPlate ? ProcessStatus.CaptureFailed : ProcessStatus.LprFailed,
+                        "Không nhận diện được biển số ra và không có biển số nhập tay.",
+                        client,
+                        matchedVehicle ?? clientVehicles.FirstOrDefault(),
+                        departmentName,
+                        parking,
+                        images,
+                        lprResult);
                 }
 
-                // Strict Exit Lockout: Biển số ra PHẢI khớp với biển số lúc vào của phiên gửi xe.
+                // Strict Exit Lockout: Biển số ra PHẢI khớp với biển số lúc vào của phiên gửi xe theo quy chuẩn Vehicle.MatchesPlate.
                 // Tuyệt đối không cho phép tráo sang xe khác của cùng một chủ xe.
-                bool plateMatches = cleanExitPlate == cleanInPlate;
+                bool plateMatches = vehicleInSession.MatchesPlate(exitPlate);
 
                 if (!plateMatches)
                 {
-                    var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                    return new ProcessResult
-                    {
-                        Status = ProcessStatus.PlateMismatch,
-                        Message = $"Biển số ra ({exitPlate}) không khớp với biển số vào ({parking.PlateNumber}).",
-                        Client = client,
-                        Vehicle = matchedVehicle ?? client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault(),
-                        DepartmentName = departmentName ?? string.Empty,
-                        ParkingSession = parking,
-                        LprResult = lprResult,
-                        PlateImage = smallPlate,
-                        FaceImage = faceSnap,
-                        OverviewImage = overviewSnap
-                    };
+                    return BuildResult(
+                        ProcessStatus.PlateMismatch,
+                        $"Biển số ra ({exitPlate}) không khớp với biển số vào ({parking.PlateNumber}).",
+                        client,
+                        matchedVehicle ?? client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault(),
+                        departmentName,
+                        parking,
+                        images,
+                        lprResult);
                 }
 
-                matchedVehicle ??= client.FindMatchingVehicle(exitPlate, clientVehicles) ?? clientVehicles.FirstOrDefault();
+                matchedVehicle = vehicleInSession;
             }
 
             // 5. Thao tác mở thanh chắn Barrier
             if (!_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
             {
-                var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-                return new ProcessResult
-                {
-                    Status = ProcessStatus.BarrierFailed,
-                    Message = "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
-                    Client = client,
-                    Vehicle = matchedVehicle,
-                    DepartmentName = departmentName ?? string.Empty,
-                    ParkingSession = parking,
-                    LprResult = lprResult,
-                    PlateImage = smallPlate,
-                    FaceImage = faceSnap,
-                    OverviewImage = overviewSnap
-                };
+                return BuildResult(
+                    ProcessStatus.BarrierFailed,
+                    "Không thể mở barrier. Vui lòng kiểm tra thiết bị.",
+                    client,
+                    matchedVehicle,
+                    departmentName,
+                    parking,
+                    images,
+                    lprResult);
             }
 
             // 6. Cập nhật hoàn tất phiên gửi xe
@@ -344,21 +316,17 @@ namespace HPParking.Services.Parking.Handlers
             parking.Status = ParkingSessionStatus.Completed;
             parking.UpdatedAt = DateTime.UtcNow;
             await _sessionRepository.UpdateAsync(parking);
-            SaveImagesBackground(parking, images, isEntry: false, imageBasePath, client: client);
+            _imageOrchestrator.SaveSessionImagesBackground(parking, images, isEntry: false, imageBasePath, client: client);
 
-            var (succSmallPlate, succFaceSnap, succOverviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
-            return new ProcessResult
-            {
-                Status = ProcessStatus.Success,
-                Client = client,
-                Vehicle = matchedVehicle,
-                DepartmentName = departmentName ?? string.Empty,
-                ParkingSession = parking,
-                LprResult = lprResult,
-                OverviewImage = succOverviewSnap,
-                PlateImage = succSmallPlate,
-                FaceImage = succFaceSnap
-            };
+            return BuildResult(
+                ProcessStatus.Success,
+                string.Empty,
+                client,
+                matchedVehicle,
+                departmentName,
+                parking,
+                images,
+                lprResult);
         }
 
         private async Task<List<Vehicle>> GetActiveClientVehiclesAsync(string? clientId)
@@ -374,88 +342,30 @@ namespace HPParking.Services.Parking.Handlers
             return vehicles?.ToList() ?? [];
         }
 
-        private static Bitmap? SafeClone(Bitmap? src)
-        {
-            if (src == null) return null;
-            try
-            {
-                return (Bitmap)src.Clone();
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private void SaveImagesBackground(
+        private ProcessResult BuildResult(
+            ProcessStatus status,
+            string message,
+            Client? client,
+            Vehicle? vehicle,
+            string? departmentName,
             ParkingSession? session,
             CapturedLaneImages images,
-            bool isEntry,
-            string imageBasePath,
-            Action<string, string, string>? onSaved = null,
-            Client? client = null)
+            LprResult? lprResult)
         {
-            Bitmap? plateSave = SafeClone(images?.Plate);
-            Bitmap? overviewSave = SafeClone(images?.Overview);
-            Bitmap? faceSave = SafeClone(images?.Face);
-
-            string folder = isEntry ? "ImageIn" : "ImageOut";
-
-            _ = Task.Run(async () =>
+            var (smallPlate, faceSnap, overviewSnap) = _hardwareOrchestrator.ExtractWorkflowImages(images, lprResult);
+            return new ProcessResult
             {
-                try
-                {
-                    using (plateSave)
-                    using (overviewSave)
-                    using (faceSave)
-                    {
-                        string pPath = plateSave != null
-                            ? _imageStorageService.SaveImage(plateSave, folder, "BienSo", imageBasePath)
-                            : "";
-                        string oPath = overviewSave != null
-                            ? _imageStorageService.SaveImage(overviewSave, folder, "ToanCanh", imageBasePath)
-                            : "";
-                        string fPath = faceSave != null
-                            ? _imageStorageService.SaveImage(faceSave, folder, "KhuonMat", imageBasePath)
-                            : "";
-
-                        if (string.IsNullOrEmpty(fPath) && client != null && !string.IsNullOrWhiteSpace(client.Avatar))
-                        {
-                            fPath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
-                                ? client.Avatar
-                                : $"Avatar/{client.Avatar}".Replace('\\', '/');
-                        }
-
-                        if (session != null)
-                        {
-                            if (isEntry)
-                            {
-                                session.InPlateImagePath = pPath;
-                                session.InOverviewImagePath = oPath;
-                                session.InFaceImagePath = fPath;
-                            }
-                            else
-                            {
-                                session.OutPlateImagePath = pPath;
-                                session.OutOverviewImagePath = oPath;
-                                session.OutFaceImagePath = fPath;
-                            }
-                            session.UpdatedAt = DateTime.UtcNow;
-
-                            if (!string.IsNullOrEmpty(session.Id))
-                            {
-                                await _sessionRepository.UpdateAsync(session);
-                            }
-                        }
-
-                        onSaved?.Invoke(pPath, oPath, fPath);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogError(ex, "Lỗi khi lưu ảnh nền xe cá nhân");
-                }
-            });
+                Status = status,
+                Message = message,
+                Client = client,
+                Vehicle = vehicle,
+                DepartmentName = departmentName ?? string.Empty,
+                ParkingSession = session,
+                LprResult = lprResult,
+                PlateImage = smallPlate,
+                FaceImage = faceSnap,
+                OverviewImage = overviewSnap
+            };
         }
     }
 }

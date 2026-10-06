@@ -31,8 +31,16 @@ namespace HPParking.Core.Models.Entities
         /// </summary>
         public bool MatchesPlate(string? rawPlate)
         {
-            string registered = PlateHelper.Normalize(PlateNumber);
-            string candidate = PlateHelper.Normalize(rawPlate);
+            return MatchesPlate(PlateNumber, rawPlate);
+        }
+
+        /// <summary>
+        /// So khớp hai chuỗi biển số bất kỳ sau khi đã chuẩn hóa qua quy chuẩn PlateHelper.
+        /// </summary>
+        public static bool MatchesPlate(string? plateA, string? plateB)
+        {
+            string registered = PlateHelper.Normalize(plateA);
+            string candidate = PlateHelper.Normalize(plateB);
 
             if (string.IsNullOrEmpty(registered) || string.IsNullOrEmpty(candidate))
                 return false;
