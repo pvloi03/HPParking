@@ -45,7 +45,7 @@ export function ClientSelect({
             )}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            Mã/CCCD: {client.code}
+            Mã định danh: {client.code}
             {client.address ? ` • ${client.address}` : ''}
           </span>
         </div>

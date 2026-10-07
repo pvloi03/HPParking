@@ -28,7 +28,7 @@ namespace HPParking.Api.DTOs.Excel.Reports
     {
         public PedestrianSessionExcelProfile()
         {
-            Map(x => x.PersonCode).ColumnName("Mã nhân sự / CCCD").Order(1);
+            Map(x => x.PersonCode).ColumnName("Mã định danh").Order(1);
             Map(x => x.PersonName).ColumnName("Họ và tên").Order(2);
             Map(x => x.Status).ColumnName("Trạng thái").Order(3);
             Map(x => x.InTime).ColumnName("Thời điểm vào").Order(4).Format("dd/MM/yyyy HH:mm:ss");

@@ -1379,7 +1379,7 @@ namespace HPParking.Tests.Api
 
             // Assert
             result.Status.Should().Be(ProcessStatus.ConfirmRequired, "quẹt sai cổng theo lộ trình phải yêu cầu xác nhận cảnh báo");
-            result.Message.Should().Contain("CẢNH BÁO LẠC TUYẾN");
+            result.Message.Should().Contain("CẢNH BÁO XE ĐI SAI TUYẾN");
 
             existingTrip.Checkpoints.Should().HaveCount(1);
             var devCheckpoint = existingTrip.Checkpoints.Last();

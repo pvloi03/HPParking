@@ -259,7 +259,7 @@ export function ParkingSessionDetailDialog({
                               </span>
                             </div>
                             <div>
-                              <span className="text-muted-foreground block text-[11px]">Mã định danh/CCCD:</span>
+                              <span className="text-muted-foreground block text-[11px]">Mã định danh:</span>
                               <span className="font-extrabold text-sm text-foreground font-mono">
                                 {session.personCode || '--'}
                               </span>

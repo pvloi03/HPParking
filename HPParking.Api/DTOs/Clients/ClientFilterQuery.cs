@@ -6,7 +6,7 @@ namespace HPParking.Api.DTOs.Clients
     public class ClientFilterQuery : PaginationQuery
     {
         /// <summary>
-        /// Từ khóa tìm kiếm đa tiêu chí: Họ tên, Số điện thoại hoặc Mã CCCD
+        /// Từ khóa tìm kiếm đa tiêu chí: Họ tên, Số điện thoại hoặc Mã định danh
         /// </summary>
         public string? Keyword { get; set; }
 

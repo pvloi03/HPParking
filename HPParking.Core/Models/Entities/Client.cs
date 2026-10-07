@@ -1,6 +1,7 @@
 using HPParking.Core.Constants;
 using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Enums;
+using HPParking.Core.Models.ValueObjects;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
@@ -12,7 +13,16 @@ namespace HPParking.Core.Models.Entities
     [BsonIgnoreExtraElements]
     public class Client : BaseEntity
     {
-        public string Code { get; set; } = "";
+        private string _code = "";
+
+        /// <summary>
+        /// Mã định danh nhân sự (được bảo vệ và tự động chuẩn hóa qua Value Object ClientCode)
+        /// </summary>
+        public string Code
+        {
+            get => _code;
+            set => _code = ClientCode.From(value).Value;
+        }
 
         public string Name { get; set; } = "";
 

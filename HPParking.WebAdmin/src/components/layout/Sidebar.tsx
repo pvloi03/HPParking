@@ -125,7 +125,7 @@ const menuConfig: MenuItem[] = [
       title: 'Hạ tầng',
       icon: Route,
       children: [
-        { title: 'Cổng ra vào', href: '/gates', icon: DoorOpen },
+        { title: 'Cổng vào ra', href: '/gates', icon: DoorOpen },
         { title: 'Làn kiểm soát', href: '/lanes', icon: Route },
         { title: 'Thiết bị', href: '/devices', icon: Cpu },
       ],

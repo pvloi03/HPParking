@@ -7,7 +7,7 @@ Hệ thống quản lý bãi đỗ xe thông minh và kiểm soát ra vào đa p
 ### Core Entities
 
 **Client**:
-Hồ sơ nhân sự (cán bộ công nhân viên, nhà thầu hoặc khách đến thăm) được đăng ký thông tin nhận diện và phương tiện để cấp quyền ra vào bãi xe.
+Hồ sơ nhân sự (cán bộ công nhân viên, nhà thầu hoặc khách đến thăm) được đăng ký thông tin nhận diện và phương tiện để cấp quyền ra vào bãi xe. Khóa nghiệp vụ nhận diện là Mã định danh (`Code`), bắt buộc duy nhất và tự động chuẩn hóa viết hoa không phân biệt hoa thường.
 _Avoid_: Khách hàng, Customer, User, Account, Driver
 
 **Vehicle**:

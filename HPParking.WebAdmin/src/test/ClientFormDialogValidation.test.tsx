@@ -64,7 +64,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     renderDialog();
 
     // Điền các trường cơ bản bắt buộc
-    const codeInput = screen.getByPlaceholderText('VD: 001200012345');
+    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
     fireEvent.change(codeInput, { target: { value: '001200012345' } });
 
     const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam');
@@ -89,7 +89,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     renderDialog();
 
     // Điền các trường cơ bản
-    const codeInput = screen.getByPlaceholderText('VD: 001200012345');
+    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
     fireEvent.change(codeInput, { target: { value: '001200012345' } });
 
     const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam');
@@ -123,6 +123,39 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
           unassignedOnly: true,
         })
       );
+    });
+  });
+
+  it('báo lỗi khi mã định danh chứa khoảng trắng hoặc ký tự đặc biệt', async () => {
+    renderDialog();
+
+    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
+    fireEvent.change(codeInput, { target: { value: 'NV@001' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Mã định danh chỉ chứa chữ cái, chữ số, gạch dưới \(_\) hoặc gạch ngang \(-\)/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('chấp nhận mã định danh hợp lệ chứa chữ, số, dấu gạch nối và gạch dưới (NV-001, EMP_2026)', async () => {
+    renderDialog();
+
+    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
+    fireEvent.change(codeInput, { target: { value: 'NV-001' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(/Mã định danh chỉ chứa chữ cái, chữ số, gạch dưới \(_\) hoặc gạch ngang \(-\)/i)
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Mã định danh không được để trống/i)).not.toBeInTheDocument();
     });
   });
 });

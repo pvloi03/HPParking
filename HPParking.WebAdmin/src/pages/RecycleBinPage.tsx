@@ -58,7 +58,7 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   { id: 'companies', label: 'Công ty', icon: Building, description: 'Danh mục công ty & đơn vị gốc' },
   { id: 'departments', label: 'Phòng ban', icon: Building2, description: 'Phòng ban trực thuộc công ty' },
   { id: 'contractors', label: 'Nhà thầu', icon: Briefcase, description: 'Nhà thầu & đối tác thi công' },
-  { id: 'gates', label: 'Cổng bãi xe', icon: DoorOpen, description: 'Cổng kiểm soát ra vào' },
+  { id: 'gates', label: 'Cổng vào ra', icon: DoorOpen, description: 'Cổng kiểm soát ra vào' },
   { id: 'lanes', label: 'Làn xe', icon: Route, description: 'Làn kiểm soát luồng xe ra/vào' },
   { id: 'devices', label: 'Thiết bị', icon: Cpu, description: 'Camera, Barie, LED, Đầu đọc FaceID' },
   { id: 'users', label: 'Tài khoản', icon: UserCog, description: 'Tài khoản người dùng & phân quyền', roles: [UserRole.Admin] },
@@ -474,7 +474,7 @@ export function RecycleBinPage() {
       case 'clients':
         return [
           {
-            header: 'Mã nhân sự',
+            header: 'Mã định danh',
             accessorKey: 'code',
             cell: (item: any) => (
               <span className="font-mono text-xs font-semibold">{item.code || '—'}</span>

@@ -89,7 +89,7 @@ describe('ExcelImportDialog Component', () => {
   it('bật checkbox kiểm tra thử nghiệm (dryRun)', () => {
     render(<ExcelImportDialog {...defaultProps} />);
 
-    const dryRunCheckbox = screen.getByLabelText(/Chế độ kiểm tra thử/i) as HTMLInputElement;
+    const dryRunCheckbox = screen.getByLabelText(/Chế độ kiểm thử/i) as HTMLInputElement;
     expect(dryRunCheckbox.checked).toBe(false);
 
     fireEvent.click(dryRunCheckbox);

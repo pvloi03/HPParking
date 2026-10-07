@@ -108,7 +108,7 @@ namespace HPParking.Tests.Services.Parking
 
             // Assert
             Assert.Equal(ProcessStatus.ConfirmRequired, result.Status);
-            Assert.Contains("chưa có bản ghi quẹt ra", result.Message);
+            Assert.Contains("CẢNH BÁO XE ĐI SAI TUYẾN", result.Message);
             await _tripRepo.DidNotReceive().AddAsync(Arg.Any<VehicleDispatchTrip>());
         }
 
@@ -271,7 +271,7 @@ namespace HPParking.Tests.Services.Parking
 
             // Assert
             Assert.Equal(ProcessStatus.ConfirmRequired, result.Status);
-            Assert.Contains("CẢNH BÁO LẠC TUYẾN", result.Message);
+            Assert.Contains("CẢNH BÁO XE ĐI SAI TUYẾN", result.Message);
             // QUAN TRỌNG: Không được chuyển sang WorkingAtGate trong DB (tránh cascading lockout)
             Assert.Equal(TripStatus.InTransit, existingTrip.Status);
             _hardwareOrchestrator.DidNotReceive().TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>?>());
@@ -365,7 +365,7 @@ namespace HPParking.Tests.Services.Parking
 
             // Assert
             Assert.Equal(ProcessStatus.ConfirmRequired, result.Status);
-            Assert.Contains("CẢNH BÁO LẠC TUYẾN", result.Message);
+            Assert.Contains("CẢNH BÁO XE ĐI SAI TUYẾN", result.Message);
             Assert.Equal(TripStatus.InTransit, existingTrip.Status);
             Assert.Contains(existingTrip.Checkpoints, cp => !cp.IsRouteCompliant && cp.GateId == "gate_A");
             _hardwareOrchestrator.DidNotReceive().TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>?>());
@@ -574,7 +574,7 @@ namespace HPParking.Tests.Services.Parking
             var laneInA = new Lane { Id = "l_in_a", Direction = LaneDirection.In, GateId = "gate_A" };
             var resA = await _handler.ProcessSharedVehicleTripAsync(new LaneRuntimeContext(laneInA), new WorkflowTriggerEvent { RawCardNo = "123456" }, card, "C:\\img");
             Assert.Equal(ProcessStatus.ConfirmRequired, resA.Status);
-            Assert.Contains("CẢNH BÁO LẠC TUYẾN", resA.Message);
+            Assert.Contains("CẢNH BÁO XE ĐI SAI TUYẾN", resA.Message);
             Assert.Equal(TripStatus.InTransit, activeTrip.Status);
             _hardwareOrchestrator.DidNotReceive().TryOpenBarrier(Arg.Any<LaneRuntimeContext>(), Arg.Any<Func<LaneRuntimeContext, bool>?>());
 
@@ -582,7 +582,7 @@ namespace HPParking.Tests.Services.Parking
             var laneInB = new Lane { Id = "l_in_b", Direction = LaneDirection.In, GateId = "gate_B" };
             var resB = await _handler.ProcessSharedVehicleTripAsync(new LaneRuntimeContext(laneInB), new WorkflowTriggerEvent { RawCardNo = "123456" }, card, "C:\\img");
             Assert.Equal(ProcessStatus.ConfirmRequired, resB.Status);
-            Assert.Contains("CẢNH BÁO LẠC TUYẾN", resB.Message);
+            Assert.Contains("CẢNH BÁO XE ĐI SAI TUYẾN", resB.Message);
             Assert.Equal(TripStatus.InTransit, activeTrip.Status);
         }
 

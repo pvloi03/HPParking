@@ -92,7 +92,7 @@ describe('HN212 Smart Reader Integration', () => {
       ).toBeInTheDocument();
 
       // Kiểm tra các trường được điền tự động nhưng KHÔNG bị khóa (cho phép sửa)
-      const codeInput = screen.getByPlaceholderText('VD: 001200012345') as HTMLInputElement;
+      const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345') as HTMLInputElement;
       expect(codeInput.value).toBe('001200012345');
       expect(codeInput).not.toHaveAttribute('readonly');
 

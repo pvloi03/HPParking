@@ -253,7 +253,7 @@ export function ClientDetailDialog({
                       <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono flex-wrap">
                         <span className="flex items-center gap-1 font-semibold text-foreground">
                           <CreditCard className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                          CCCD/Mã định danh: {client.code || '—'}
+                          Mã định danh: {client.code || '—'}
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
@@ -373,7 +373,7 @@ export function ClientDetailDialog({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       <div className="p-2.5 rounded-lg bg-muted/30 border border-border/40">
-                        <span className="text-[11px] text-muted-foreground block mb-0.5">Số CCCD / Mã định danh:</span>
+                        <span className="text-[11px] text-muted-foreground block mb-0.5">Mã định danh:</span>
                         <span className="font-mono font-bold text-sm text-foreground">{client.code || '—'}</span>
                       </div>
 

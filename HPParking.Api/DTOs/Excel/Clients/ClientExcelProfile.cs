@@ -10,7 +10,7 @@ namespace HPParking.Api.DTOs.Excel.Clients
     {
         public ClientExcelProfile()
         {
-            Map(x => x.Code).ColumnName("Mã chủ xe").Order(1).Required().WithComment("Mã nhân viên hoặc số CCCD");
+            Map(x => x.Code).ColumnName("Mã định danh").Order(1).Required().WithComment("Mã định danh nhân sự (chữ, số, gạch nối hoặc gạch dưới, tối đa 50 ký tự)");
             Map(x => x.Name).ColumnName("Họ và tên").Order(2).Required();
             Map(x => x.PhoneNumber).ColumnName("Số điện thoại").Order(3).Required().WithComment("Định dạng 10 chữ số (VD: 0912345678)");
             Map(x => x.BirthDay).ColumnName("Ngày sinh").Order(4).Format("dd/MM/yyyy").WithComment("Định dạng dd/MM/yyyy");
@@ -31,7 +31,7 @@ namespace HPParking.Api.DTOs.Excel.Clients
     {
         public ClientExportExcelProfile()
         {
-            Map(x => x.Code).ColumnName("Mã chủ xe").Order(1);
+            Map(x => x.Code).ColumnName("Mã định danh").Order(1);
             Map(x => x.Name).ColumnName("Họ và tên").Order(2);
             Map(x => x.PhoneNumber).ColumnName("Số điện thoại").Order(3);
             Map(x => x.BirthDay).ColumnName("Ngày sinh").Order(4).Format("dd/MM/yyyy");

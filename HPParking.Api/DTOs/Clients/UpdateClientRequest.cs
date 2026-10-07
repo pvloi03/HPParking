@@ -6,6 +6,9 @@ namespace HPParking.Api.DTOs.Clients
 {
     public class UpdateClientRequest
     {
+        /// <summary>
+        /// Mã định danh nhân sự (bắt buộc, duy nhất, tự động viết hoa, độ dài 1-50 ký tự gồm chữ, số, '-' hoặc '_')
+        /// </summary>
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public DateTime BirthDay { get; set; }

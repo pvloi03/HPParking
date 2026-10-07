@@ -115,7 +115,7 @@ describe('RecycleBinPage Component', () => {
     expect(screen.getByRole('tab', { name: /Công ty/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Phòng ban/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Nhà thầu/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Cổng bãi xe/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Cổng vào ra/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Làn xe/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Thiết bị/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Tài khoản/i })).toBeInTheDocument();

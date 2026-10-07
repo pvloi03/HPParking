@@ -74,8 +74,12 @@ const clientSchema = z
     code: z
       .string()
       .trim()
-      .min(1, 'Số CCCD/Định danh cá nhân không được để trống')
-      .regex(/^[0-9]{9,12}$/, 'Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số'),
+      .min(1, 'Mã định danh không được để trống')
+      .max(50, 'Mã định danh không được quá 50 ký tự')
+      .regex(
+        /^[a-zA-Z0-9_-]+$/,
+        'Mã định danh chỉ chứa chữ cái, chữ số, gạch dưới (_) hoặc gạch ngang (-)'
+      ),
     name: z
       .string()
       .trim()
@@ -473,7 +477,7 @@ export function ClientFormDialog({
     }));
 
     const payload: CreateClientRequest | UpdateClientRequest = {
-      code: formData.code.trim(),
+      code: formData.code.trim().toUpperCase(),
       name: formData.name.trim(),
       birthDay: birthDayIso,
       address: formData.address?.trim() || '',
@@ -540,10 +544,10 @@ export function ClientFormDialog({
             {isEditing
               ? isFromHn212
                 ? 'Dữ liệu được cập nhật từ thẻ chip CCCD. Bạn có thể kiểm tra và chỉnh sửa trước khi lưu.'
-                : 'Chỉnh sửa thông tin định danh CCCD, phân loại đối tượng, thời hạn ra vào và ảnh FaceID.'
+                : 'Chỉnh sửa thông tin mã định danh, phân loại đối tượng, thời hạn ra vào và ảnh FaceID.'
               : isFromHn212
                 ? 'Dữ liệu được trích xuất từ chip CCCD. Bạn có thể chỉnh sửa và bổ sung thêm thông tin.'
-                : 'Nhập đầy đủ thông tin định danh CCCD (bắt buộc), đối tượng và đơn vị trực thuộc.'}
+                : 'Nhập đầy đủ thông tin mã định danh (bắt buộc), đối tượng và đơn vị trực thuộc.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -568,7 +572,7 @@ export function ClientFormDialog({
             <div className="flex items-center gap-2 pb-1 border-b border-border/60">
               <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                1. Thông tin cá nhân & Định danh CCCD
+                1. Thông tin cá nhân & Mã định danh
               </span>
             </div>
 
@@ -581,22 +585,22 @@ export function ClientFormDialog({
               disabled={isSubmitting}
             />
 
-            {/* Số CCCD & Họ tên */}
+            {/* Mã định danh & Họ tên */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
                   <span>
-                    Số CCCD / Mã định danh <span className="text-destructive">*</span>
+                    Mã định danh <span className="text-destructive">*</span>
                   </span>
                   <span className="text-[10px] text-muted-foreground font-normal">
-                    (9-12 chữ số)
+                    (1-50 ký tự: chữ, số, - hoặc _)
                   </span>
                 </label>
                 <Input
                   {...register('code')}
-                  placeholder="VD: 001200012345"
-                  className="font-mono text-xs h-9"
-                  maxLength={12}
+                  placeholder="VD: NV-001 hoặc 001200012345"
+                  className="font-mono text-xs h-9 uppercase"
+                  maxLength={50}
                   autoFocus={!isEditing && !isFromHn212}
                 />
                 {errors.code && (

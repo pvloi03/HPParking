@@ -328,7 +328,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
 
   const pedestrianColumns: ColumnDef<ParkingSessionDto>[] = [
     {
-      header: 'Mã Nhân Sự / CCCD',
+      header: 'Mã định danh',
       cell: (item) => (
         <Badge variant="outline" className="border-slate-400 font-mono font-bold text-xs bg-slate-50 dark:bg-slate-900/40">
           {item.personCode || '--'}
