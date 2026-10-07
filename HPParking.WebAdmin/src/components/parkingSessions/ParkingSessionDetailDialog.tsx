@@ -28,17 +28,20 @@ import { EvidenceImageGrid, hasImagePath, formatImageUrl } from './EvidenceImage
 import { parkingSessionApi } from '@/api/parkingSessionApi';
 import { ParkingSessionStatus } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
+import { LaneTargetType } from '@/types/infrastructure';
 
 export interface ParkingSessionDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionId: string | null;
+  targetType?: LaneTargetType;
 }
 
 export function ParkingSessionDetailDialog({
   open,
   onOpenChange,
   sessionId,
+  targetType,
 }: ParkingSessionDetailDialogProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'slider' | 'details'>('all');
 
@@ -48,24 +51,29 @@ export function ParkingSessionDetailDialog({
     enabled: Boolean(open && sessionId),
   });
 
+  const isPedestrian =
+    targetType === LaneTargetType.Pedestrian ||
+    session?.targetType === LaneTargetType.Pedestrian ||
+    Boolean(session && session.targetType !== LaneTargetType.Vehicle && !session?.vehicleType);
+
   const getStatusBadge = (status?: ParkingSessionStatus) => {
     switch (status) {
       case ParkingSessionStatus.Active:
         return (
           <Badge className="bg-blue-600 hover:bg-blue-600 text-white font-medium text-xs px-2.5 py-0.5 shadow-xs">
-            Đang trong bãi
+            {isPedestrian ? 'Đang bên trong' : 'Đang trong bãi'}
           </Badge>
         );
       case ParkingSessionStatus.Completed:
         return (
           <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-medium text-xs px-2.5 py-0.5 shadow-xs">
-            Đã hoàn thành
+            {isPedestrian ? 'Đã ra / Hoàn tất' : 'Đã hoàn thành'}
           </Badge>
         );
       case ParkingSessionStatus.UnmatchedOut:
         return (
           <Badge className="bg-rose-600 hover:bg-rose-600 text-white font-semibold text-xs px-2.5 py-0.5 shadow-xs animate-pulse">
-            Ra không vào / Lệch biển
+            {isPedestrian ? 'Ra không có lượt vào' : 'Ra không vào / Lệch biển'}
           </Badge>
         );
       case ParkingSessionStatus.Cancelled:
@@ -92,7 +100,6 @@ export function ParkingSessionDetailDialog({
 
   const isMismatch = session?.status === ParkingSessionStatus.UnmatchedOut;
   const isActive = session?.status === ParkingSessionStatus.Active;
-  const isPedestrian = session?.targetType === 2 || !session?.vehicleType;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -107,12 +114,12 @@ export function ParkingSessionDetailDialog({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold tracking-wide">
                   {isPedestrian
-                    ? `Chi Tiết Lượt Người Đi Bộ: ${session?.personFullName || session?.personCode || 'Khách'}`
+                    ? `Chi Tiết Lượt Người Vào Ra: ${session?.personFullName || session?.personCode || 'Khách'}`
                     : `Chi Tiết Lượt Xe: ${session?.plateNumber || 'Đang tải...'}`}
                 </span>
                 <span className="text-xs text-muted-foreground font-normal">
                   {isPedestrian
-                    ? `(${session?.personCode ? `Mã: ${session.personCode}` : 'Người đi bộ'})`
+                    ? `(${session?.personCode ? `Mã: ${session.personCode}` : 'Khách / Nhân sự'})`
                     : `(${session?.personFullName || 'Khách vãng lai'} • ${session ? getVehicleTypeName(session.vehicleType) : ''})`}
                 </span>
               </div>
@@ -128,7 +135,7 @@ export function ParkingSessionDetailDialog({
                 >
                   <Timer className="h-3 w-3 text-primary" />
                   {session.durationFormatted || '--'}
-                  {isActive && ' (đang đỗ)'}
+                  {isActive && (isPedestrian ? ' (đang bên trong)' : ' (đang đỗ)')}
                 </Badge>
               )}
             </div>
@@ -156,7 +163,7 @@ export function ParkingSessionDetailDialog({
                 }`}
             >
               <Eye className="h-3.5 w-3.5" />
-              Slide Ảnh (4)
+              {isPedestrian ? 'Slide Ảnh (4)' : 'Slide Ảnh (6)'}
             </button>
             <button
               type="button"
@@ -190,12 +197,14 @@ export function ParkingSessionDetailDialog({
                   <ShieldAlert className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold text-sm text-rose-900 dark:text-rose-200 flex items-center gap-1.5">
-                      CẢNH BÁO AN NINH: PHIÊN ĐỖ XE LỆCH BIỂN SỐ / KHÔNG KHỚP LƯỢT VÀO
+                      {isPedestrian
+                        ? 'CẢNH BÁO AN NINH: LƯỢT RA KHÔNG TÌM THẤY LƯỢT VÀO HỢP LỆ'
+                        : 'CẢNH BÁO AN NINH: PHIÊN ĐỖ XE LỆCH BIỂN SỐ / KHÔNG KHỚP LƯỢT VÀO'}
                     </h4>
                     <p className="mt-1 leading-relaxed text-rose-700 dark:text-rose-300">
-                      Hệ thống phát hiện sai lệch biển số giữa lượt vào và lượt ra, hoặc phương tiện
-                      rời bãi không tìm thấy phiên vào hợp lệ tương ứng. Đề nghị nhân viên an ninh
-                      kiểm tra kỹ 4 ảnh bằng chứng và liên hệ chủ phương tiện để xác minh!
+                      {isPedestrian
+                        ? 'Hệ thống ghi nhận lượt ra nhưng không tìm thấy lượt vào hợp lệ tương ứng của người này. Đề nghị nhân viên an ninh kiểm tra ảnh camera/FaceID để xác minh!'
+                        : 'Hệ thống phát hiện sai lệch biển số giữa lượt vào và lượt ra, hoặc phương tiện rời bãi không tìm thấy phiên vào hợp lệ tương ứng. Đề nghị nhân viên an ninh kiểm tra kỹ 4 ảnh bằng chứng và liên hệ chủ phương tiện để xác minh!'}
                     </p>
                   </div>
                 </div>
@@ -226,22 +235,28 @@ export function ParkingSessionDetailDialog({
                 <div className="space-y-3">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                     <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span>THÔNG TIN CHI TIẾT ĐẦY ĐỦ CỦA LƯỢT XE</span>
+                    <span>
+                      {isPedestrian
+                        ? 'THÔNG TIN CHI TIẾT ĐẦY ĐỦ LƯỢT NGƯỜI VÀO RA'
+                        : 'THÔNG TIN CHI TIẾT ĐẦY ĐỦ CỦA LƯỢT XE'}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    {/* Card 1: Phương Tiện & Chủ Xe */}
+                    {/* Card 1: Người Vào Ra / Phương Tiện */}
                     <div className="p-3.5 rounded-xl border border-border bg-card space-y-2.5 shadow-2xs">
                       <div className="flex items-center gap-1.5 font-bold text-primary border-b border-border/60 pb-1.5">
                         {isPedestrian ? <User className="h-4 w-4" /> : <Car className="h-4 w-4" />}
-                        <span>{isPedestrian ? 'Thông Tin Người Đi Bộ' : 'Phương Tiện & Chủ Xe'}</span>
+                        <span>{isPedestrian ? 'Thông Tin Người Vào Ra' : 'Phương Tiện & Chủ Xe'}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-0.5">
                         {isPedestrian ? (
                           <>
                             <div>
                               <span className="text-muted-foreground block text-[11px]">Đối tượng:</span>
-                              <span className="font-semibold text-foreground">Người đi bộ</span>
+                              <span className="font-semibold text-foreground">
+                                {session.personId ? 'Nhân sự nội bộ' : 'Khách / Vãng lai'}
+                              </span>
                             </div>
                             <div>
                               <span className="text-muted-foreground block text-[11px]">Mã định danh/CCCD:</span>
@@ -274,7 +289,7 @@ export function ParkingSessionDetailDialog({
                             {hasImagePath(session.inFaceImagePath || session.personAvatar) ? (
                               <img
                                 src={formatImageUrl(session.inFaceImagePath || session.personAvatar)}
-                                alt={session.personFullName || 'Chủ xe'}
+                                alt={session.personFullName || (isPedestrian ? 'Người vào ra' : 'Chủ xe')}
                                 className="h-8 w-8 rounded-full object-cover border border-slate-300 dark:border-slate-700 shadow-2xs shrink-0"
                               />
                             ) : (
@@ -317,7 +332,9 @@ export function ParkingSessionDetailDialog({
                           <div className="mt-0.5">{getStatusBadge(session.status)}</div>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block text-[11px]">Tổng thời gian gửi:</span>
+                          <span className="text-muted-foreground block text-[11px]">
+                            {isPedestrian ? 'Thời gian lưu lại:' : 'Tổng thời gian gửi:'}
+                          </span>
                           <span className="font-bold text-foreground">
                             {session.durationFormatted ||
                               (session.durationMinutes
@@ -326,7 +343,9 @@ export function ParkingSessionDetailDialog({
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground block text-[11px]">Mã phiên (ID):</span>
+                          <span className="text-muted-foreground block text-[11px]">
+                            {isPedestrian ? 'Mã lượt ghi nhận (ID):' : 'Mã phiên (ID):'}
+                          </span>
                           <span
                             className="font-mono text-[10px] text-muted-foreground truncate block"
                             title={session.id}
@@ -357,9 +376,11 @@ export function ParkingSessionDetailDialog({
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-[11px]">Làn kiểm soát vào:</span>
+                          <span className="text-muted-foreground text-[11px]">
+                            {isPedestrian ? 'Cổng / Lối vào:' : 'Làn kiểm soát vào:'}
+                          </span>
                           <span className="font-semibold text-foreground">
-                            {session.inLaneName || 'Làn Vào Số 1'}
+                            {session.inLaneName || (isPedestrian ? 'Cổng vào' : 'Làn Vào Số 1')}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
@@ -375,14 +396,26 @@ export function ParkingSessionDetailDialog({
                               </span>
                             )}
                             <span className="text-muted-foreground/40">•</span>
-                            {hasImagePath(session.inPlateImagePath) ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                                <CheckCircle2 className="h-3 w-3" /> Biển số
-                              </span>
+                            {isPedestrian ? (
+                              hasImagePath(session.inFaceImagePath || session.personAvatar) ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                  <CheckCircle2 className="h-3 w-3" /> Khuôn mặt
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground flex items-center gap-0.5">
+                                  <AlertCircle className="h-3 w-3" /> Thiếu khuôn mặt
+                                </span>
+                              )
                             ) : (
-                              <span className="text-muted-foreground flex items-center gap-0.5">
-                                <AlertCircle className="h-3 w-3" /> Thiếu biển số
-                              </span>
+                              hasImagePath(session.inPlateImagePath) ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                  <CheckCircle2 className="h-3 w-3" /> Biển số
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground flex items-center gap-0.5">
+                                  <AlertCircle className="h-3 w-3" /> Thiếu biển số
+                                </span>
+                              )
                             )}
                           </div>
                         </div>
@@ -402,14 +435,18 @@ export function ParkingSessionDetailDialog({
                             {session.outTime ? (
                               new Date(session.outTime).toLocaleString('vi-VN')
                             ) : (
-                              <span className="text-primary italic">Đang gửi trong bãi</span>
+                              <span className="text-primary italic font-medium">
+                                {isPedestrian ? 'Đang bên trong' : 'Đang gửi trong bãi'}
+                              </span>
                             )}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-[11px]">Làn kiểm soát ra:</span>
+                          <span className="text-muted-foreground text-[11px]">
+                            {isPedestrian ? 'Cổng / Lối ra:' : 'Làn kiểm soát ra:'}
+                          </span>
                           <span className="font-semibold text-foreground">
-                            {session.outLaneName || (session.outTime ? 'Làn Ra Số 1' : '--')}
+                            {session.outLaneName || (session.outTime ? (isPedestrian ? 'Cổng ra' : 'Làn Ra Số 1') : '--')}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
@@ -425,14 +462,26 @@ export function ParkingSessionDetailDialog({
                               </span>
                             )}
                             <span className="text-muted-foreground/40">•</span>
-                            {hasImagePath(session.outPlateImagePath) ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                                <CheckCircle2 className="h-3 w-3" /> Biển số
-                              </span>
+                            {isPedestrian ? (
+                              hasImagePath(session.outFaceImagePath || session.personAvatar) ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                  <CheckCircle2 className="h-3 w-3" /> Khuôn mặt
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground flex items-center gap-0.5">
+                                  <AlertCircle className="h-3 w-3" /> Chưa có
+                                </span>
+                              )
                             ) : (
-                              <span className="text-muted-foreground flex items-center gap-0.5">
-                                <AlertCircle className="h-3 w-3" /> Chưa có
-                              </span>
+                              hasImagePath(session.outPlateImagePath) ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                  <CheckCircle2 className="h-3 w-3" /> Biển số
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground flex items-center gap-0.5">
+                                  <AlertCircle className="h-3 w-3" /> Chưa có
+                                </span>
+                              )
                             )}
                           </div>
                         </div>
@@ -452,7 +501,9 @@ export function ParkingSessionDetailDialog({
                           </p>
                         ) : (
                           <span className="text-muted-foreground italic text-xs">
-                            — Không có ghi chú nào cho phiên đỗ xe này —
+                            {isPedestrian
+                              ? '— Không có ghi chú nào cho lượt vào ra này —'
+                              : '— Không có ghi chú nào cho phiên đỗ xe này —'}
                           </span>
                         )}
                       </div>
@@ -463,7 +514,9 @@ export function ParkingSessionDetailDialog({
             </>
           ) : (
             <div className="p-8 text-center text-muted-foreground">
-              Không tìm thấy thông tin phiên đỗ xe.
+              {isPedestrian
+                ? 'Không tìm thấy thông tin lượt người vào ra.'
+                : 'Không tìm thấy thông tin phiên đỗ xe.'}
             </div>
           )}
         </div>

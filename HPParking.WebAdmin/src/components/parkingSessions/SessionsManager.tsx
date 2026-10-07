@@ -11,7 +11,6 @@ import {
   ShieldAlert,
   ArrowRightCircle,
   ArrowLeftCircle,
-  User,
   UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,6 @@ import {
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
-import { formatImageUrl, hasImagePath } from '@/components/parkingSessions/EvidenceImageGrid';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {
@@ -210,34 +208,18 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
     },
     {
       header: 'Chủ Phương Tiện',
-      cell: (item) => {
-        const faceUrl = item.inFaceImagePath || item.personAvatar;
-        return (
-          <div className="flex items-center gap-2 py-0.5 text-xs">
-            {hasImagePath(faceUrl) ? (
-              <img
-                src={formatImageUrl(faceUrl)}
-                alt={item.personFullName || 'Chủ xe'}
-                className="h-7 w-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
-              />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
-                <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            <div className="flex flex-col min-w-0">
-              <span className="font-medium text-foreground truncate max-w-[130px]">
-                {item.personFullName || 'Khách vãng lai'}
-              </span>
-              {item.personCode && (
-                <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
-                  {item.personCode}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      },
+      cell: (item) => (
+        <div className="flex flex-col min-w-0 py-0.5 text-xs">
+          <span className="font-medium text-foreground truncate max-w-[140px]">
+            {item.personFullName || 'Khách vãng lai'}
+          </span>
+          {item.personCode && (
+            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[140px]">
+              {item.personCode}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: 'Lượt Vào (Check-In)',
@@ -355,32 +337,16 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
     },
     {
       header: 'Họ Và Tên',
-      cell: (item) => {
-        const faceUrl = item.inFaceImagePath || item.personAvatar;
-        return (
-          <div className="flex items-center gap-2 py-0.5 text-xs">
-            {hasImagePath(faceUrl) ? (
-              <img
-                src={formatImageUrl(faceUrl)}
-                alt={item.personFullName || 'Người đi bộ'}
-                className="h-8 w-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
-                <User className="h-4 w-4 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-foreground truncate max-w-[150px]">
-                {item.personFullName || 'Khách vãng lai'}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {item.personId ? 'Nhân sự nội bộ' : 'Khách vãng lai'}
-              </span>
-            </div>
-          </div>
-        );
-      },
+      cell: (item) => (
+        <div className="flex flex-col min-w-0 py-0.5 text-xs">
+          <span className="font-semibold text-foreground truncate max-w-[160px]">
+            {item.personFullName || 'Khách vãng lai'}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {item.personId ? 'Nhân sự nội bộ' : 'Khách vãng lai'}
+          </span>
+        </div>
+      ),
     },
     {
       header: 'Lượt Vào (Check-In)',
@@ -391,7 +357,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
           </div>
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <ArrowRightCircle className="h-3 w-3 text-emerald-500 shrink-0" />
-            <span className="truncate max-w-[130px]">{item.inLaneName || 'Cửa xoay vào'}</span>
+            <span className="truncate max-w-[130px]">{item.inLaneName || 'Cổng vào'}</span>
           </div>
         </div>
       ),
@@ -406,7 +372,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <ArrowLeftCircle className="h-3 w-3 text-indigo-500 shrink-0" />
             <span className="truncate max-w-[130px]">
-              {item.outLaneName || (item.outTime ? 'Cửa xoay ra' : '--')}
+              {item.outLaneName || (item.outTime ? 'Cổng ra' : '--')}
             </span>
           </div>
         </div>
@@ -448,7 +414,19 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
           case ParkingSessionStatus.Completed:
             return (
               <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-medium text-[11px] px-2 py-0.5">
-                Đã hoàn thành
+                Đã ra / Hoàn tất
+              </Badge>
+            );
+          case ParkingSessionStatus.UnmatchedOut:
+            return (
+              <Badge className="bg-rose-600 hover:bg-rose-600 text-white font-semibold text-[11px] px-2 py-0.5 animate-pulse">
+                Ra không có lượt vào
+              </Badge>
+            );
+          case ParkingSessionStatus.Cancelled:
+            return (
+              <Badge variant="secondary" className="text-[11px]">
+                Đã hủy bỏ
               </Badge>
             );
           default:
@@ -572,16 +550,12 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
                 <SelectItem value={String(ParkingSessionStatus.Completed)}>
                   {isPedestrian ? 'Đã ra / Hoàn tất' : 'Đã hoàn thành'}
                 </SelectItem>
-                {!isPedestrian && (
-                  <>
-                    <SelectItem value={String(ParkingSessionStatus.UnmatchedOut)}>
-                      Ra không vào / Lệch biển
-                    </SelectItem>
-                    <SelectItem value={String(ParkingSessionStatus.Cancelled)}>
-                      Đã hủy bỏ (Cancelled)
-                    </SelectItem>
-                  </>
-                )}
+                <SelectItem value={String(ParkingSessionStatus.UnmatchedOut)}>
+                  {isPedestrian ? 'Ra không có lượt vào' : 'Ra không vào / Lệch biển'}
+                </SelectItem>
+                <SelectItem value={String(ParkingSessionStatus.Cancelled)}>
+                  Đã hủy bỏ
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -695,7 +669,11 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
         }}
         searchPlaceholder={isPedestrian ? 'Tìm theo họ tên, mã nhân sự, mã thẻ...' : 'Tìm theo biển số xe...'}
         emptyTitle={isPedestrian ? 'Không có dữ liệu người vào ra' : 'Không có dữ liệu lượt xe'}
-        emptyDescription="Không tìm thấy phiên nào phù hợp với bộ lọc đã chọn."
+        emptyDescription={
+          isPedestrian
+            ? 'Không tìm thấy dữ liệu lượt người vào ra phù hợp với bộ lọc đã chọn.'
+            : 'Không tìm thấy phiên nào phù hợp với bộ lọc đã chọn.'
+        }
       />
 
       {/* Dialog xem chi tiết phiên */}
@@ -706,6 +684,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
             if (!open) setSelectedSessionId(null);
           }}
           sessionId={selectedSessionId}
+          targetType={targetType}
         />
       )}
     </div>

@@ -198,34 +198,18 @@ export function ParkingSessionsPage() {
     },
     {
       header: 'Chủ Phương Tiện',
-      cell: (item) => {
-        const faceUrl = item.inFaceImagePath || item.personAvatar;
-        return (
-          <div className="flex items-center gap-2 py-0.5 text-xs">
-            {hasImagePath(faceUrl) ? (
-              <img
-                src={formatImageUrl(faceUrl)}
-                alt={item.personFullName || 'User'}
-                className="h-7 w-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
-              />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700 shrink-0">
-                <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            <div className="flex flex-col min-w-0">
-              <span className="font-medium text-foreground truncate max-w-[130px]">
-                {item.personFullName || 'Khách vãng lai'}
-              </span>
-              {item.personCode && (
-                <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
-                  {item.personCode}
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      },
+      cell: (item) => (
+        <div className="flex flex-col min-w-0 py-0.5 text-xs">
+          <span className="font-medium text-foreground truncate max-w-[140px]">
+            {item.personFullName || 'Khách vãng lai'}
+          </span>
+          {item.personCode && (
+            <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[140px]">
+              {item.personCode}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: 'Đối Tượng / Loại Xe',

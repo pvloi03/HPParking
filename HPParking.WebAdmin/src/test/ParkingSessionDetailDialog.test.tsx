@@ -137,4 +137,66 @@ describe('ParkingSessionDetailDialog Component', () => {
       expect(screen.getByText('Xe chở sếp đi công tác, gửi qua đêm')).toBeInTheDocument();
     });
   });
+
+  it('hiển thị đúng câu từ người vào ra cho phiên đi bộ (không bị ám ảnh bởi phương tiện)', async () => {
+    const mockPedestrianSession = {
+      id: 'session-ped-01',
+      plateNumber: '',
+      vehicleType: null,
+      targetType: 1, // LaneTargetType.Pedestrian
+      status: ParkingSessionStatus.Active,
+      personFullName: 'Nguyễn Thu Trang',
+      personCode: 'EMP-999',
+      personPhoneNumber: '0912345678',
+      inTime: '2026-09-24T08:15:00Z',
+      outTime: null,
+      durationMinutes: 45,
+      durationFormatted: '45 phút',
+      inLaneName: 'Cổng xoay lối đi bộ 01',
+      outLaneName: '',
+      inOverviewImagePath: '/images/in_ov.jpg',
+      inFaceImagePath: '/images/in_face.jpg',
+      createdAt: '2026-09-24T08:15:00Z',
+    };
+
+    vi.mocked(parkingSessionApi.getSessionById).mockResolvedValueOnce(mockPedestrianSession as any);
+
+    renderWithClient(
+      <ParkingSessionDetailDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        sessionId="session-ped-01"
+      />
+    );
+
+    await waitFor(() => {
+      // Header dialog hiển thị Lượt Người Vào Ra
+      expect(screen.getByText(/Chi Tiết Lượt Người Vào Ra/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Nguyễn Thu Trang/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/EMP-999/i).length).toBeGreaterThan(0);
+      // Badge trạng thái người: Đang bên trong
+      expect(screen.getAllByText('Đang bên trong').length).toBeGreaterThan(0);
+    });
+
+    // Không có từ "(đang đỗ)"
+    expect(screen.queryByText(/\(đang đỗ\)/i)).not.toBeInTheDocument();
+
+    // Bấm tab Bảng Thông Số Chi Tiết
+    const specsTab = screen.getByRole('button', { name: /Bảng Thông Số Chi Tiết/i });
+    fireEvent.click(specsTab);
+
+    // Tiêu đề card là Thông Tin Người Vào Ra (không phải Phương Tiện & Chủ Xe)
+    expect(screen.getByText(/Thông Tin Người Vào Ra/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Phương Tiện & Chủ Xe/i)).not.toBeInTheDocument();
+
+    // Thời gian lưu lại thay vì Tổng thời gian gửi
+    expect(screen.getByText(/Thời gian lưu lại:/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Tổng thời gian gửi:/i)).not.toBeInTheDocument();
+
+    // Cổng / Lối vào thay vì Làn kiểm soát vào
+    expect(screen.getByText(/Cổng \/ Lối vào:/i)).toBeInTheDocument();
+
+    // Kiểm tra không xuất hiện Biển số xe
+    expect(screen.queryByText(/Biển số xe:/i)).not.toBeInTheDocument();
+  });
 });
