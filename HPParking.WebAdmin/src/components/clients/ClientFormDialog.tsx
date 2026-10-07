@@ -121,6 +121,34 @@ const clientSchema = z
         path: ['cardCode'],
       });
     }
+
+    if (data.expiredEnable) {
+      if (!data.expiredStartDay || data.expiredStartDay.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Vui lòng chọn ngày bắt đầu hiệu lực',
+          path: ['expiredStartDay'],
+        });
+      }
+      if (!data.expiredEndDay || data.expiredEndDay.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Vui lòng chọn ngày hết hạn hiệu lực',
+          path: ['expiredEndDay'],
+        });
+      }
+      if (
+        data.expiredStartDay &&
+        data.expiredEndDay &&
+        data.expiredStartDay > data.expiredEndDay
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Ngày bắt đầu không được lớn hơn ngày hết hạn',
+          path: ['expiredEndDay'],
+        });
+      }
+    }
   });
 
 type ClientFormData = z.infer<typeof clientSchema>;
@@ -252,7 +280,7 @@ export function ClientFormDialog({
       departmentId: 'none',
       contractorId: 'none',
       note: '',
-      expiredEnable: true,
+      expiredEnable: false,
       expiredStartDay: defaultToday,
       expiredEndDay: defaultToday,
       isActive: true,
@@ -403,7 +431,7 @@ export function ClientFormDialog({
           departmentId: 'none',
           contractorId: 'none',
           note: 'Đăng ký tự động từ thẻ chip CCCD (HN212)',
-          expiredEnable: true,
+          expiredEnable: false,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
           isActive: true,
@@ -426,7 +454,7 @@ export function ClientFormDialog({
           departmentId: 'none',
           contractorId: 'none',
           note: '',
-          expiredEnable: true,
+          expiredEnable: false,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
           isActive: true,
@@ -1306,25 +1334,28 @@ export function ClientFormDialog({
             )}
           </div>
 
-          {/* 4. KHỐI CẤU HÌNH THỜI HẠN RA VÀO (EXPIRED) & GHI CHÚ */}
+          {/* 5. KHỐI CẤU HÌNH THỜI HẠN RA VÀO (EXPIRED) & GHI CHÚ */}
           <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between pb-1 border-b border-border/60">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                  4. Thời hạn ra vào & Trạng thái
+                  5. Thời hạn ra vào &amp; Ghi chú
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-foreground">
-                  Không giới hạn thời gian:
+                  Áp dụng thời hạn ra vào:
                 </span>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={expiredEnable}
+                  aria-label="Áp dụng thời hạn ra vào"
                   onClick={() =>
-                    setValue('expiredEnable', !expiredEnable, { shouldDirty: true })
+                    setValue('expiredEnable', !expiredEnable, { shouldDirty: true, shouldValidate: true })
                   }
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${expiredEnable ? 'bg-emerald-600' : 'bg-muted'
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${expiredEnable ? 'bg-amber-600' : 'bg-muted'
                     }`}
                 >
                   <span
@@ -1337,10 +1368,6 @@ export function ClientFormDialog({
 
             {/* Chi tiết Từ ngày - Đến ngày */}
             {expiredEnable ? (
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                ✓ Nhân sự được ra vào tự do (không áp dụng thời hạn hết hạn, bỏ qua giới hạn ngày vào/ra).
-              </p>
-            ) : (
               <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2.5">
                 <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-300 block">
                   Áp dụng giới hạn thời gian (Hệ thống sẽ chặn ra vào nếu ngoài khoảng thời gian này):
@@ -1355,6 +1382,9 @@ export function ClientFormDialog({
                       type="date"
                       className="text-xs font-mono bg-background h-9"
                     />
+                    {errors.expiredStartDay && (
+                      <p className="text-[11px] text-destructive">{errors.expiredStartDay.message}</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-amber-900 dark:text-amber-300 flex items-center h-5">
@@ -1365,9 +1395,16 @@ export function ClientFormDialog({
                       type="date"
                       className="text-xs font-mono bg-background h-9"
                     />
+                    {errors.expiredEndDay && (
+                      <p className="text-[11px] text-destructive">{errors.expiredEndDay.message}</p>
+                    )}
                   </div>
                 </div>
               </div>
+            ) : (
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
+                ✓ Không giới hạn thời gian (Nhân sự được ra vào tự do, không áp dụng thời hạn hết hạn).
+              </p>
             )}
 
             {/* Ghi chú */}

@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
-import { formatImageUrl, hasImagePath } from '@/components/parkingSessions/EvidenceImageGrid';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {

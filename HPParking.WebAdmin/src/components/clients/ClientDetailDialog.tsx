@@ -477,11 +477,6 @@ export function ClientDetailDialog({
                       <div className="p-3 rounded-lg bg-muted/30 border border-border/40 space-y-1">
                         <span className="text-[11px] text-muted-foreground block">Quy định thời hạn ra vào:</span>
                         {client.expired?.enable ? (
-                          <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold">
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span>Không giới hạn thời gian (Vô thời hạn)</span>
-                          </div>
-                        ) : (
                           <div className="space-y-0.5">
                             <span className="text-amber-700 dark:text-amber-400 font-semibold block">
                               Có áp dụng giới hạn thời gian:
@@ -492,6 +487,11 @@ export function ClientDetailDialog({
                             <span className="font-mono text-muted-foreground block">
                               Đến: {formatDateTime(client.expired?.endDay)}
                             </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>Không giới hạn thời gian (Vô thời hạn)</span>
                           </div>
                         )}
                       </div>

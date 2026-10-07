@@ -35,6 +35,7 @@ const createMockGate = (id: string, name: string, code: string): GateDto => ({
   id,
   name,
   code,
+  machineCode: 'MC01',
   isActive: true,
   createdAt: '2026-01-01T00:00:00Z',
 });

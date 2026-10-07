@@ -158,4 +158,63 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
       expect(screen.queryByText(/Mã định danh không được để trống/i)).not.toBeInTheDocument();
     });
   });
+
+  it('mặc định không giới hạn thời gian (expiredEnable = false) và hiển thị thông báo ra vào tự do', async () => {
+    renderDialog();
+
+    expect(
+      screen.getByText(/Không giới hạn thời gian \(Nhân sự được ra vào tự do, không áp dụng thời hạn hết hạn\)/i)
+    ).toBeInTheDocument();
+  });
+
+  it('báo lỗi khi bật thời hạn ra vào nhưng ngày kết thúc nhỏ hơn ngày bắt đầu', async () => {
+    renderDialog();
+
+    // Điền các trường cơ bản bắt buộc
+    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
+    fireEvent.change(codeInput, { target: { value: '001200012345' } });
+
+    const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam');
+    fireEvent.change(nameInput, { target: { value: 'Nguyễn Văn Test' } });
+
+    const phoneInput = screen.getByPlaceholderText('VD: 0987654321');
+    fireEvent.change(phoneInput, { target: { value: '0912345678' } });
+
+    // Chọn Làn tự do (None) để không bị chặn bởi thẻ
+    const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
+    fireEvent.click(noneCheckbox);
+
+    // Tắt kiểm tra biển số xe nếu đang bật
+    const verifyPlateSwitch = screen.queryByRole('switch', { name: /Bắt buộc đối chiếu biển số/i });
+    if (verifyPlateSwitch) {
+      fireEvent.click(verifyPlateSwitch);
+    }
+
+    // Bật công tắc áp dụng thời hạn
+    const expiredSwitch = screen.getByRole('switch', { name: /Áp dụng thời hạn ra vào/i });
+    fireEvent.click(expiredSwitch);
+
+    // Chờ 2 input ngày xuất hiện
+    await waitFor(() => {
+      expect(screen.getByText(/Từ ngày \(StartDay\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Đến ngày \(EndDay\)/i)).toBeInTheDocument();
+    });
+
+    const inputs = screen.getAllByDisplayValue(/\d{4}-\d{2}-\d{2}/);
+    // Điền ngày kết thúc nhỏ hơn ngày bắt đầu
+    const startInput = inputs[1]; // input[0] là ngày sinh (birthDay)
+    const endInput = inputs[2];
+
+    fireEvent.change(startInput, { target: { value: '2026-12-31' } });
+    fireEvent.change(endInput, { target: { value: '2026-01-01' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Ngày bắt đầu không được lớn hơn ngày hết hạn/i)
+      ).toBeInTheDocument();
+    });
+  });
 });
