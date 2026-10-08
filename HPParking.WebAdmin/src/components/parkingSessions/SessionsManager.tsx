@@ -222,7 +222,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Vào (Check-In)',
+      header: 'Lượt Vào',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -236,7 +236,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Ra (Check-Out)',
+      header: 'Lượt Ra',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -349,7 +349,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Vào (Check-In)',
+      header: 'Lượt Vào',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -363,7 +363,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Ra (Check-Out)',
+      header: 'Lượt Ra',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
