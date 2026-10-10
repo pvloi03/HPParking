@@ -1,0 +1,70 @@
+services:
+  # ==============================================================
+  # 1. NGINX GATEWAY TRUNG TÂM (ĐỌC ẢNH TRỰC TIẾP & REVERSE PROXY)
+  # ==============================================================
+  gateway:
+    image: nginx:alpine
+    container_name: hpparking-gateway
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      # Chia sẻ volume lưu trữ ảnh với API ở chế độ Read-Only (:ro)
+      - hpparking_storage:/data/storage:ro
+    networks:
+      - hpparking-net
+    depends_on:
+      - mongodb
+
+  # ==============================================================
+  # 2. FRONTEND REACT WEB ADMIN (ẨN TRONG MẠNG NỘI BỘ)
+  # ==============================================================
+  web:
+    build:
+      context: ./HPParking.WebAdmin
+      dockerfile: Dockerfile
+    container_name: hpparking-web
+    restart: always
+    networks:
+      - hpparking-net
+
+  # ==============================================================
+  # 3. BACKEND .NET 8 API (GHI ẢNH & XỬ LÝ NGHIỆP VỤ)
+  # ==============================================================
+  api:
+    build:
+      context: .
+      dockerfile: HPParking.Api/Dockerfile
+    container_name: hpparking-api
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5051
+    volumes:
+      # API lưu ảnh chụp camera, avatar vào volume này
+      - hpparking_storage:/app/storage
+    networks:
+      - hpparking-net
+    depends_on:
+      - mongodb
+
+  # ==============================================================
+  # 4. DATABASE MONGODB (ẨN TRONG MẠNG NỘI BỘ)
+  # ==============================================================
+  mongodb:
+    image: mongo:8.0
+    container_name: hpparking-mongodb
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - hpparking-net
+
+volumes:
+  mongo_data:
+  hpparking_storage:
+
+networks:
+  hpparking-net:
+    driver: bridge
