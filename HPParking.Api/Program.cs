@@ -99,7 +99,7 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddSingleton<IExcelService, ClosedXmlExcelService>();
 builder.Services.AddScoped<IVehicleExcelService, VehicleExcelService>();
 builder.Services.AddScoped<IClientExcelService, ClientExcelService>();
-builder.Services.AddScoped<IMasterDataExcelService, MasterDataExcelService>();
+builder.Services.AddScoped<ICardExcelService, CardExcelService>();
 builder.Services.AddScoped<IReportExcelService, ReportExcelService>();
 
 // Đăng ký dịch vụ Quản lý Thẻ, Tuyến đường phương tiện nội bộ và Email cảnh báo SLA
@@ -153,7 +153,8 @@ builder.Services.AddCors(options =>
         _ = policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials()
+              .WithExposedHeaders("X-Export-Truncated");
     });
 });
 

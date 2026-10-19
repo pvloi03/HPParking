@@ -106,7 +106,14 @@ export function AuditLogsPage() {
       });
       const fileName = `nhat_ky_kiem_toan_${new Date().toISOString().slice(0, 10)}.xlsx`;
       downloadBlob(blob, fileName);
-      toast.success('Xuất báo cáo Excel sổ cái kiểm toán thành công!');
+      if (blob.isTruncated) {
+        toast.warning(
+          'Dữ liệu vượt quá 10,000 dòng. Hệ thống chỉ xuất tối đa 10,000 bản ghi đầu tiên.',
+          { duration: 5000 }
+        );
+      } else {
+        toast.success('Xuất báo cáo Excel sổ cái kiểm toán thành công!');
+      }
     } catch (error) {
       toast.error(extractErrorMessage(error) || 'Xuất báo cáo Excel thất bại');
     } finally {

@@ -187,7 +187,14 @@ export function ClientsPage() {
         departmentId: departmentFilter === 'all' ? undefined : departmentFilter,
       });
       downloadBlob(blob, 'danh_sach_khach_hang.xlsx');
-      toast.success('Đã xuất dữ liệu Excel thành công');
+      if (blob.isTruncated) {
+        toast.warning(
+          'Dữ liệu vượt quá 10,000 dòng. Hệ thống chỉ xuất tối đa 10,000 bản ghi đầu tiên.',
+          { duration: 5000 }
+        );
+      } else {
+        toast.success('Đã xuất dữ liệu Excel thành công');
+      }
     } catch (err) {
       toast.error(extractErrorMessage(err));
     } finally {

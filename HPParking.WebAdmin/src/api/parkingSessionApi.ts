@@ -7,6 +7,7 @@ import type {
   ParkingSessionDto,
   ParkingSessionFilterQuery,
 } from '@/types/parkingSession';
+import type { ExportBlob } from '@/types/excel';
 
 /**
  * Trích xuất thông báo lỗi thân thiện khi gọi API phiên đỗ xe
@@ -87,7 +88,7 @@ export const parkingSessionApi = {
    */
   async exportParkingSessions(
     query?: ParkingSessionFilterQuery
-  ): Promise<Blob> {
+  ): Promise<ExportBlob> {
     const response = await apiClient.get<Blob>(
       '/v1/excel/parking-sessions/export',
       {
@@ -95,6 +96,11 @@ export const parkingSessionApi = {
         responseType: 'blob',
       }
     );
-    return response.data;
+    const isTruncated =
+      response.headers?.['x-export-truncated'] === 'true' ||
+      response.headers?.['X-Export-Truncated'] === 'true';
+    const blob = response.data as ExportBlob;
+    blob.isTruncated = isTruncated;
+    return blob;
   },
 };

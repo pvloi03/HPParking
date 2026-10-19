@@ -38,35 +38,27 @@ namespace HPParking.Api.Services.Implementations
         {
         }
 
-        public async Task<PagedResult<CardDto>> GetCardsPagedAsync(
-            PaginationQuery query,
-            string? search = null,
-            CardTargetType? targetType = null,
-            CardStatus? status = null,
-            bool? unassignedOnly = null,
-            string? assignedClientId = null,
-            string? assignedVehicleId = null,
-            CancellationToken cancellationToken = default)
+        public static FilterDefinition<Card> BuildFilter(CardFilterQuery query)
         {
             var filter = Builders<Card>.Filter.Eq(x => x.IsDeleted, false);
 
-            if (!string.IsNullOrWhiteSpace(search))
+            if (!string.IsNullOrWhiteSpace(query.Search))
             {
-                var searchFilter = Builders<Card>.Filter.Regex(x => x.CardNumber, new MongoDB.Bson.BsonRegularExpression(search.Trim(), "i"));
+                var searchFilter = Builders<Card>.Filter.Regex(x => x.CardNumber, new MongoDB.Bson.BsonRegularExpression(query.Search.Trim(), "i"));
                 filter &= searchFilter;
             }
 
-            if (targetType.HasValue)
+            if (query.TargetType.HasValue)
             {
-                filter &= Builders<Card>.Filter.Eq(x => x.TargetType, targetType.Value);
+                filter &= Builders<Card>.Filter.Eq(x => x.TargetType, query.TargetType.Value);
             }
 
-            if (status.HasValue)
+            if (query.Status.HasValue)
             {
-                filter &= Builders<Card>.Filter.Eq(x => x.Status, status.Value);
+                filter &= Builders<Card>.Filter.Eq(x => x.Status, query.Status.Value);
             }
 
-            if (unassignedOnly == true)
+            if (query.UnassignedOnly == true)
             {
                 FilterDefinition<Card> BuildSlotFilter(
                     System.Linq.Expressions.Expression<Func<Card, string?>> fieldExpr,
@@ -82,13 +74,13 @@ namespace HPParking.Api.Services.Implementations
                     return Builders<Card>.Filter.Eq(fieldExpr, null);
                 }
 
-                if (targetType == CardTargetType.Vehicle)
+                if (query.TargetType == CardTargetType.Vehicle)
                 {
-                    filter &= BuildSlotFilter(x => x.VehicleId, assignedVehicleId);
+                    filter &= BuildSlotFilter(x => x.VehicleId, query.AssignedVehicleId);
                 }
-                else if (targetType == CardTargetType.Person)
+                else if (query.TargetType == CardTargetType.Person)
                 {
-                    filter &= BuildSlotFilter(x => x.ClientId, assignedClientId);
+                    filter &= BuildSlotFilter(x => x.ClientId, query.AssignedClientId);
                 }
                 else
                 {
@@ -96,28 +88,73 @@ namespace HPParking.Api.Services.Implementations
                             & Builders<Card>.Filter.Eq(x => x.VehicleId, null);
                 }
             }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(query.AssignedClientId) && ObjectId.TryParse(query.AssignedClientId, out _))
+                {
+                    filter &= Builders<Card>.Filter.Eq(x => x.ClientId, query.AssignedClientId);
+                }
+
+                if (!string.IsNullOrWhiteSpace(query.AssignedVehicleId) && ObjectId.TryParse(query.AssignedVehicleId, out _))
+                {
+                    filter &= Builders<Card>.Filter.Eq(x => x.VehicleId, query.AssignedVehicleId);
+                }
+            }
+
+            return filter;
+        }
+
+        private async Task<(Dictionary<string, (string Code, string Name)> ClientMap, Dictionary<string, string> VehicleMap)>
+            LoadClientAndVehicleMapsAsync(IEnumerable<Card> cards, CancellationToken cancellationToken = default)
+        {
+            var cardList = cards.ToList();
+            var clientIds = cardList.Where(c => !string.IsNullOrWhiteSpace(c.ClientId)).Select(c => c.ClientId!).Distinct().ToList();
+            var vehicleIds = cardList.Where(c => !string.IsNullOrWhiteSpace(c.VehicleId)).Select(c => c.VehicleId!).Distinct().ToList();
+
+            var clientMap = new Dictionary<string, (string Code, string Name)>();
+            if (clientIds.Count > 0)
+            {
+                var clients = await _clientRepo.FindAsync(c => clientIds.Contains(c.Id) && !c.IsDeleted, cancellationToken: cancellationToken);
+                clientMap = clients.ToDictionary(c => c.Id, c => (c.Code ?? string.Empty, c.Name));
+            }
+
+            var vehicleMap = new Dictionary<string, string>();
+            if (vehicleIds.Count > 0)
+            {
+                var vehicles = await _vehicleRepo.FindAsync(v => vehicleIds.Contains(v.Id) && !v.IsDeleted, cancellationToken: cancellationToken);
+                vehicleMap = vehicles.ToDictionary(v => v.Id, v => v.PlateNumber);
+            }
+
+            return (clientMap, vehicleMap);
+        }
+
+        public async Task<PagedResult<CardDto>> GetCardsPagedAsync(
+            PaginationQuery query,
+            string? search = null,
+            CardTargetType? targetType = null,
+            CardStatus? status = null,
+            bool? unassignedOnly = null,
+            string? assignedClientId = null,
+            string? assignedVehicleId = null,
+            CancellationToken cancellationToken = default)
+        {
+            var filterQuery = new CardFilterQuery
+            {
+                Search = search,
+                TargetType = targetType,
+                Status = status,
+                UnassignedOnly = unassignedOnly,
+                AssignedClientId = assignedClientId,
+                AssignedVehicleId = assignedVehicleId
+            };
+
+            var filter = BuildFilter(filterQuery);
 
             var sort = Builders<Card>.Sort.Descending(x => x.CreatedAt);
             var totalCount = await _cardRepo.CountAsync(filter, onlyDeleted: false, cancellationToken);
             var pagedCards = await _cardRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: false, cancellationToken);
 
-            // Tối ưu Batch Loading thông tin Client và Vehicle để xóa bỏ triệt để N+1 Database Round-trips
-            var clientIds = pagedCards.Where(c => !string.IsNullOrWhiteSpace(c.ClientId)).Select(c => c.ClientId!).Distinct().ToList();
-            var vehicleIds = pagedCards.Where(c => !string.IsNullOrWhiteSpace(c.VehicleId)).Select(c => c.VehicleId!).Distinct().ToList();
-
-            var clientDict = new Dictionary<string, string>();
-            if (clientIds.Count > 0)
-            {
-                var clients = await _clientRepo.FindAsync(c => clientIds.Contains(c.Id) && !c.IsDeleted, cancellationToken: cancellationToken);
-                clientDict = clients.ToDictionary(c => c.Id, c => c.Name);
-            }
-
-            var vehicleDict = new Dictionary<string, string>();
-            if (vehicleIds.Count > 0)
-            {
-                var vehicles = await _vehicleRepo.FindAsync(v => vehicleIds.Contains(v.Id) && !v.IsDeleted, cancellationToken: cancellationToken);
-                vehicleDict = vehicles.ToDictionary(v => v.Id, v => v.PlateNumber);
-            }
+            var (clientMap, vehicleMap) = await LoadClientAndVehicleMapsAsync(pagedCards, cancellationToken);
 
             var dtoList = pagedCards.Select(card => new CardDto
             {
@@ -125,9 +162,10 @@ namespace HPParking.Api.Services.Implementations
                 CardNumber = card.CardNumber,
                 TargetType = card.TargetType,
                 ClientId = card.ClientId,
-                ClientName = card.ClientId != null && clientDict.TryGetValue(card.ClientId, out var cName) ? cName : null,
+                ClientCode = card.ClientId != null && clientMap.TryGetValue(card.ClientId, out var cInfo) ? cInfo.Code : null,
+                ClientName = card.ClientId != null && clientMap.TryGetValue(card.ClientId, out var clientInfo) ? clientInfo.Name : null,
                 VehicleId = card.VehicleId,
-                PlateNumber = card.VehicleId != null && vehicleDict.TryGetValue(card.VehicleId, out var pNum) ? pNum : null,
+                PlateNumber = card.VehicleId != null && vehicleMap.TryGetValue(card.VehicleId, out var pNum) ? pNum : null,
                 Status = card.Status,
                 Note = card.Note,
                 CreatedAt = card.CreatedAt,
@@ -135,6 +173,85 @@ namespace HPParking.Api.Services.Implementations
             }).ToList();
 
             return new PagedResult<CardDto>(dtoList, query.PageIndex, query.PageSize, totalCount);
+        }
+
+        public async Task<(IReadOnlyList<CardDto> Items, bool IsTruncated)> GetCardsForExportAsync(
+            CardFilterQuery query,
+            int maxLimit = 10000,
+            CancellationToken cancellationToken = default)
+        {
+            var filter = BuildFilter(query);
+
+            var totalCount = await _cardRepo.CountAsync(filter, onlyDeleted: false, cancellationToken: cancellationToken);
+            bool isTruncated = totalCount > maxLimit;
+            int take = (int)Math.Min(totalCount, maxLimit);
+
+            var sort = Builders<Card>.Sort.Descending(x => x.CreatedAt);
+            var cards = await _cardRepo.FindAsync(filter, sort, skip: 0, limit: take, onlyDeleted: false, cancellationToken: cancellationToken);
+
+            var (clientMap, vehicleMap) = await LoadClientAndVehicleMapsAsync(cards, cancellationToken);
+
+            var dtoList = cards.Select(card => new CardDto
+            {
+                Id = card.Id,
+                CardNumber = card.CardNumber,
+                TargetType = card.TargetType,
+                ClientId = card.ClientId,
+                ClientCode = card.ClientId != null && clientMap.TryGetValue(card.ClientId, out var cInfo) ? cInfo.Code : null,
+                ClientName = card.ClientId != null && clientMap.TryGetValue(card.ClientId, out var clientInfo) ? clientInfo.Name : null,
+                VehicleId = card.VehicleId,
+                PlateNumber = card.VehicleId != null && vehicleMap.TryGetValue(card.VehicleId, out var pNum) ? pNum : null,
+                Status = card.Status,
+                Note = card.Note,
+                CreatedAt = card.CreatedAt,
+                UpdatedAt = card.UpdatedAt
+            }).ToList();
+
+            return (dtoList, isTruncated);
+        }
+
+        public async Task RevokeVehicleCardsAsync(
+            string vehicleId,
+            string? excludeCardId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(vehicleId)) return;
+
+            var oldCards = await _cardRepo.FindAsync(
+                c => c.VehicleId == vehicleId && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted,
+                cancellationToken: cancellationToken);
+
+            foreach (var oc in oldCards)
+            {
+                if (!string.IsNullOrWhiteSpace(excludeCardId) && oc.Id == excludeCardId)
+                    continue;
+
+                oc.VehicleId = null;
+                oc.Status = CardStatus.Available;
+                await _cardRepo.UpdateAsync(oc, cancellationToken);
+            }
+        }
+
+        public async Task RevokeClientCardsAsync(
+            string clientId,
+            string? excludeCardId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(clientId)) return;
+
+            var oldCards = await _cardRepo.FindAsync(
+                c => c.ClientId == clientId && c.TargetType == CardTargetType.Person && !c.IsDeleted,
+                cancellationToken: cancellationToken);
+
+            foreach (var oc in oldCards)
+            {
+                if (!string.IsNullOrWhiteSpace(excludeCardId) && oc.Id == excludeCardId)
+                    continue;
+
+                oc.ClientId = null;
+                oc.Status = CardStatus.Available;
+                await _cardRepo.UpdateAsync(oc, cancellationToken);
+            }
         }
 
         public async Task<CardDto> GetByIdAsync(string id, CancellationToken cancellationToken = default)
@@ -171,6 +288,7 @@ namespace HPParking.Api.Services.Implementations
             if (card.TargetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(card.ClientId))
             {
                 card.Status = CardStatus.InUse;
+                await RevokeClientCardsAsync(card.ClientId, cancellationToken: cancellationToken);
                 var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
                 if (client != null)
                 {
@@ -181,13 +299,7 @@ namespace HPParking.Api.Services.Implementations
             else if (card.TargetType == CardTargetType.Vehicle && !string.IsNullOrWhiteSpace(card.VehicleId))
             {
                 card.Status = CardStatus.InUse;
-                var oldCards = await _cardRepo.FindAsync(c => c.VehicleId == card.VehicleId && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken: cancellationToken);
-                foreach (var oc in oldCards)
-                {
-                    oc.VehicleId = null;
-                    oc.Status = CardStatus.Available;
-                    await _cardRepo.UpdateAsync(oc, cancellationToken);
-                }
+                await RevokeVehicleCardsAsync(card.VehicleId, cancellationToken: cancellationToken);
             }
 
             await _cardRepo.AddAsync(card, cancellationToken);
@@ -233,6 +345,7 @@ namespace HPParking.Api.Services.Implementations
 
                 if (!string.IsNullOrWhiteSpace(newClientId))
                 {
+                    await RevokeClientCardsAsync(newClientId, excludeCardId: id, cancellationToken: cancellationToken);
                     var newClient = await _clientRepo.GetByIdAsync(newClientId, cancellationToken);
                     if (newClient != null)
                     {
@@ -244,13 +357,7 @@ namespace HPParking.Api.Services.Implementations
 
             if (card.VehicleId != newVehicleId && !string.IsNullOrWhiteSpace(newVehicleId))
             {
-                var oldCards = await _cardRepo.FindAsync(c => c.VehicleId == newVehicleId && c.Id != id && c.TargetType == CardTargetType.Vehicle && !c.IsDeleted, cancellationToken: cancellationToken);
-                foreach (var oc in oldCards)
-                {
-                    oc.VehicleId = null;
-                    oc.Status = CardStatus.Available;
-                    await _cardRepo.UpdateAsync(oc, cancellationToken);
-                }
+                await RevokeVehicleCardsAsync(newVehicleId, excludeCardId: id, cancellationToken: cancellationToken);
             }
 
             card.TargetType = request.TargetType;

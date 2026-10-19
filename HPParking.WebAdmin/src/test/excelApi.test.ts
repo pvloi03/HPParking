@@ -170,6 +170,22 @@ describe('Excel API & Error Handling', () => {
         responseType: 'blob',
       });
       expect(res).toBe(mockBlob);
+      expect(res.isTruncated).toBe(false);
+    });
+
+    it('exportData gán isTruncated = true khi response header có x-export-truncated là true', async () => {
+      const mockBlob = new Blob(['exported binary'], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      vi.mocked(apiClient.get).mockResolvedValueOnce({
+        data: mockBlob,
+        headers: { 'x-export-truncated': 'true' },
+      });
+
+      const res = await excelApi.exportData('cards', { status: 1 });
+
+      expect(res).toBe(mockBlob);
+      expect(res.isTruncated).toBe(true);
     });
   });
 });

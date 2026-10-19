@@ -8,6 +8,7 @@ namespace HPParking.Api.DTOs.Cards
         public string CardNumber { get; set; } = string.Empty;
         public CardTargetType TargetType { get; set; } = CardTargetType.Person;
         public string? ClientId { get; set; }
+        public string? ClientCode { get; set; }
         public string? ClientName { get; set; }
         public string? VehicleId { get; set; }
         public string? PlateNumber { get; set; }

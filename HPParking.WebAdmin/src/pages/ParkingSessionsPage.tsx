@@ -143,7 +143,14 @@ export function ParkingSessionsPage() {
 
       const fileName = `lich_su_do_xe_${fromDate || 'tat_ca'}_${toDate || 'tat_ca'}.xlsx`;
       downloadBlob(blob, fileName);
-      toast.success(`Xuất báo cáo Excel thành công! (${totalCount} bản ghi)`);
+      if (blob.isTruncated) {
+        toast.warning(
+          'Dữ liệu vượt quá 10,000 dòng. Hệ thống chỉ xuất tối đa 10,000 bản ghi đầu tiên.',
+          { duration: 5000 }
+        );
+      } else {
+        toast.success(`Xuất báo cáo Excel thành công! (${totalCount} bản ghi)`);
+      }
     } catch (err) {
       toast.error(extractErrorMessage(err));
     } finally {

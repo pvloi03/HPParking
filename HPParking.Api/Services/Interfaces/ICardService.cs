@@ -15,6 +15,22 @@ namespace HPParking.Api.Services.Interfaces
             string? assignedClientId = null,
             string? assignedVehicleId = null,
             CancellationToken cancellationToken = default);
+
+        Task<(IReadOnlyList<CardDto> Items, bool IsTruncated)> GetCardsForExportAsync(
+            CardFilterQuery query,
+            int maxLimit = 10000,
+            CancellationToken cancellationToken = default);
+
+        Task RevokeVehicleCardsAsync(
+            string vehicleId,
+            string? excludeCardId = null,
+            CancellationToken cancellationToken = default);
+
+        Task RevokeClientCardsAsync(
+            string clientId,
+            string? excludeCardId = null,
+            CancellationToken cancellationToken = default);
+
         Task<CardDto> GetByIdAsync(string id, CancellationToken cancellationToken = default);
         Task<CardDto> CreateAsync(CreateCardRequest request, CancellationToken cancellationToken = default);
         Task<CardDto> UpdateAsync(string id, UpdateCardRequest request, CancellationToken cancellationToken = default);

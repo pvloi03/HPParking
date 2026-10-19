@@ -5,6 +5,9 @@ import { CardsPage } from '@/pages/CardsPage';
 import { cardApi } from '@/api/cardApi';
 import { clientApi } from '@/api/clientApi';
 import { vehicleApi } from '@/api/vehicleApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
+import { toast } from '@/hooks/use-toast';
 import { CardTargetType, CardStatus } from '@/types/card';
 import { VehicleType } from '@/types/vehicle';
 
@@ -30,6 +33,28 @@ vi.mock('@/api/vehicleApi', () => ({
   vehicleApi: {
     getPaged: vi.fn(),
     getById: vi.fn(),
+  },
+}));
+
+vi.mock('@/api/excelApi', () => ({
+  excelApi: {
+    exportData: vi.fn(),
+    downloadTemplate: vi.fn(),
+    importData: vi.fn(),
+  },
+  extractErrorMessage: vi.fn((err: any) => err?.message || 'Lỗi'),
+}));
+
+vi.mock('@/utils/downloadBlob', () => ({
+  downloadBlob: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-toast', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
   },
 }));
 
@@ -391,6 +416,74 @@ describe('CardsPage Component', () => {
     await waitFor(() => {
       expect(cardApi.delete).toHaveBeenCalledWith('card-1');
       expect(cardApi.delete).toHaveBeenCalledWith('card-2');
+    });
+  });
+
+  it('hiển thị nút Nhập Excel và Xuất Excel cho người dùng có quyền ghi', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Nhập Excel/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Xuất Excel/i })).toBeInTheDocument();
+    });
+  });
+
+  it('bấm nút Xuất Excel gọi excelApi.exportData với entity cards và báo thành công khi không bị cắt tỉa', async () => {
+    const mockBlob = new Blob(['excel data']);
+    vi.mocked(excelApi.exportData).mockResolvedValue(mockBlob);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Xuất Excel/i })).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByRole('button', { name: /Xuất Excel/i });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(excelApi.exportData).toHaveBeenCalledWith('cards', expect.objectContaining({}));
+      expect(downloadBlob).toHaveBeenCalledWith(mockBlob, 'danh_sach_the_dinh_danh.xlsx');
+      expect(toast.success).toHaveBeenCalledWith('Đã xuất dữ liệu Excel thành công');
+    });
+  });
+
+  it('bấm nút Xuất Excel hiển thị toast.warning khi dữ liệu vượt ngưỡng 10,000 dòng', async () => {
+    const mockBlob = new Blob(['excel data']);
+    (mockBlob as any).isTruncated = true;
+    vi.mocked(excelApi.exportData).mockResolvedValue(mockBlob);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Xuất Excel/i })).toBeInTheDocument();
+    });
+
+    const exportBtn = screen.getByRole('button', { name: /Xuất Excel/i });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(excelApi.exportData).toHaveBeenCalledWith('cards', expect.objectContaining({}));
+      expect(downloadBlob).toHaveBeenCalledWith(mockBlob, 'danh_sach_the_dinh_danh.xlsx');
+      expect(toast.warning).toHaveBeenCalledWith(
+        'Dữ liệu vượt quá 10,000 dòng. Hệ thống chỉ xuất tối đa 10,000 bản ghi đầu tiên.',
+        { duration: 5000 }
+      );
+    });
+  });
+
+  it('bấm nút Nhập Excel mở hộp thoại ExcelImportDialog', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Nhập Excel/i })).toBeInTheDocument();
+    });
+
+    const importBtn = screen.getByRole('button', { name: /Nhập Excel/i });
+    fireEvent.click(importBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Nhập Dữ Liệu Excel: Thẻ định danh/i)).toBeInTheDocument();
     });
   });
 });

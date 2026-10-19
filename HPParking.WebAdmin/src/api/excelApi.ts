@@ -5,6 +5,7 @@ import type {
   ExcelEntity,
   ExcelImportResultDto,
   DuplicateMode,
+  ExportBlob,
 } from '@/types/excel';
 
 /**
@@ -81,16 +82,22 @@ export const excelApi = {
   },
 
   /**
-   * Xuất danh sách dữ liệu ra tệp Excel (.xlsx)
+   * Xuất danh sách dữ liệu ra tệp Excel (.xlsx) kèm cờ cảnh báo cắt tỉa (ADR 0023)
    */
   exportData: async (
     entity: ExcelEntity,
     filter?: Record<string, unknown>
-  ): Promise<Blob> => {
+  ): Promise<ExportBlob> => {
     const response = await apiClient.get<Blob>(`/v1/excel/${entity}/export`, {
       params: filter,
       responseType: 'blob',
     });
-    return response.data;
+    const isTruncated =
+      response.headers?.['x-export-truncated'] === 'true' ||
+      response.headers?.['X-Export-Truncated'] === 'true';
+    const blob = response.data as ExportBlob;
+    blob.isTruncated = isTruncated;
+    return blob;
   },
 };
+

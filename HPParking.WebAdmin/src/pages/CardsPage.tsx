@@ -22,7 +22,10 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { CardFormDialog } from '@/components/cards/CardFormDialog';
 import { CardDetailDialog } from '@/components/cards/CardDetailDialog';
+import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { cardApi, extractErrorMessage } from '@/api/cardApi';
+import { excelApi } from '@/api/excelApi';
+import { downloadBlob } from '@/utils/downloadBlob';
 import {
   CardTargetType,
   CardStatus,
@@ -50,6 +53,32 @@ export function CardsPage() {
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const blob = await excelApi.exportData('cards', {
+        search: searchKeyword.trim() || undefined,
+        targetType: targetTypeFilter !== 'all' ? Number(targetTypeFilter) : undefined,
+        status: statusFilter !== 'all' ? Number(statusFilter) : undefined,
+      });
+      downloadBlob(blob, 'danh_sach_the_dinh_danh.xlsx');
+      if (blob.isTruncated) {
+        toast.warning(
+          'Dữ liệu vượt quá 10,000 dòng. Hệ thống chỉ xuất tối đa 10,000 bản ghi đầu tiên.',
+          { duration: 5000 }
+        );
+      } else {
+        toast.success('Đã xuất dữ liệu Excel thành công');
+      }
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
 
   const { data: pagedData, isLoading } = useQuery({
     queryKey: ['cards', pageIndex, pageSize, searchKeyword, targetTypeFilter, statusFilter],
@@ -250,6 +279,9 @@ export function CardsPage() {
             : undefined
         }
         addNewLabel="Thêm thẻ mới"
+        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
+        onExportExcel={handleExportExcel}
+        isExportingExcel={isExportingExcel}
         actions={{
           onView: (item) => setDetailCardId(item.id),
           onEdit: canWrite
@@ -330,6 +362,18 @@ export function CardsPage() {
         initialData={selectedCard}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Modal Nhập Dữ Liệu Excel */}
+      <ExcelImportDialog
+        open={isExcelImportOpen}
+        onOpenChange={setIsExcelImportOpen}
+        entity="cards"
+        onSuccess={() => {
+          void queryClient.invalidateQueries({ queryKey: ['cards'] });
+          void queryClient.invalidateQueries({ queryKey: ['clients'] });
+          void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+        }}
       />
 
       {/* Confirm Delete */}

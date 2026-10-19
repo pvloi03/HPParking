@@ -6,6 +6,7 @@ import type {
   AuditLogDetailDto,
   AuditLogFilterQuery,
 } from '@/types/auditLog';
+import type { ExportBlob } from '@/types/excel';
 
 export function extractErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -71,7 +72,7 @@ export const auditApi = {
     return response.data.data;
   },
 
-  exportExcel: async (query?: AuditLogFilterQuery): Promise<Blob> => {
+  exportExcel: async (query?: AuditLogFilterQuery): Promise<ExportBlob> => {
     const response = await apiClient.get<Blob>(
       '/v1/excel/reports/audit-logs/export',
       {
@@ -79,6 +80,11 @@ export const auditApi = {
         responseType: 'blob',
       }
     );
-    return response.data;
+    const isTruncated =
+      response.headers?.['x-export-truncated'] === 'true' ||
+      response.headers?.['X-Export-Truncated'] === 'true';
+    const blob = response.data as ExportBlob;
+    blob.isTruncated = isTruncated;
+    return blob;
   },
 };
