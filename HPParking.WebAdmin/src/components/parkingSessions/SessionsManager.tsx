@@ -5,7 +5,6 @@ import {
   Car,
   Bike,
   Download,
-  RotateCcw,
   Calendar,
   FileText,
   ShieldAlert,
@@ -86,17 +85,8 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
     setPageIndex(1);
   };
 
-  const handleResetFilters = () => {
-    setSearchQuery('');
-    setStatusFilter('');
-    setVehicleTypeFilter('');
-    setFromDate('');
-    setToDate('');
-    setPageIndex(1);
-  };
-
   // TanStack Query v5: Tra cứu danh sách phiên vào/ra
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: [
       'sessions',
       targetType,
@@ -483,21 +473,13 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="h-8 gap-1.5 text-xs font-medium cursor-pointer"
-          >
-            <RotateCcw className={`h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
-          <Button
-            size="sm"
             onClick={handleExportExcel}
             disabled={isExporting}
-            className="h-8 gap-1.5 text-xs font-semibold cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+            title="Xuất dữ liệu ra Excel"
           >
-            <Download className="h-3.5 w-3.5" />
-            {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+            <Download className="h-3.5 w-3.5 text-emerald-600" />
+            <span> {isExporting ? 'Đang xuất...' : 'Xuất Excel'}</span>
           </Button>
         </div>
       </div>
@@ -641,17 +623,6 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
               Tất cả thời gian
             </Button>
           </div>
-
-          {(searchQuery || statusFilter || vehicleTypeFilter || fromDate || toDate) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleResetFilters}
-              className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
-            >
-              Xóa bộ lọc
-            </Button>
-          )}
         </div>
       </Card>
 

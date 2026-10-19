@@ -275,6 +275,63 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
 
   return (
     <div className="space-y-3.5">
+      {/* Nhóm nút hành động chính */}
+      <div className="flex items-center gap-2 shrink-0 justify-end">
+        {onExportExcel && !isTrashMode && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExportExcel}
+            disabled={isExportingExcel}
+            className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+            title="Xuất dữ liệu ra Excel"
+          >
+            <Download className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Xuất Excel</span>
+          </Button>
+        )}
+
+        {onImportExcel && !isTrashMode && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onImportExcel}
+            className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+            title="Nhập dữ liệu từ tệp Excel"
+          >
+            <Upload className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Nhập Excel</span>
+          </Button>
+        )}
+
+        {onTrashModeToggle && (
+          <Button
+            variant={isTrashMode ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={onTrashModeToggle}
+            className={cn(
+              'h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]',
+              isTrashMode &&
+              'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 font-semibold border-amber-300'
+            )}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>{isTrashMode ? 'Thùng rác (Đang xem)' : 'Thùng rác'}</span>
+          </Button>
+        )}
+
+        {onAddNew && !isTrashMode && (
+          <Button
+            size="sm"
+            onClick={onAddNew}
+            className="h-9 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer shadow-xs min-h-[36px]"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{addNewLabel}</span>
+          </Button>
+        )}
+      </div>
+
       {/* TOOLBAR CHIA 2 DÒNG HOÀN TOÀN TÁCH BIỆT */}
       <div className="p-3.5 rounded-xl border border-border bg-card shadow-xs space-y-3">
         {/* DÒNG 1: TẤT CẢ BỘ LỌC TÌM KIẾM, ĐƠN VỊ VÀ TRẠNG THÁI */}
@@ -359,63 +416,6 @@ export function DataTable<T extends { id: string; isActive?: boolean }>({
               <span className="text-xs text-muted-foreground font-medium">
                 Tổng cộng: <strong className="text-foreground font-semibold">{paginationMeta.totalCount}</strong> bản ghi
               </span>
-            )}
-          </div>
-
-          {/* Bên phải: Nhóm nút hành động chính */}
-          <div className="flex items-center gap-2 shrink-0">
-            {onExportExcel && !isTrashMode && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onExportExcel}
-                disabled={isExportingExcel}
-                className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
-                title="Xuất dữ liệu ra Excel"
-              >
-                <Download className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Xuất Excel</span>
-              </Button>
-            )}
-
-            {onImportExcel && !isTrashMode && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onImportExcel}
-                className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
-                title="Nhập dữ liệu từ tệp Excel"
-              >
-                <Upload className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Nhập Excel</span>
-              </Button>
-            )}
-
-            {onTrashModeToggle && (
-              <Button
-                variant={isTrashMode ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={onTrashModeToggle}
-                className={cn(
-                  'h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]',
-                  isTrashMode &&
-                  'bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 font-semibold border-amber-300'
-                )}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>{isTrashMode ? 'Thùng rác (Đang xem)' : 'Thùng rác'}</span>
-              </Button>
-            )}
-
-            {onAddNew && !isTrashMode && (
-              <Button
-                size="sm"
-                onClick={onAddNew}
-                className="h-9 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer shadow-xs min-h-[36px]"
-              >
-                <Plus className="h-4 w-4" />
-                <span>{addNewLabel}</span>
-              </Button>
             )}
           </div>
         </div>

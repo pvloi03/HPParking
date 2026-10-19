@@ -9,10 +9,7 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ContractorFormDialog } from '@/components/organizations/ContractorFormDialog';
 import { ContractorDetailDialog } from '@/components/organizations/ContractorDetailDialog';
-import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { contractorsApi, extractErrorMessage } from '@/api/masterDataApi';
-import { excelApi } from '@/api/excelApi';
-import { downloadBlob } from '@/utils/downloadBlob';
 import {
   DEFAULT_PAGE_SIZE,
   type ContractorDto,
@@ -46,24 +43,6 @@ export function ContractorsPage() {
   const [selectedContractor, setSelectedContractor] = useState<ContractorDto | null>(null);
   const [detailContractorId, setDetailContractorId] = useState<string | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<ContractorDto | null>(null);
-  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
-
-  const handleExportExcel = async () => {
-    try {
-      setIsExportingExcel(true);
-      const blob = await excelApi.exportData('contractors', {
-        keyword: searchKeyword.trim() || undefined,
-        isActive: statusFilter === 'all' ? undefined : statusFilter,
-      });
-      downloadBlob(blob, 'danh_sach_nha_thau.xlsx');
-      toast.success('Đã xuất dữ liệu Excel thành công');
-    } catch (err) {
-      toast.error(extractErrorMessage(err));
-    } finally {
-      setIsExportingExcel(false);
-    }
-  };
 
   // TanStack Query: Lấy danh sách nhà thầu
   const { data, isLoading } = useQuery({
@@ -274,9 +253,6 @@ export function ContractorsPage() {
             : undefined
         }
         addNewLabel="Thêm mới nhà thầu"
-        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
-        onExportExcel={handleExportExcel}
-        isExportingExcel={isExportingExcel}
         actions={{
           onView: (item) => setDetailContractorId(item.id),
           onEdit: canWrite
@@ -317,16 +293,6 @@ export function ContractorsPage() {
         initialData={selectedContractor}
         onSubmit={handleFormSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
-      />
-
-      {/* Modal Nhập Dữ Liệu Excel */}
-      <ExcelImportDialog
-        open={isExcelImportOpen}
-        onOpenChange={setIsExcelImportOpen}
-        entity="contractors"
-        onSuccess={() => {
-          void queryClient.invalidateQueries({ queryKey: ['contractors'] });
-        }}
       />
 
       {/* Confirm Xóa Mềm */}

@@ -22,22 +22,10 @@ export interface ExcelImportResultDto {
 }
 
 export type ExcelEntity =
-  | 'companies'
-  | 'departments'
-  | 'contractors'
-  | 'gates'
-  | 'lanes'
-  | 'devices'
   | 'clients'
   | 'vehicles';
 
 export const EXCEL_ENTITY_LABELS: Record<ExcelEntity, string> = {
-  companies: 'Công ty & Đơn vị thành viên',
-  departments: 'Phòng ban trực thuộc',
-  contractors: 'Nhà thầu đối tác',
-  gates: 'Cổng kiểm soát',
-  lanes: 'Làn xe kiểm soát',
-  devices: 'Thiết bị ngoại vi',
   clients: 'Hồ sơ nhân sự',
   vehicles: 'Phương tiện & Biển số xe',
 };

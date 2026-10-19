@@ -23,11 +23,8 @@ import { DataTable, type ColumnDef } from '@/components/common/DataTable';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { DeviceFormDialog } from '@/components/infrastructure/DeviceFormDialog';
 import { DeviceDetailDialog } from '@/components/infrastructure/DeviceDetailDialog';
-import { ExcelImportDialog } from '@/components/common/ExcelImportDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { devicesApi, extractErrorMessage } from '@/api/infrastructureApi';
-import { excelApi } from '@/api/excelApi';
-import { downloadBlob } from '@/utils/downloadBlob';
 import {
   DeviceType,
   type DeviceDto,
@@ -65,8 +62,6 @@ export function DevicesPage() {
   const [selectedDevice, setSelectedDevice] = useState<DeviceDto | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<DeviceDto | null>(null);
   const [detailDeviceId, setDetailDeviceId] = useState<string | null>(null);
-  const [isExcelImportOpen, setIsExcelImportOpen] = useState(false);
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   // Query: Lấy danh sách thiết bị
   const { data, isLoading } = useQuery({
@@ -356,23 +351,6 @@ export function DevicesPage() {
         </Button>
       </div>
     );
-  };
-
-  const handleExportExcel = async () => {
-    try {
-      setIsExportingExcel(true);
-      const blob = await excelApi.exportData('devices', {
-        keyword: searchKeyword.trim() || undefined,
-        isActive: statusFilter === 'all' ? undefined : statusFilter,
-        deviceType: typeFilter === 'all' ? undefined : Number(typeFilter),
-      });
-      downloadBlob(blob, 'danh_sach_thiet_bi.xlsx');
-      toast.success('Đã xuất dữ liệu Excel thành công');
-    } catch (err) {
-      toast.error(extractErrorMessage(err));
-    } finally {
-      setIsExportingExcel(false);
-    }
   };
 
   // Mutation: Thêm mới thiết bị
@@ -693,9 +671,6 @@ export function DevicesPage() {
             : undefined
         }
         addNewLabel="Thêm mới thiết bị"
-        onImportExcel={canWrite ? () => setIsExcelImportOpen(true) : undefined}
-        onExportExcel={handleExportExcel}
-        isExportingExcel={isExportingExcel}
         actions={{
           onView: (item) => {
             setDetailDeviceId(item.id);
@@ -739,16 +714,6 @@ export function DevicesPage() {
             }
             : undefined
         }
-      />
-
-      {/* Modal Nhập Dữ Liệu Excel */}
-      <ExcelImportDialog
-        open={isExcelImportOpen}
-        onOpenChange={setIsExcelImportOpen}
-        entity="devices"
-        onSuccess={() => {
-          void queryClient.invalidateQueries({ queryKey: ['devices'] });
-        }}
       />
 
       {/* Confirm Xóa Mềm Thiết Bị */}

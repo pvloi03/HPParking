@@ -423,11 +423,11 @@ export function AuditLogsPage() {
             size="sm"
             onClick={handleExportExcel}
             disabled={isExportingExcel || (data?.items?.length === 0 && !isLoading)}
-            className="h-9 gap-1.5"
-            title="Xuất danh sách sổ cái kiểm toán ra Excel"
+            className="h-9 gap-1.5 text-xs cursor-pointer min-h-[36px]"
+            title="Xuất dữ liệu ra Excel"
           >
-            <Download className="h-4 w-4" />
-            {isExportingExcel ? 'Đang xuất...' : 'Xuất Excel'}
+            <Download className="h-3.5 w-3.5 text-emerald-600" />
+            <span>{isExportingExcel ? 'Đang xuất...' : 'Xuất Excel'}</span>
           </Button>
         </div>
       </div>

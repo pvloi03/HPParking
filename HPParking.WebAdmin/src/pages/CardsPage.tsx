@@ -223,7 +223,7 @@ export function CardsPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-indigo-600" />
-            <span>Quản Lý Thẻ Định Danh (RFID / Wiegand)</span>
+            <span>Quản Lý Thẻ Định Danh</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             Mã thẻ luôn được chuẩn hóa 10 chữ số, dùng chung cho quẹt thẻ RFID và nạp FaceID.
@@ -244,9 +244,9 @@ export function CardsPage() {
         onAddNew={
           canWrite
             ? () => {
-                setSelectedCard(null);
-                setIsFormOpen(true);
-              }
+              setSelectedCard(null);
+              setIsFormOpen(true);
+            }
             : undefined
         }
         addNewLabel="Thêm thẻ mới"
@@ -254,9 +254,9 @@ export function CardsPage() {
           onView: (item) => setDetailCardId(item.id),
           onEdit: canWrite
             ? (item) => {
-                setSelectedCard(item);
-                setIsFormOpen(true);
-              }
+              setSelectedCard(item);
+              setIsFormOpen(true);
+            }
             : undefined,
           onDelete: canWrite ? (item) => setDeleteCandidate(item) : undefined,
           canDelete: () => canWrite,
@@ -316,9 +316,9 @@ export function CardsPage() {
         onEdit={
           canWrite
             ? (card) => {
-                setSelectedCard(card);
-                setIsFormOpen(true);
-              }
+              setSelectedCard(card);
+              setIsFormOpen(true);
+            }
             : undefined
         }
       />

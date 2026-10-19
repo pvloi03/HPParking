@@ -26,7 +26,7 @@ namespace HPParking.Api.Controllers.V1
         /// <summary>
         /// Tải tệp Excel mẫu chuẩn hóa (.xlsx) cho danh mục Master Data
         /// </summary>
-        /// <param name="entity">companies, departments, contractors, gates, lanes, devices</param>
+        /// <param name="entity">vehicles</param>
         [HttpGet("{entity}/template")]
         [Authorize(Roles = "Viewer,Manager,Admin")]
         [ProducesResponseType(typeof(FileContentResult), 200)]
@@ -41,7 +41,7 @@ namespace HPParking.Api.Controllers.V1
         /// <summary>
         /// Nhập dữ liệu danh mục Master Data từ tệp Excel hỗ trợ Dry-Run và xử lý trùng lặp
         /// </summary>
-        /// <param name="entity">companies, departments, contractors, gates, lanes, devices</param>
+        /// <param name="entity">vehicles</param>
         /// <param name="file">Tệp Excel .xlsx tải lên</param>
         /// <param name="dryRun">Chỉ kiểm tra tính hợp lệ dữ liệu mà không lưu CSDL</param>
         /// <param name="duplicateMode">Chiến lược trùng mã: 1=Skip (bỏ qua), 2=Update (ghi đè), 3=Error (báo lỗi)</param>
@@ -75,7 +75,7 @@ namespace HPParking.Api.Controllers.V1
         /// <summary>
         /// Xuất dữ liệu danh mục Master Data ra tệp Excel có kẹp trần an toàn (tối đa 10,000 dòng)
         /// </summary>
-        /// <param name="entity">companies, departments, contractors, gates, lanes, devices</param>
+        /// <param name="entity">vehicles</param>
         [HttpGet("{entity}/export")]
         [HttpPost("{entity}/export")]
         [Authorize(Roles = "Viewer,Manager,Admin")]

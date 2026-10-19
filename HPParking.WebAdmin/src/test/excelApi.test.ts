@@ -102,9 +102,9 @@ describe('Excel API & Error Handling', () => {
       });
       vi.mocked(apiClient.get).mockResolvedValueOnce({ data: mockBlob });
 
-      const result = await excelApi.downloadTemplate('companies');
+      const result = await excelApi.downloadTemplate('clients');
 
-      expect(apiClient.get).toHaveBeenCalledWith('/v1/excel/companies/template', {
+      expect(apiClient.get).toHaveBeenCalledWith('/v1/excel/clients/template', {
         responseType: 'blob',
       });
       expect(result).toBe(mockBlob);
@@ -123,8 +123,8 @@ describe('Excel API & Error Handling', () => {
             {
               row: 5,
               column: 'Code',
-              value: 'COMP_01',
-              errorMessage: 'Trùng mã công ty',
+              value: 'CLI_01',
+              errorMessage: 'Trùng mã nhân sự',
             },
           ],
         },
@@ -135,10 +135,10 @@ describe('Excel API & Error Handling', () => {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
 
-      const res = await excelApi.importData('companies', file, true, DuplicateMode.Update);
+      const res = await excelApi.importData('clients', file, true, DuplicateMode.Update);
 
       expect(apiClient.post).toHaveBeenCalledWith(
-        '/v1/excel/companies/import',
+        '/v1/excel/clients/import',
         expect.any(FormData),
         {
           params: {

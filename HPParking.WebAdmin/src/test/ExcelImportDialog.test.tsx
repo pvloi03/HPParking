@@ -30,7 +30,7 @@ describe('ExcelImportDialog Component', () => {
   const defaultProps = {
     open: true,
     onOpenChange: vi.fn(),
-    entity: 'companies' as const,
+    entity: 'clients' as const,
     onSuccess: vi.fn(),
   };
 
@@ -41,7 +41,7 @@ describe('ExcelImportDialog Component', () => {
   it('hiển thị tiêu đề thực thể tương ứng khi mở dialog', () => {
     render(<ExcelImportDialog {...defaultProps} />);
 
-    expect(screen.getByText(/Nhập Dữ Liệu Excel:.*Công ty/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nhập Dữ Liệu Excel:.*Hồ sơ nhân sự/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tải tệp mẫu/i })).toBeInTheDocument();
     expect(screen.getByText(/Kéo thả tệp .xlsx vào đây/i)).toBeInTheDocument();
   });
@@ -56,8 +56,8 @@ describe('ExcelImportDialog Component', () => {
     fireEvent.click(downloadBtn);
 
     await waitFor(() => {
-      expect(excelApi.downloadTemplate).toHaveBeenCalledWith('companies');
-      expect(downloadBlob).toHaveBeenCalledWith(mockBlob, 'mau_nhap_lieu_companies.xlsx');
+      expect(excelApi.downloadTemplate).toHaveBeenCalledWith('clients');
+      expect(downloadBlob).toHaveBeenCalledWith(mockBlob, 'mau_nhap_lieu_clients.xlsx');
     });
   });
 
@@ -76,13 +76,13 @@ describe('ExcelImportDialog Component', () => {
     render(<ExcelImportDialog {...defaultProps} />);
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    const validFile = new File(['binary'], 'companies_list.xlsx', {
+    const validFile = new File(['binary'], 'clients_list.xlsx', {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
 
     fireEvent.change(fileInput, { target: { files: [validFile] } });
 
-    expect(screen.getByText('companies_list.xlsx')).toBeInTheDocument();
+    expect(screen.getByText('clients_list.xlsx')).toBeInTheDocument();
     expect(screen.getByText(/Sẵn sàng tải lên/i)).toBeInTheDocument();
   });
 
@@ -129,7 +129,7 @@ describe('ExcelImportDialog Component', () => {
 
     await waitFor(() => {
       expect(excelApi.importData).toHaveBeenCalledWith(
-        'companies',
+        'clients',
         validFile,
         false,
         DuplicateMode.Skip
