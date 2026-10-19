@@ -104,7 +104,7 @@ export function ExcelImportDialog({
     if (
       !file.name.endsWith('.xlsx') &&
       file.type !==
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ) {
       toast.error('Vui lòng chọn tệp bảng tính định dạng Excel (.xlsx).');
       return;
@@ -223,13 +223,12 @@ export function ExcelImportDialog({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-              isDragging
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${isDragging
                 ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'
                 : selectedFile
-                ? 'border-emerald-300 dark:border-emerald-800 bg-card'
-                : 'border-border hover:border-emerald-400 dark:hover:border-emerald-700 bg-card/60'
-            }`}
+                  ? 'border-emerald-300 dark:border-emerald-800 bg-card'
+                  : 'border-border hover:border-emerald-400 dark:hover:border-emerald-700 bg-card/60'
+              }`}
           >
             <input
               ref={fileInputRef}
@@ -317,7 +316,7 @@ export function ExcelImportDialog({
                   htmlFor="dryRunCheckbox"
                   className="text-xs font-medium text-foreground cursor-pointer select-none"
                 >
-                  Chế độ kiểm tra thử (Dry-run, không lưu CSDL)
+                  Chế độ kiểm thử
                 </label>
               </div>
             </div>

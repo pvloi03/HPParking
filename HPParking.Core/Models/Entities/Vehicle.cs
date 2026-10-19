@@ -1,3 +1,4 @@
+using HPParking.Core.Helpers;
 using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Enums;
 using MongoDB.Bson;
@@ -22,5 +23,14 @@ namespace HPParking.Core.Models.Entities
         public string? AssignedRouteId { get; set; }                                     // [LƯU DB] Tuyến cố định (nếu có), null nếu tự do
 
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// So khớp biển số xe thô (từ camera nhận diện hoặc người dùng nhập tay) với biển số đã đăng ký của phương tiện.
+        /// Tự chuẩn hóa chuỗi (loại bỏ ký tự phân cách, khoảng trắng và chuyển sang chữ in hoa) trước khi so khớp.
+        /// </summary>
+        public bool MatchesPlate(string? rawPlate)
+        {
+            return PlateHelper.Matches(PlateNumber, rawPlate);
+        }
     }
 }

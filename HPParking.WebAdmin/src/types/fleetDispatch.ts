@@ -36,6 +36,8 @@ export interface FleetTripDto {
   originGateName?: string;
   currentGateId?: string;
   currentGateName?: string;
+  nextGateId?: string;
+  nextGateName?: string;
   assignedRouteId?: string;
   routeName?: string;
   currentStepIndex: number;

@@ -9,7 +9,7 @@ namespace HPParking.Core.Licensing
     /// <summary>
     /// Thuật toán tạo Mã Định Danh Phần Cứng (Hardware Fingerprint / Machine Code)
     /// Kết hợp CPU ID + Mainboard Serial + Disk Serial qua WMI
-    /// Định dạng: PX-XXXX-XXXX-XXXX-XXXX
+    /// Định dạng: HP-XXXX-XXXX-XXXX-XXXX
     /// </summary>
     [SupportedOSPlatform("windows")]
     public static class HardwareFingerprint
@@ -17,7 +17,7 @@ namespace HPParking.Core.Licensing
         private static string? _cachedMachineCode;
 
         /// <summary>
-        /// Lấy Mã Máy Tính định dạng: PX-XXXX-XXXX-XXXX-XXXX
+        /// Lấy Mã Máy Tính định dạng: HP-XXXX-XXXX-XXXX-XXXX
         /// </summary>
         public static string GetMachineCode()
         {
@@ -43,13 +43,13 @@ namespace HPParking.Core.Licensing
                 byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawHardwareData));
                 string hex = BitConverter.ToString(hashBytes).Replace("-", "").ToUpperInvariant();
 
-                // Lấy 16 ký tự đầu và format thành PX-AAAA-BBBB-CCCC-DDDD
+                // Lấy 16 ký tự đầu và format thành HP-AAAA-BBBB-CCCC-DDDD
                 string p1 = hex[..4];
                 string p2 = hex.Substring(4, 4);
                 string p3 = hex.Substring(8, 4);
                 string p4 = hex.Substring(12, 4);
 
-                _cachedMachineCode = $"PX-{p1}-{p2}-{p3}-{p4}";
+                _cachedMachineCode = $"HP-{p1}-{p2}-{p3}-{p4}";
                 return _cachedMachineCode;
             }
             catch
@@ -58,7 +58,7 @@ namespace HPParking.Core.Licensing
                 string fallback = Environment.MachineName + "_" + Environment.UserName;
                 byte[] hash = MD5.HashData(Encoding.UTF8.GetBytes(fallback));
                 string hex = BitConverter.ToString(hash).Replace("-", "")[..16];
-                _cachedMachineCode = $"PX-{hex[..4]}-{hex.Substring(4, 4)}-{hex.Substring(8, 4)}-{hex.Substring(12, 4)}";
+                _cachedMachineCode = $"HP-{hex[..4]}-{hex.Substring(4, 4)}-{hex.Substring(8, 4)}-{hex.Substring(12, 4)}";
                 return _cachedMachineCode;
             }
         }

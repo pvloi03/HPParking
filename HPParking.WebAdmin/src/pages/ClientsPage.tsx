@@ -593,7 +593,7 @@ export function ClientsPage() {
           setSearchKeyword(kw);
           setPageIndex(1);
         }}
-        searchPlaceholder="Tìm kiếm mã, tên, SĐT, CCCD..."
+        searchPlaceholder="Tìm kiếm mã định danh, tên, SĐT..."
         statusFilter={statusFilter}
         onStatusFilterChange={(st) => {
           setStatusFilter(st);

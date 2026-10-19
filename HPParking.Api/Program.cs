@@ -12,6 +12,7 @@ using HPParking.Core.Interfaces;
 using HPParking.Core.Repositories;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -143,14 +144,13 @@ builder.Services.AddApiVersioning(options =>
 // =============================================================================
 // 6. CORS POLICY (Hỗ trợ Credentials theo ADR 0026)
 // =============================================================================
-var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>()
-    ?? ["http://localhost:3000", "http://localhost:5173"];
+var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() ?? [""];
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCorsPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        _ = policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -160,7 +160,9 @@ builder.Services.AddCors(options =>
 // =============================================================================
 // 7. XÁC THỰC KÉP HYBRID AUTH (PolicyScheme: JWT hoặc X-API-KEY) & PHÂN QUYỀN
 // =============================================================================
-var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ?? "HPParking_Secret_Key_For_Jwt_Authentication_Must_Be_Long_Enough_2026";
+var jwtSecret = builder.Configuration["JwtSettings:SecretKey"]
+    ?? throw new InvalidOperationException("JwtSettings:SecretKey is required in appsettings.json.");
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = "JWT_OR_APIKEY";
@@ -309,6 +311,15 @@ await DbSeeder.SeedAdminUserAsync(app.Services);
 // Khởi tạo tuyến đường mặc định (Tuyến tự do SLA) nếu chưa có
 await DbSeeder.SeedDefaultGateRouteAsync(app.Services);
 
+// 0. Forwarded Headers (Đọc IP thật và giao thức HTTPS từ Reverse Proxy Nginx Gateway)
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 // 1. Trace Context (Gắn W3C traceparent và TraceIdentifier ngay tại cửa ngõ đầu tiên)
 app.UseMiddleware<TraceIdMiddleware>();
 
@@ -339,73 +350,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 // 4. Security Headers (Gắn header bảo mật tầng biên)
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
-// 5. Phục vụ Static Files (Cấu hình động theo StorageSettings, không fix cứng đường dẫn)
-var rootPathConfig = builder.Configuration["StorageSettings:RootPath"]
-    ?? builder.Configuration["StorageSettings:UploadPath"]
-    ?? @"C:\Users\ADMIN\Pictures\hpparking";
-var requestPathConfig = builder.Configuration["StorageSettings:RequestPath"] ?? "/images";
-
-var fullRootPath = Path.IsPathRooted(rootPathConfig)
-    ? rootPathConfig
-    : Path.Combine(builder.Environment.ContentRootPath, rootPathConfig);
-
-if (!Directory.Exists(fullRootPath))
-{
-    Directory.CreateDirectory(fullRootPath);
-}
-
-// 5.0. Callback gắn header chống lưu cache cứng (Heuristic Caching) trên trình duyệt đối với tệp tĩnh (Avatar, ảnh chụp)
-Action<Microsoft.AspNetCore.StaticFiles.StaticFileResponseContext> setStaticFileCacheHeaders = ctx =>
-{
-    ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, must-revalidate");
-    ctx.Context.Response.Headers.Append("Pragma", "no-cache");
-};
-
-// 5.1. Phục vụ toàn bộ thư mục gốc qua RequestPath (mặc định /images)
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(fullRootPath),
-    RequestPath = requestPathConfig.TrimEnd('/'),
-    OnPrepareResponse = setStaticFileCacheHeaders
-});
-
-// 5.2. Tự động phục vụ tất cả các thư mục con trong Folders theo cấu hình (không fix cứng tên thư mục)
-var foldersSection = builder.Configuration.GetSection("StorageSettings:Folders");
-foreach (var folderConfig in foldersSection.GetChildren())
-{
-    var folderName = folderConfig.Value;
-    if (string.IsNullOrWhiteSpace(folderName)) continue;
-
-    var folderPhysicalPath = Path.Combine(fullRootPath, folderName);
-    if (!Directory.Exists(folderPhysicalPath))
-    {
-        Directory.CreateDirectory(folderPhysicalPath);
-    }
-
-    // Đăng ký phục vụ /{folderName} (ví dụ /Captures, /Avatar)
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(folderPhysicalPath),
-        RequestPath = $"/{folderName.TrimStart('/')}",
-        OnPrepareResponse = setStaticFileCacheHeaders
-    });
-
-    // Nếu tên thư mục có ký tự hoa, đăng ký thêm bản chữ thường để tương thích URL cả 2 dạng
-    var lower = folderName.ToLowerInvariant();
-    if (!string.Equals(folderName, lower, StringComparison.Ordinal))
-    {
-        app.UseStaticFiles(new StaticFileOptions
-        {
-            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(folderPhysicalPath),
-            RequestPath = $"/{lower.TrimStart('/')}",
-            OnPrepareResponse = setStaticFileCacheHeaders
-        });
-    }
-}
-
-app.UseStaticFiles();
-
-// 6. Routing (Phân tích endpoint)
+// 5. Routing (Phân tích endpoint)
 app.UseRouting();
 
 // 7. CORS (Đặt trước Auth & RateLimiter để luôn có header CORS)

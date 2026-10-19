@@ -123,5 +123,74 @@ namespace HPParking.Tests.Api.Unit
             var result = _validator.Validate(req);
             result.IsValid.Should().BeTrue();
         }
+
+        [Theory]
+        [InlineData("NV-001")]
+        [InlineData("emp_2026")]
+        [InlineData("001201012345")]
+        [InlineData("C-123_XYZ")]
+        [InlineData("A")]
+        public void Validate_ShouldPass_WhenCodeContainsAlphanumericHyphenUnderscore(string code)
+        {
+            var req = CreateValidRequest();
+            req.Code = code;
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData("NV 001")]
+        [InlineData("NV\t001")]
+        [InlineData("NV-001 ")]
+        public void Validate_ShouldFail_WhenCodeContainsWhitespace(string code)
+        {
+            var req = CreateValidRequest();
+            req.Code = code;
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateClientRequest.Code));
+        }
+
+        [Theory]
+        [InlineData("NV@01")]
+        [InlineData("NV#01")]
+        [InlineData("NV$01")]
+        [InlineData("NV.01")]
+        [InlineData("NV*01")]
+        public void Validate_ShouldFail_WhenCodeContainsSpecialCharacters(string code)
+        {
+            var req = CreateValidRequest();
+            req.Code = code;
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateClientRequest.Code));
+        }
+
+        [Fact]
+        public void Validate_ShouldFail_WhenCodeExceeds50Characters()
+        {
+            var req = CreateValidRequest();
+            req.Code = new string('A', 51);
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateClientRequest.Code));
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData(null)]
+        public void Validate_ShouldFail_WhenCodeIsEmpty(string? code)
+        {
+            var req = CreateValidRequest();
+            req.Code = code!;
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateClientRequest.Code));
+        }
     }
 }

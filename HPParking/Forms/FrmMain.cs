@@ -494,6 +494,10 @@ namespace HPParking.Forms
         {
             if (_laneContexts == null || _laneContexts.Count == 0) return;
 
+            // Đóng ngay cảnh báo/form nhập tay của lượt trước nếu có xe mới quẹt thẻ
+            ParkingTaskDialog.DismissActive();
+            FrmManualPlateInput.DismissActive();
+
             LaneRuntimeContext? context = _laneContexts.FirstOrDefault(x =>
                 x.Lane.InputReader == data.DoorId &&
                 (x.Controller?.Config?.IP == data.ControllerIp ||
@@ -503,12 +507,12 @@ namespace HPParking.Forms
             {
                 BeginInvoke(new Action(() =>
                 {
-                    MessageBox.Show(
+                    ParkingTaskDialog.ShowWarning(
                         this,
-                        $"Nhận tín hiệu thẻ [{data.CardNo}] tại Đầu đọc {data.DoorId} (Bộ điều khiển {data.ControllerIp}), nhưng Đầu đọc {data.DoorId} chưa được gán vào làn hoạt động nào!\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.",
-                        "⚠️ Cảnh Báo Đầu Đọc Chưa Gán Làn",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                        heading: "ĐẦU ĐỌC CHƯA GÁN LÀN",
+                        text: $"Đầu đọc {data.DoorId} (Bộ điều khiển {data.ControllerIp}) chưa được gán vào làn hoạt động nào!",
+                        details: $"• Mã thẻ: {data.CardNo}\n• Thời gian: {DateTime.Now:HH:mm:ss dd/MM/yyyy}\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.",
+                        timeoutSeconds: 5);
                 }));
                 return;
             }
@@ -538,23 +542,33 @@ namespace HPParking.Forms
 
                 if (result.Status == ProcessStatus.PlateMismatch)
                 {
-                    MessageBox.Show(this, result.Message, "Biển Số Không Khớp", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ParkingTaskDialog.ShowError(
+                        this,
+                        heading: "BIỂN SỐ KHÔNG KHỚP",
+                        text: result.Message,
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Biển số xe: {result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? "Chưa rõ"}\n• Trạng thái: {result.Status}",
+                        timeoutSeconds: 5);
                 }
                 else if (result.Status == ProcessStatus.ConfirmRequired)
                 {
                     string title = (result.Message.Contains("SAI TUYẾN") || result.Message.Contains("LẠC TUYẾN"))
-                        ? "⚠️ Cảnh Báo Xe Đi Sai Tuyến"
-                        : "Cảnh Báo Vi Phạm";
-                    MessageBox.Show(this, result.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ? "CẢNH BÁO XE ĐI SAI TUYẾN"
+                        : "CẢNH BÁO VI PHẠM";
+                    ParkingTaskDialog.ShowWarning(
+                        this,
+                        heading: title,
+                        text: result.Message,
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Trạng thái: {result.Status}",
+                        timeoutSeconds: 5);
                 }
                 else if (result.Status != ProcessStatus.Success)
                 {
-                    MessageBox.Show(
+                    ParkingTaskDialog.ShowError(
                         this,
-                        $"XÁC THỰC THẤT BẠI - TỪ CHỐI QUA CỔNG!\n\n• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})",
-                        "Từ Chối Vào / Ra",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                        heading: "TỪ CHỐI QUA CỔNG",
+                        text: result.Message,
+                        details: $"• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})",
+                        timeoutSeconds: 5);
                 }
             }));
         }
@@ -562,6 +576,10 @@ namespace HPParking.Forms
         private void OnRadarTriggered(RealtimeLog data)
         {
             if (_laneContexts == null || _laneContexts.Count == 0) return;
+
+            // Đóng ngay cảnh báo/form nhập tay của lượt trước nếu có xe tiếp cận
+            ParkingTaskDialog.DismissActive();
+            FrmManualPlateInput.DismissActive();
 
             LaneRuntimeContext? context = _laneContexts.FirstOrDefault(x =>
                 x.Lane.InputReader == data.DoorId &&
@@ -615,72 +633,98 @@ namespace HPParking.Forms
             old?.Dispose();
         }
 
+        private static string FormatClientTypeVietnamese(ClientType type) => type switch
+        {
+            ClientType.Employee => "Nhân viên",
+            ClientType.Contractor => "Nhà thầu",
+            ClientType.Visitor => "Khách vãng lai",
+            ClientType.VIP => "Khách VIP",
+            ClientType.Guest => "Khách",
+            _ => type.ToString()
+        };
+
         private void UpdateLaneSlotUI(int slotIndex, LaneRuntimeContext context, ProcessResult result)
         {
             string timeStr = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
             bool isEntry = context.Lane.Direction == LaneDirection.In;
             bool isSuccess = result.Status == ProcessStatus.Success;
 
+            DateTime? sessionInTime = result.ParkingSession?.InTime ?? result.DispatchTrip?.StartTime;
+            string inTimeFormatted = sessionInTime.HasValue
+                ? (sessionInTime.Value.Kind == DateTimeKind.Utc
+                    ? sessionInTime.Value.ToLocalTime().ToString("HH:mm:ss dd/MM/yyyy")
+                    : sessionInTime.Value.ToString("HH:mm:ss dd/MM/yyyy"))
+                : string.Empty;
+
+            string inTimeText = isEntry ? $"Ngày vào: {timeStr}" : (!string.IsNullOrEmpty(inTimeFormatted) ? $"Ngày vào: {inTimeFormatted}" : "Ngày vào:");
+            string outTimeText = isEntry ? "Ngày ra:" : $"Ngày ra: {timeStr}";
+
             if (context.Lane.TargetType == LaneTargetType.Pedestrian)
             {
                 // Cập nhật giao diện Người đi bộ
-                string name = result.Client?.Name ?? (isSuccess ? "Người dùng" : "KHÔNG XÁC THỰC");
-                string code = result.Client?.Code ?? (string.IsNullOrEmpty(result.Client?.CardCode) ? "--" : result.Client.CardCode);
-                string dept = isSuccess
-                    ? (result.DepartmentName ?? "Nội bộ")
-                    : $"TỪ CHỐI ({result.Status})";
-                string role = isSuccess
-                    ? (result.Client?.Type.ToString() ?? "Nhân viên / Khách")
-                    : $"TỪ CHỐI ({result.Status})";
+                string name = result.Client?.Name ?? string.Empty;
+                string code = result.Client?.Code
+                    ?? (!string.IsNullOrEmpty(result.Client?.CardCode) ? result.Client.CardCode : string.Empty);
+
+                // Yêu cầu 1: Đơn vị: tên phòng ban nếu không có thì tên công ty nếu không có thì tên nhà thầu nếu cả 3 đều không có thì vãng lai
+                string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
+                string deptText = $"Đơn vị: {unitName}";
+
+                // Yêu cầu 2: lblLaneRole hiện dạng tiếng Việt
+                string roleVi = result.Client != null ? FormatClientTypeVietnamese(result.Client.Type) : "Vãng lai";
+                string roleText = $"Đối tượng: {roleVi}";
 
                 Color flashColor = isSuccess ? Color.LightGreen : Color.LightCoral;
 
+                string nameText = !string.IsNullOrEmpty(name) ? $"Họ và tên: {name}" : "Họ và tên:";
+                string codeText = !string.IsNullOrEmpty(code) ? $"CCCD/Mã: {code}" : "CCCD/Mã:";
+
                 if (slotIndex == 0)
                 {
-                    lblLane1Name.Text = $"Họ và tên: {name}";
-                    lblLane1Dept.Text = $"Phòng ban: {dept}";
-                    lblLane1Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane1Code.Text = $"CCCD/Mã: {code}";
-                    lblLane1Role.Text = $"Đối tượng: {role}";
-                    lblLane1Role.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    if (isEntry) lblLane1TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane1TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane1Name.Text = nameText;
+                    lblLane1Dept.Text = deptText;
+                    lblLane1Dept.ForeColor = Color.Black;
+                    lblLane1Code.Text = codeText;
+                    lblLane1Role.Text = roleText;
+                    lblLane1Role.ForeColor = Color.Black;
+                    lblLane1TimeIn.Text = inTimeText;
+                    lblLane1TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane1Name, flashColor);
                 }
                 else if (slotIndex == 1)
                 {
-                    lblLane2Name.Text = $"Họ và tên: {name}";
-                    lblLane2Dept.Text = $"Phòng ban: {dept}";
-                    lblLane2Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane2Code.Text = $"CCCD/Mã: {code}";
-                    lblLane2Role.Text = $"Đối tượng: {role}";
-                    lblLane2Role.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    if (isEntry) lblLane2TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane2TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane2Name.Text = nameText;
+                    lblLane2Dept.Text = deptText;
+                    lblLane2Dept.ForeColor = Color.Black;
+                    lblLane2Code.Text = codeText;
+                    lblLane2Role.Text = roleText;
+                    lblLane2Role.ForeColor = Color.Black;
+                    lblLane2TimeIn.Text = inTimeText;
+                    lblLane2TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane2Name, flashColor);
                 }
                 else if (slotIndex == 2)
                 {
-                    lblLane3Driver.Text = $"Họ và tên: {name}";
-                    lblLane3Dept.Text = $"Phòng ban: {dept}";
-                    lblLane3Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane3PlateReg.Text = $"CCCD/Mã: {code}";
-                    lblLane3PlateDet.Text = $"Đối tượng: {role}";
-                    lblLane3PlateDet.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    if (isEntry) lblLane3TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane3TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane3Driver.Text = nameText;
+                    lblLane3Dept.Text = deptText;
+                    lblLane3Dept.ForeColor = Color.Black;
+                    lblLane3PlateReg.Text = codeText;
+                    lblLane3PlateDet.Text = roleText;
+                    lblLane3PlateDet.ForeColor = Color.Black;
+                    lblLane3TimeIn.Text = inTimeText;
+                    lblLane3TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane3Driver, flashColor);
                 }
                 else
                 {
-                    lblLane4Driver.Text = $"Họ và tên: {name}";
-                    lblLane4Dept.Text = $"Phòng ban: {dept}";
-                    lblLane4Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane4PlateReg.Text = $"CCCD/Mã: {code}";
-                    lblLane4PlateDet.Text = $"Đối tượng: {role}";
-                    lblLane4PlateDet.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    if (isEntry) lblLane4TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane4TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane4Driver.Text = nameText;
+                    lblLane4Dept.Text = deptText;
+                    lblLane4Dept.ForeColor = Color.Black;
+                    lblLane4PlateReg.Text = codeText;
+                    lblLane4PlateDet.Text = roleText;
+                    lblLane4PlateDet.ForeColor = Color.Black;
+                    lblLane4TimeIn.Text = inTimeText;
+                    lblLane4TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane4Driver, flashColor);
                 }
 
@@ -698,60 +742,100 @@ namespace HPParking.Forms
             else
             {
                 // Cập nhật giao diện Xe cơ giới
-                string plate = result.LprResult?.Plate ?? result.RegisteredPlate ?? "--";
-                string driver = result.Client?.Name ?? result.Vehicle?.PlateNumber ?? "Tài xế";
-                string dept = isSuccess
-                    ? (result.DepartmentName ?? "Điều vận / Nội bộ")
-                    : $"TỪ CHỐI ({result.Status})";
+                string plate = result.LprResult?.Plate ?? string.Empty;
+                string regPlate = !string.IsNullOrWhiteSpace(result.RegisteredPlate)
+                    ? result.RegisteredPlate
+                    : (result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? string.Empty);
+                string driver = result.Client?.Name ?? string.Empty;
+                bool isSharedVehicle = result.DispatchTrip != null
+                    || result.Vehicle?.IsShared == true
+                    || (result.DepartmentName?.StartsWith("Tuyến:") == true)
+                    || (result.DepartmentName?.Contains("Điều vận") == true);
+
+                string deptText;
+                if (isSharedVehicle)
+                {
+                    // Yêu cầu 3: Nếu là xe chung thì hiện tuyến: tên tuyến hoặc vãng lai
+                    string routeName = result.DepartmentName ?? string.Empty;
+                    if (routeName.StartsWith("Tuyến:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        routeName = routeName[6..].Trim();
+                    }
+
+                    if (string.IsNullOrWhiteSpace(routeName)
+                        || routeName.Equals("Tuyến tự do", StringComparison.OrdinalIgnoreCase)
+                        || routeName.Contains("Điều vận", StringComparison.OrdinalIgnoreCase))
+                    {
+                        deptText = "Tuyến: Vãng lai";
+                    }
+                    else
+                    {
+                        deptText = $"Tuyến: {routeName}";
+                    }
+                }
+                else
+                {
+                    // Yêu cầu 1: Xe riêng thì Đơn vị: tên phòng ban / tên công ty / tên nhà thầu / vãng lai
+                    string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
+                    deptText = $"Đơn vị: {unitName}";
+                }
 
                 Color flashColor = isSuccess ? Color.Honeydew : Color.LightCoral;
 
+                string driverText = !string.IsNullOrEmpty(driver) ? $"Tài xế/Chủ xe: {driver}" : "Tài xế/Chủ xe:";
+                string regPlateText = !string.IsNullOrEmpty(regPlate) ? $"Biển số đăng ký: {regPlate}" : "Biển số đăng ký:";
+                string detPlateText = !string.IsNullOrEmpty(plate) ? $"Biển số nhận diện: {plate}" : "Biển số nhận diện:";
+
+                Color plateDetColor = result.Status == ProcessStatus.PlateMismatch
+                    ? Color.Crimson
+                    : (isSuccess ? Color.DarkGreen : Color.Black);
+
                 if (slotIndex == 0)
                 {
-                    lblLane1Name.Text = $"Tài xế/Chủ xe: {driver}";
-                    lblLane1Dept.Text = $"Phòng ban: {dept}";
-                    lblLane1Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane1Code.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
-                    lblLane1Role.Text = $"Biển số nhận diện: {plate}";
-                    lblLane1Role.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
-                    if (isEntry) lblLane1TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane1TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane1Name.Text = driverText;
+                    lblLane1Dept.Text = deptText;
+                    lblLane1Dept.ForeColor = Color.Black;
+                    lblLane1Code.Text = regPlateText;
+                    lblLane1Role.Text = detPlateText;
+                    lblLane1Role.ForeColor = plateDetColor;
+                    lblLane1TimeIn.Text = inTimeText;
+                    lblLane1TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane1Role, flashColor);
                 }
                 else if (slotIndex == 1)
                 {
-                    lblLane2Name.Text = $"Tài xế/Chủ xe: {driver}";
-                    lblLane2Dept.Text = $"Phòng ban: {dept}";
-                    lblLane2Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane2Code.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
-                    lblLane2Role.Text = $"Biển số nhận diện: {plate}";
-                    lblLane2Role.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
-                    if (isEntry) lblLane2TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane2TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane2Name.Text = driverText;
+                    lblLane2Dept.Text = deptText;
+                    lblLane2Dept.ForeColor = Color.Black;
+                    lblLane2Code.Text = regPlateText;
+                    lblLane2Role.Text = detPlateText;
+                    lblLane2Role.ForeColor = plateDetColor;
+                    lblLane2TimeIn.Text = inTimeText;
+                    lblLane2TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane2Role, flashColor);
                 }
                 else if (slotIndex == 2)
                 {
-                    lblLane3Driver.Text = $"Tài xế/Chủ xe: {driver}";
-                    lblLane3Dept.Text = $"Phòng ban: {dept}";
-                    lblLane3Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane3PlateReg.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
-                    lblLane3PlateDet.Text = $"Biển số nhận diện: {plate}";
-                    lblLane3PlateDet.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
-                    if (isEntry) lblLane3TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane3TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane3Driver.Text = driverText;
+                    lblLane3Dept.Text = deptText;
+                    lblLane3Dept.ForeColor = Color.Black;
+                    lblLane3PlateReg.Text = regPlateText;
+                    lblLane3PlateDet.Text = detPlateText;
+                    lblLane3PlateDet.ForeColor = plateDetColor;
+                    lblLane3TimeIn.Text = inTimeText;
+                    lblLane3TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane3PlateDet, flashColor);
                 }
                 else
                 {
-                    lblLane4Driver.Text = $"Tài xế/Chủ xe: {driver}";
-                    lblLane4Dept.Text = $"Phòng ban: {dept}";
-                    lblLane4Dept.ForeColor = isSuccess ? Color.Black : Color.Crimson;
-                    lblLane4PlateReg.Text = $"Biển số đăng ký: {result.RegisteredPlate ?? plate}";
-                    lblLane4PlateDet.Text = $"Biển số nhận diện: {plate}";
-                    lblLane4PlateDet.ForeColor = result.Status == ProcessStatus.PlateMismatch ? Color.Crimson : (isSuccess ? Color.DarkGreen : Color.Crimson);
-                    if (isEntry) lblLane4TimeIn.Text = $"Ngày vào: {timeStr}";
-                    else lblLane4TimeOut.Text = $"Ngày ra: {timeStr}";
+                    lblLane4Driver.Text = driverText;
+                    lblLane4Dept.Text = deptText;
+                    lblLane4Dept.ForeColor = Color.Black;
+                    lblLane4PlateReg.Text = regPlateText;
+                    lblLane4PlateDet.Text = detPlateText;
+                    lblLane4PlateDet.ForeColor = plateDetColor;
+                    lblLane4TimeIn.Text = inTimeText;
+                    lblLane4TimeOut.Text = outTimeText;
                     FrmMainVisualHelper.FlashLabel(lblLane4PlateDet, flashColor);
                 }
 
@@ -922,14 +1006,13 @@ namespace HPParking.Forms
                     continue;
                 }
 
-                var confirmResult = MessageBox.Show(
+                var confirmResult = ParkingTaskDialog.ShowConfirmation(
                     this,
-                    "Mở barrier thủ công cho đối tượng đã qua?\n\n- Chọn YES nếu đã mở thủ công.\n- Chọn NO để hủy bỏ lượt này.",
-                    "Xác nhận mở barrier thủ công",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
+                    heading: "XÁC NHẬN MỞ BARRIER THỦ CÔNG",
+                    text: "Mở barrier thủ công cho đối tượng đã qua?",
+                    details: "• Chọn Đồng ý nếu đã mở thủ công cho xe qua.\n• Chọn Hủy bỏ để hủy bỏ lượt này.");
 
-                return confirmResult == DialogResult.Yes;
+                return confirmResult;
             }
         }
 
@@ -951,7 +1034,8 @@ namespace HPParking.Forms
                 this,
                 lane,
                 expectedPlate: expectedPlate,
-                mismatchMessage: mismatchMessage);
+                mismatchMessage: mismatchMessage,
+                timeoutSeconds: 10);
 
             return Task.FromResult(plate);
         }

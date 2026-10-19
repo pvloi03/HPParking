@@ -17,8 +17,7 @@ namespace HPParking.Api.Validators.Clients
                 .Matches(@"^0\d{9}$").WithMessage("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (ví dụ: 0364336088).");
 
             RuleFor(x => x.Code)
-                .NotEmpty().WithMessage("Số CCCD/Định danh cá nhân không được để trống.")
-                .Matches(@"^[0-9]{9,12}$").WithMessage("Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số.");
+                .ValidClientCode();
 
             When(x => !string.IsNullOrWhiteSpace(x.Email), () =>
             {

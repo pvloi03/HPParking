@@ -30,6 +30,8 @@ namespace HPParking.Forms
         {
             lblInfo = new System.Windows.Forms.Label();
             txtPlate = new System.Windows.Forms.TextBox();
+            lblError = new System.Windows.Forms.Label();
+            lblCountdown = new System.Windows.Forms.Label();
             btnConfirm = new System.Windows.Forms.Button();
             btnCancel = new System.Windows.Forms.Button();
             SuspendLayout();
@@ -55,6 +57,29 @@ namespace HPParking.Forms
             txtPlate.Size = new System.Drawing.Size(528, 50);
             txtPlate.TabIndex = 1;
             txtPlate.KeyDown += txtPlate_KeyDown;
+            txtPlate.TextChanged += txtPlate_TextChanged;
+            // 
+            // lblError
+            // 
+            lblError.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            lblError.ForeColor = System.Drawing.Color.Crimson;
+            lblError.Location = new System.Drawing.Point(64, 192);
+            lblError.Name = "lblError";
+            lblError.Size = new System.Drawing.Size(528, 25);
+            lblError.TabIndex = 4;
+            lblError.Text = "Lỗi xác thực biển số";
+            lblError.Visible = false;
+            // 
+            // lblCountdown
+            // 
+            lblCountdown.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Italic);
+            lblCountdown.ForeColor = System.Drawing.Color.DimGray;
+            lblCountdown.Location = new System.Drawing.Point(64, 225);
+            lblCountdown.Name = "lblCountdown";
+            lblCountdown.Size = new System.Drawing.Size(236, 35);
+            lblCountdown.TabIndex = 5;
+            lblCountdown.Text = "⏱️ Tự động hủy sau: 10s";
+            lblCountdown.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // btnConfirm
             // 
@@ -64,7 +89,7 @@ namespace HPParking.Forms
             btnConfirm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnConfirm.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             btnConfirm.ForeColor = System.Drawing.Color.White;
-            btnConfirm.Location = new System.Drawing.Point(442, 213);
+            btnConfirm.Location = new System.Drawing.Point(442, 222);
             btnConfirm.Name = "btnConfirm";
             btnConfirm.Size = new System.Drawing.Size(150, 42);
             btnConfirm.TabIndex = 2;
@@ -81,7 +106,7 @@ namespace HPParking.Forms
             btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             btnCancel.ForeColor = System.Drawing.Color.White;
-            btnCancel.Location = new System.Drawing.Point(306, 213);
+            btnCancel.Location = new System.Drawing.Point(306, 222);
             btnCancel.Name = "btnCancel";
             btnCancel.Size = new System.Drawing.Size(130, 42);
             btnCancel.TabIndex = 3;
@@ -96,7 +121,9 @@ namespace HPParking.Forms
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             BackColor = System.Drawing.Color.FromArgb(245, 247, 250);
             CancelButton = btnCancel;
-            ClientSize = new System.Drawing.Size(657, 299);
+            ClientSize = new System.Drawing.Size(657, 285);
+            Controls.Add(lblCountdown);
+            Controls.Add(lblError);
             Controls.Add(btnCancel);
             Controls.Add(btnConfirm);
             Controls.Add(txtPlate);
@@ -109,6 +136,7 @@ namespace HPParking.Forms
             StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             Text = "Nhập Biển Số Thủ Công";
             Shown += FrmManualPlateInput_Shown;
+            FormClosed += FrmManualPlateInput_FormClosed;
             ResumeLayout(false);
             PerformLayout();
 
@@ -118,6 +146,8 @@ namespace HPParking.Forms
 
         public System.Windows.Forms.Label lblInfo;
         public System.Windows.Forms.TextBox txtPlate;
+        public System.Windows.Forms.Label lblError;
+        public System.Windows.Forms.Label lblCountdown;
         public System.Windows.Forms.Button btnConfirm;
         public System.Windows.Forms.Button btnCancel;
     }

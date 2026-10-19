@@ -74,8 +74,12 @@ const clientSchema = z
     code: z
       .string()
       .trim()
-      .min(1, 'Số CCCD/Định danh cá nhân không được để trống')
-      .regex(/^[0-9]{9,12}$/, 'Số CCCD/Định danh cá nhân phải gồm 9 đến 12 chữ số'),
+      .min(1, 'Mã định danh không được để trống')
+      .max(50, 'Mã định danh không được quá 50 ký tự')
+      .regex(
+        /^[a-zA-Z0-9_-]+$/,
+        'Mã định danh chỉ chứa chữ cái, chữ số, gạch dưới (_) hoặc gạch ngang (-)'
+      ),
     name: z
       .string()
       .trim()
@@ -116,6 +120,34 @@ const clientSchema = z
         message: 'Vui lòng gán thẻ định danh RFID cho nhân sự khi kích hoạt phương thức xác thực',
         path: ['cardCode'],
       });
+    }
+
+    if (data.expiredEnable) {
+      if (!data.expiredStartDay || data.expiredStartDay.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Vui lòng chọn ngày bắt đầu hiệu lực',
+          path: ['expiredStartDay'],
+        });
+      }
+      if (!data.expiredEndDay || data.expiredEndDay.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Vui lòng chọn ngày hết hạn hiệu lực',
+          path: ['expiredEndDay'],
+        });
+      }
+      if (
+        data.expiredStartDay &&
+        data.expiredEndDay &&
+        data.expiredStartDay > data.expiredEndDay
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Ngày bắt đầu không được lớn hơn ngày hết hạn',
+          path: ['expiredEndDay'],
+        });
+      }
     }
   });
 
@@ -248,7 +280,7 @@ export function ClientFormDialog({
       departmentId: 'none',
       contractorId: 'none',
       note: '',
-      expiredEnable: true,
+      expiredEnable: false,
       expiredStartDay: defaultToday,
       expiredEndDay: defaultToday,
       isActive: true,
@@ -399,7 +431,7 @@ export function ClientFormDialog({
           departmentId: 'none',
           contractorId: 'none',
           note: 'Đăng ký tự động từ thẻ chip CCCD (HN212)',
-          expiredEnable: true,
+          expiredEnable: false,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
           isActive: true,
@@ -422,7 +454,7 @@ export function ClientFormDialog({
           departmentId: 'none',
           contractorId: 'none',
           note: '',
-          expiredEnable: true,
+          expiredEnable: false,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
           isActive: true,
@@ -473,7 +505,7 @@ export function ClientFormDialog({
     }));
 
     const payload: CreateClientRequest | UpdateClientRequest = {
-      code: formData.code.trim(),
+      code: formData.code.trim().toUpperCase(),
       name: formData.name.trim(),
       birthDay: birthDayIso,
       address: formData.address?.trim() || '',
@@ -540,10 +572,10 @@ export function ClientFormDialog({
             {isEditing
               ? isFromHn212
                 ? 'Dữ liệu được cập nhật từ thẻ chip CCCD. Bạn có thể kiểm tra và chỉnh sửa trước khi lưu.'
-                : 'Chỉnh sửa thông tin định danh CCCD, phân loại đối tượng, thời hạn ra vào và ảnh FaceID.'
+                : 'Chỉnh sửa thông tin mã định danh, phân loại đối tượng, thời hạn ra vào và ảnh FaceID.'
               : isFromHn212
                 ? 'Dữ liệu được trích xuất từ chip CCCD. Bạn có thể chỉnh sửa và bổ sung thêm thông tin.'
-                : 'Nhập đầy đủ thông tin định danh CCCD (bắt buộc), đối tượng và đơn vị trực thuộc.'}
+                : 'Nhập đầy đủ thông tin mã định danh (bắt buộc), đối tượng và đơn vị trực thuộc.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -568,7 +600,7 @@ export function ClientFormDialog({
             <div className="flex items-center gap-2 pb-1 border-b border-border/60">
               <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                1. Thông tin cá nhân & Định danh CCCD
+                1. Thông tin cá nhân & Mã định danh
               </span>
             </div>
 
@@ -581,22 +613,22 @@ export function ClientFormDialog({
               disabled={isSubmitting}
             />
 
-            {/* Số CCCD & Họ tên */}
+            {/* Mã định danh & Họ tên */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground flex items-center justify-between h-5">
                   <span>
-                    Số CCCD / Mã định danh <span className="text-destructive">*</span>
+                    Mã định danh <span className="text-destructive">*</span>
                   </span>
                   <span className="text-[10px] text-muted-foreground font-normal">
-                    (9-12 chữ số)
+                    (1-50 ký tự: chữ, số, - hoặc _)
                   </span>
                 </label>
                 <Input
                   {...register('code')}
-                  placeholder="VD: 001200012345"
-                  className="font-mono text-xs h-9"
-                  maxLength={12}
+                  placeholder="VD: NV-001 hoặc 001200012345"
+                  className="font-mono text-xs h-9 uppercase"
+                  maxLength={50}
                   autoFocus={!isEditing && !isFromHn212}
                 />
                 {errors.code && (
@@ -1302,25 +1334,28 @@ export function ClientFormDialog({
             )}
           </div>
 
-          {/* 4. KHỐI CẤU HÌNH THỜI HẠN RA VÀO (EXPIRED) & GHI CHÚ */}
+          {/* 5. KHỐI CẤU HÌNH THỜI HẠN RA VÀO (EXPIRED) & GHI CHÚ */}
           <div className="p-3.5 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between pb-1 border-b border-border/60">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 <span className="text-xs font-bold text-foreground uppercase tracking-wide">
-                  4. Thời hạn ra vào & Trạng thái
+                  5. Thời hạn ra vào &amp; Ghi chú
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-foreground">
-                  Không giới hạn thời gian:
+                  Áp dụng thời hạn ra vào:
                 </span>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={expiredEnable}
+                  aria-label="Áp dụng thời hạn ra vào"
                   onClick={() =>
-                    setValue('expiredEnable', !expiredEnable, { shouldDirty: true })
+                    setValue('expiredEnable', !expiredEnable, { shouldDirty: true, shouldValidate: true })
                   }
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${expiredEnable ? 'bg-emerald-600' : 'bg-muted'
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${expiredEnable ? 'bg-amber-600' : 'bg-muted'
                     }`}
                 >
                   <span
@@ -1333,10 +1368,6 @@ export function ClientFormDialog({
 
             {/* Chi tiết Từ ngày - Đến ngày */}
             {expiredEnable ? (
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
-                ✓ Nhân sự được ra vào tự do (không áp dụng thời hạn hết hạn, bỏ qua giới hạn ngày vào/ra).
-              </p>
-            ) : (
               <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2.5">
                 <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-300 block">
                   Áp dụng giới hạn thời gian (Hệ thống sẽ chặn ra vào nếu ngoài khoảng thời gian này):
@@ -1351,6 +1382,9 @@ export function ClientFormDialog({
                       type="date"
                       className="text-xs font-mono bg-background h-9"
                     />
+                    {errors.expiredStartDay && (
+                      <p className="text-[11px] text-destructive">{errors.expiredStartDay.message}</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-amber-900 dark:text-amber-300 flex items-center h-5">
@@ -1361,9 +1395,16 @@ export function ClientFormDialog({
                       type="date"
                       className="text-xs font-mono bg-background h-9"
                     />
+                    {errors.expiredEndDay && (
+                      <p className="text-[11px] text-destructive">{errors.expiredEndDay.message}</p>
+                    )}
                   </div>
                 </div>
               </div>
+            ) : (
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium bg-emerald-50/80 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50">
+                ✓ Không giới hạn thời gian (Nhân sự được ra vào tự do, không áp dụng thời hạn hết hạn).
+              </p>
             )}
 
             {/* Ghi chú */}

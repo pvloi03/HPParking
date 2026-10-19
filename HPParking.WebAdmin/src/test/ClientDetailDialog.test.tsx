@@ -203,4 +203,62 @@ describe('ClientDetailDialog Component', () => {
       name: 'Nguyễn Văn An',
     }));
   });
+
+  it('hiển thị Có áp dụng giới hạn thời gian khi expired.enable = true', async () => {
+    vi.mocked(clientApi.getById).mockResolvedValueOnce({
+      ...mockClientDetail,
+      expired: {
+        enable: true,
+        startDay: '2026-01-01T00:00:00Z',
+        endDay: '2026-12-31T23:59:59Z',
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClientDetailDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          clientId="cli-test-01"
+          companies={mockCompanies}
+          departments={mockDepartments}
+          contractors={mockContractors}
+        />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Có áp dụng giới hạn thời gian:/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Không giới hạn thời gian \(Vô thời hạn\)/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('hiển thị Không giới hạn thời gian khi expired.enable = false', async () => {
+    vi.mocked(clientApi.getById).mockResolvedValueOnce({
+      ...mockClientDetail,
+      expired: {
+        enable: false,
+        startDay: '2026-01-01T00:00:00Z',
+        endDay: '2026-12-31T23:59:59Z',
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ClientDetailDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          clientId="cli-test-01"
+          companies={mockCompanies}
+          departments={mockDepartments}
+          contractors={mockContractors}
+        />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Không giới hạn thời gian \(Vô thời hạn\)/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Có áp dụng giới hạn thời gian:/i)).not.toBeInTheDocument();
+    });
+  });
 });

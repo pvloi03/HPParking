@@ -6,9 +6,11 @@ using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.ValueObjects;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
 {
@@ -183,16 +185,17 @@ namespace HPParking.Api.Services.Implementations
                     ErrorCodes.CLIENT_PHONE_DUPLICATE);
             }
 
-            // 2. Kiểm tra tính duy nhất của CCCD (bắt buộc)
-            var cleanCode = request.Code.Trim();
+            // 2. Kiểm tra tính duy nhất của Mã định danh (bắt buộc, case-insensitive)
+            ClientCode clientCode = request.Code;
+            var codePattern = $"^{Regex.Escape(clientCode.Value)}$";
             var existingCode = await _clientRepo.FindOneAsync(
-                c => c.Code == cleanCode && !c.IsDeleted,
+                c => c.Code != null && Regex.IsMatch(c.Code, codePattern, RegexOptions.IgnoreCase) && !c.IsDeleted,
                 cancellationToken);
 
             if (existingCode != null)
             {
                 throw new ConflictException(
-                    $"Mã CCCD/Định danh '{cleanCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
+                    $"Mã định danh '{clientCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
                     ErrorCodes.CLIENT_CODE_DUPLICATE);
             }
 
@@ -266,7 +269,7 @@ namespace HPParking.Api.Services.Implementations
             // 5. Tạo thực thể Client
             var client = new Client
             {
-                Code = cleanCode,
+                Code = clientCode,
                 Name = request.Name.Trim(),
                 BirthDay = request.BirthDay,
                 Address = request.Address?.Trim() ?? string.Empty,
@@ -398,17 +401,18 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            var cleanCode = request.Code.Trim();
-            if (!string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase))
+            ClientCode clientCode = request.Code;
+            if (!string.Equals(client.Code, clientCode.Value, StringComparison.OrdinalIgnoreCase))
             {
+                var codePattern = $"^{Regex.Escape(clientCode.Value)}$";
                 var existingCode = await _clientRepo.FindOneAsync(
-                    c => c.Code == cleanCode && c.Id != id && !c.IsDeleted,
+                    c => c.Code != null && Regex.IsMatch(c.Code, codePattern, RegexOptions.IgnoreCase) && c.Id != id && !c.IsDeleted,
                     cancellationToken);
 
                 if (existingCode != null)
                 {
                     throw new ConflictException(
-                        $"Mã CCCD/Định danh '{cleanCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
+                        $"Mã định danh '{clientCode}' đã tồn tại trong hệ thống ({existingCode.Name}).",
                         ErrorCodes.CLIENT_CODE_DUPLICATE);
                 }
             }
@@ -459,7 +463,7 @@ namespace HPParking.Api.Services.Implementations
             var oldPhone = client.PhoneNumber;
             var oldCardCode = client.CardCode;
             var cleanCardCode = HPParking.Core.Helpers.CardHelper.NormalizeCardCode(request.CardCode);
-            var isCodeChanged = !string.Equals(client.Code, cleanCode, StringComparison.OrdinalIgnoreCase);
+            var isCodeChanged = !string.Equals(client.Code, clientCode.Value, StringComparison.OrdinalIgnoreCase);
             var isPhoneChanged = !string.Equals(client.PhoneNumber, cleanPhone, StringComparison.OrdinalIgnoreCase);
             var isCardChanged = !string.Equals(oldCardCode, cleanCardCode, StringComparison.OrdinalIgnoreCase);
             var isNameOrGenderChanged = !string.Equals(client.Name, request.Name.Trim(), StringComparison.Ordinal) || client.Gender != request.Gender;
@@ -498,7 +502,7 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            client.Code = cleanCode;
+            client.Code = clientCode;
             client.Name = request.Name.Trim();
             client.BirthDay = request.BirthDay;
             client.Address = request.Address?.Trim() ?? string.Empty;
@@ -680,7 +684,7 @@ namespace HPParking.Api.Services.Implementations
                     "Client",
                     client.Id,
                     client.Name,
-                    reason: $"Cập nhật hồ sơ khách hàng '{client.Name}' (CCCD: {client.Code}).",
+                    reason: $"Cập nhật hồ sơ nhân sự '{client.Name}' (Mã định danh: {client.Code}).",
                     cancellationToken: cancellationToken);
             }
 
@@ -873,17 +877,19 @@ namespace HPParking.Api.Services.Implementations
                     ErrorCodes.CLIENT_PHONE_DUPLICATE);
             }
 
-            // Re-validation: Kiểm tra Code (nếu có) với các khách hàng đang hoạt động
-            if (!string.IsNullOrWhiteSpace(client.Code))
+            // Re-validation: Kiểm tra Mã định danh (nếu có) với các nhân sự đang hoạt động
+            ClientCode clientCode = client.Code;
+            if (!clientCode.IsEmpty)
             {
+                var codePattern = $"^{Regex.Escape(clientCode.Value)}$";
                 var existingCode = await _clientRepo.FindOneAsync(
-                    c => c.Code == client.Code && c.Id != id && !c.IsDeleted,
+                    c => c.Code != null && Regex.IsMatch(c.Code, codePattern, RegexOptions.IgnoreCase) && c.Id != id && !c.IsDeleted,
                     cancellationToken);
 
                 if (existingCode != null)
                 {
                     throw new ConflictException(
-                        $"Không thể khôi phục vì mã khách hàng '{client.Code}' đã được sử dụng bởi khách hàng đang hoạt động '{existingCode.Name}'.",
+                        $"Không thể khôi phục vì mã định danh '{clientCode}' đã được sử dụng bởi nhân sự đang hoạt động '{existingCode.Name}'.",
                         ErrorCodes.CLIENT_CODE_DUPLICATE);
                 }
             }
@@ -891,14 +897,14 @@ namespace HPParking.Api.Services.Implementations
             var success = await _clientRepo.RestoreAsync(id, cancellationToken);
             if (!success)
             {
-                throw new AppException("Khôi phục khách hàng thất bại.", 500, ErrorCodes.RESTORE_FAILED);
+                throw new AppException("Khôi phục nhân sự thất bại.", 500, ErrorCodes.RESTORE_FAILED);
             }
 
             client.IsDeleted = false;
             client.DeletedAt = null;
             client.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogInformation("Đã KHÔI PHỤC khách hàng {Id}: {Name} ({Phone}) từ thùng rác.", client.Id, client.Name, client.PhoneNumber);
+            _logger.LogInformation("Đã KHÔI PHỤC nhân sự {Id}: {Name} ({Phone}) từ thùng rác.", client.Id, client.Name, client.PhoneNumber);
 
             if (_auditLogService != null)
             {
@@ -907,7 +913,7 @@ namespace HPParking.Api.Services.Implementations
                     "Client",
                     client.Id,
                     client.Name,
-                    reason: $"Khôi phục khách hàng '{client.Name}' (CCCD: {client.Code}) từ thùng rác.",
+                    reason: $"Khôi phục nhân sự '{client.Name}' (Mã định danh: {client.Code}) từ thùng rác.",
                     cancellationToken: cancellationToken);
             }
 

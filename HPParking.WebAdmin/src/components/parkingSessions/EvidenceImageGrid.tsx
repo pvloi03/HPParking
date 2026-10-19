@@ -75,7 +75,7 @@ export function EvidenceImageGrid({
         {
           id: 'in-face',
           label: '1. Khuôn Mặt Chân Dung Vào',
-          subtitle: `Làn: ${inLaneName || 'Làn Vào'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          subtitle: `Cổng vào: ${inLaneName || 'Cổng vào'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
           tag: 'FACE VÀO',
           tagColor: 'bg-purple-600',
           url: formatImageUrl(effectiveInFace),
@@ -85,7 +85,7 @@ export function EvidenceImageGrid({
         {
           id: 'in-overview',
           label: '2. Toàn Cảnh Lúc Vào',
-          subtitle: `Làn: ${inLaneName || 'Làn Vào'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
+          subtitle: `Cổng vào: ${inLaneName || 'Cổng vào'} • Thời gian: ${inTime ? new Date(inTime).toLocaleString('vi-VN') : '--'}`,
           tag: 'VÀO',
           tagColor: 'bg-blue-600',
           url: formatImageUrl(inOverviewImagePath),
@@ -95,25 +95,25 @@ export function EvidenceImageGrid({
         {
           id: 'out-face',
           label: '3. Khuôn Mặt Chân Dung Ra',
-          subtitle: `Làn: ${outLaneName || 'Làn Ra'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          subtitle: `Cổng ra: ${outLaneName || 'Cổng ra'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
           tag: 'FACE RA',
           tagColor: 'bg-pink-600',
           url: formatImageUrl(effectiveOutFace),
           hasImg: hasImagePath(effectiveOutFace),
           fallbackText: isActiveSession
-            ? 'Người đang trong khu vực (Chưa có ảnh mặt ra)'
+            ? 'Người đang bên trong (Chưa có ảnh mặt ra)'
             : 'Chưa có ảnh khuôn mặt lúc ra',
         },
         {
           id: 'out-overview',
           label: '4. Toàn Cảnh Lúc Ra',
-          subtitle: `Làn: ${outLaneName || 'Làn Ra'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
+          subtitle: `Cổng ra: ${outLaneName || 'Cổng ra'} • Thời gian: ${outTime ? new Date(outTime).toLocaleString('vi-VN') : '--'}`,
           tag: 'RA',
           tagColor: 'bg-emerald-600',
           url: formatImageUrl(outOverviewImagePath),
           hasImg: hasImagePath(outOverviewImagePath),
           fallbackText: isActiveSession
-            ? 'Người đang trong khu vực (Chưa có ảnh toàn cảnh ra)'
+            ? 'Người đang bên trong (Chưa có ảnh toàn cảnh ra)'
             : 'Chưa có ảnh toàn cảnh ra',
         },
       ]

@@ -24,7 +24,7 @@ export function extractErrorMessage(error: unknown): string {
         return 'Số điện thoại này đã được đăng ký cho một nhân sự khác trong hệ thống.';
       }
       if (data.message.includes('CLIENT_CODE_DUPLICATE')) {
-        return 'Mã nhân sự / Số CCCD này đã tồn tại trên hệ thống.';
+        return 'Mã định danh này đã tồn tại trên hệ thống.';
       }
       if (data.message.includes('CLIENT_HAS_VEHICLES')) {
         return 'Không thể xóa nhân sự vì vẫn còn phương tiện đang gán quyền sở hữu. Vui lòng hủy gán xe trước.';
@@ -52,7 +52,7 @@ export function extractErrorMessage(error: unknown): string {
     }
 
     if (error.response?.status === 409) {
-      return 'Dữ liệu nhân sự bị trùng lặp (Số điện thoại, CCCD hoặc Mã nhân sự) (409 Conflict).';
+      return 'Dữ liệu nhân sự bị trùng lặp (Số điện thoại hoặc Mã định danh) (409 Conflict).';
     }
     if (error.response?.status === 403) {
       return 'Bạn không có quyền thực hiện thao tác này (403 Forbidden).';

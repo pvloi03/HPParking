@@ -83,3 +83,8 @@ ScaffoldingReadMe.txt
 
 # Mac
 .DS_Store
+
+# Docker Dev Overrides (Local only, not deployed to Production)
+docker-compose.override.yml
+nginx/gateway.dev.conf
+

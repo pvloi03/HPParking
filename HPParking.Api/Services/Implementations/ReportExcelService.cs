@@ -142,7 +142,59 @@ namespace HPParking.Api.Services.Implementations
 
             var clients = personIds.Count > 0
                 ? (await _clientRepo.FindAsync(c => personIds.Contains(c.Id) && !c.IsDeleted, cancellationToken: cancellationToken)).ToDictionary(c => c.Id, c => c)
-                : new Dictionary<string, Client>();
+                : [];
+
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+
+            if (query.TargetType == LaneTargetType.Pedestrian)
+            {
+                var pedestrianData = sessions.Select(s =>
+                {
+                    var client = !string.IsNullOrWhiteSpace(s.PersonId) && clients.TryGetValue(s.PersonId, out var c) ? c : null;
+                    var statusText = s.Status switch
+                    {
+                        ParkingSessionStatus.Active => "Đang bên trong",
+                        ParkingSessionStatus.Completed => "Đã ra / Hoàn tất",
+                        ParkingSessionStatus.UnmatchedOut => "Ra không có lượt vào",
+                        ParkingSessionStatus.Cancelled => "Đã hủy bỏ",
+                        _ => "Đã kết thúc"
+                    };
+
+                    return new PedestrianSessionExcelDto
+                    {
+                        PersonCode = client?.Code ?? string.Empty,
+                        PersonName = client?.Name ?? (string.IsNullOrWhiteSpace(s.PersonId) ? "Khách vãng lai" : "Chưa xác định"),
+                        Status = statusText,
+                        InTime = s.InTime,
+                        InLaneName = s.InLaneName ?? "Cổng vào",
+                        InFaceImagePath = s.InFaceImagePath,
+                        InOverviewImagePath = s.InOverviewImagePath,
+                        OutTime = s.OutTime,
+                        OutLaneName = s.OutLaneName ?? (s.OutTime.HasValue ? "Cổng ra" : string.Empty),
+                        OutFaceImagePath = s.OutFaceImagePath,
+                        OutOverviewImagePath = s.OutOverviewImagePath,
+                        Duration = FormatDuration(s.InTime, s.OutTime)
+                    };
+                });
+
+                var pedBytes = await _excelService.WriteAsync(pedestrianData, new PedestrianSessionExcelProfile(), "Lich_Su_Nguoi_Vao_Ra", "BÁO CÁO LỊCH SỬ NGƯỜI VÀO RA", cancellationToken);
+                var pedFileName = $"Lich_Su_Nguoi_Vao_Ra_{timestamp}.xlsx";
+
+                _logger.LogInformation("Đã xuất {Count}/{Total} dòng lịch sử người vào ra ra Excel (Truncated: {IsTruncated})",
+                    sessions.Count, totalCount, isTruncated);
+
+                if (_auditLogService != null)
+                {
+                    await _auditLogService.LogActivityAsync(
+                        actionType: AuditActionType.Export,
+                        targetEntity: "ParkingSession",
+                        targetDisplay: pedFileName,
+                        reason: $"Xuất Excel lịch sử người vào ra ({sessions.Count} bản ghi).",
+                        cancellationToken: cancellationToken);
+                }
+
+                return (pedBytes, pedFileName, isTruncated);
+            }
 
             var data = sessions.Select(s =>
             {
@@ -178,7 +230,6 @@ namespace HPParking.Api.Services.Implementations
             });
 
             var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe", "BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE", cancellationToken);
-            var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             var fileName = $"Lich_Su_Do_Xe_{timestamp}.xlsx";
 
             _logger.LogInformation("Đã xuất {Count}/{Total} dòng lịch sử phiên đỗ xe ra Excel (Truncated: {IsTruncated})",

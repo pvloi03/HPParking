@@ -43,7 +43,7 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('Người vào ra')).toBeInTheDocument();
     expect(screen.getByText('Công ty')).toBeInTheDocument();
     expect(screen.getByText('Phòng ban')).toBeInTheDocument();
-    expect(screen.getByText('Cổng ra vào')).toBeInTheDocument();
+    expect(screen.getByText('Cổng vào ra')).toBeInTheDocument();
     expect(screen.getByText('Làn kiểm soát')).toBeInTheDocument();
     expect(screen.getByText('Nhân sự')).toBeInTheDocument();
     expect(screen.getByText('Phương tiện')).toBeInTheDocument();
