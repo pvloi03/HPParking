@@ -216,7 +216,7 @@ namespace HPParking.Forms
             txtMachineCode.ReadOnly = true;
             txtMachineCode.Size = new System.Drawing.Size(843, 36);
             txtMachineCode.TabIndex = 1;
-            txtMachineCode.Text = "PX-0000-0000-0000-0000";
+            txtMachineCode.Text = "HP-0000-0000-0000-0000";
             // 
             // lblMachineHelp
             // 

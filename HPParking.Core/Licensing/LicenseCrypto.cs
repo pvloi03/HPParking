@@ -14,7 +14,7 @@ namespace HPParking.Core.Licensing
     public static class LicenseCrypto
     {
         private const int KeySize = 3072;
-        public const string LicensePrefix = "PX-LIC-";
+        public const string LicensePrefix = "HP-LIC-";
         /// <summary>
         /// Lấy Public Key từ file App.config (nguồn cấu hình duy nhất)
         /// </summary>

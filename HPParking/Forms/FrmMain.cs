@@ -494,6 +494,10 @@ namespace HPParking.Forms
         {
             if (_laneContexts == null || _laneContexts.Count == 0) return;
 
+            // Đóng ngay cảnh báo/form nhập tay của lượt trước nếu có xe mới quẹt thẻ
+            ParkingTaskDialog.DismissActive();
+            FrmManualPlateInput.DismissActive();
+
             LaneRuntimeContext? context = _laneContexts.FirstOrDefault(x =>
                 x.Lane.InputReader == data.DoorId &&
                 (x.Controller?.Config?.IP == data.ControllerIp ||
@@ -503,12 +507,12 @@ namespace HPParking.Forms
             {
                 BeginInvoke(new Action(() =>
                 {
-                    MessageBox.Show(
+                    ParkingTaskDialog.ShowWarning(
                         this,
-                        $"Nhận tín hiệu thẻ [{data.CardNo}] tại Đầu đọc {data.DoorId} (Bộ điều khiển {data.ControllerIp}), nhưng Đầu đọc {data.DoorId} chưa được gán vào làn hoạt động nào!\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.",
-                        "⚠️ Cảnh Báo Đầu Đọc Chưa Gán Làn",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                        heading: "ĐẦU ĐỌC CHƯA GÁN LÀN",
+                        text: $"Đầu đọc {data.DoorId} (Bộ điều khiển {data.ControllerIp}) chưa được gán vào làn hoạt động nào!",
+                        details: $"• Mã thẻ: {data.CardNo}\n• Thời gian: {DateTime.Now:HH:mm:ss dd/MM/yyyy}\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.",
+                        timeoutSeconds: 5);
                 }));
                 return;
             }
@@ -538,23 +542,33 @@ namespace HPParking.Forms
 
                 if (result.Status == ProcessStatus.PlateMismatch)
                 {
-                    MessageBox.Show(this, result.Message, "Biển Số Không Khớp", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ParkingTaskDialog.ShowError(
+                        this,
+                        heading: "BIỂN SỐ KHÔNG KHỚP",
+                        text: result.Message,
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Biển số xe: {result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? "Chưa rõ"}\n• Trạng thái: {result.Status}",
+                        timeoutSeconds: 5);
                 }
                 else if (result.Status == ProcessStatus.ConfirmRequired)
                 {
                     string title = (result.Message.Contains("SAI TUYẾN") || result.Message.Contains("LẠC TUYẾN"))
-                        ? "⚠️ Cảnh Báo Xe Đi Sai Tuyến"
-                        : "Cảnh Báo Vi Phạm";
-                    MessageBox.Show(this, result.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ? "CẢNH BÁO XE ĐI SAI TUYẾN"
+                        : "CẢNH BÁO VI PHẠM";
+                    ParkingTaskDialog.ShowWarning(
+                        this,
+                        heading: title,
+                        text: result.Message,
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Trạng thái: {result.Status}",
+                        timeoutSeconds: 5);
                 }
                 else if (result.Status != ProcessStatus.Success)
                 {
-                    MessageBox.Show(
+                    ParkingTaskDialog.ShowError(
                         this,
-                        $"XÁC THỰC THẤT BẠI - TỪ CHỐI QUA CỔNG!\n\n• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})",
-                        "Từ Chối Vào / Ra",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                        heading: "TỪ CHỐI QUA CỔNG",
+                        text: result.Message,
+                        details: $"• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})",
+                        timeoutSeconds: 5);
                 }
             }));
         }
@@ -562,6 +576,10 @@ namespace HPParking.Forms
         private void OnRadarTriggered(RealtimeLog data)
         {
             if (_laneContexts == null || _laneContexts.Count == 0) return;
+
+            // Đóng ngay cảnh báo/form nhập tay của lượt trước nếu có xe tiếp cận
+            ParkingTaskDialog.DismissActive();
+            FrmManualPlateInput.DismissActive();
 
             LaneRuntimeContext? context = _laneContexts.FirstOrDefault(x =>
                 x.Lane.InputReader == data.DoorId &&
@@ -645,7 +663,7 @@ namespace HPParking.Forms
             {
                 // Cập nhật giao diện Người đi bộ
                 string name = result.Client?.Name ?? string.Empty;
-                string code = result.Client?.Code 
+                string code = result.Client?.Code
                     ?? (!string.IsNullOrEmpty(result.Client?.CardCode) ? result.Client.CardCode : string.Empty);
 
                 // Yêu cầu 1: Đơn vị: tên phòng ban nếu không có thì tên công ty nếu không có thì tên nhà thầu nếu cả 3 đều không có thì vãng lai
@@ -729,7 +747,7 @@ namespace HPParking.Forms
                     ? result.RegisteredPlate
                     : (result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? string.Empty);
                 string driver = result.Client?.Name ?? string.Empty;
-                bool isSharedVehicle = result.DispatchTrip != null 
+                bool isSharedVehicle = result.DispatchTrip != null
                     || result.Vehicle?.IsShared == true
                     || (result.DepartmentName?.StartsWith("Tuyến:") == true)
                     || (result.DepartmentName?.Contains("Điều vận") == true);
@@ -741,10 +759,10 @@ namespace HPParking.Forms
                     string routeName = result.DepartmentName ?? string.Empty;
                     if (routeName.StartsWith("Tuyến:", StringComparison.OrdinalIgnoreCase))
                     {
-                        routeName = routeName.Substring(6).Trim();
+                        routeName = routeName[6..].Trim();
                     }
 
-                    if (string.IsNullOrWhiteSpace(routeName) 
+                    if (string.IsNullOrWhiteSpace(routeName)
                         || routeName.Equals("Tuyến tự do", StringComparison.OrdinalIgnoreCase)
                         || routeName.Contains("Điều vận", StringComparison.OrdinalIgnoreCase))
                     {
@@ -768,8 +786,8 @@ namespace HPParking.Forms
                 string regPlateText = !string.IsNullOrEmpty(regPlate) ? $"Biển số đăng ký: {regPlate}" : "Biển số đăng ký:";
                 string detPlateText = !string.IsNullOrEmpty(plate) ? $"Biển số nhận diện: {plate}" : "Biển số nhận diện:";
 
-                Color plateDetColor = result.Status == ProcessStatus.PlateMismatch 
-                    ? Color.Crimson 
+                Color plateDetColor = result.Status == ProcessStatus.PlateMismatch
+                    ? Color.Crimson
                     : (isSuccess ? Color.DarkGreen : Color.Black);
 
                 if (slotIndex == 0)
@@ -988,14 +1006,13 @@ namespace HPParking.Forms
                     continue;
                 }
 
-                var confirmResult = MessageBox.Show(
+                var confirmResult = ParkingTaskDialog.ShowConfirmation(
                     this,
-                    "Mở barrier thủ công cho đối tượng đã qua?\n\n- Chọn YES nếu đã mở thủ công.\n- Chọn NO để hủy bỏ lượt này.",
-                    "Xác nhận mở barrier thủ công",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
+                    heading: "XÁC NHẬN MỞ BARRIER THỦ CÔNG",
+                    text: "Mở barrier thủ công cho đối tượng đã qua?",
+                    details: "• Chọn Đồng ý nếu đã mở thủ công cho xe qua.\n• Chọn Hủy bỏ để hủy bỏ lượt này.");
 
-                return confirmResult == DialogResult.Yes;
+                return confirmResult;
             }
         }
 
@@ -1017,7 +1034,8 @@ namespace HPParking.Forms
                 this,
                 lane,
                 expectedPlate: expectedPlate,
-                mismatchMessage: mismatchMessage);
+                mismatchMessage: mismatchMessage,
+                timeoutSeconds: 10);
 
             return Task.FromResult(plate);
         }
