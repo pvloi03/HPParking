@@ -1091,10 +1091,15 @@ namespace HPParking.Forms
                 lbdayExpiryDate.Text = "BẢN QUYỀN: VĨNH VIỄN";
                 lbdayExpiryDate.BackColor = Color.DarkSlateGray;
             }
+            else if (validation.Payload != null)
+            {
+                lbdayExpiryDate.Text = $"BẢN QUYỀN: {validation.Payload.ExpiryDate:dd/MM/yyyy}";
+                lbdayExpiryDate.BackColor = Color.DarkSlateGray;
+            }
             else
             {
-                lbdayExpiryDate.Text = "BẢN QUYỀN: HỢP LỆ";
-                lbdayExpiryDate.BackColor = Color.DarkSlateGray;
+                lbdayExpiryDate.Text = "BẢN QUYỀN: HẾT HẠN";
+                lbdayExpiryDate.BackColor = Color.OrangeRed;
             }
         }
 
