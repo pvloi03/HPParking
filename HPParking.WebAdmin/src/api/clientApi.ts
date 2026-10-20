@@ -9,6 +9,9 @@ import type {
   UpdateClientRequest,
   SyncFaceIdResponse,
   ClientFaceIdStatusResponse,
+  ClientApprovalRequestDto,
+  RequestClientStatusChangeRequest,
+  ConfirmClientStatusResponse,
 } from '@/types/client';
 
 /**
@@ -136,6 +139,33 @@ export const clientApi = {
   checkFaceIdStatus: async (id: string): Promise<ClientFaceIdStatusResponse> => {
     const response = await apiClient.get<ApiResponse<ClientFaceIdStatusResponse>>(
       `/v1/clients/${id}/faceid-status`
+    );
+    return response.data.data;
+  },
+
+  confirmStatus: async (token: string): Promise<ConfirmClientStatusResponse> => {
+    const response = await apiClient.post<ApiResponse<ConfirmClientStatusResponse>>(
+      '/v1/clients/confirm-status',
+      null,
+      { params: { token } }
+    );
+    return response.data.data;
+  },
+
+  requestStatusChange: async (
+    id: string,
+    payload: RequestClientStatusChangeRequest
+  ): Promise<ClientApprovalRequestDto> => {
+    const response = await apiClient.post<ApiResponse<ClientApprovalRequestDto>>(
+      `/v1/clients/${id}/request-status-change`,
+      payload
+    );
+    return response.data.data;
+  },
+
+  resendApproval: async (id: string): Promise<ClientApprovalRequestDto> => {
+    const response = await apiClient.post<ApiResponse<ClientApprovalRequestDto>>(
+      `/v1/clients/${id}/resend-approval`
     );
     return response.data.data;
   },

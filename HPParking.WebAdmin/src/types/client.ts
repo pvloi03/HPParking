@@ -71,9 +71,51 @@ export interface ClientFaceIdStatusResponse {
   terminals: TerminalClientStatusDto[];
 }
 
+export const ClientApprovalActionType = {
+  Activate: 1,
+  Deactivate: 2,
+} as const;
+
+export type ClientApprovalActionType =
+  (typeof ClientApprovalActionType)[keyof typeof ClientApprovalActionType];
+
+export interface ClientApprovalRequestDto {
+  id: string;
+  clientId: string;
+  approvingDepartmentId: string;
+  approvingDepartmentName: string;
+  approvingDepartmentEmail: string;
+  actionType: ClientApprovalActionType;
+  expiresAt: string;
+  isProcessed: boolean;
+  processedAt?: string;
+  createdAt: string;
+  note?: string;
+  emailSent?: boolean;
+  emailError?: string;
+}
+
+export interface RequestClientStatusChangeRequest {
+  approvingDepartmentId: string;
+  actionType: ClientApprovalActionType;
+  note?: string;
+}
+
+export interface ConfirmClientStatusResponse {
+  clientId: string;
+  clientName: string;
+  clientCode: string;
+  actionType: ClientApprovalActionType;
+  newActiveStatus: boolean;
+  processedAt: string;
+  approvingDepartmentName: string;
+  message: string;
+}
+
 export interface ClientDetailDto extends ClientDto {
   vehicles: VehicleDto[];
   faceIdTerminals?: TerminalClientStatusDto[];
+  latestApprovalRequest?: ClientApprovalRequestDto;
 }
 
 export interface ClientFilterQuery extends PaginationQuery {
@@ -93,6 +135,7 @@ export interface CreateClientRequest {
   address: string;
   companyId?: string;
   departmentId?: string;
+  approvingDepartmentId?: string;
   contractorId?: string;
   type: ClientType;
   email?: string;

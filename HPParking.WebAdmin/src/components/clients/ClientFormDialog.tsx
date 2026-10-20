@@ -38,7 +38,10 @@ import {
   CreditCard,
   ScanFace,
   Radio,
+  Mail,
 } from 'lucide-react';
+import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
+import { RequestStatusChangeDialog } from './RequestStatusChangeDialog';
 import { AvatarUploadField } from './AvatarUploadField';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
 import { type Hn212CardData, parseCccdDate, base64ToFile } from '@/services/hn212Service';
@@ -53,6 +56,7 @@ import { vehicleApi } from '@/api/vehicleApi';
 import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import {
   ClientType,
+  ClientApprovalActionType,
   type ClientDto,
   type CreateClientRequest,
   type UpdateClientRequest,
@@ -105,6 +109,7 @@ const clientSchema = z
       }),
     companyId: z.string().optional(),
     departmentId: z.string().optional(),
+    approvingDepartmentId: z.string().optional(),
     contractorId: z.string().optional(),
     note: z.string().trim().max(500, 'Ghi chú không được quá 500 ký tự').optional(),
     expiredEnable: z.boolean(),
@@ -188,6 +193,24 @@ export interface PendingVehicleItem {
   error?: string;
 }
 
+function removeVietnameseTones(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
+
+function findDefaultHrDepartmentId(depts: DepartmentDto[]): string {
+  if (!depts.length) return '';
+  const hrDept = depts.find((d) => {
+    const clean = removeVietnameseTones(d.name);
+    return clean.includes('nhan su') || /\bhr\b/.test(clean);
+  });
+  return hrDept ? hrDept.id : depts[0].id;
+}
+
 export function ClientFormDialog({
   open,
   onOpenChange,
@@ -203,6 +226,13 @@ export function ClientFormDialog({
   const isFromHn212 = Boolean(hn212CardData);
   const queryClient = useQueryClient();
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [isStatusChangeOpen, setIsStatusChangeOpen] = useState(false);
+
+  const departmentsWithEmail = useMemo(() => {
+    return departments.filter(
+      (d) => d.isActive && d.email && d.email.trim() !== ''
+    );
+  }, [departments]);
 
   // Quản lý danh sách phương tiện hiện có và phương tiện thêm mới
   const [existingVehicles, setExistingVehicles] = useState<VehicleDto[]>([]);
@@ -260,6 +290,7 @@ export function ClientFormDialog({
     handleSubmit,
     reset,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<ClientFormData>({
@@ -296,7 +327,6 @@ export function ClientFormDialog({
   const cardCodeInput = watch('cardCode') || '';
   const verifyVehiclePlate = watch('verifyVehiclePlate');
   const expiredEnable = watch('expiredEnable');
-  const isActive = watch('isActive');
 
   // Lọc danh sách phòng ban theo công ty đã chọn
   const filteredDepartments =
@@ -434,7 +464,8 @@ export function ClientFormDialog({
           expiredEnable: false,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
-          isActive: true,
+          isActive: false,
+          approvingDepartmentId: findDefaultHrDepartmentId(departmentsWithEmail),
         });
       } else {
         setSelectedAvatarFile(null);
@@ -457,11 +488,12 @@ export function ClientFormDialog({
           expiredEnable: false,
           expiredStartDay: defaultToday,
           expiredEndDay: defaultToday,
-          isActive: true,
+          isActive: false,
+          approvingDepartmentId: findDefaultHrDepartmentId(departmentsWithEmail),
         });
       }
     }
-  }, [open, initialData, hn212CardData, cccdAvatarFile, reset, defaultToday]);
+  }, [open, initialData, hn212CardData, cccdAvatarFile, reset, defaultToday, departmentsWithEmail]);
 
   const onFormSubmit = async (formData: ClientFormData) => {
     if (formData.verifyVehiclePlate) {
@@ -493,6 +525,13 @@ export function ClientFormDialog({
       return;
     }
 
+    if (!isEditing && !formData.approvingDepartmentId) {
+      setError('approvingDepartmentId', {
+        message: 'Vui lòng chọn phòng ban tiếp nhận email xác nhận kích hoạt',
+      });
+      return;
+    }
+
     const birthDayIso = formData.birthDay
       ? new Date(formData.birthDay).toISOString()
       : new Date().toISOString();
@@ -521,6 +560,7 @@ export function ClientFormDialog({
           formData.departmentId !== 'none'
           ? formData.departmentId
           : undefined,
+      approvingDepartmentId: !isEditing ? formData.approvingDepartmentId : undefined,
       contractorId:
         (formData.type === ClientType.Contractor || formData.type === ClientType.Guest) &&
           formData.contractorId &&
@@ -534,7 +574,7 @@ export function ClientFormDialog({
       cardCode: formData.cardCode?.trim() || undefined,
       authMethods: formData.authMethods,
       verifyVehiclePlate: formData.verifyVehiclePlate,
-      isActive: formData.isActive,
+      isActive: isEditing ? (initialData?.isActive ?? false) : false,
       note: formData.note?.trim() || undefined,
       expired: {
         enable: formData.expiredEnable,
@@ -1420,28 +1460,78 @@ export function ClientFormDialog({
               )}
             </div>
 
-            {/* Trạng thái hoạt động */}
-            <div className="pt-2 border-t border-border flex items-center justify-between">
-              <div>
-                <span className="text-xs font-semibold text-foreground block">
-                  Kích hoạt hồ sơ
-                </span>
-                <span className="text-[11px] text-muted-foreground block">
-                  Cho phép nhân sự ra vào bãi đỗ xe và sử dụng quyền gửi xe
-                </span>
+            {/* Phê duyệt kích hoạt qua email phòng ban (ADR 0042) */}
+            {!isEditing ? (
+              <div className="pt-3 border-t border-border space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-foreground uppercase tracking-wide block">
+                      Phòng ban nhận email xác nhận kích hoạt (1-Click) <span className="text-destructive">*</span>
+                    </span>
+                    <span className="text-[11px] text-muted-foreground block">
+                      Hồ sơ tạo mới sẽ ở trạng thái <strong>Chưa kích hoạt</strong>. Hệ thống sẽ tự động gửi email xác nhận 1-click đến phòng ban được chọn.
+                    </span>
+                  </div>
+                </div>
+
+                {departmentsWithEmail.length === 0 ? (
+                  <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 text-xs">
+                    ⚠️ Chưa có phòng ban nào được cấu hình email hợp lệ trong hệ thống. Vui lòng cập nhật email cho phòng ban trước khi đăng ký nhân sự.
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Select
+                      value={watch('approvingDepartmentId') || findDefaultHrDepartmentId(departmentsWithEmail)}
+                      onValueChange={(val) => setValue('approvingDepartmentId', val, { shouldValidate: true })}
+                    >
+                      <SelectTrigger className="text-xs bg-background h-9">
+                        <SelectValue placeholder="Chọn phòng ban nhận email xác nhận..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departmentsWithEmail.map((d) => (
+                          <SelectItem key={d.id} value={d.id} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{d.name}</span>
+                              <span className="text-muted-foreground font-mono text-[11px]">({d.email})</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.approvingDepartmentId && (
+                      <p className="text-[11px] text-destructive">{errors.approvingDepartmentId.message}</p>
+                    )}
+                  </div>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => setValue('isActive', !isActive, { shouldDirty: true })}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-blue-600' : 'bg-muted'
-                  }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isActive ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                />
-              </button>
-            </div>
+            ) : (
+              <div className="pt-3 border-t border-border flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-foreground block">
+                    Trạng thái hoạt động
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block">
+                    Quy định phê duyệt: Trạng thái hồ sơ được kiểm soát qua email xác nhận của phòng ban.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ActiveStatusBadge isActive={initialData?.isActive ?? false} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsStatusChangeOpen(true)}
+                    className="text-xs h-8 gap-1.5 cursor-pointer hover:bg-muted"
+                  >
+                    <Mail className="h-3.5 w-3.5 text-blue-600" />
+                    <span>{initialData?.isActive ? 'Yêu cầu khóa' : 'Yêu cầu kích hoạt lại'}</span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="pt-2 gap-2 sm:gap-0">
@@ -1466,6 +1556,20 @@ export function ClientFormDialog({
             </Button>
           </DialogFooter>
         </form>
+
+        {isEditing && initialData && (
+          <RequestStatusChangeDialog
+            open={isStatusChangeOpen}
+            onOpenChange={setIsStatusChangeOpen}
+            client={initialData}
+            targetAction={initialData.isActive ? ClientApprovalActionType.Deactivate : ClientApprovalActionType.Activate}
+            departments={departments}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['clients'] });
+              queryClient.invalidateQueries({ queryKey: ['client-detail', initialData.id] });
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

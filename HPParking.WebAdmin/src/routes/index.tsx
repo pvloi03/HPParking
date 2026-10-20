@@ -21,12 +21,17 @@ import { RecycleBinPage } from '@/pages/RecycleBinPage';
 import { CardsPage } from '@/pages/CardsPage';
 import { GateRoutesPage } from '@/pages/GateRoutesPage';
 import { FleetDispatchPage } from '@/pages/FleetDispatchPage';
+import { ConfirmClientStatusPage } from '@/pages/ConfirmClientStatusPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/confirm-client-status',
+    element: <ConfirmClientStatusPage />,
   },
   {
     path: '/',

@@ -15,5 +15,8 @@ namespace HPParking.Api.Services.Interfaces
         Task<SyncFaceIdResponse> SyncFaceIdAsync(string id, CancellationToken cancellationToken = default);
         Task<ClientFaceIdStatusResponse> CheckFaceIdStatusAsync(string id, CancellationToken cancellationToken = default);
         Task<(byte[] Bytes, string ContentType)> GetAvatarAsync(string id, CancellationToken cancellationToken = default);
+        Task<ConfirmClientStatusResponse> ConfirmStatusByTokenAsync(string token, CancellationToken cancellationToken = default);
+        Task<ClientApprovalRequestDto> RequestStatusChangeAsync(string clientId, RequestClientStatusChangeRequest request, string? currentUserId = null, CancellationToken cancellationToken = default);
+        Task<ClientApprovalRequestDto> ResendApprovalEmailAsync(string clientId, string? currentUserId = null, CancellationToken cancellationToken = default);
     }
 }

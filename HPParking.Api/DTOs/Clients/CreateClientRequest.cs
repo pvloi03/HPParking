@@ -42,6 +42,11 @@ namespace HPParking.Api.DTOs.Clients
         public string? ContractorId { get; set; }
 
         /// <summary>
+        /// ID Phòng ban phê duyệt nhận email xác nhận kích hoạt (ADR 0042)
+        /// </summary>
+        public string? ApprovingDepartmentId { get; set; }
+
+        /// <summary>
         /// Phân loại đối tượng: Employee, Contractor, Visitor, VIP, Other
         /// </summary>
         public ClientType Type { get; set; } = ClientType.Employee;
@@ -77,9 +82,9 @@ namespace HPParking.Api.DTOs.Clients
         public bool VerifyVehiclePlate { get; set; } = true;
 
         /// <summary>
-        /// Trạng thái kích hoạt tài khoản
+        /// Trạng thái kích hoạt tài khoản (mặc định chưa kích hoạt, chờ phê duyệt email theo ADR 0042)
         /// </summary>
-        public bool IsActive { get; set; } = true;
+        public bool IsActive { get; set; } = false;
 
         /// <summary>
         /// Cấu hình thời hạn ra vào bãi xe

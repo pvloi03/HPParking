@@ -16,6 +16,9 @@ namespace HPParking.Api.Validators.Clients
                 .NotEmpty().WithMessage("Số điện thoại không được để trống.")
                 .Matches(@"^0\d{9}$").WithMessage("Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (ví dụ: 0364336088).");
 
+            RuleFor(x => x.ApprovingDepartmentId)
+                .NotEmpty().WithMessage("Vui lòng chọn phòng ban tiếp nhận email xác nhận kích hoạt.");
+
             RuleFor(x => x.Code)
                 .ValidClientCode();
 

@@ -35,9 +35,11 @@ import {
 import { clientApi, extractErrorMessage } from '@/api/clientApi';
 import {
   ClientType,
+  ClientApprovalActionType,
   type ClientDto,
   type ClientDetailDto,
 } from '@/types/client';
+import { RequestStatusChangeDialog } from './RequestStatusChangeDialog';
 import { VehicleType } from '@/types/vehicle';
 import type { CompanyDto, DepartmentDto, ContractorDto } from '@/types/masterData';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
@@ -64,6 +66,22 @@ export function ClientDetailDialog({
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'info' | 'vehicles' | 'faceid'>('info');
   const [isSyncingFaceId, setIsSyncingFaceId] = useState(false);
+  const [isStatusChangeOpen, setIsStatusChangeOpen] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  const handleResendApproval = async () => {
+    if (!clientId) return;
+    try {
+      setIsResending(true);
+      await clientApi.resendApproval(clientId);
+      toast.success('Đã gửi lại email phê duyệt thành công!');
+      refetch();
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   // Fetch chi tiết nhân sự qua API GET /v1/clients/{id}
   const {
@@ -408,6 +426,93 @@ export function ClientDetailDialog({
                         <ActiveStatusBadge isActive={client.isActive} />
                       </div>
 
+                      {/* Thẻ Quản lý Trạng thái & Phê duyệt Phòng ban (ADR 0042) */}
+                      <div className="col-span-1 sm:col-span-2 p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/30 dark:bg-blue-950/20 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            <span className="text-xs font-bold text-foreground uppercase tracking-wide">
+                              Phê duyệt Trạng thái qua Email Phòng ban
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsStatusChangeOpen(true)}
+                              className="text-xs h-7 gap-1.5 bg-background shadow-2xs"
+                            >
+                              <Mail className="h-3 w-3 text-blue-600" />
+                              <span>{client.isActive ? 'Yêu cầu khóa' : 'Yêu cầu kích hoạt lại'}</span>
+                            </Button>
+                          </div>
+                        </div>
+
+                        {client.latestApprovalRequest ? (
+                          <div className="text-xs space-y-1.5 p-2.5 rounded-lg bg-background/80 border border-border/60">
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Phòng ban tiếp nhận:</span>
+                              <span className="font-semibold text-foreground">
+                                {client.latestApprovalRequest.approvingDepartmentName || 'Phòng ban'} ({client.latestApprovalRequest.approvingDepartmentEmail})
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Hành động:</span>
+                              <span className={`font-semibold ${client.latestApprovalRequest.actionType === 1 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {client.latestApprovalRequest.actionType === 1 ? 'Yêu cầu Kích hoạt' : 'Yêu cầu Khóa'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Tình trạng:</span>
+                              {client.latestApprovalRequest.isProcessed ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Đã xác nhận ({client.latestApprovalRequest.processedAt ? new Date(client.latestApprovalRequest.processedAt).toLocaleString('vi-VN') : ''})
+                                </span>
+                              ) : new Date(client.latestApprovalRequest.expiresAt) < new Date() ? (
+                                <span className="text-destructive font-medium flex items-center gap-1">
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  Đã hết hạn 24 giờ
+                                </span>
+                              ) : (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  Đang chờ phòng ban xác nhận (Hạn: {new Date(client.latestApprovalRequest.expiresAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})
+                                </span>
+                              )}
+                            </div>
+
+                            {client.latestApprovalRequest.emailSent === false && (
+                              <div className="p-2 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-300 text-amber-900 dark:text-amber-200 text-[11px] flex items-center gap-1.5">
+                                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                <span>Gửi email phê duyệt gặp sự cố: {client.latestApprovalRequest.emailError || 'Mất kết nối máy chủ gửi thư'}. Vui lòng bấm "Gửi lại email".</span>
+                              </div>
+                            )}
+
+                            {!client.latestApprovalRequest.isProcessed && (
+                              <div className="pt-1.5 border-t border-border/40 flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleResendApproval}
+                                  disabled={isResending}
+                                  className="text-xs h-7 gap-1 text-blue-600 hover:text-blue-700"
+                                >
+                                  {isResending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                                  <span>Gửi lại email phê duyệt</span>
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">
+                            Chưa có lịch sử yêu cầu phê duyệt nào gần đây cho nhân sự này.
+                          </p>
+                        )}
+                      </div>
+
                       <div className="col-span-1 sm:col-span-2 p-2.5 rounded-lg bg-muted/30 border border-border/40">
                         <span className="text-[11px] text-muted-foreground flex items-center gap-1 mb-0.5">
                           <MapPin className="h-3 w-3 text-muted-foreground" />
@@ -736,6 +841,20 @@ export function ClientDetailDialog({
                 Đóng
               </Button>
             </DialogFooter>
+
+            {client && (
+              <RequestStatusChangeDialog
+                open={isStatusChangeOpen}
+                onOpenChange={setIsStatusChangeOpen}
+                client={client}
+                targetAction={client.isActive ? ClientApprovalActionType.Deactivate : ClientApprovalActionType.Activate}
+                departments={departments}
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ['clients'] });
+                  refetch();
+                }}
+              />
+            )}
           </>
         )}
       </DialogContent>

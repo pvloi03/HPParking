@@ -293,13 +293,21 @@ export function ClientsPage() {
       const failure = terminals.filter((t) => !t.isOnline || !t.userExists).length;
       const success = total - failure;
 
-      if (total > 0 && failure > 0) {
+      if (newClient.latestApprovalRequest?.emailSent === false) {
+        toast.warning(
+          `Đã tạo nhân sự "${newClient.name}". Tuy nhiên gửi email xác nhận gặp lỗi: ${newClient.latestApprovalRequest.emailError || 'Mất kết nối máy chủ gửi thư'}. Bạn có thể bấm "Gửi lại email" trong chi tiết nhân sự.`
+        );
+      } else if (total > 0 && failure > 0) {
         toast.warning(
           `Thêm mới thành công. Đồng bộ FaceID hoàn tất: ${success}/${total} thành công (${failure} thiết bị mất kết nối hoặc lỗi).`
         );
       } else if (total > 0) {
         toast.success(
           `Đã thêm mới nhân sự "${newClient.name}" và đồng bộ FaceID (${total}/${total} thiết bị thành công).`
+        );
+      } else if (newClient.latestApprovalRequest) {
+        toast.success(
+          `Đã thêm mới nhân sự "${newClient.name}". Email xác nhận kích hoạt đã được gửi tới ${newClient.latestApprovalRequest.approvingDepartmentEmail}.`
         );
       } else {
         toast.success(`Đã thêm mới nhân sự "${newClient.name}" thành công.`);

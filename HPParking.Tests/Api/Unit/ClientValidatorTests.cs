@@ -21,6 +21,7 @@ namespace HPParking.Tests.Api.Unit
                 Type = ClientType.Employee,
                 Gender = 1,
                 CardCode = "0012345678",
+                ApprovingDepartmentId = "dept-hr-123",
                 AuthMethods = [AuthMethodConstants.FaceId],
                 VerifyVehiclePlate = true,
                 Vehicles = [new HPParking.Api.DTOs.Vehicles.CreateVehicleRequest { PlateNumber = "30A-12345", Type = VehicleType.Car }]

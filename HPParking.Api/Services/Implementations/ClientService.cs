@@ -6,10 +6,12 @@ using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using HPParking.Core.Models.ValueObjects;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations
@@ -28,6 +30,9 @@ namespace HPParking.Api.Services.Implementations
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<ClientService> _logger;
         private readonly IRepository<Card>? _cardRepo;
+        private readonly IRepository<ClientApprovalRequest>? _approvalRepo;
+        private readonly IEmailSenderService? _emailSenderService;
+        private readonly IConfiguration? _configuration;
 
         public ClientService(
             IRepository<Client> clientRepo,
@@ -41,7 +46,10 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Department>? departmentRepo = null,
             IRepository<Contractor>? contractorRepo = null,
             IAuditLogService? auditLogService = null,
-            IRepository<Card>? cardRepo = null)
+            IRepository<Card>? cardRepo = null,
+            IRepository<ClientApprovalRequest>? approvalRepo = null,
+            IEmailSenderService? emailSenderService = null,
+            IConfiguration? configuration = null)
         {
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
@@ -55,6 +63,9 @@ namespace HPParking.Api.Services.Implementations
             _contractorRepo = contractorRepo;
             _auditLogService = auditLogService;
             _cardRepo = cardRepo;
+            _approvalRepo = approvalRepo;
+            _emailSenderService = emailSenderService;
+            _configuration = configuration;
         }
 
         public async Task<PagedResult<ClientDto>> GetClientsPagedAsync(ClientFilterQuery query, CancellationToken cancellationToken = default)
@@ -132,6 +143,24 @@ namespace HPParking.Api.Services.Implementations
                 var tasks = terminals.Select(t => _faceIdService.CheckUserStatusAsync(t, client.Code, cancellationToken));
                 var statuses = await Task.WhenAll(tasks);
                 detailDto.FaceIdTerminals = [.. statuses];
+            }
+
+            // Lấy thông tin yêu cầu phê duyệt mới nhất (ADR 0042)
+            if (_approvalRepo != null)
+            {
+                var approvals = await _approvalRepo.FindAsync(a => a.ClientId == id && !a.IsDeleted, cancellationToken);
+                var latest = approvals.OrderByDescending(a => a.CreatedAt).FirstOrDefault();
+                if (latest != null)
+                {
+                    string deptName = string.Empty;
+                    if (_departmentRepo != null && !string.IsNullOrWhiteSpace(latest.ApprovingDepartmentId))
+                    {
+                        var d = await _departmentRepo.GetByIdAsync(latest.ApprovingDepartmentId, cancellationToken);
+                        deptName = d?.Name ?? string.Empty;
+                    }
+
+                    detailDto.LatestApprovalRequest = MapToApprovalRequestDto(latest, deptName);
+                }
             }
 
             return detailDto;
@@ -266,6 +295,24 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            Department? approvingDepartment = null;
+            if (!string.IsNullOrWhiteSpace(request.ApprovingDepartmentId) && _departmentRepo != null)
+            {
+                approvingDepartment = await _departmentRepo.GetByIdAsync(request.ApprovingDepartmentId, cancellationToken);
+                if (approvingDepartment == null || approvingDepartment.IsDeleted)
+                {
+                    throw new NotFoundException($"Không tìm thấy phòng ban phê duyệt với Id '{request.ApprovingDepartmentId}'.", ErrorCodes.DEPARTMENT_NOT_FOUND);
+                }
+                if (!approvingDepartment.IsActive)
+                {
+                    throw new BadRequestException($"Phòng ban phê duyệt '{approvingDepartment.Name}' đang bị vô hiệu hóa, không thể tiếp nhận email.", ErrorCodes.BAD_REQUEST);
+                }
+                if (string.IsNullOrWhiteSpace(approvingDepartment.Email))
+                {
+                    throw new BadRequestException($"Phòng ban phê duyệt '{approvingDepartment.Name}' chưa được cấu hình địa chỉ email.", ErrorCodes.BAD_REQUEST);
+                }
+            }
+
             // 5. Tạo thực thể Client
             var client = new Client
             {
@@ -283,14 +330,14 @@ namespace HPParking.Api.Services.Implementations
                 CardCode = cleanCardCode,
                 AuthMethods = authMethods,
                 VerifyVehiclePlate = request.VerifyVehiclePlate,
-                IsActive = request.IsActive,
+                IsActive = false, // Nhân sự mới luôn bắt đầu ở trạng thái Chưa kích hoạt, chờ phòng ban phê duyệt (ADR 0042)
                 Expired = request.Expired ?? new(),
                 Note = request.Note,
                 CreatedAt = DateTime.UtcNow
             };
 
             await _clientRepo.AddAsync(client, cancellationToken);
-            _logger.LogInformation("Đã tạo mới khách hàng: {Name} ({Phone}) - ID: {Id}", client.Name, cleanPhone, client.Id);
+            _logger.LogInformation("Đã tạo mới nhân sự: {Name} ({Phone}) - ID: {Id}", client.Name, cleanPhone, client.Id);
 
             // 5. Thêm các phương tiện đi kèm nếu có
             var vehicleDtos = new List<VehicleDto>();
@@ -364,6 +411,42 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
+            // 7. Tạo bản ghi yêu cầu phê duyệt và gửi email xác nhận nếu có chỉ định phòng ban (ADR 0042)
+            if (approvingDepartment != null && _approvalRepo != null)
+            {
+                var token = GenerateApprovalToken();
+                var approvalRequest = new ClientApprovalRequest
+                {
+                    ClientId = client.Id,
+                    ApprovingDepartmentId = approvingDepartment.Id,
+                    ApprovingDepartmentEmail = approvingDepartment.Email!.Trim(),
+                    ActionType = ClientApprovalActionType.Activate,
+                    Token = token,
+                    ExpiresAt = DateTime.UtcNow.AddHours(24),
+                    IsProcessed = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                // Gửi email 1-click xác nhận đến phòng ban
+                if (_emailSenderService != null)
+                {
+                    try
+                    {
+                        await SendApprovalEmailAsync(client, approvingDepartment, approvalRequest, cancellationToken);
+                        approvalRequest.EmailSent = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        approvalRequest.EmailSent = false;
+                        approvalRequest.EmailError = ex.Message;
+                        _logger.LogWarning(ex, "Không thể gửi email xác nhận kích hoạt nhân sự {ClientId} tới {Email}: {Message}", client.Id, approvingDepartment.Email, ex.Message);
+                    }
+                }
+
+                await _approvalRepo.AddAsync(approvalRequest, cancellationToken);
+                detailDto.LatestApprovalRequest = MapToApprovalRequestDto(approvalRequest, approvingDepartment.Name);
+            }
+
             if (_auditLogService != null)
             {
                 await _auditLogService.LogActivityAsync(
@@ -371,7 +454,7 @@ namespace HPParking.Api.Services.Implementations
                     "Client",
                     client.Id,
                     client.Name,
-                    reason: $"Tạo mới hồ sơ khách hàng '{client.Name}' (Mã định danh: {client.Code}).",
+                    reason: $"Tạo mới hồ sơ nhân sự '{client.Name}' (Mã định danh: {client.Code}).",
                     cancellationToken: cancellationToken);
             }
 
@@ -516,7 +599,8 @@ namespace HPParking.Api.Services.Implementations
             client.CardCode = cleanCardCode;
             client.AuthMethods = authMethods;
             client.VerifyVehiclePlate = request.VerifyVehiclePlate;
-            client.IsActive = request.IsActive;
+            // Bảo toàn trạng thái hoạt động: thay đổi trạng thái IsActive bắt buộc phải thông qua phê duyệt email phòng ban (ADR 0042)
+            // client.IsActive được giữ nguyên, không cho phép cập nhật trực tiếp qua form sửa
             client.Expired = request.Expired ?? new();
             client.Note = request.Note;
             client.UpdatedAt = DateTime.UtcNow;
@@ -698,7 +782,7 @@ namespace HPParking.Api.Services.Implementations
 
             if (client == null)
             {
-                throw new NotFoundException("Không tìm thấy khách hàng cần xóa.", ErrorCodes.CLIENT_NOT_FOUND);
+                throw new NotFoundException("Không tìm thấy nhân sự cần xóa.", ErrorCodes.CLIENT_NOT_FOUND);
             }
 
             // Universal Restrict Deletion Policy (ADR 0030 & ADR 0031):
@@ -710,7 +794,7 @@ namespace HPParking.Api.Services.Implementations
             if (activeVehicles.Count > 0)
             {
                 throw new ConflictException(
-                    $"Không thể xóa Khách hàng '{client.Name}' vì vẫn còn {activeVehicles.Count} phương tiện đang hoạt động liên kết. Vui lòng xóa hoặc chuyển quyền sở hữu phương tiện trước.",
+                    $"Không thể xóa nhân sự '{client.Name}' vì vẫn còn {activeVehicles.Count} phương tiện đang hoạt động liên kết. Vui lòng xóa hoặc chuyển quyền sở hữu phương tiện trước.",
                     ErrorCodes.CLIENT_HAS_VEHICLES);
             }
 
@@ -722,7 +806,21 @@ namespace HPParking.Api.Services.Implementations
                 // 2. BẢO LƯU 100% DỮ LIỆU FACEID: Tuyệt đối không xóa trên thiết bị FaceID
                 // =========================================================================
                 await _clientRepo.DeleteAsync(id, softDelete: true, cancellationToken);
-                _logger.LogInformation("Đã XÓA MỀM khách hàng {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
+                _logger.LogInformation("Đã XÓA MỀM nhân sự {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
+
+                // Hủy các yêu cầu phê duyệt đang chờ của nhân sự bị xóa
+                if (_approvalRepo != null)
+                {
+                    var pendingApprovals = await _approvalRepo.FindAsync(r => r.ClientId == id && !r.IsProcessed && !r.IsDeleted, cancellationToken);
+                    foreach (var pa in pendingApprovals)
+                    {
+                        pa.IsProcessed = true;
+                        pa.ProcessedAt = DateTime.UtcNow;
+                        pa.Note = "Hủy do hồ sơ nhân sự bị xóa mềm.";
+                        pa.UpdatedAt = DateTime.UtcNow;
+                        await _approvalRepo.UpdateAsync(pa, cancellationToken);
+                    }
+                }
 
                 if (_cardRepo != null && !string.IsNullOrWhiteSpace(client.CardCode))
                 {
@@ -742,7 +840,7 @@ namespace HPParking.Api.Services.Implementations
                         "Client",
                         client.Id,
                         client.Name,
-                        reason: $"Chuyển khách hàng '{client.Name}' vào thùng rác.",
+                        reason: $"Chuyển nhân sự '{client.Name}' vào thùng rác.",
                         cancellationToken: cancellationToken);
                 }
 
@@ -1178,6 +1276,402 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return uniqueConfigs;
+        }
+
+        private async Task SendApprovalEmailAsync(
+            Client client,
+            Department department,
+            ClientApprovalRequest approvalRequest,
+            CancellationToken cancellationToken)
+        {
+            if (_emailSenderService == null || string.IsNullOrWhiteSpace(department.Email)) return;
+
+            var appBaseUrl = _configuration?["AppBaseUrl"]
+                ?? _configuration?["CorsSettings:AllowedOrigins:0"]
+                ?? "http://localhost:5173";
+            appBaseUrl = appBaseUrl.TrimEnd('/');
+
+            var confirmUrl = $"{appBaseUrl}/confirm-client-status?token={approvalRequest.Token}";
+            bool isActivate = approvalRequest.ActionType == ClientApprovalActionType.Activate;
+            string actionText = isActivate ? "kích hoạt" : "khóa";
+            string actionTitle = isActivate ? "KÍCH HOẠT HỒ SƠ" : "KHÓA HỒ SƠ";
+            string buttonColor = isActivate ? "#16a34a" : "#dc2626";
+            string buttonText = isActivate ? "XÁC NHẬN KÍCH HOẠT (1-CLICK)" : "XÁC NHẬN KHÓA HỒ SƠ (1-CLICK)";
+
+            string subject = $"[HPParking] Yêu cầu xác nhận {actionText} hồ sơ nhân sự - {client.Name} ({client.Code})";
+
+            string vehicleListHtml = "Chưa đăng ký";
+            if (_vehicleRepo != null)
+            {
+                var vehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && !v.IsDeleted, cancellationToken);
+                if (vehicles != null && vehicles.Count > 0)
+                {
+                    vehicleListHtml = string.Join(", ", vehicles.Select(v => $"{v.PlateNumber} ({v.Type})"));
+                }
+            }
+
+            string workingDeptName = "Chưa gán";
+            if (_departmentRepo != null && !string.IsNullOrWhiteSpace(client.DepartmentId))
+            {
+                var workDept = await _departmentRepo.GetByIdAsync(client.DepartmentId, cancellationToken);
+                if (workDept != null) workingDeptName = workDept.Name;
+            }
+
+            var htmlBuilder = new StringBuilder();
+            htmlBuilder.Append($@"
+<div style=""font-family: Arial, 'Segoe UI', Tahoma, sans-serif; max-width: 620px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; color: #1e293b;"">
+    <div style=""background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 24px 28px; text-align: center; color: #ffffff;"">
+        <h1 style=""margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;"">HỆ THỐNG QUẢN LÝ BÃI XE HPPARKING</h1>
+        <p style=""margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;"">Thông báo yêu cầu phê duyệt trạng thái hồ sơ nhân sự</p>
+    </div>
+    
+    <div style=""padding: 28px;"">
+        <p style=""margin: 0 0 16px 0; font-size: 14px; line-height: 1.6;"">
+            Kính gửi <strong>{department.Name}</strong>,
+        </p>
+        <p style=""margin: 0 0 20px 0; font-size: 14px; line-height: 1.6;"">
+            Hệ thống vừa tiếp nhận yêu cầu <strong>{actionText}</strong> quyền ra vào bãi đỗ xe cho hồ sơ nhân sự dưới đây. Vui lòng kiểm tra thông tin và xác nhận:
+        </p>
+
+        <div style=""background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px;"">
+            <table style=""width: 100%; border-collapse: collapse; font-size: 13px;"">
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b; width: 140px;"">Họ và tên:</td>
+                    <td style=""padding: 6px 0; font-weight: 600; color: #0f172a;"">{client.Name}</td>
+                </tr>
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b;"">Mã định danh (CCCD):</td>
+                    <td style=""padding: 6px 0; font-weight: 600; color: #0f172a;"">{client.Code}</td>
+                </tr>
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b;"">Số điện thoại:</td>
+                    <td style=""padding: 6px 0; color: #0f172a;"">{client.PhoneNumber}</td>
+                </tr>
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b;"">Đơn vị công tác:</td>
+                    <td style=""padding: 6px 0; color: #0f172a;"">{workingDeptName}</td>
+                </tr>
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b;"">Phương tiện đăng ký:</td>
+                    <td style=""padding: 6px 0; color: #0f172a;"">{vehicleListHtml}</td>
+                </tr>
+                {(string.IsNullOrWhiteSpace(approvalRequest.Note) ? "" : $@"
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b;"">Lý do / Ghi chú:</td>
+                    <td style=""padding: 6px 0; color: #b45309; font-weight: 500;"">{approvalRequest.Note}</td>
+                </tr>")}
+                <tr>
+                    <td style=""padding: 6px 0; color: #64748b;"">Hành động yêu cầu:</td>
+                    <td style=""padding: 6px 0; font-weight: 700; color: {(isActivate ? "#16a34a" : "#dc2626")};"">{actionTitle}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style=""text-align: center; margin: 30px 0;"">
+            <a href=""{confirmUrl}"" style=""background-color: {buttonColor}; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 14px; font-weight: 700; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);"">
+                {buttonText}
+            </a>
+        </div>
+
+        <p style=""margin: 0; font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5;"">
+            ⏱ Liên kết xác nhận này có hiệu lực trong vòng <strong>24 giờ</strong>.<br/>
+            Nếu bạn không có thẩm quyền hoặc nhận nhầm email, vui lòng bỏ qua thư này.
+        </p>
+    </div>
+    
+    <div style=""background-color: #f1f5f9; padding: 14px 28px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b;"">
+        Email được gửi tự động từ Hệ thống Quản Lý Bãi Xe Thông Minh HPParking. Vui lòng không trả lời trực tiếp email này.
+    </div>
+</div>");
+
+            await _emailSenderService.SendEmailAsync(
+                [department.Email.Trim()],
+                subject,
+                htmlBuilder.ToString(),
+                null,
+                cancellationToken);
+        }
+
+        public async Task<ConfirmClientStatusResponse> ConfirmStatusByTokenAsync(string token, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                throw new BadRequestException("Mã xác thực không được để trống.", ErrorCodes.BAD_REQUEST);
+            }
+
+            if (_approvalRepo == null)
+            {
+                throw new BadRequestException("Hệ thống chưa cấu hình lưu trữ yêu cầu phê duyệt.");
+            }
+
+            var cleanToken = token.Trim();
+            var approval = await _approvalRepo.FindOneAsync(r => r.Token == cleanToken && !r.IsDeleted, cancellationToken);
+            if (approval == null)
+            {
+                throw new NotFoundException("Mã xác thực không tồn tại hoặc không hợp lệ.", ErrorCodes.NOT_FOUND);
+            }
+
+            if (!approval.IsValidForExecution())
+            {
+                if (approval.IsProcessed)
+                {
+                    var timeStr = approval.ProcessedAt.HasValue
+                        ? approval.ProcessedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        : "trước đó";
+                    throw new ConflictException($"Yêu cầu này đã được phê duyệt xác nhận vào lúc {timeStr}.", ErrorCodes.CONFLICT);
+                }
+
+                if (DateTime.UtcNow > approval.ExpiresAt)
+                {
+                    throw new BadRequestException("Liên kết xác nhận đã hết hạn (quá 24 giờ). Vui lòng liên hệ quản trị viên để gửi lại yêu cầu mới.", ErrorCodes.BAD_REQUEST);
+                }
+
+                throw new BadRequestException("Yêu cầu này không còn hiệu lực để thực thi.", ErrorCodes.BAD_REQUEST);
+            }
+
+            var client = await _clientRepo.GetByIdAsync(approval.ClientId, cancellationToken);
+            if (client == null || client.IsDeleted)
+            {
+                throw new NotFoundException("Hồ sơ nhân sự tương ứng không tồn tại hoặc đã bị xóa khỏi hệ thống.", ErrorCodes.CLIENT_NOT_FOUND);
+            }
+
+            bool targetActive = (approval.ActionType == ClientApprovalActionType.Activate);
+
+            // Active State Protection (Rule 2): Không cho phép tắt hoạt động nhân sự nếu còn phương tiện active
+            if (!targetActive)
+            {
+                var activeVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted, cancellationToken);
+                if (activeVehicles.Count > 0)
+                {
+                    throw new BadRequestException(
+                        $"Không thể vô hiệu hóa nhân sự '{client.Name}' vì vẫn còn {activeVehicles.Count} phương tiện đang hoạt động liên kết. Vui lòng vô hiệu hóa các phương tiện trước.",
+                        ErrorCodes.BAD_REQUEST);
+                }
+            }
+
+            client.IsActive = targetActive;
+            client.UpdatedAt = DateTime.UtcNow;
+            await _clientRepo.UpdateAsync(client, cancellationToken);
+
+            approval.IsProcessed = true;
+            approval.ProcessedAt = DateTime.UtcNow;
+            approval.UpdatedAt = DateTime.UtcNow;
+            await _approvalRepo.UpdateAsync(approval, cancellationToken);
+
+            string deptName = "Phòng ban";
+            if (_departmentRepo != null && !string.IsNullOrWhiteSpace(approval.ApprovingDepartmentId))
+            {
+                var dept = await _departmentRepo.GetByIdAsync(approval.ApprovingDepartmentId, cancellationToken);
+                if (dept != null) deptName = dept.Name;
+            }
+
+            _logger.LogInformation("Xác nhận 1-click thành công cho nhân sự {ClientName} ({ClientId}) sang trạng thái {Status} bởi {Dept}",
+                client.Name, client.Id, targetActive ? "Kích hoạt" : "Khóa", deptName);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    AuditActionType.Update,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Xác nhận 1-click qua email từ '{deptName}': chuyển trạng thái sang '{(targetActive ? "Hoạt động" : "Vô hiệu hóa")}'.",
+                    cancellationToken: cancellationToken);
+            }
+
+            return new ConfirmClientStatusResponse
+            {
+                ClientId = client.Id,
+                ClientName = client.Name,
+                ClientCode = client.Code,
+                ActionType = approval.ActionType,
+                NewActiveStatus = targetActive,
+                ProcessedAt = approval.ProcessedAt.Value,
+                ApprovingDepartmentName = deptName,
+                Message = $"Hồ sơ nhân sự '{client.Name}' đã được {(targetActive ? "kích hoạt" : "khóa")} thành công."
+            };
+        }
+
+        public async Task<ClientApprovalRequestDto> RequestStatusChangeAsync(
+            string clientId,
+            RequestClientStatusChangeRequest request,
+            string? currentUserId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_approvalRepo == null || _departmentRepo == null)
+            {
+                throw new BadRequestException("Chức năng phê duyệt qua phòng ban chưa sẵn sàng trên hệ thống.");
+            }
+
+            var client = await _clientRepo.GetByIdAsync(clientId, cancellationToken);
+            if (client == null || client.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin nhân sự.", ErrorCodes.CLIENT_NOT_FOUND);
+            }
+
+            if (request.ActionType == ClientApprovalActionType.Activate && client.IsActive)
+            {
+                throw new BadRequestException("Hồ sơ nhân sự này hiện đã ở trạng thái Hoạt động.");
+            }
+
+            if (request.ActionType == ClientApprovalActionType.Deactivate && !client.IsActive)
+            {
+                throw new BadRequestException("Hồ sơ nhân sự này hiện đã ở trạng thái Vô hiệu hóa.");
+            }
+
+            var dept = await _departmentRepo.GetByIdAsync(request.ApprovingDepartmentId, cancellationToken);
+            if (dept == null || dept.IsDeleted)
+            {
+                throw new NotFoundException($"Không tìm thấy phòng ban với Id '{request.ApprovingDepartmentId}'.", ErrorCodes.DEPARTMENT_NOT_FOUND);
+            }
+            if (!dept.IsActive)
+            {
+                throw new BadRequestException($"Phòng ban '{dept.Name}' đang bị vô hiệu hóa, không thể nhận email.", ErrorCodes.BAD_REQUEST);
+            }
+            if (string.IsNullOrWhiteSpace(dept.Email))
+            {
+                throw new BadRequestException($"Phòng ban '{dept.Name}' chưa có email cấu hình trong hệ thống.", ErrorCodes.BAD_REQUEST);
+            }
+
+            // Đánh dấu các request chưa xử lý trước đó của client này là đã bị thay thế (không soft-delete để bảo toàn lịch sử kiểm toán)
+            var pendingRequests = await _approvalRepo.FindAsync(r => r.ClientId == clientId && !r.IsProcessed && !r.IsDeleted, cancellationToken);
+            foreach (var pr in pendingRequests)
+            {
+                pr.IsProcessed = true;
+                pr.ProcessedAt = DateTime.UtcNow;
+                pr.Note = string.IsNullOrWhiteSpace(pr.Note) ? "Hủy do có yêu cầu thay đổi mới" : $"{pr.Note} (Hủy do có yêu cầu thay đổi mới)";
+                pr.UpdatedAt = DateTime.UtcNow;
+                await _approvalRepo.UpdateAsync(pr, cancellationToken);
+            }
+
+            var token = GenerateApprovalToken();
+            var approval = new ClientApprovalRequest
+            {
+                ClientId = client.Id,
+                ApprovingDepartmentId = dept.Id,
+                ApprovingDepartmentEmail = dept.Email.Trim(),
+                ActionType = request.ActionType,
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddHours(24),
+                IsProcessed = false,
+                RequestedByUserId = currentUserId,
+                Note = request.Note?.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            if (_emailSenderService != null)
+            {
+                try
+                {
+                    await SendApprovalEmailAsync(client, dept, approval, cancellationToken);
+                    approval.EmailSent = true;
+                }
+                catch (Exception ex)
+                {
+                    approval.EmailSent = false;
+                    approval.EmailError = ex.Message;
+                    _logger.LogWarning(ex, "Lỗi gửi email yêu cầu đổi trạng thái nhân sự {ClientId}: {Message}", client.Id, ex.Message);
+                }
+            }
+
+            await _approvalRepo.AddAsync(approval, cancellationToken);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    AuditActionType.Update,
+                    "Client",
+                    client.Id,
+                    client.Name,
+                    reason: $"Gửi yêu cầu {(request.ActionType == ClientApprovalActionType.Activate ? "Kích hoạt" : "Khóa")} hồ sơ tới phòng ban '{dept.Name}' ({dept.Email}).",
+                    cancellationToken: cancellationToken);
+            }
+
+            return MapToApprovalRequestDto(approval, dept.Name);
+        }
+
+        public async Task<ClientApprovalRequestDto> ResendApprovalEmailAsync(
+            string clientId,
+            string? currentUserId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_approvalRepo == null || _departmentRepo == null)
+            {
+                throw new BadRequestException("Chức năng phê duyệt qua phòng ban chưa sẵn sàng trên hệ thống.");
+            }
+
+            var client = await _clientRepo.GetByIdAsync(clientId, cancellationToken);
+            if (client == null || client.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin nhân sự.", ErrorCodes.CLIENT_NOT_FOUND);
+            }
+
+            var pendingRequests = await _approvalRepo.FindAsync(r => r.ClientId == clientId && !r.IsDeleted, cancellationToken);
+            var latest = pendingRequests.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+            if (latest == null)
+            {
+                throw new BadRequestException("Không tìm thấy yêu cầu phê duyệt nào trước đó để gửi lại.");
+            }
+
+            if (latest.IsProcessed)
+            {
+                throw new ConflictException("Yêu cầu phê duyệt này đã được xử lý hoàn tất, không thể gửi lại email.", ErrorCodes.CONFLICT);
+            }
+
+            var dept = await _departmentRepo.GetByIdAsync(latest.ApprovingDepartmentId, cancellationToken);
+            if (dept == null || dept.IsDeleted || string.IsNullOrWhiteSpace(dept.Email))
+            {
+                throw new BadRequestException("Phòng ban phê duyệt không tồn tại hoặc chưa cấu hình email.");
+            }
+
+            // Gia hạn 24 giờ và sinh token mới cho yêu cầu đang chờ
+            latest.Token = GenerateApprovalToken();
+            latest.ExpiresAt = DateTime.UtcNow.AddHours(24);
+            latest.RequestedByUserId = currentUserId;
+            latest.UpdatedAt = DateTime.UtcNow;
+
+            if (_emailSenderService != null)
+            {
+                try
+                {
+                    await SendApprovalEmailAsync(client, dept, latest, cancellationToken);
+                    latest.EmailSent = true;
+                }
+                catch (Exception ex)
+                {
+                    latest.EmailSent = false;
+                    latest.EmailError = ex.Message;
+                    _logger.LogWarning(ex, "Lỗi gửi lại email phê duyệt nhân sự {ClientId}: {Message}", client.Id, ex.Message);
+                }
+            }
+
+            await _approvalRepo.UpdateAsync(latest, cancellationToken);
+            return MapToApprovalRequestDto(latest, dept.Name);
+        }
+
+        private static string GenerateApprovalToken()
+        {
+            return Guid.NewGuid().ToString("N") + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        }
+
+        private static ClientApprovalRequestDto MapToApprovalRequestDto(ClientApprovalRequest r, string? deptName = null)
+        {
+            return new ClientApprovalRequestDto
+            {
+                Id = r.Id,
+                ClientId = r.ClientId,
+                ApprovingDepartmentId = r.ApprovingDepartmentId,
+                ApprovingDepartmentName = deptName ?? string.Empty,
+                ApprovingDepartmentEmail = r.ApprovingDepartmentEmail,
+                ActionType = r.ActionType,
+                ExpiresAt = r.ExpiresAt,
+                IsProcessed = r.IsProcessed,
+                ProcessedAt = r.ProcessedAt,
+                CreatedAt = r.CreatedAt,
+                Note = r.Note,
+                EmailSent = r.EmailSent,
+                EmailError = r.EmailError
+            };
         }
     }
 }

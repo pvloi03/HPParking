@@ -7,8 +7,16 @@ Hệ thống quản lý bãi đỗ xe thông minh và kiểm soát ra vào đa p
 ### Core Entities
 
 **Client**:
-Hồ sơ nhân sự (cán bộ công nhân viên, nhà thầu hoặc khách đến thăm) được đăng ký thông tin nhận diện và phương tiện để cấp quyền ra vào bãi xe. Khóa nghiệp vụ nhận diện là Mã định danh (`Code`), bắt buộc duy nhất và tự động chuẩn hóa viết hoa không phân biệt hoa thường.
+Hồ sơ nhân sự (cán bộ công nhân viên, nhà thầu hoặc khách đến thăm) được đăng ký thông tin nhận diện và phương tiện để cấp quyền ra vào bãi xe. Khóa nghiệp vụ nhận diện là Mã định danh (`Code`), bắt buộc duy nhất và tự động chuẩn hóa viết hoa không phân biệt hoa thường. Trạng thái hoạt động (`IsActive`) được kiểm soát bắt buộc thông qua quy trình phê duyệt của phòng ban qua email thay vì kích hoạt thủ công.
 _Avoid_: Khách hàng, Customer, User, Account, Driver
+
+**ClientApprovalRequest**:
+Yêu cầu phê duyệt thay đổi trạng thái kích hoạt (Kích hoạt mới, Khóa hoặc Kích hoạt lại) của hồ sơ nhân sự, được gửi đến phòng ban phê duyệt kèm mã định danh bảo mật 1-click có thời hạn 24 giờ.
+_Avoid_: EmailToken, ActivationCode, StatusTicket, PersonnelApproval
+
+**Approving Department**:
+Phòng ban được chỉ định tiếp nhận và phê duyệt yêu cầu thay đổi trạng thái hoạt động của hồ sơ nhân sự qua email, độc lập với phòng ban công tác trực thuộc của nhân sự đó.
+_Avoid_: ReviewDepartment, TargetDepartment, VerificationUnit
 
 **Vehicle**:
 Phương tiện giao thông cơ giới đã đăng ký trong hệ thống, thuộc quyền sở hữu của nhân sự hoặc là xe công vụ nội bộ dùng chung.
@@ -63,6 +71,10 @@ Bản ghi hành trình điều vận liên cổng của xe công vụ nhằm gi�
 _Avoid_: TripRecord, DispatchLog, TransportSession
 
 ### Access Control & Verification
+
+**One-Click Email Approval**:
+Cơ chế xác nhận thay đổi trạng thái kích hoạt nhân sự bằng một lượt click trực tiếp từ email thông báo, tự động hoàn tất quy trình phê duyệt mà không yêu cầu đăng nhập tài khoản.
+_Avoid_: DirectActivation, AutoBypassApproval, TwoStepEmailVerify
 
 **Inbound Lane**:
 Làn kiểm soát dành cho phương tiện hoặc người đi vào khuôn viên bãi xe.

@@ -5,6 +5,7 @@ using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace HPParking.Api.Controllers.V1
 {
@@ -237,6 +238,59 @@ namespace HPParking.Api.Controllers.V1
         {
             var createdVehicle = await _vehicleService.CreateVehicleAsync(id, request);
             return CreatedApiResponse($"/api/v1/vehicles/{createdVehicle.Id}", createdVehicle, "Thêm phương tiện mới cho khách hàng thành công.");
+        }
+
+        /// <summary>
+        /// Xác nhận 1-click kích hoạt hoặc khóa hồ sơ nhân sự qua mã Token bảo mật trong email (ADR 0042)
+        /// Endpoint công khai không yêu cầu đăng nhập tài khoản
+        /// </summary>
+        [HttpPost("confirm-status")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<ConfirmClientStatusResponse>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 409)]
+        public async Task<IActionResult> ConfirmClientStatus([FromQuery] string token, CancellationToken cancellationToken)
+        {
+            var result = await _clientService.ConfirmStatusByTokenAsync(token, cancellationToken);
+            return OkApiResponse(result, result.Message);
+        }
+
+        /// <summary>
+        /// Gửi yêu cầu Khóa hoặc Kích hoạt lại hồ sơ nhân sự đến phòng ban phê duyệt qua email (ADR 0042)
+        /// </summary>
+        [HttpPost("{id}/request-status-change")]
+        [Authorize(Roles = "Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<ClientApprovalRequestDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> RequestStatusChange(
+            string id,
+            [FromBody] RequestClientStatusChangeRequest request,
+            CancellationToken cancellationToken)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            var result = await _clientService.RequestStatusChangeAsync(id, request, currentUserId, cancellationToken);
+            return OkApiResponse(result, "Đã gửi email yêu cầu phê duyệt thành công.");
+        }
+
+        /// <summary>
+        /// Gửi lại email phê duyệt kích hoạt / khóa hồ sơ nếu email thất lạc hoặc token hết hạn (ADR 0042)
+        /// </summary>
+        [HttpPost("{id}/resend-approval")]
+        [Authorize(Roles = "Manager,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<ClientApprovalRequestDto>), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 400)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 404)]
+        public async Task<IActionResult> ResendApprovalEmail(string id, CancellationToken cancellationToken)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            var result = await _clientService.ResendApprovalEmailAsync(id, currentUserId, cancellationToken);
+            return OkApiResponse(result, "Đã gửi lại email phê duyệt thành công.");
         }
     }
 }
