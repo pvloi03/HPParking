@@ -104,6 +104,7 @@ builder.Services.AddScoped<IReportExcelService, ReportExcelService>();
 
 // Đăng ký dịch vụ Quản lý Thẻ, Tuyến đường phương tiện nội bộ và Email cảnh báo SLA
 builder.Services.AddScoped<IEmailSenderService, EmailSenderService>();
+builder.Services.AddScoped<IClientApprovalEmailTemplateBuilder, ClientApprovalEmailTemplateBuilder>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IGateRouteService, GateRouteService>();
 builder.Services.AddScoped<IFleetDispatchService, FleetDispatchService>();
@@ -375,6 +376,20 @@ app.UseSwaggerUI(options =>
 });
 
 app.MapControllers();
+
+// Khởi tạo các Unique Indexes cho MongoDB (ADR 0042)
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
+        MongoDbIndexConfigurator.EnsureIndexesAsync(dbContext).GetAwaiter().GetResult();
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Không thể tự động khởi tạo MongoDB Indexes khi khởi động: {Message}", ex.Message);
+    }
+}
 
 app.Run();
 

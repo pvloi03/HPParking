@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import axios from 'axios';
 import { clientApi, extractErrorMessage } from '@/api/clientApi';
 import type { ConfirmClientStatusResponse } from '@/types/client';
 import {
@@ -12,14 +13,24 @@ import {
   ArrowRight,
   ShieldCheck,
   ShieldAlert,
+  CheckCheck,
+  AlertTriangle,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+export type ConfirmPageStatus =
+  | 'loading'
+  | 'success'
+  | 'expired'
+  | 'already_processed'
+  | 'error';
 
 export function ConfirmClientStatusPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<ConfirmPageStatus>('loading');
   const [result, setResult] = useState<ConfirmClientStatusResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const executedTokenRef = useRef<string | null>(null);
@@ -46,10 +57,53 @@ export function ConfirmClientStatusPage() {
           setResult(res);
           setStatus('success');
         }
-      } catch (err) {
-        if (isMounted) {
+      } catch (err: unknown) {
+        if (!isMounted) return;
+
+        const msg = extractErrorMessage(err);
+        setErrorMessage(msg);
+
+        // Phân loại chính xác trạng thái UI riêng biệt:
+        // 'expired' (hết hạn 24h) vs 'already_processed' (đã duyệt trước đó) vs 'error' (lỗi kỹ thuật/không tìm thấy)
+        let isExpired = false;
+        let isAlreadyProcessed = false;
+
+        if (axios.isAxiosError(err)) {
+          const resData = err.response?.data as { message?: string; errors?: string[] } | undefined;
+          const rawErrors = [resData?.message, ...(resData?.errors || [])].filter(Boolean).join(' ');
+
+          if (
+            rawErrors.includes('APPROVAL_TOKEN_EXPIRED') ||
+            rawErrors.toLowerCase().includes('hết hạn') ||
+            rawErrors.includes('quá 24 giờ')
+          ) {
+            isExpired = true;
+          } else if (
+            rawErrors.includes('APPROVAL_REQUEST_ALREADY_PROCESSED') ||
+            rawErrors.toLowerCase().includes('đã được phê duyệt') ||
+            rawErrors.toLowerCase().includes('đã được xử lý') ||
+            err.response?.status === 409
+          ) {
+            isAlreadyProcessed = true;
+          }
+        }
+
+        // Fallback kiểm tra chuỗi thông báo lỗi
+        if (!isExpired && !isAlreadyProcessed) {
+          const lowerMsg = msg.toLowerCase();
+          if (lowerMsg.includes('hết hạn') || lowerMsg.includes('quá 24 giờ')) {
+            isExpired = true;
+          } else if (lowerMsg.includes('đã được phê duyệt') || lowerMsg.includes('đã được xử lý')) {
+            isAlreadyProcessed = true;
+          }
+        }
+
+        if (isExpired) {
+          setStatus('expired');
+        } else if (isAlreadyProcessed) {
+          setStatus('already_processed');
+        } else {
           setStatus('error');
-          setErrorMessage(extractErrorMessage(err));
         }
       }
     };
@@ -80,7 +134,7 @@ export function ConfirmClientStatusPage() {
 
       {/* Main Card */}
       <div className="w-full max-w-lg bg-card/90 backdrop-blur-md rounded-2xl border border-border/80 shadow-xl overflow-hidden transition-all duration-300">
-        {/* Loading State */}
+        {/* 1. Loading State */}
         {status === 'loading' && (
           <div className="p-8 sm:p-10 text-center space-y-4">
             <div className="relative mx-auto w-16 h-16 flex items-center justify-center">
@@ -96,7 +150,7 @@ export function ConfirmClientStatusPage() {
           </div>
         )}
 
-        {/* Success State */}
+        {/* 2. Success State */}
         {status === 'success' && result && (
           <div className="divide-y divide-border/60">
             <div className="p-6 sm:p-8 text-center space-y-3 bg-gradient-to-b from-emerald-50/60 to-transparent dark:from-emerald-950/30">
@@ -184,7 +238,108 @@ export function ConfirmClientStatusPage() {
           </div>
         )}
 
-        {/* Error / Expired State */}
+        {/* 3. Expired State (Riêng biệt cho token hết hạn 24 giờ) */}
+        {status === 'expired' && (
+          <div className="divide-y divide-border/60">
+            <div className="p-6 sm:p-8 text-center space-y-3 bg-gradient-to-b from-amber-50/70 to-transparent dark:from-amber-950/30">
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-md shadow-amber-600/10">
+                <Clock className="h-8 w-8" />
+              </div>
+              <div className="space-y-1">
+                <span className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  Liên kết đã hết hiệu lực
+                </span>
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  Yêu Cầu Phê Duyệt Đã Hết Hạn
+                </h2>
+                <p className="text-xs text-amber-900 dark:text-amber-200 max-w-sm mx-auto font-medium">
+                  {errorMessage || 'Liên kết xác nhận này chỉ có hiệu lực trong vòng 24 giờ kể từ thời điểm gửi email.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-2 text-foreground/90">
+                <p className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" />
+                  Hướng dẫn xử lý tiếp theo:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-[11px] leading-relaxed">
+                  <li>
+                    Hồ sơ nhân sự vẫn được lưu trữ an toàn trong hệ thống và hiện đang ở trạng thái ban đầu (chưa kích hoạt).
+                  </li>
+                  <li>
+                    Vui lòng liên hệ <strong>Quản trị viên bãi đỗ xe</strong> hoặc người quản lý để sử dụng tính năng <strong>&ldquo;Gửi lại email phê duyệt&rdquo;</strong> trên màn hình Quản lý nhân sự.
+                  </li>
+                  <li>
+                    Hệ thống sẽ ngay lập tức cấp mới một liên kết xác nhận 1-click có hiệu lực trong 24 giờ tiếp theo gửi trực tiếp về hòm thư phòng ban của bạn.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 bg-muted/20 flex justify-center">
+              <Button asChild variant="outline" size="sm" className="text-xs h-9">
+                <Link to="/login">
+                  <span>Quay về trang đăng nhập</span>
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 4. Already Processed State (Riêng biệt cho yêu cầu đã được xác nhận trước đó) */}
+        {status === 'already_processed' && (
+          <div className="divide-y divide-border/60">
+            <div className="p-6 sm:p-8 text-center space-y-3 bg-gradient-to-b from-sky-50/70 to-transparent dark:from-sky-950/30">
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shadow-md shadow-sky-600/10">
+                <CheckCheck className="h-8 w-8" />
+              </div>
+              <div className="space-y-1">
+                <span className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                  Yêu cầu đã được xác nhận
+                </span>
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  Yêu Cầu Này Đã Được Xử Lý
+                </h2>
+                <p className="text-xs text-sky-900 dark:text-sky-200 max-w-sm mx-auto font-medium">
+                  {errorMessage || 'Yêu cầu phê duyệt trạng thái hồ sơ nhân sự này đã được xác nhận hoàn tất trước đó.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/60 dark:border-sky-900/40 space-y-2 text-foreground/90">
+                <p className="font-semibold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                  <HelpCircle className="h-4 w-4" />
+                  Thông tin trạng thái:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-[11px] leading-relaxed">
+                  <li>
+                    Mã xác thực 1-click này đã được ghi nhận và tự động vô hiệu hóa để bảo đảm an toàn, ngăn chặn thao tác trùng lặp.
+                  </li>
+                  <li>
+                    Trạng thái mới của hồ sơ nhân sự và quyền ra vào tại cổng barie đã được áp dụng đồng bộ. Bạn không cần thực hiện thêm bất kỳ thao tác nào.
+                  </li>
+                  <li>
+                    Nếu cần thay đổi trạng thái khác (khóa hoặc mở khóa lại), người phụ trách có thể đăng nhập vào hệ thống để gửi yêu cầu mới.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 bg-muted/20 flex justify-center">
+              <Button asChild size="sm" className="text-xs h-9 bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+                <Link to="/login">
+                  <span>Truy cập hệ thống quản trị</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 5. General Error State (Mã không hợp lệ, lỗi kết nối hoặc vi phạm toàn vẹn) */}
         {status === 'error' && (
           <div className="divide-y divide-border/60">
             <div className="p-6 sm:p-8 text-center space-y-3 bg-gradient-to-b from-red-50/60 to-transparent dark:from-red-950/30">
@@ -208,13 +363,13 @@ export function ConfirmClientStatusPage() {
               <p>
                 <strong>Nguyên nhân có thể do:</strong>
               </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Đường link xác nhận đã quá thời hạn hiệu lực <strong>24 giờ</strong>.</li>
-                <li>Yêu cầu này đã được ai đó trong phòng ban xác nhận trước đó.</li>
-                <li>Mã token trên đường dẫn không hợp lệ hoặc đã bị thay đổi.</li>
+              <ul className="list-disc pl-5 space-y-1 text-[11px]">
+                <li>Mã token trên đường liên kết không hợp lệ, bị cắt ngắn hoặc đã bị thay đổi.</li>
+                <li>Hồ sơ nhân sự tương ứng đã bị xóa khỏi cơ sở dữ liệu.</li>
+                <li>Phương tiện của nhân sự đang có phiên gửi xe hoạt động trong bãi (không thể khóa).</li>
               </ul>
               <p className="pt-2 text-[11px]">
-                Vui lòng liên hệ Quản trị viên hệ thống bãi xe để gửi lại đường liên kết phê duyệt mới nếu cần.
+                Vui lòng liên hệ Quản trị viên hệ thống bãi xe để được hỗ trợ kiểm tra.
               </p>
             </div>
 

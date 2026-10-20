@@ -1,5 +1,6 @@
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Common;
+using HPParking.Core.Models.ValueObjects;
 
 namespace HPParking.Api.Services.Interfaces
 {
@@ -15,7 +16,7 @@ namespace HPParking.Api.Services.Interfaces
         Task<SyncFaceIdResponse> SyncFaceIdAsync(string id, CancellationToken cancellationToken = default);
         Task<ClientFaceIdStatusResponse> CheckFaceIdStatusAsync(string id, CancellationToken cancellationToken = default);
         Task<(byte[] Bytes, string ContentType)> GetAvatarAsync(string id, CancellationToken cancellationToken = default);
-        Task<ConfirmClientStatusResponse> ConfirmStatusByTokenAsync(string token, CancellationToken cancellationToken = default);
+        Task<ConfirmClientStatusResponse> ConfirmStatusByTokenAsync(ApprovalToken token, CancellationToken cancellationToken = default);
         Task<ClientApprovalRequestDto> RequestStatusChangeAsync(string clientId, RequestClientStatusChangeRequest request, string? currentUserId = null, CancellationToken cancellationToken = default);
         Task<ClientApprovalRequestDto> ResendApprovalEmailAsync(string clientId, string? currentUserId = null, CancellationToken cancellationToken = default);
     }

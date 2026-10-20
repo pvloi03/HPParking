@@ -44,6 +44,7 @@ import { ActiveStatusBadge } from '@/components/common/ActiveStatusBadge';
 import { RequestStatusChangeDialog } from './RequestStatusChangeDialog';
 import { AvatarUploadField } from './AvatarUploadField';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
+import { findDefaultHrDepartmentId } from '@/utils/departmentHelper';
 import { type Hn212CardData, parseCccdDate, base64ToFile } from '@/services/hn212Service';
 import type { CompanyDto, DepartmentDto, ContractorDto } from '@/types/masterData';
 import {
@@ -193,23 +194,6 @@ export interface PendingVehicleItem {
   error?: string;
 }
 
-function removeVietnameseTones(str: string): string {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
-}
-
-function findDefaultHrDepartmentId(depts: DepartmentDto[]): string {
-  if (!depts.length) return '';
-  const hrDept = depts.find((d) => {
-    const clean = removeVietnameseTones(d.name);
-    return clean.includes('nhan su') || /\bhr\b/.test(clean);
-  });
-  return hrDept ? hrDept.id : depts[0].id;
-}
 
 export function ClientFormDialog({
   open,
@@ -292,6 +276,7 @@ export function ClientFormDialog({
     setValue,
     setError,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -493,7 +478,24 @@ export function ClientFormDialog({
         });
       }
     }
-  }, [open, initialData, hn212CardData, cccdAvatarFile, reset, defaultToday, departmentsWithEmail]);
+  }, [open, initialData, hn212CardData, cccdAvatarFile, reset, defaultToday]);
+
+  // Tự động gán phòng ban phê duyệt mặc định khi danh sách phòng ban load xong (chỉ áp dụng khi tạo mới và chưa có giá trị)
+  useEffect(() => {
+    if (open && !initialData && departmentsWithEmail.length > 0) {
+      const currentDeptId = getValues('approvingDepartmentId');
+      const isCurrentValid = departmentsWithEmail.some((d) => d.id === currentDeptId);
+      if (!currentDeptId || !isCurrentValid) {
+        const defaultDeptId = findDefaultHrDepartmentId(departmentsWithEmail);
+        if (defaultDeptId) {
+          setValue('approvingDepartmentId', defaultDeptId, {
+            shouldValidate: true,
+            shouldDirty: false,
+          });
+        }
+      }
+    }
+  }, [open, initialData, departmentsWithEmail, getValues, setValue]);
 
   const onFormSubmit = async (formData: ClientFormData) => {
     if (formData.verifyVehiclePlate) {
@@ -1484,7 +1486,7 @@ export function ClientFormDialog({
                 ) : (
                   <div className="space-y-1">
                     <Select
-                      value={watch('approvingDepartmentId') || findDefaultHrDepartmentId(departmentsWithEmail)}
+                      value={watch('approvingDepartmentId') || ''}
                       onValueChange={(val) => setValue('approvingDepartmentId', val, { shouldValidate: true })}
                     >
                       <SelectTrigger className="text-xs bg-background h-9">

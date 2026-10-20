@@ -3,6 +3,8 @@ using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.Vehicles;
 using HPParking.Api.Services.Interfaces;
+using HPParking.Core.Models.Enums;
+using HPParking.Core.Models.ValueObjects;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -72,11 +74,51 @@ namespace HPParking.Api.Controllers.V1
             var failure = terminals.Count(t => !t.IsOnline || !t.UserExists);
             var success = total - failure;
 
-            var msg = total > 0 && failure > 0
-                ? $"Tạo mới khách hàng thành công (Đồng bộ FaceID: {success}/{total} thành công, {failure} thiết bị mất kết nối hoặc lỗi)."
-                : total > 0
-                    ? $"Tạo mới khách hàng và đồng bộ toàn bộ {total} thiết bị FaceID thành công."
-                    : "Tạo mới khách hàng thành công.";
+            string msg;
+            var approval = created.LatestApprovalRequest;
+            if (approval != null && !approval.EmailSent)
+            {
+                var emailErr = !string.IsNullOrWhiteSpace(approval.EmailError)
+                    ? $" nhưng gửi email xác nhận thất bại: {approval.EmailError} (có thể gửi lại email sau)."
+                    : " nhưng gửi email xác nhận thất bại (có thể gửi lại email sau).";
+
+                if (total > 0 && failure > 0)
+                {
+                    msg = $"Tạo mới khách hàng thành công{emailErr} Đồng bộ FaceID: {success}/{total} thành công, {failure} thiết bị lỗi.";
+                }
+                else if (total > 0)
+                {
+                    msg = $"Tạo mới khách hàng thành công{emailErr} Đồng bộ {total} thiết bị FaceID thành công.";
+                }
+                else
+                {
+                    msg = $"Tạo mới khách hàng thành công{emailErr}";
+                }
+            }
+            else if (approval != null && approval.EmailSent)
+            {
+                var emailNotice = $" Đã gửi email xác nhận kích hoạt tới {approval.ApprovingDepartmentEmail}.";
+                if (total > 0 && failure > 0)
+                {
+                    msg = $"Tạo mới khách hàng thành công.{emailNotice} (Đồng bộ FaceID: {success}/{total} thành công, {failure} thiết bị mất kết nối hoặc lỗi).";
+                }
+                else if (total > 0)
+                {
+                    msg = $"Tạo mới khách hàng thành công.{emailNotice} Đồng bộ toàn bộ {total} thiết bị FaceID thành công.";
+                }
+                else
+                {
+                    msg = $"Tạo mới khách hàng thành công.{emailNotice}";
+                }
+            }
+            else
+            {
+                msg = total > 0 && failure > 0
+                    ? $"Tạo mới khách hàng thành công (Đồng bộ FaceID: {success}/{total} thành công, {failure} thiết bị mất kết nối hoặc lỗi)."
+                    : total > 0
+                        ? $"Tạo mới khách hàng và đồng bộ toàn bộ {total} thiết bị FaceID thành công."
+                        : "Tạo mới khách hàng thành công.";
+            }
 
             return CreatedApiResponse($"/api/v1/clients/{created.Id}", created, msg);
         }
@@ -250,7 +292,7 @@ namespace HPParking.Api.Controllers.V1
         [ProducesResponseType(typeof(ApiResponse<object>), 400)]
         [ProducesResponseType(typeof(ApiResponse<object>), 404)]
         [ProducesResponseType(typeof(ApiResponse<object>), 409)]
-        public async Task<IActionResult> ConfirmClientStatus([FromQuery] string token, CancellationToken cancellationToken)
+        public async Task<IActionResult> ConfirmClientStatus([FromQuery] ApprovalToken token, CancellationToken cancellationToken)
         {
             var result = await _clientService.ConfirmStatusByTokenAsync(token, cancellationToken);
             return OkApiResponse(result, result.Message);
@@ -273,7 +315,13 @@ namespace HPParking.Api.Controllers.V1
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
             var result = await _clientService.RequestStatusChangeAsync(id, request, currentUserId, cancellationToken);
-            return OkApiResponse(result, "Đã gửi email yêu cầu phê duyệt thành công.");
+            
+            var actionText = request.ActionType == ClientApprovalActionType.Activate ? "kích hoạt" : "khóa";
+            var msg = result.EmailSent
+                ? $"Đã gửi email yêu cầu {actionText} hồ sơ tới {result.ApprovingDepartmentEmail} thành công."
+                : $"Đã ghi nhận yêu cầu {actionText} hồ sơ nhưng gửi email thất bại: {result.EmailError ?? "lỗi máy chủ thư"} (có thể gửi lại sau).";
+
+            return OkApiResponse(result, msg);
         }
 
         /// <summary>
@@ -290,7 +338,12 @@ namespace HPParking.Api.Controllers.V1
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
             var result = await _clientService.ResendApprovalEmailAsync(id, currentUserId, cancellationToken);
-            return OkApiResponse(result, "Đã gửi lại email phê duyệt thành công.");
+
+            var msg = result.EmailSent
+                ? $"Đã gửi lại email phê duyệt tới {result.ApprovingDepartmentEmail} thành công."
+                : $"Gửi lại email phê duyệt thất bại: {result.EmailError ?? "lỗi máy chủ thư"} (vui lòng thử lại sau).";
+
+            return OkApiResponse(result, msg);
         }
     }
 }

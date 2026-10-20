@@ -330,6 +330,7 @@ namespace HPParking.Tests.Api
             HPParking.Core.Interfaces.IRepository<Card>? cardRepo = null,
             HPParking.Core.Interfaces.IRepository<Vehicle>? vehicleRepo = null)
         {
+            public HPParking.Core.Interfaces.IRepository<Client> ClientRepo => clientRepo;
             public HPParking.Core.Interfaces.IRepository<Card>? CardRepo => cardRepo;
             public HPParking.Core.Interfaces.IRepository<Vehicle>? VehicleRepo => vehicleRepo;
         }

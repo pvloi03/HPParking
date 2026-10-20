@@ -1,4 +1,4 @@
-﻿namespace HPParking.Api.DTOs.Clients
+namespace HPParking.Api.DTOs.Clients
 {
     public class ClientFaceIdStatusResponse
     {

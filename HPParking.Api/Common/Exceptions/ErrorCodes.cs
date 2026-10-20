@@ -29,10 +29,15 @@ namespace HPParking.Api.Common.Exceptions
         public const string CLIENT_CODE_DUPLICATE = "CLIENT_CODE_DUPLICATE";
         public const string CLIENT_HAS_VEHICLES = "CLIENT_HAS_VEHICLES";
         public const string CLIENT_DEACTIVATED = "CLIENT_DEACTIVATED";
+        public const string CLIENT_HAS_ACTIVE_PARKING_SESSION = "CLIENT_HAS_ACTIVE_PARKING_SESSION";
+        public const string CLIENT_HAS_PENDING_APPROVAL_REQUEST = "CLIENT_HAS_PENDING_APPROVAL_REQUEST";
+        public const string APPROVAL_TOKEN_EXPIRED = "APPROVAL_TOKEN_EXPIRED";
+        public const string APPROVAL_REQUEST_ALREADY_PROCESSED = "APPROVAL_REQUEST_ALREADY_PROCESSED";
 
         // Vehicle
         public const string VEHICLE_NOT_FOUND = "VEHICLE_NOT_FOUND";
         public const string VEHICLE_PLATE_DUPLICATE = "VEHICLE_PLATE_DUPLICATE";
+        public const string VEHICLE_HAS_ACTIVE_PARKING_SESSION = "VEHICLE_HAS_ACTIVE_PARKING_SESSION";
 
         // Company
         public const string COMPANY_NOT_FOUND = "COMPANY_NOT_FOUND";

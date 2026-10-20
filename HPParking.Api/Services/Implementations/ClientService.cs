@@ -31,8 +31,10 @@ namespace HPParking.Api.Services.Implementations
         private readonly ILogger<ClientService> _logger;
         private readonly IRepository<Card>? _cardRepo;
         private readonly IRepository<ClientApprovalRequest>? _approvalRepo;
+        private readonly IRepository<ParkingSession>? _parkingSessionRepo;
         private readonly IEmailSenderService? _emailSenderService;
         private readonly IConfiguration? _configuration;
+        private readonly IClientApprovalEmailTemplateBuilder _emailTemplateBuilder;
 
         public ClientService(
             IRepository<Client> clientRepo,
@@ -48,8 +50,10 @@ namespace HPParking.Api.Services.Implementations
             IAuditLogService? auditLogService = null,
             IRepository<Card>? cardRepo = null,
             IRepository<ClientApprovalRequest>? approvalRepo = null,
+            IRepository<ParkingSession>? parkingSessionRepo = null,
             IEmailSenderService? emailSenderService = null,
-            IConfiguration? configuration = null)
+            IConfiguration? configuration = null,
+            IClientApprovalEmailTemplateBuilder? emailTemplateBuilder = null)
         {
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
@@ -64,8 +68,10 @@ namespace HPParking.Api.Services.Implementations
             _auditLogService = auditLogService;
             _cardRepo = cardRepo;
             _approvalRepo = approvalRepo;
+            _parkingSessionRepo = parkingSessionRepo;
             _emailSenderService = emailSenderService;
             _configuration = configuration;
+            _emailTemplateBuilder = emailTemplateBuilder ?? new ClientApprovalEmailTemplateBuilder();
         }
 
         public async Task<PagedResult<ClientDto>> GetClientsPagedAsync(ClientFilterQuery query, CancellationToken cancellationToken = default)
@@ -348,7 +354,8 @@ namespace HPParking.Api.Services.Implementations
                     PlateNumber = reqV.PlateNumber,
                     Type = reqV.Type,
                     OwnerClientId = client.Id,
-                    IsActive = reqV.IsActive,
+                    // Quy tắc 2 (Active State Protection): Thực thể con không được phép Active khi thực thể cha chưa kích hoạt
+                    IsActive = false,
                     Note = reqV.Note,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -798,6 +805,37 @@ namespace HPParking.Api.Services.Implementations
                     ErrorCodes.CLIENT_HAS_VEHICLES);
             }
 
+            // Quy tắc 7: Active Parking Session Lockout (Table 1.2 - 409 Conflict)
+            if (_parkingSessionRepo != null)
+            {
+                var hasActiveSession = await _parkingSessionRepo.ExistsAsync(
+                    s => !s.IsDeleted && s.Status == ParkingSessionStatus.Active && s.PersonId == id,
+                    cancellationToken);
+
+                if (hasActiveSession)
+                {
+                    throw new ConflictException(
+                        $"Không thể xóa nhân sự '{client.Name}' vì đang có phiên đỗ xe hoạt động trong bãi. Vui lòng hoàn tất lượt gửi xe trước khi xóa hồ sơ.",
+                        ErrorCodes.CLIENT_HAS_ACTIVE_PARKING_SESSION);
+                }
+            }
+
+            // Universal Restrict Deletion Policy (Quy tắc 1 & Mục 3):
+            // Chặn xóa (409 Conflict) nếu còn yêu cầu phê duyệt qua email ĐANG CHỜ XỬ LÝ (!IsProcessed && !IsDeleted)
+            if (_approvalRepo != null)
+            {
+                var pendingApprovalCount = await _approvalRepo.CountAsync(
+                    r => r.ClientId == id && !r.IsProcessed && !r.IsDeleted,
+                    cancellationToken);
+
+                if (pendingApprovalCount > 0)
+                {
+                    throw new ConflictException(
+                        $"Không thể xóa nhân sự '{client.Name}' vì vẫn còn {pendingApprovalCount} yêu cầu phê duyệt qua email đang chờ xử lý. Vui lòng xử lý hoặc hủy yêu cầu trước khi xóa.",
+                        ErrorCodes.CLIENT_HAS_PENDING_APPROVAL_REQUEST);
+                }
+            }
+
             if (!hardDelete)
             {
                 // =========================================================================
@@ -807,20 +845,6 @@ namespace HPParking.Api.Services.Implementations
                 // =========================================================================
                 await _clientRepo.DeleteAsync(id, softDelete: true, cancellationToken);
                 _logger.LogInformation("Đã XÓA MỀM nhân sự {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
-
-                // Hủy các yêu cầu phê duyệt đang chờ của nhân sự bị xóa
-                if (_approvalRepo != null)
-                {
-                    var pendingApprovals = await _approvalRepo.FindAsync(r => r.ClientId == id && !r.IsProcessed && !r.IsDeleted, cancellationToken);
-                    foreach (var pa in pendingApprovals)
-                    {
-                        pa.IsProcessed = true;
-                        pa.ProcessedAt = DateTime.UtcNow;
-                        pa.Note = "Hủy do hồ sơ nhân sự bị xóa mềm.";
-                        pa.UpdatedAt = DateTime.UtcNow;
-                        await _approvalRepo.UpdateAsync(pa, cancellationToken);
-                    }
-                }
 
                 if (_cardRepo != null && !string.IsNullOrWhiteSpace(client.CardCode))
                 {
@@ -878,6 +902,19 @@ namespace HPParking.Api.Services.Implementations
             foreach (var v in deletedVehicles)
             {
                 await _vehicleRepo.DeleteAsync(v.Id, softDelete: false, cancellationToken);
+            }
+
+            // Dọn dẹp vĩnh viễn các bản ghi yêu cầu phê duyệt liên kết (tránh dữ liệu mồ côi khi Hard Delete)
+            if (_approvalRepo != null)
+            {
+                var approvals = await _approvalRepo.FindAsync(
+                    r => r.ClientId == id,
+                    cancellationToken);
+
+                foreach (var a in approvals)
+                {
+                    await _approvalRepo.DeleteAsync(a.Id, softDelete: false, cancellationToken);
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(client.Avatar))
@@ -1292,109 +1329,48 @@ namespace HPParking.Api.Services.Implementations
             appBaseUrl = appBaseUrl.TrimEnd('/');
 
             var confirmUrl = $"{appBaseUrl}/confirm-client-status?token={approvalRequest.Token}";
-            bool isActivate = approvalRequest.ActionType == ClientApprovalActionType.Activate;
-            string actionText = isActivate ? "kích hoạt" : "khóa";
-            string actionTitle = isActivate ? "KÍCH HOẠT HỒ SƠ" : "KHÓA HỒ SƠ";
-            string buttonColor = isActivate ? "#16a34a" : "#dc2626";
-            string buttonText = isActivate ? "XÁC NHẬN KÍCH HOẠT (1-CLICK)" : "XÁC NHẬN KHÓA HỒ SƠ (1-CLICK)";
 
-            string subject = $"[HPParking] Yêu cầu xác nhận {actionText} hồ sơ nhân sự - {client.Name} ({client.Code})";
-
-            string vehicleListHtml = "Chưa đăng ký";
+            var vehicleSummaries = new List<string>();
             if (_vehicleRepo != null)
             {
                 var vehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && !v.IsDeleted, cancellationToken);
                 if (vehicles != null && vehicles.Count > 0)
                 {
-                    vehicleListHtml = string.Join(", ", vehicles.Select(v => $"{v.PlateNumber} ({v.Type})"));
+                    vehicleSummaries.AddRange(vehicles.Select(v => $"{v.PlateNumber} ({v.Type})"));
                 }
             }
 
-            string workingDeptName = "Chưa gán";
+            string? workingDeptName = null;
             if (_departmentRepo != null && !string.IsNullOrWhiteSpace(client.DepartmentId))
             {
                 var workDept = await _departmentRepo.GetByIdAsync(client.DepartmentId, cancellationToken);
                 if (workDept != null) workingDeptName = workDept.Name;
             }
 
-            var htmlBuilder = new StringBuilder();
-            htmlBuilder.Append($@"
-<div style=""font-family: Arial, 'Segoe UI', Tahoma, sans-serif; max-width: 620px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; color: #1e293b;"">
-    <div style=""background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 24px 28px; text-align: center; color: #ffffff;"">
-        <h1 style=""margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;"">HỆ THỐNG QUẢN LÝ BÃI XE HPPARKING</h1>
-        <p style=""margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;"">Thông báo yêu cầu phê duyệt trạng thái hồ sơ nhân sự</p>
-    </div>
-    
-    <div style=""padding: 28px;"">
-        <p style=""margin: 0 0 16px 0; font-size: 14px; line-height: 1.6;"">
-            Kính gửi <strong>{department.Name}</strong>,
-        </p>
-        <p style=""margin: 0 0 20px 0; font-size: 14px; line-height: 1.6;"">
-            Hệ thống vừa tiếp nhận yêu cầu <strong>{actionText}</strong> quyền ra vào bãi đỗ xe cho hồ sơ nhân sự dưới đây. Vui lòng kiểm tra thông tin và xác nhận:
-        </p>
+            var emailModel = new ClientApprovalEmailModel
+            {
+                Client = client,
+                TargetDepartment = department,
+                ApprovalRequest = approvalRequest,
+                ConfirmUrl = confirmUrl,
+                WorkingDepartmentName = workingDeptName,
+                VehicleSummaries = vehicleSummaries
+            };
 
-        <div style=""background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px;"">
-            <table style=""width: 100%; border-collapse: collapse; font-size: 13px;"">
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b; width: 140px;"">Họ và tên:</td>
-                    <td style=""padding: 6px 0; font-weight: 600; color: #0f172a;"">{client.Name}</td>
-                </tr>
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b;"">Mã định danh (CCCD):</td>
-                    <td style=""padding: 6px 0; font-weight: 600; color: #0f172a;"">{client.Code}</td>
-                </tr>
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b;"">Số điện thoại:</td>
-                    <td style=""padding: 6px 0; color: #0f172a;"">{client.PhoneNumber}</td>
-                </tr>
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b;"">Đơn vị công tác:</td>
-                    <td style=""padding: 6px 0; color: #0f172a;"">{workingDeptName}</td>
-                </tr>
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b;"">Phương tiện đăng ký:</td>
-                    <td style=""padding: 6px 0; color: #0f172a;"">{vehicleListHtml}</td>
-                </tr>
-                {(string.IsNullOrWhiteSpace(approvalRequest.Note) ? "" : $@"
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b;"">Lý do / Ghi chú:</td>
-                    <td style=""padding: 6px 0; color: #b45309; font-weight: 500;"">{approvalRequest.Note}</td>
-                </tr>")}
-                <tr>
-                    <td style=""padding: 6px 0; color: #64748b;"">Hành động yêu cầu:</td>
-                    <td style=""padding: 6px 0; font-weight: 700; color: {(isActivate ? "#16a34a" : "#dc2626")};"">{actionTitle}</td>
-                </tr>
-            </table>
-        </div>
-
-        <div style=""text-align: center; margin: 30px 0;"">
-            <a href=""{confirmUrl}"" style=""background-color: {buttonColor}; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 14px; font-weight: 700; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);"">
-                {buttonText}
-            </a>
-        </div>
-
-        <p style=""margin: 0; font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5;"">
-            ⏱ Liên kết xác nhận này có hiệu lực trong vòng <strong>24 giờ</strong>.<br/>
-            Nếu bạn không có thẩm quyền hoặc nhận nhầm email, vui lòng bỏ qua thư này.
-        </p>
-    </div>
-    
-    <div style=""background-color: #f1f5f9; padding: 14px 28px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b;"">
-        Email được gửi tự động từ Hệ thống Quản Lý Bãi Xe Thông Minh HPParking. Vui lòng không trả lời trực tiếp email này.
-    </div>
-</div>");
+            string subject = _emailTemplateBuilder.BuildSubject(client, approvalRequest.ActionType);
+            string htmlBody = _emailTemplateBuilder.BuildHtmlBody(emailModel);
 
             await _emailSenderService.SendEmailAsync(
                 [department.Email.Trim()],
                 subject,
-                htmlBuilder.ToString(),
+                htmlBody,
                 null,
                 cancellationToken);
         }
 
-        public async Task<ConfirmClientStatusResponse> ConfirmStatusByTokenAsync(string token, CancellationToken cancellationToken = default)
+        public async Task<ConfirmClientStatusResponse> ConfirmStatusByTokenAsync(ApprovalToken token, CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(token))
+            if (token.IsEmpty)
             {
                 throw new BadRequestException("Mã xác thực không được để trống.", ErrorCodes.BAD_REQUEST);
             }
@@ -1404,8 +1380,7 @@ namespace HPParking.Api.Services.Implementations
                 throw new BadRequestException("Hệ thống chưa cấu hình lưu trữ yêu cầu phê duyệt.");
             }
 
-            var cleanToken = token.Trim();
-            var approval = await _approvalRepo.FindOneAsync(r => r.Token == cleanToken && !r.IsDeleted, cancellationToken);
+            var approval = await _approvalRepo.FindOneAsync(r => r.Token == token && !r.IsDeleted, cancellationToken);
             if (approval == null)
             {
                 throw new NotFoundException("Mã xác thực không tồn tại hoặc không hợp lệ.", ErrorCodes.NOT_FOUND);
@@ -1418,12 +1393,12 @@ namespace HPParking.Api.Services.Implementations
                     var timeStr = approval.ProcessedAt.HasValue
                         ? approval.ProcessedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                         : "trước đó";
-                    throw new ConflictException($"Yêu cầu này đã được phê duyệt xác nhận vào lúc {timeStr}.", ErrorCodes.CONFLICT);
+                    throw new ConflictException($"Yêu cầu này đã được phê duyệt xác nhận vào lúc {timeStr}.", ErrorCodes.APPROVAL_REQUEST_ALREADY_PROCESSED);
                 }
 
                 if (DateTime.UtcNow > approval.ExpiresAt)
                 {
-                    throw new BadRequestException("Liên kết xác nhận đã hết hạn (quá 24 giờ). Vui lòng liên hệ quản trị viên để gửi lại yêu cầu mới.", ErrorCodes.BAD_REQUEST);
+                    throw new BadRequestException("Liên kết xác nhận đã hết hạn (quá 24 giờ). Vui lòng liên hệ quản trị viên để gửi lại yêu cầu mới.", ErrorCodes.APPROVAL_TOKEN_EXPIRED);
                 }
 
                 throw new BadRequestException("Yêu cầu này không còn hiệu lực để thực thi.", ErrorCodes.BAD_REQUEST);
@@ -1437,21 +1412,68 @@ namespace HPParking.Api.Services.Implementations
 
             bool targetActive = (approval.ActionType == ClientApprovalActionType.Activate);
 
-            // Active State Protection (Rule 2): Không cho phép tắt hoạt động nhân sự nếu còn phương tiện active
-            if (!targetActive)
+            // Quy tắc 7: Active Parking Session Lockout (CLIENT_HAS_ACTIVE_PARKING_SESSION - 400 Bad Request)
+            // Chặn khóa hồ sơ nếu nhân sự hoặc xe liên kết đang gửi xe trong bãi
+            if (!targetActive && _parkingSessionRepo != null)
             {
-                var activeVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted, cancellationToken);
-                if (activeVehicles.Count > 0)
+                var allClientVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && !v.IsDeleted, cancellationToken);
+                var clientPlates = allClientVehicles
+                    .Select(v => v.PlateNumber?.Trim())
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Select(p => p!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                bool hasActiveSession;
+                if (clientPlates.Count > 0)
+                {
+                    hasActiveSession = await _parkingSessionRepo.ExistsAsync(
+                        s => !s.IsDeleted && s.Status == ParkingSessionStatus.Active &&
+                             (s.PersonId == client.Id || clientPlates.Contains(s.PlateNumber)),
+                        cancellationToken);
+                }
+                else
+                {
+                    hasActiveSession = await _parkingSessionRepo.ExistsAsync(
+                        s => !s.IsDeleted && s.Status == ParkingSessionStatus.Active && s.PersonId == client.Id,
+                        cancellationToken);
+                }
+
+                if (hasActiveSession)
                 {
                     throw new BadRequestException(
-                        $"Không thể vô hiệu hóa nhân sự '{client.Name}' vì vẫn còn {activeVehicles.Count} phương tiện đang hoạt động liên kết. Vui lòng vô hiệu hóa các phương tiện trước.",
-                        ErrorCodes.BAD_REQUEST);
+                        $"Không thể vô hiệu hóa nhân sự '{client.Name}' vì nhân sự hoặc phương tiện liên kết đang có phiên đỗ xe hoạt động trong bãi. Vui lòng hoàn tất lượt gửi xe trước khi khóa hồ sơ.",
+                        ErrorCodes.CLIENT_HAS_ACTIVE_PARKING_SESSION);
                 }
             }
 
             client.IsActive = targetActive;
             client.UpdatedAt = DateTime.UtcNow;
             await _clientRepo.UpdateAsync(client, cancellationToken);
+
+            if (targetActive)
+            {
+                // Khi phòng ban xác nhận kích hoạt nhân sự, tự động kích hoạt các phương tiện liên kết đi kèm
+                var inactiveVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && !v.IsActive && !v.IsDeleted, cancellationToken);
+                foreach (var v in inactiveVehicles)
+                {
+                    v.IsActive = true;
+                    v.UpdatedAt = DateTime.UtcNow;
+                    await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                }
+            }
+            else
+            {
+                // Khi phòng ban xác nhận khóa nhân sự qua 1-click email, tự động đồng bộ vô hiệu hóa các phương tiện liên kết (Rule 2 Active State Protection)
+                // mà không gây kẹt thao tác của người duyệt email
+                var activeVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted, cancellationToken);
+                foreach (var v in activeVehicles)
+                {
+                    v.IsActive = false;
+                    v.UpdatedAt = DateTime.UtcNow;
+                    await _vehicleRepo.UpdateAsync(v, cancellationToken);
+                }
+            }
 
             approval.IsProcessed = true;
             approval.ProcessedAt = DateTime.UtcNow;
@@ -1514,9 +1536,54 @@ namespace HPParking.Api.Services.Implementations
                 throw new BadRequestException("Hồ sơ nhân sự này hiện đã ở trạng thái Hoạt động.");
             }
 
-            if (request.ActionType == ClientApprovalActionType.Deactivate && !client.IsActive)
+            if (request.ActionType == ClientApprovalActionType.Deactivate)
             {
-                throw new BadRequestException("Hồ sơ nhân sự này hiện đã ở trạng thái Vô hiệu hóa.");
+                if (!client.IsActive)
+                {
+                    throw new BadRequestException("Hồ sơ nhân sự này hiện đã ở trạng thái Vô hiệu hóa.");
+                }
+
+                // Quy tắc 2 & 7: Cảnh báo sớm nếu nhân sự còn phương tiện active hoặc đang có phiên gửi xe trong bãi
+                var activeVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted, cancellationToken);
+                if (activeVehicles.Count > 0)
+                {
+                    throw new BadRequestException(
+                        $"Không thể yêu cầu khóa nhân sự '{client.Name}' vì vẫn còn {activeVehicles.Count} phương tiện đang hoạt động liên kết. Vui lòng vô hiệu hóa các phương tiện trước.",
+                        ErrorCodes.BAD_REQUEST);
+                }
+
+                if (_parkingSessionRepo != null)
+                {
+                    var allClientVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && !v.IsDeleted, cancellationToken);
+                    var clientPlates = allClientVehicles
+                        .Select(v => v.PlateNumber?.Trim())
+                        .Where(p => !string.IsNullOrWhiteSpace(p))
+                        .Select(p => p!)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    bool hasActiveSession;
+                    if (clientPlates.Count > 0)
+                    {
+                        hasActiveSession = await _parkingSessionRepo.ExistsAsync(
+                            s => !s.IsDeleted && s.Status == ParkingSessionStatus.Active &&
+                                 (s.PersonId == client.Id || clientPlates.Contains(s.PlateNumber)),
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        hasActiveSession = await _parkingSessionRepo.ExistsAsync(
+                            s => !s.IsDeleted && s.Status == ParkingSessionStatus.Active && s.PersonId == client.Id,
+                            cancellationToken);
+                    }
+
+                    if (hasActiveSession)
+                    {
+                        throw new BadRequestException(
+                            $"Không thể yêu cầu khóa nhân sự '{client.Name}' vì nhân sự hoặc phương tiện liên kết đang có phiên đỗ xe hoạt động trong bãi. Vui lòng hoàn tất lượt gửi xe trước khi yêu cầu khóa.",
+                            ErrorCodes.CLIENT_HAS_ACTIVE_PARKING_SESSION);
+                    }
+                }
             }
 
             var dept = await _departmentRepo.GetByIdAsync(request.ApprovingDepartmentId, cancellationToken);
@@ -1534,15 +1601,7 @@ namespace HPParking.Api.Services.Implementations
             }
 
             // Đánh dấu các request chưa xử lý trước đó của client này là đã bị thay thế (không soft-delete để bảo toàn lịch sử kiểm toán)
-            var pendingRequests = await _approvalRepo.FindAsync(r => r.ClientId == clientId && !r.IsProcessed && !r.IsDeleted, cancellationToken);
-            foreach (var pr in pendingRequests)
-            {
-                pr.IsProcessed = true;
-                pr.ProcessedAt = DateTime.UtcNow;
-                pr.Note = string.IsNullOrWhiteSpace(pr.Note) ? "Hủy do có yêu cầu thay đổi mới" : $"{pr.Note} (Hủy do có yêu cầu thay đổi mới)";
-                pr.UpdatedAt = DateTime.UtcNow;
-                await _approvalRepo.UpdateAsync(pr, cancellationToken);
-            }
+            await InvalidatePendingApprovalRequestsAsync(clientId, "Hủy do có yêu cầu thay đổi mới", cancellationToken);
 
             var token = GenerateApprovalToken();
             var approval = new ClientApprovalRequest
@@ -1649,9 +1708,23 @@ namespace HPParking.Api.Services.Implementations
             return MapToApprovalRequestDto(latest, dept.Name);
         }
 
-        private static string GenerateApprovalToken()
+        private async Task InvalidatePendingApprovalRequestsAsync(string clientId, string reason, CancellationToken cancellationToken = default)
         {
-            return Guid.NewGuid().ToString("N") + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+            if (_approvalRepo == null) return;
+            var pendingRequests = await _approvalRepo.FindAsync(r => r.ClientId == clientId && !r.IsProcessed && !r.IsDeleted, cancellationToken);
+            foreach (var pr in pendingRequests)
+            {
+                pr.IsProcessed = true;
+                pr.ProcessedAt = DateTime.UtcNow;
+                pr.Note = string.IsNullOrWhiteSpace(pr.Note) ? reason : $"{pr.Note} ({reason})";
+                pr.UpdatedAt = DateTime.UtcNow;
+                await _approvalRepo.UpdateAsync(pr, cancellationToken);
+            }
+        }
+
+        private static ApprovalToken GenerateApprovalToken()
+        {
+            return ApprovalToken.NewToken();
         }
 
         private static ClientApprovalRequestDto MapToApprovalRequestDto(ClientApprovalRequest r, string? deptName = null)

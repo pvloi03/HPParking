@@ -25,24 +25,8 @@ import {
   type ClientDetailDto,
 } from '@/types/client';
 import type { DepartmentDto } from '@/types/masterData';
+import { findDefaultHrDepartmentId } from '@/utils/departmentHelper';
 
-function removeVietnameseTones(str: string): string {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase();
-}
-
-function findDefaultHrDepartmentId(depts: DepartmentDto[]): string {
-  if (!depts.length) return '';
-  const hrDept = depts.find((d) => {
-    const clean = removeVietnameseTones(d.name);
-    return clean.includes('nhan su') || /\bhr\b/.test(clean);
-  });
-  return hrDept ? hrDept.id : depts[0].id;
-}
 
 interface RequestStatusChangeDialogProps {
   open: boolean;
@@ -96,10 +80,17 @@ export function RequestStatusChangeDialog({
         note: note.trim() || undefined,
       });
 
-      toast.success(
-        `Đã gửi email yêu cầu ${isActivate ? 'kích hoạt lại' : 'khóa'} hồ sơ tới ${res.approvingDepartmentEmail}.`,
-        { duration: 5000 }
-      );
+      if (res.emailSent === false) {
+        toast.warning(
+          `Đã tạo yêu cầu ${isActivate ? 'kích hoạt lại' : 'khóa'} nhưng gửi email thất bại: ${res.emailError || 'Lỗi máy chủ gửi thư'}. Bạn có thể bấm "Gửi lại email" sau.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success(
+          `Đã gửi email yêu cầu ${isActivate ? 'kích hoạt lại' : 'khóa'} hồ sơ tới ${res.approvingDepartmentEmail}.`,
+          { duration: 5000 }
+        );
+      }
       onOpenChange(false);
       onSuccess?.();
     } catch (err) {

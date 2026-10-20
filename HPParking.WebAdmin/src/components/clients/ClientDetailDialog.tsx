@@ -73,8 +73,15 @@ export function ClientDetailDialog({
     if (!clientId) return;
     try {
       setIsResending(true);
-      await clientApi.resendApproval(clientId);
-      toast.success('Đã gửi lại email phê duyệt thành công!');
+      const res = await clientApi.resendApproval(clientId);
+      if (res.emailSent === false) {
+        toast.warning(
+          `Gửi lại email phê duyệt thất bại: ${res.emailError || 'Lỗi kết nối máy chủ gửi thư'}. Vui lòng thử lại sau.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success(`Đã gửi lại email phê duyệt tới ${res.approvingDepartmentEmail} thành công!`);
+      }
       refetch();
     } catch (err) {
       toast.error(extractErrorMessage(err));

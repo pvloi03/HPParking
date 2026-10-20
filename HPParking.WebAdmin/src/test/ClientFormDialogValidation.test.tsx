@@ -217,4 +217,84 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('không xóa dữ liệu người dùng đã nhập khi danh sách departments được tải xong', async () => {
+    const { rerender } = renderDialog({
+      departments: [],
+    });
+
+    const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam');
+    fireEvent.change(nameInput, { target: { value: 'Nguyễn Văn Test' } });
+    expect(nameInput).toHaveValue('Nguyễn Văn Test');
+
+    const loadedDepts = [
+      {
+        id: 'dept-hr-1',
+        name: 'Phòng Nhân Sự',
+        email: 'hr@example.com',
+        isActive: true,
+      },
+    ];
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <ClientFormDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          companies={[]}
+          departments={loadedDepts as any}
+          contractors={[]}
+          onSubmit={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(nameInput).toHaveValue('Nguyễn Văn Test');
+    });
+  });
+
+  it('tự động commit approvingDepartmentId mặc định vào form state mà không cần click chọn thủ công', async () => {
+    const mockSubmit = vi.fn();
+    const depts = [
+      {
+        id: 'dept-hr-default',
+        name: 'Phòng Tổ chức Nhân sự',
+        email: 'hr@example.com',
+        isActive: true,
+      },
+    ];
+
+    renderDialog({
+      departments: depts as any,
+      onSubmit: mockSubmit,
+    });
+
+    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
+    const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam');
+    const phoneInput = screen.getByPlaceholderText('VD: 0987654321');
+
+    fireEvent.change(codeInput, { target: { value: '001200999999' } });
+    fireEvent.change(nameInput, { target: { value: 'Trần Văn Auto' } });
+    fireEvent.change(phoneInput, { target: { value: '0987654321' } });
+
+    // Chọn Làn tự do (None) để không yêu cầu thẻ RFID
+    const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
+    fireEvent.click(noneCheckbox);
+
+    // Bỏ chọn Bắt buộc đối chiếu biển số xe để không yêu cầu thêm xe
+    const verifyPlateCheckbox = screen.getByRole('checkbox', {
+      name: /Bắt buộc xác thực đối chiếu biển số xe khi qua cổng/i,
+    });
+    fireEvent.click(verifyPlateCheckbox);
+
+    const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      const submittedData = mockSubmit.mock.calls[0][0];
+      expect(submittedData.approvingDepartmentId).toBe('dept-hr-default');
+    });
+  });
 });
