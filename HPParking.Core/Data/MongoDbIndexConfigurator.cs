@@ -10,10 +10,10 @@ namespace HPParking.Core.Data
     /// </summary>
     public static class MongoDbIndexConfigurator
     {
-        public const string TokenIndexName = "UX_client_approval_requests_token";
+        public const string TokenIndexName = "UX_ClientApprovalRequests_Token";
 
         /// <summary>
-        /// Tạo Index duy nhất (Unique Index) cho trường Token trong collection client_approval_requests (ADR 0042)
+        /// Tạo Index duy nhất (Unique Index) cho trường Token trong collection ClientApprovalRequests (ADR 0042)
         /// </summary>
         public static async Task EnsureIndexesAsync(MongoDbContext context, CancellationToken cancellationToken = default)
         {

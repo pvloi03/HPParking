@@ -155,7 +155,7 @@ namespace HPParking.Tests.Api.Unit
             savedVehicle.Should().NotBeNull();
             savedVehicle!.IsActive.Should().BeFalse("Phương tiện đăng ký kèm nhân sự chưa kích hoạt phải ở trạng thái IsActive = false theo Quy tắc 2");
 
-            // Setup for Act 2: Xác nhận phê duyệt 1-click
+            // Setup for Act 2: Xác nhận phê duyệt
             _clientRepo.GetByIdAsync(clientId, Arg.Any<CancellationToken>()).Returns(savedClient);
             _approvalRepo.FindOneAsync(Arg.Any<Expression<Func<ClientApprovalRequest, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(savedApproval);
@@ -327,7 +327,7 @@ namespace HPParking.Tests.Api.Unit
             _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(new List<Vehicle> { activeVehicle });
 
-            // Act: Người phê duyệt click 1-click email để khóa nhân sự
+            // Act: Người phê duyệt click email để khóa nhân sự
             var result = await service.ConfirmStatusByTokenAsync(token);
 
             // Assert: Không bị kẹt bởi active vehicles, tự động khóa nhân sự và cascade vô hiệu hóa phương tiện liên kết (Rule 2)

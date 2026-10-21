@@ -1,9 +1,7 @@
-using HPParking.Core.Models.Common;
 using Humanizer;
 using MongoDB.Driver;
 using System;
 using System.Configuration;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,20 +30,12 @@ namespace HPParking.Core.Data
         /// <summary>
         /// Tự động lấy Collection theo tên Type dạng số nhiều (Pluralize: e.g. Clients, Lanes, Vehicles...)
         /// </summary>
-        /// <summary>
-        /// Phân giải tên Collection cho Entity: ưu tiên [BsonCollection], fallback sang số nhiều Pluralize()
-        /// </summary>
-        public static string ResolveCollectionName<T>()
-        {
-            var collectionAttr = typeof(T).GetCustomAttributes(typeof(BsonCollectionAttribute), true)
-                .FirstOrDefault() as BsonCollectionAttribute;
-
-            return (collectionAttr != null && !string.IsNullOrWhiteSpace(collectionAttr.CollectionName))
-                ? collectionAttr.CollectionName
-                : typeof(T).Name.Pluralize();
-        }
-
         public IMongoCollection<T> GetCollection<T>() => _database.GetCollection<T>(ResolveCollectionName<T>());
+
+        /// <summary>
+        /// Phân giải tên Collection cho Entity theo quy chuẩn số nhiều Pluralize() (e.g. Clients, Lanes, Vehicles...)
+        /// </summary>
+        public static string ResolveCollectionName<T>() => typeof(T).Name.Pluralize();
 
         /// <summary>
         /// Lấy Collection theo tên chỉ định

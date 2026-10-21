@@ -434,7 +434,7 @@ namespace HPParking.Api.Services.Implementations
                     CreatedAt = DateTime.UtcNow
                 };
 
-                // Gửi email 1-click xác nhận đến phòng ban
+                // Gửi email xác nhận đến phòng ban
                 if (_emailSenderService != null)
                 {
                     try
@@ -1464,7 +1464,7 @@ namespace HPParking.Api.Services.Implementations
             }
             else
             {
-                // Khi phòng ban xác nhận khóa nhân sự qua 1-click email, tự động đồng bộ vô hiệu hóa các phương tiện liên kết (Rule 2 Active State Protection)
+                // Khi phòng ban xác nhận khóa nhân sự qua email, tự động đồng bộ vô hiệu hóa các phương tiện liên kết (Rule 2 Active State Protection)
                 // mà không gây kẹt thao tác của người duyệt email
                 var activeVehicles = await _vehicleRepo.FindAsync(v => v.OwnerClientId == client.Id && v.IsActive && !v.IsDeleted, cancellationToken);
                 foreach (var v in activeVehicles)
@@ -1487,7 +1487,7 @@ namespace HPParking.Api.Services.Implementations
                 if (dept != null) deptName = dept.Name;
             }
 
-            _logger.LogInformation("Xác nhận 1-click thành công cho nhân sự {ClientName} ({ClientId}) sang trạng thái {Status} bởi {Dept}",
+            _logger.LogInformation("Xác nhận thành công cho nhân sự {ClientName} ({ClientId}) sang trạng thái {Status} bởi {Dept}",
                 client.Name, client.Id, targetActive ? "Kích hoạt" : "Khóa", deptName);
 
             if (_auditLogService != null)
@@ -1497,7 +1497,7 @@ namespace HPParking.Api.Services.Implementations
                     "Client",
                     client.Id,
                     client.Name,
-                    reason: $"Xác nhận 1-click qua email từ '{deptName}': chuyển trạng thái sang '{(targetActive ? "Hoạt động" : "Vô hiệu hóa")}'.",
+                    reason: $"Xác nhận qua email từ '{deptName}': chuyển trạng thái sang '{(targetActive ? "Hoạt động" : "Vô hiệu hóa")}'.",
                     cancellationToken: cancellationToken);
             }
 

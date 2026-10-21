@@ -10,11 +10,9 @@ namespace HPParking.Core.Models.Entities
     /// <summary>
     /// Thực thể lưu trữ yêu cầu phê duyệt trạng thái kích hoạt hồ sơ nhân sự qua email (ADR 0042)
     /// </summary>
-    [BsonCollection(CollectionName)]
     [BsonIgnoreExtraElements]
     public class ClientApprovalRequest : BaseEntity
     {
-        public const string CollectionName = "client_approval_requests";
         [BsonRepresentation(BsonType.ObjectId)]
         public string ClientId { get; set; } = string.Empty;
 
@@ -27,7 +25,7 @@ namespace HPParking.Core.Models.Entities
         public ClientApprovalActionType ActionType { get; set; } = ClientApprovalActionType.Activate;
 
         /// <summary>
-        /// Mã token bảo mật ngẫu nhiên phục vụ liên kết 1-click trong email (Value Object ApprovalToken)
+        /// Mã token bảo mật ngẫu nhiên phục vụ liên kết trong email (Value Object ApprovalToken)
         /// </summary>
         public ApprovalToken Token { get; set; } = ApprovalToken.Empty;
 

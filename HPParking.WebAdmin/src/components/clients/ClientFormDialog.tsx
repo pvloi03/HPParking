@@ -1471,10 +1471,10 @@ export function ClientFormDialog({
                   </div>
                   <div>
                     <span className="text-xs font-bold text-foreground uppercase tracking-wide block">
-                      Phòng ban nhận email xác nhận kích hoạt (1-Click) <span className="text-destructive">*</span>
+                      Phòng ban nhận email xác nhận kích hoạt <span className="text-destructive">*</span>
                     </span>
                     <span className="text-[11px] text-muted-foreground block">
-                      Hồ sơ tạo mới sẽ ở trạng thái <strong>Chưa kích hoạt</strong>. Hệ thống sẽ tự động gửi email xác nhận 1-click đến phòng ban được chọn.
+                      Hồ sơ tạo mới sẽ ở trạng thái <strong>Chưa kích hoạt</strong>. Hệ thống sẽ tự động gửi email xác nhận đến phòng ban được chọn.
                     </span>
                   </div>
                 </div>

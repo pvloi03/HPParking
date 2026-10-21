@@ -8,16 +8,15 @@ namespace HPParking.Tests.Api.Unit
     public class MongoDbCollectionAndIndexTests
     {
         [Fact]
-        public void ResolveCollectionName_ForClientApprovalRequest_ShouldReturnSnakeCaseCollectionName()
+        public void ResolveCollectionName_ForClientApprovalRequest_ShouldFollowStandardPluralizedConvention()
         {
             var collectionName = MongoDbContext.ResolveCollectionName<ClientApprovalRequest>();
 
-            collectionName.Should().Be("client_approval_requests");
-            collectionName.Should().Be(ClientApprovalRequest.CollectionName);
+            collectionName.Should().Be("ClientApprovalRequests");
         }
 
         [Fact]
-        public void ResolveCollectionName_ForEntitiesWithoutAttribute_ShouldFallbackToPluralizedName()
+        public void ResolveCollectionName_ForEntities_ShouldReturnPluralizedNames()
         {
             var clientCol = MongoDbContext.ResolveCollectionName<Client>();
             var vehicleCol = MongoDbContext.ResolveCollectionName<Vehicle>();
@@ -35,7 +34,7 @@ namespace HPParking.Tests.Api.Unit
             indexModel.Options.Should().NotBeNull();
             indexModel.Options.Unique.Should().BeTrue();
             indexModel.Options.Sparse.Should().BeTrue();
-            indexModel.Options.Name.Should().Be("UX_client_approval_requests_token");
+            indexModel.Options.Name.Should().Be("UX_ClientApprovalRequests_Token");
         }
     }
 }

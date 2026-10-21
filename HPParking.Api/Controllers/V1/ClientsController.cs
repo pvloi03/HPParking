@@ -283,7 +283,7 @@ namespace HPParking.Api.Controllers.V1
         }
 
         /// <summary>
-        /// Xác nhận 1-click kích hoạt hoặc khóa hồ sơ nhân sự qua mã Token bảo mật trong email (ADR 0042)
+        /// Xác nhận kích hoạt hoặc khóa hồ sơ nhân sự qua mã Token bảo mật trong email (ADR 0042)
         /// Endpoint công khai không yêu cầu đăng nhập tài khoản
         /// </summary>
         [HttpPost("confirm-status")]
@@ -315,7 +315,7 @@ namespace HPParking.Api.Controllers.V1
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
             var result = await _clientService.RequestStatusChangeAsync(id, request, currentUserId, cancellationToken);
-            
+
             var actionText = request.ActionType == ClientApprovalActionType.Activate ? "kích hoạt" : "khóa";
             var msg = result.EmailSent
                 ? $"Đã gửi email yêu cầu {actionText} hồ sơ tới {result.ApprovingDepartmentEmail} thành công."

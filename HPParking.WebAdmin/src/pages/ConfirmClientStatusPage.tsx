@@ -4,18 +4,14 @@ import axios from 'axios';
 import { clientApi, extractErrorMessage } from '@/api/clientApi';
 import type { ConfirmClientStatusResponse } from '@/types/client';
 import {
-  CheckCircle2,
   AlertCircle,
   Loader2,
-  Car,
   Clock,
   Building2,
   ArrowRight,
   ShieldCheck,
   ShieldAlert,
   CheckCheck,
-  AlertTriangle,
-  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -48,17 +44,13 @@ export function ConfirmClientStatusPage() {
     }
     executedTokenRef.current = cleanToken;
 
-    let isMounted = true;
     const executeConfirmation = async () => {
       try {
         setStatus('loading');
         const res = await clientApi.confirmStatus(cleanToken);
-        if (isMounted) {
-          setResult(res);
-          setStatus('success');
-        }
+        setResult(res);
+        setStatus('success');
       } catch (err: unknown) {
-        if (!isMounted) return;
 
         const msg = extractErrorMessage(err);
         setErrorMessage(msg);
@@ -109,29 +101,10 @@ export function ConfirmClientStatusPage() {
     };
 
     void executeConfirmation();
-
-    return () => {
-      isMounted = false;
-    };
   }, [token]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/20 flex flex-col justify-center items-center p-4 sm:p-6">
-      {/* Brand Header */}
-      <div className="mb-6 text-center space-y-2">
-        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-white/80 dark:bg-card/80 border border-border shadow-xs backdrop-blur-md">
-          <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
-            <Car className="h-5 w-5" />
-          </div>
-          <span className="font-extrabold text-base tracking-tight text-foreground">
-            HPPARKING SMART PARKING
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Cổng thông tin xác nhận phê duyệt trạng thái hồ sơ nhân sự
-        </p>
-      </div>
-
       {/* Main Card */}
       <div className="w-full max-w-lg bg-card/90 backdrop-blur-md rounded-2xl border border-border/80 shadow-xl overflow-hidden transition-all duration-300">
         {/* 1. Loading State */}
@@ -144,7 +117,7 @@ export function ConfirmClientStatusPage() {
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-foreground">Đang xác thực yêu cầu...</h2>
               <p className="text-xs text-muted-foreground">
-                Hệ thống đang kiểm tra mã token bảo mật và cập nhật trạng thái hồ sơ nhân sự. Vui lòng giữ nguyên màn hình.
+                Hệ thống đang kiểm tra mã bảo mật và cập nhật trạng thái hồ sơ nhân sự. Vui lòng giữ nguyên màn hình.
               </p>
             </div>
           </div>
@@ -163,7 +136,7 @@ export function ConfirmClientStatusPage() {
               </div>
               <div className="space-y-1">
                 <span className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  Xác nhận 1-Click thành công
+                  Xác nhận thành công
                 </span>
                 <h2 className="text-xl font-bold tracking-tight text-foreground">
                   {result.newActiveStatus ? 'Đã Kích Hoạt Hồ Sơ Nhân Sự' : 'Đã Khóa Hồ Sơ Nhân Sự'}
@@ -181,17 +154,16 @@ export function ConfirmClientStatusPage() {
                   <span className="font-bold text-foreground text-sm">{result.clientName}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Mã định danh (CCCD):</span>
+                  <span className="text-muted-foreground">Mã định danh:</span>
                   <span className="font-mono font-semibold text-foreground">{result.clientCode}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Trạng thái mới:</span>
                   <span
-                    className={`font-bold px-2 py-0.5 rounded-md ${
-                      result.newActiveStatus
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                        : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
-                    }`}
+                    className={`font-bold px-2 py-0.5 rounded-md ${result.newActiveStatus
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                      : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'
+                      }`}
                   >
                     {result.newActiveStatus ? '✓ HOẠT ĐỘNG (ĐÃ KÍCH HOẠT)' : '✕ VÔ HIỆU HÓA (ĐÃ KHÓA)'}
                   </span>
@@ -215,21 +187,11 @@ export function ConfirmClientStatusPage() {
                   </span>
                 </div>
               </div>
-
-              <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 text-[11px] text-blue-800 dark:text-blue-300 space-y-1">
-                <p className="font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
-                  Quyền truy cập bãi đỗ xe đã được cập nhật
-                </p>
-                <p className="text-muted-foreground">
-                  Hệ thống kiểm soát cổng barie và các làn tự động nhận diện sẽ áp dụng ngay lập tức trạng thái mới này khi nhân sự quẹt thẻ hoặc nhận diện khuôn mặt.
-                </p>
-              </div>
             </div>
 
             <div className="p-4 bg-muted/20 flex justify-center">
               <Button asChild size="sm" className="text-xs h-9 bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
-                <Link to="/login">
+                <Link to="/dashboard">
                   <span>Truy cập hệ thống quản trị</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
@@ -257,27 +219,6 @@ export function ConfirmClientStatusPage() {
                 </p>
               </div>
             </div>
-
-            <div className="p-6 space-y-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-2 text-foreground/90">
-                <p className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                  <AlertTriangle className="h-4 w-4" />
-                  Hướng dẫn xử lý tiếp theo:
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-[11px] leading-relaxed">
-                  <li>
-                    Hồ sơ nhân sự vẫn được lưu trữ an toàn trong hệ thống và hiện đang ở trạng thái ban đầu (chưa kích hoạt).
-                  </li>
-                  <li>
-                    Vui lòng liên hệ <strong>Quản trị viên bãi đỗ xe</strong> hoặc người quản lý để sử dụng tính năng <strong>&ldquo;Gửi lại email phê duyệt&rdquo;</strong> trên màn hình Quản lý nhân sự.
-                  </li>
-                  <li>
-                    Hệ thống sẽ ngay lập tức cấp mới một liên kết xác nhận 1-click có hiệu lực trong 24 giờ tiếp theo gửi trực tiếp về hòm thư phòng ban của bạn.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
             <div className="p-4 bg-muted/20 flex justify-center">
               <Button asChild variant="outline" size="sm" className="text-xs h-9">
                 <Link to="/login">
@@ -307,30 +248,9 @@ export function ConfirmClientStatusPage() {
                 </p>
               </div>
             </div>
-
-            <div className="p-6 space-y-3 text-xs">
-              <div className="p-3.5 rounded-xl bg-sky-50/40 dark:bg-sky-950/20 border border-sky-200/60 dark:border-sky-900/40 space-y-2 text-foreground/90">
-                <p className="font-semibold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
-                  <HelpCircle className="h-4 w-4" />
-                  Thông tin trạng thái:
-                </p>
-                <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-[11px] leading-relaxed">
-                  <li>
-                    Mã xác thực 1-click này đã được ghi nhận và tự động vô hiệu hóa để bảo đảm an toàn, ngăn chặn thao tác trùng lặp.
-                  </li>
-                  <li>
-                    Trạng thái mới của hồ sơ nhân sự và quyền ra vào tại cổng barie đã được áp dụng đồng bộ. Bạn không cần thực hiện thêm bất kỳ thao tác nào.
-                  </li>
-                  <li>
-                    Nếu cần thay đổi trạng thái khác (khóa hoặc mở khóa lại), người phụ trách có thể đăng nhập vào hệ thống để gửi yêu cầu mới.
-                  </li>
-                </ul>
-              </div>
-            </div>
-
             <div className="p-4 bg-muted/20 flex justify-center">
               <Button asChild size="sm" className="text-xs h-9 bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
-                <Link to="/login">
+                <Link to="/dashboard">
                   <span>Truy cập hệ thống quản trị</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
@@ -358,21 +278,6 @@ export function ConfirmClientStatusPage() {
                 </p>
               </div>
             </div>
-
-            <div className="p-6 space-y-3 text-xs text-muted-foreground leading-relaxed">
-              <p>
-                <strong>Nguyên nhân có thể do:</strong>
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-[11px]">
-                <li>Mã token trên đường liên kết không hợp lệ, bị cắt ngắn hoặc đã bị thay đổi.</li>
-                <li>Hồ sơ nhân sự tương ứng đã bị xóa khỏi cơ sở dữ liệu.</li>
-                <li>Phương tiện của nhân sự đang có phiên gửi xe hoạt động trong bãi (không thể khóa).</li>
-              </ul>
-              <p className="pt-2 text-[11px]">
-                Vui lòng liên hệ Quản trị viên hệ thống bãi xe để được hỗ trợ kiểm tra.
-              </p>
-            </div>
-
             <div className="p-4 bg-muted/20 flex justify-center">
               <Button asChild variant="outline" size="sm" className="text-xs h-9">
                 <Link to="/login">
@@ -382,10 +287,6 @@ export function ConfirmClientStatusPage() {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="mt-8 text-center text-[11px] text-muted-foreground">
-        HPParking Management System &copy; 2026. All rights reserved.
       </div>
     </div>
   );

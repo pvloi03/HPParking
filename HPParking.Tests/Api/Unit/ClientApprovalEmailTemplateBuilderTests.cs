@@ -86,7 +86,7 @@ namespace HPParking.Tests.Api.Unit
             html.Should().Contain("29A-12345 (Car), 29B-67890 (Motorbike)");
             html.Should().Contain("Nhân viên mới tuyển dụng");
             html.Should().Contain("KÍCH HOẠT HỒ SƠ");
-            html.Should().Contain("XÁC NHẬN KÍCH HOẠT (1-CLICK)");
+            html.Should().Contain("XÁC NHẬN KÍCH HOẠT");
             html.Should().Contain("http://localhost:5173/confirm-client-status?token=test-token-123");
         }
 
@@ -135,7 +135,7 @@ namespace HPParking.Tests.Api.Unit
             html.Should().Contain("Chưa đăng ký");
             html.Should().NotContain("Lý do / Ghi chú:");
             html.Should().Contain("KHÓA HỒ SƠ");
-            html.Should().Contain("XÁC NHẬN KHÓA HỒ SƠ (1-CLICK)");
+            html.Should().Contain("XÁC NHẬN KHÓA HỒ SƠ");
             html.Should().Contain("http://localhost:5173/confirm-client-status?token=deact-token-456");
         }
     }

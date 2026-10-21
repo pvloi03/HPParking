@@ -32,7 +32,7 @@ Quyết định kiến trúc về việc chuyển đổi cơ chế kích hoạt 
    - Phòng ban phê duyệt nhận email này hoàn toàn độc lập với phòng ban công tác trực thuộc của nhân sự.
 
 ### 2. Thực Thể Phê Duyệt Chuyên Trách `ClientApprovalRequest`
-Tạo thực thể mới kế thừa `BaseEntity` lưu trữ trong collection `client_approval_requests` để theo dõi vòng đời phê duyệt:
+Tạo thực thể mới kế thừa `BaseEntity` lưu trữ trong collection `ClientApprovalRequests` để theo dõi vòng đời phê duyệt:
 - `ClientId`: Mã định danh nhân sự mục tiêu.
 - `ApprovingDepartmentId` & `ApprovingDepartmentEmail`: Phòng ban và email tiếp nhận.
 - `ActionType`: Loại hành động (`Activate` - Kích hoạt hoặc `Deactivate` - Khóa).

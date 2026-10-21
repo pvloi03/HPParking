@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { StrictMode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ConfirmClientStatusPage } from '@/pages/ConfirmClientStatusPage';
 import { clientApi } from '@/api/clientApi';
@@ -142,6 +143,32 @@ describe('ConfirmClientStatusPage Component', () => {
       expect(screen.getByText('Không Thể Hoàn Tất Phê Duyệt')).toBeInTheDocument();
       expect(screen.getByText('Xác nhận không thành công')).toBeInTheDocument();
       expect(screen.getByText('Mã xác thực không tồn tại hoặc không hợp lệ.')).toBeInTheDocument();
+    });
+  });
+
+  it('hoạt động chính xác dưới React StrictMode (không bị kẹt loading)', async () => {
+    vi.mocked(clientApi.confirmStatus).mockResolvedValueOnce({
+      clientId: 'client-strict-1',
+      clientName: 'Trần Thị B',
+      clientCode: '001200000002',
+      actionType: ClientApprovalActionType.Activate,
+      newActiveStatus: true,
+      approvingDepartmentName: 'Phòng Nhân sự',
+      processedAt: '2026-10-21T09:00:00Z',
+      message: 'Kích hoạt thành công',
+    });
+
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/confirm-client-status?token=strict-mode-token']}>
+          <ConfirmClientStatusPage />
+        </MemoryRouter>
+      </StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Đã Kích Hoạt Hồ Sơ Nhân Sự')).toBeInTheDocument();
+      expect(screen.getByText('Trần Thị B')).toBeInTheDocument();
     });
   });
 });

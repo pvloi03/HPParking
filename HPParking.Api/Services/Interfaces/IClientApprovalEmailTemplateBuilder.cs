@@ -28,7 +28,7 @@ namespace HPParking.Api.Services.Interfaces
         string BuildSubject(Client client, ClientApprovalActionType actionType);
 
         /// <summary>
-        /// Tạo nội dung HTML body email phê duyệt kèm liên kết xác nhận 1-click
+        /// Tạo nội dung HTML body email phê duyệt kèm liên kết xác nhận
         /// </summary>
         string BuildHtmlBody(ClientApprovalEmailModel model);
     }

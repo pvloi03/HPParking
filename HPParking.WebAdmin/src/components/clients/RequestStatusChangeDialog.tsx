@@ -106,11 +106,10 @@ export function RequestStatusChangeDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div
-              className={`p-2 rounded-lg ${
-                isActivate
+              className={`p-2 rounded-lg ${isActivate
                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
                   : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
-              }`}
+                }`}
             >
               {isActivate ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
             </div>
@@ -119,7 +118,7 @@ export function RequestStatusChangeDialog({
                 {isActivate ? 'Yêu Cầu Kích Hoạt Lại Hồ Sơ' : 'Yêu Cầu Khóa Hồ Sơ Nhân Sự'}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Gửi liên kết 1-click tới phòng ban chuyên trách để xác nhận thay đổi trạng thái
+                Gửi liên kết tới phòng ban chuyên trách để xác nhận thay đổi trạng thái
               </DialogDescription>
             </div>
           </div>
@@ -139,9 +138,8 @@ export function RequestStatusChangeDialog({
             <div className="flex justify-between">
               <span className="text-muted-foreground">Hành động:</span>
               <span
-                className={`font-bold ${
-                  isActivate ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                }`}
+                className={`font-bold ${isActivate ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                  }`}
               >
                 {isActivate ? 'Chuyển sang HOẠT ĐỘNG' : 'Chuyển sang VÔ HIỆU HÓA'}
               </span>
@@ -206,11 +204,10 @@ export function RequestStatusChangeDialog({
               type="submit"
               size="sm"
               disabled={isSubmitting || departmentsWithEmail.length === 0}
-              className={`text-xs h-9 text-white ${
-                isActivate
+              className={`text-xs h-9 text-white ${isActivate
                   ? 'bg-emerald-600 hover:bg-emerald-700'
                   : 'bg-red-600 hover:bg-red-700'
-              }`}
+                }`}
             >
               {isSubmitting ? (
                 <>
