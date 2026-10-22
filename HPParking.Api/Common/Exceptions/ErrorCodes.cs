@@ -35,6 +35,11 @@ namespace HPParking.Api.Common.Exceptions
         public const string APPROVAL_TOKEN_EXPIRED = "APPROVAL_TOKEN_EXPIRED";
         public const string APPROVAL_REQUEST_ALREADY_PROCESSED = "APPROVAL_REQUEST_ALREADY_PROCESSED";
 
+        // Card
+        public const string CARD_NOT_FOUND = "CARD_NOT_FOUND";
+        public const string CARD_DUPLICATE_NUMBER = "CARD_DUPLICATE_NUMBER";
+        public const string CARD_ALREADY_ASSIGNED_TO_OTHER_CLIENT = "CARD_ALREADY_ASSIGNED_TO_OTHER_CLIENT";
+
         // Vehicle
         public const string VEHICLE_NOT_FOUND = "VEHICLE_NOT_FOUND";
         public const string VEHICLE_PLATE_DUPLICATE = "VEHICLE_PLATE_DUPLICATE";

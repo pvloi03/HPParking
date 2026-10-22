@@ -1078,15 +1078,30 @@ export function ClientFormDialog({
               </div>
 
               {/* Chú thích khi kích hoạt FaceID */}
-              {selectedAuthMethods.includes('FaceId') && (
+              {selectedAuthMethods.includes('FaceId') && !isNoneAuth && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-xs text-blue-800 dark:text-blue-200">
                   <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
                   <div className="space-y-0.5">
                     <span className="font-semibold text-blue-900 dark:text-blue-100">
-                      Lưu ý:
+                      Chú thích FaceID:
                     </span>{' '}
                     <span>
                       Cần mã thẻ để định danh cho dữ liệu khuôn mặt trên thiết bị FaceID (hệ thống tự động kích hoạt Thẻ từ).
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Chú thích khi chọn Làn tự do (None) */}
+              {isNoneAuth && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200">
+                  <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-amber-900 dark:text-amber-100">
+                      Làn tự do:
+                    </span>{' '}
+                    <span>
+                      Ảnh chân dung sẽ được lưu làm ảnh đại diện hồ sơ trong hệ thống (không đồng bộ lên thiết bị FaceID).
                     </span>
                   </div>
                 </div>

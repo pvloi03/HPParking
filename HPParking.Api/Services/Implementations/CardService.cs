@@ -1,11 +1,14 @@
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Cards;
+using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.Services.Interfaces;
+using HPParking.Core.Constants;
 using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -17,24 +20,36 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
         private readonly IAuditLogService? _auditLogService;
+        private readonly IFaceIdService? _faceIdService;
+        private readonly IRepository<Lane>? _laneRepo;
+        private readonly IRepository<Device>? _deviceRepo;
+        private readonly ILogger<CardService>? _logger;
 
         public CardService(
             IRepository<Card> cardRepo,
             IRepository<Client> clientRepo,
             IRepository<Vehicle> vehicleRepo,
-            IAuditLogService? auditLogService = null)
+            IAuditLogService? auditLogService = null,
+            IFaceIdService? faceIdService = null,
+            IRepository<Lane>? laneRepo = null,
+            IRepository<Device>? deviceRepo = null,
+            ILogger<CardService>? logger = null)
         {
             _cardRepo = cardRepo;
             _clientRepo = clientRepo;
             _vehicleRepo = vehicleRepo;
             _auditLogService = auditLogService;
+            _faceIdService = faceIdService;
+            _laneRepo = laneRepo;
+            _deviceRepo = deviceRepo;
+            _logger = logger;
         }
 
         public CardService(
             IRepository<Card> cardRepo,
             IRepository<Client> clientRepo,
             IRepository<Vehicle> vehicleRepo)
-            : this(cardRepo, clientRepo, vehicleRepo, null)
+            : this(cardRepo, clientRepo, vehicleRepo, null, null, null, null, null)
         {
         }
 
@@ -287,19 +302,33 @@ namespace HPParking.Api.Services.Implementations
 
             if (card.TargetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(card.ClientId))
             {
-                card.Status = CardStatus.InUse;
+                card.Status = request.Status == CardStatus.Locked || request.Status == CardStatus.Lost
+                    ? request.Status
+                    : CardStatus.InUse;
+
                 await RevokeClientCardsAsync(card.ClientId, cancellationToken: cancellationToken);
                 var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
                 if (client != null)
                 {
                     client.CardCode = normalizedCard;
                     await _clientRepo.UpdateAsync(client, cancellationToken);
+
+                    // Đồng bộ thẻ mới lên thiết bị FaceID nếu nhân sự có phương thức FaceId
+                    await SyncClientFaceIdCardAsync(client, normalizedCard, card.Status, cancellationToken);
                 }
             }
             else if (card.TargetType == CardTargetType.Vehicle && !string.IsNullOrWhiteSpace(card.VehicleId))
             {
-                card.Status = CardStatus.InUse;
+                card.Status = request.Status == CardStatus.Locked || request.Status == CardStatus.Lost
+                    ? request.Status
+                    : CardStatus.InUse;
                 await RevokeVehicleCardsAsync(card.VehicleId, cancellationToken: cancellationToken);
+            }
+            else
+            {
+                card.Status = request.Status == CardStatus.Locked || request.Status == CardStatus.Lost
+                    ? request.Status
+                    : CardStatus.Available;
             }
 
             await _cardRepo.AddAsync(card, cancellationToken);
@@ -331,18 +360,41 @@ namespace HPParking.Api.Services.Implementations
             var newClientId = request.TargetType == CardTargetType.Person ? request.ClientId : null;
             var newVehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null;
 
-            if (card.ClientId != newClientId)
+            // 1. Chặn đổi chủ thẻ trực tiếp giữa 2 nhân sự
+            if (!string.IsNullOrWhiteSpace(card.ClientId) &&
+                !string.IsNullOrWhiteSpace(newClientId) &&
+                card.ClientId != newClientId)
             {
-                if (!string.IsNullOrWhiteSpace(card.ClientId))
+                var currentClient = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
+                var currentName = currentClient?.Name ?? card.ClientId;
+                throw new ConflictException(
+                    $"Thẻ '{card.CardNumber}' hiện đang được gán cho nhân sự '{currentName}'. Hệ thống không cho phép chuyển thẻ trực tiếp giữa 2 nhân sự. Vui lòng gỡ thẻ về trạng thái 'Trong kho' trước khi gán cho nhân sự khác.",
+                    ErrorCodes.CARD_ALREADY_ASSIGNED_TO_OTHER_CLIENT);
+            }
+
+            var previousClientId = card.ClientId;
+            var isClientChanged = card.ClientId != newClientId;
+
+            if (isClientChanged)
+            {
+                // Gỡ thẻ khỏi Client cũ
+                if (!string.IsNullOrWhiteSpace(previousClientId))
                 {
-                    var oldClient = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
-                    if (oldClient != null && oldClient.CardCode == card.CardNumber)
+                    var oldClient = await _clientRepo.GetByIdAsync(previousClientId, cancellationToken);
+                    if (oldClient != null)
                     {
-                        oldClient.CardCode = string.Empty;
-                        await _clientRepo.UpdateAsync(oldClient, cancellationToken);
+                        if (oldClient.CardCode == card.CardNumber)
+                        {
+                            oldClient.CardCode = string.Empty;
+                            await _clientRepo.UpdateAsync(oldClient, cancellationToken);
+                        }
+
+                        // Thu hồi quyền vật lý trên FaceID cho client cũ vì không còn thẻ
+                        await RevokeClientFaceIdAsync(oldClient, card.CardNumber, cancellationToken);
                     }
                 }
 
+                // Gán thẻ cho Client mới từ kho
                 if (!string.IsNullOrWhiteSpace(newClientId))
                 {
                     await RevokeClientCardsAsync(newClientId, excludeCardId: id, cancellationToken: cancellationToken);
@@ -351,7 +403,22 @@ namespace HPParking.Api.Services.Implementations
                     {
                         newClient.CardCode = card.CardNumber;
                         await _clientRepo.UpdateAsync(newClient, cancellationToken);
+
+                        // Chuẩn hóa trạng thái: thẻ có chủ thì phải là InUse (hoặc giữ Locked/Lost)
+                        var effectiveStatus = (request.Status == CardStatus.Locked || request.Status == CardStatus.Lost)
+                            ? request.Status
+                            : CardStatus.InUse;
+                        await SyncClientFaceIdCardAsync(newClient, card.CardNumber, effectiveStatus, cancellationToken);
                     }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(card.ClientId) && request.Status != card.Status)
+            {
+                // Thẻ không đổi Client, nhưng đổi trạng thái (VD: InUse <-> Locked / Lost)
+                var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
+                if (client != null)
+                {
+                    await SyncClientFaceIdUserTypeAsync(client, request.Status, cancellationToken);
                 }
             }
 
@@ -360,10 +427,25 @@ namespace HPParking.Api.Services.Implementations
                 await RevokeVehicleCardsAsync(newVehicleId, excludeCardId: id, cancellationToken: cancellationToken);
             }
 
+            // Chuẩn hóa trạng thái thẻ theo chủ sở hữu
+            CardStatus normalizedStatus;
+            if (!string.IsNullOrWhiteSpace(newClientId) || !string.IsNullOrWhiteSpace(newVehicleId))
+            {
+                normalizedStatus = (request.Status == CardStatus.Locked || request.Status == CardStatus.Lost)
+                    ? request.Status
+                    : CardStatus.InUse;
+            }
+            else
+            {
+                normalizedStatus = (request.Status == CardStatus.Locked || request.Status == CardStatus.Lost)
+                    ? request.Status
+                    : CardStatus.Available;
+            }
+
             card.TargetType = request.TargetType;
             card.ClientId = newClientId;
             card.VehicleId = newVehicleId;
-            card.Status = request.Status;
+            card.Status = normalizedStatus;
             card.Note = request.Note;
 
             await _cardRepo.UpdateAsync(card, cancellationToken);
@@ -380,6 +462,145 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return await MapToDtoAsync(card);
+        }
+
+        private async Task<List<FaceIdTerminalConfig>> ResolveActiveFaceIdTerminalsAsync(CancellationToken cancellationToken)
+        {
+            if (_laneRepo == null || _deviceRepo == null) return new List<FaceIdTerminalConfig>();
+
+            var lanes = await _laneRepo.FindAsync(l => l.IsActive && !l.IsDeleted, cancellationToken);
+            var faceDeviceIds = lanes
+                .Where(l => !string.IsNullOrWhiteSpace(l.FaceDeviceId))
+                .Select(l => l.FaceDeviceId!)
+                .Distinct()
+                .ToList();
+
+            if (faceDeviceIds.Count == 0) return new List<FaceIdTerminalConfig>();
+
+            var devices = await _deviceRepo.FindAsync(
+                d => faceDeviceIds.Contains(d.Id) && d.IsActive && !d.IsDeleted,
+                cancellationToken);
+
+            var deviceMap = devices
+                .GroupBy(d => d.Id)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var uniqueConfigs = new List<FaceIdTerminalConfig>();
+            var seenIps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var lane in lanes)
+            {
+                if (string.IsNullOrWhiteSpace(lane.FaceDeviceId)) continue;
+                if (!deviceMap.TryGetValue(lane.FaceDeviceId, out var device)) continue;
+                if (string.IsNullOrWhiteSpace(device.IpAddress)) continue;
+
+                var ip = device.IpAddress.Trim();
+                if (seenIps.Add(ip))
+                {
+                    uniqueConfigs.Add(new FaceIdTerminalConfig
+                    {
+                        DeviceIp = ip,
+                        Port = 443,
+                        DeviceName = string.IsNullOrWhiteSpace(device.Name) ? lane.Name : device.Name,
+                        Username = string.IsNullOrWhiteSpace(device.UserName) ? "admin" : device.UserName.Trim(),
+                        Password = device.Password?.Trim() ?? string.Empty
+                    });
+                }
+            }
+
+            return uniqueConfigs;
+        }
+
+        private async Task ExecuteOnActiveTerminalsAsync(
+            Func<FaceIdTerminalConfig, Task> action,
+            string logContext,
+            CancellationToken cancellationToken)
+        {
+            if (_faceIdService == null) return;
+
+            try
+            {
+                var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                if (terminals.Count == 0) return;
+
+                var tasks = terminals.Select(async t =>
+                {
+                    try
+                    {
+                        var ping = await _faceIdService.PingFastAsync(t.DeviceIp, cancellationToken: cancellationToken);
+                        if (!ping)
+                        {
+                            _logger?.LogWarning("Thiết bị FaceID [{DeviceIp}] offline khi {Context}.", t.DeviceIp, logContext);
+                            return;
+                        }
+
+                        await action(t);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning(ex, "Lỗi khi {Context} trên [{DeviceIp}]: {Message}", logContext, t.DeviceIp, ex.Message);
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Lỗi tổng thể khi {Context}: {Message}", logContext, ex.Message);
+            }
+        }
+
+        private async Task SyncClientFaceIdCardAsync(Client client, string cardNumber, CardStatus status, CancellationToken cancellationToken)
+        {
+            if (_faceIdService == null || client.AuthMethods == null || !client.AuthMethods.Contains(AuthMethodConstants.FaceId))
+            {
+                return;
+            }
+
+            string userType = (status == CardStatus.Locked || status == CardStatus.Lost)
+                ? FaceIdUserTypes.BlackList
+                : FaceIdUserTypes.Normal;
+
+            await ExecuteOnActiveTerminalsAsync(async t =>
+            {
+                var cardRes = await _faceIdService.CleanAndAssignCardAsync(t, client.Code, cardNumber, cancellationToken);
+                if (!cardRes.IsSuccess)
+                {
+                    _logger?.LogWarning("Gán thẻ {Card} cho {Code} trên [{DeviceIp}] thất bại: {Error}", cardNumber, client.Code, t.DeviceIp, cardRes.ErrorMessage);
+                }
+
+                await _faceIdService.SetUserTypeAsync(t, client.Code, userType, cancellationToken);
+            }, $"đồng bộ FaceID thẻ {cardNumber} cho {client.Code}", cancellationToken);
+        }
+
+        private async Task SyncClientFaceIdUserTypeAsync(Client client, CardStatus status, CancellationToken cancellationToken)
+        {
+            if (_faceIdService == null || client.AuthMethods == null || !client.AuthMethods.Contains(AuthMethodConstants.FaceId))
+            {
+                return;
+            }
+
+            string userType = (status == CardStatus.Locked || status == CardStatus.Lost)
+                ? FaceIdUserTypes.BlackList
+                : FaceIdUserTypes.Normal;
+
+            await ExecuteOnActiveTerminalsAsync(async t =>
+            {
+                await _faceIdService.SetUserTypeAsync(t, client.Code, userType, cancellationToken);
+            }, $"cập nhật userType={userType} cho {client.Code}", cancellationToken);
+        }
+
+        private async Task RevokeClientFaceIdAsync(Client client, string oldCardNumber, CancellationToken cancellationToken)
+        {
+            if (_faceIdService == null || client.AuthMethods == null || !client.AuthMethods.Contains(AuthMethodConstants.FaceId))
+            {
+                return;
+            }
+
+            await ExecuteOnActiveTerminalsAsync(async t =>
+            {
+                await _faceIdService.DeleteUserAsync(t, client.Code, oldCardNumber, cancellationToken);
+            }, $"thu hồi FaceID cho {client.Code}", cancellationToken);
         }
 
         public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)

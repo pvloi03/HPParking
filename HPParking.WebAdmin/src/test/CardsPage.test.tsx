@@ -290,7 +290,8 @@ describe('CardsPage Component', () => {
       expect(screen.getByText(/Cập Nhật Thông Tin Thẻ/i)).toBeInTheDocument();
       const cardInput = screen.getByPlaceholderText(/12345 hoặc 0000012345/i);
       expect(cardInput).toBeDisabled();
-      expect(screen.getByText(/Mã chip RFID cố định/i)).toBeInTheDocument();
+      expect(screen.getByText(/Mã chip cố định/i)).toBeInTheDocument();
+      expect(screen.getByText(/Thẻ đang được gán cho nhân sự này/i)).toBeInTheDocument();
     });
 
     const saveButton = screen.getByRole('button', { name: /Lưu thay đổi/i });

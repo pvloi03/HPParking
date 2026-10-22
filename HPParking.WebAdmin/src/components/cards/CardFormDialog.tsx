@@ -9,7 +9,9 @@ import {
   Save,
   Lock,
   Edit,
+  AlertTriangle,
 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -73,6 +75,7 @@ export function CardFormDialog({
   isSubmitting = false,
 }: CardFormDialogProps) {
   const isEditing = Boolean(initialData);
+  const hasAssignedClient = Boolean(isEditing && initialData?.clientId);
 
   const {
     register,
@@ -98,15 +101,39 @@ export function CardFormDialog({
   const watchedClientId = watch('clientId');
   const watchedVehicleId = watch('vehicleId');
 
+  const isAssigned = Boolean(
+    (watchedTargetType === CardTargetType.Person && watchedClientId) ||
+    (watchedTargetType === CardTargetType.Vehicle && watchedVehicleId)
+  );
+
+  useEffect(() => {
+    if (isAssigned && watchedStatus === CardStatus.Available) {
+      setValue('status', CardStatus.InUse, { shouldDirty: true });
+    } else if (!isAssigned && watchedStatus === CardStatus.InUse) {
+      setValue('status', CardStatus.Available, { shouldDirty: true });
+    }
+  }, [isAssigned, watchedStatus, setValue]);
+
   useEffect(() => {
     if (open) {
       if (initialData) {
+        const assigned = Boolean(
+          (initialData.targetType === CardTargetType.Person && initialData.clientId) ||
+          (initialData.targetType === CardTargetType.Vehicle && initialData.vehicleId)
+        );
+        let status = initialData.status;
+        if (assigned && status === CardStatus.Available) {
+          status = CardStatus.InUse;
+        } else if (!assigned && status === CardStatus.InUse) {
+          status = CardStatus.Available;
+        }
+
         reset({
           cardNumber: initialData.cardNumber,
           targetType: initialData.targetType,
           clientId: initialData.clientId || '',
           vehicleId: initialData.vehicleId || '',
-          status: initialData.status,
+          status,
           note: initialData.note || '',
         });
       } else {
@@ -179,7 +206,7 @@ export function CardFormDialog({
               </label>
               {isEditing && (
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                  <Lock className="h-3 w-3" /> Mã chip RFID cố định
+                  <Lock className="h-3 w-3" /> Mã chip cố định
                 </span>
               )}
             </div>
@@ -235,18 +262,31 @@ export function CardFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={String(CardStatus.Available)} className="text-xs">
-                    Trong kho (Chưa gán)
-                  </SelectItem>
-                  <SelectItem value={String(CardStatus.InUse)} className="text-xs">
-                    Đang sử dụng
-                  </SelectItem>
-                  <SelectItem value={String(CardStatus.Locked)} className="text-xs">
-                    Tạm khóa
-                  </SelectItem>
-                  <SelectItem value={String(CardStatus.Lost)} className="text-xs">
-                    Báo mất
-                  </SelectItem>
+                  {isAssigned ? (
+                    <>
+                      <SelectItem value={String(CardStatus.InUse)} className="text-xs">
+                        Đang sử dụng
+                      </SelectItem>
+                      <SelectItem value={String(CardStatus.Locked)} className="text-xs">
+                        Tạm khóa
+                      </SelectItem>
+                      <SelectItem value={String(CardStatus.Lost)} className="text-xs">
+                        Báo mất
+                      </SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value={String(CardStatus.Available)} className="text-xs">
+                        Trong kho (Chưa gán)
+                      </SelectItem>
+                      <SelectItem value={String(CardStatus.Locked)} className="text-xs">
+                        Tạm khóa
+                      </SelectItem>
+                      <SelectItem value={String(CardStatus.Lost)} className="text-xs">
+                        Báo mất
+                      </SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -254,7 +294,7 @@ export function CardFormDialog({
 
           {/* Gán đối tượng tương ứng */}
           {watchedTargetType === CardTargetType.Person && (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5 text-purple-600" />
@@ -268,6 +308,12 @@ export function CardFormDialog({
                 fetchById={(id) => clientApi.getById(String(id))}
                 value={watchedClientId || ''}
                 onValueChange={(val) => {
+                  if (hasAssignedClient && val && val !== initialData?.clientId) {
+                    toast.warning(
+                      'Thẻ hiện đang được gán cho nhân sự khác. Vui lòng chọn "-- Chưa gán (Lưu trong kho) --" và lưu lại trước khi gán cho người mới.'
+                    );
+                    return;
+                  }
                   setValue('clientId', val, { shouldDirty: true });
                   if (val && watchedStatus === CardStatus.Available) {
                     setValue('status', CardStatus.InUse, { shouldDirty: true });

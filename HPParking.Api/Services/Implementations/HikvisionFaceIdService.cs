@@ -503,6 +503,58 @@ namespace HPParking.Api.Services.Implementations
             }
         }
 
+        public async Task<FaceIdTerminalResultDto> SetUserTypeAsync(
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            string userType,
+            CancellationToken cancellationToken = default)
+        {
+            var result = new FaceIdTerminalResultDto
+            {
+                DeviceIp = terminal.DeviceIp,
+                DeviceName = terminal.DeviceName,
+                Timestamp = DateTime.UtcNow
+            };
+
+            try
+            {
+                var client = GetOrCreateHttpClient(terminal);
+                var payload = new
+                {
+                    UserInfo = new
+                    {
+                        employeeNo,
+                        userType
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(payload);
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await client.PutAsync("/ISAPI/AccessControl/UserInfo/Modify?format=json", content, cancellationToken);
+                if (response.IsSuccessStatusCode)
+                {
+                    result.IsSuccess = true;
+                    _logger.LogInformation("Đã cập nhật userType='{UserType}' cho {EmployeeNo} trên đầu đọc [{DeviceIp}].",
+                        userType, employeeNo, terminal.DeviceIp);
+                    return result;
+                }
+
+                var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                result.IsSuccess = false;
+                result.ErrorMessage = FaceIdErrorFormatter.Format($"HTTP {(int)response.StatusCode}: {errBody}", terminal.DeviceIp);
+                _logger.LogWarning("Cập nhật userType='{UserType}' thất bại [{DeviceIp}]: {Error}", userType, terminal.DeviceIp, result.ErrorMessage);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.IsSuccess = false;
+                result.ErrorMessage = FaceIdErrorFormatter.Format(ex.Message, terminal.DeviceIp);
+                _logger.LogError(ex, "Lỗi khi cập nhật userType trên FaceID [{DeviceIp}]: {Message}", terminal.DeviceIp, ex.Message);
+                return result;
+            }
+        }
+
         private async Task<List<string>> SearchUserCardsAsync(HttpClient client, string employeeNo, CancellationToken cancellationToken)
         {
             var cards = new List<string>();

@@ -83,5 +83,14 @@ namespace HPParking.Api.Services.Interfaces
             string employeeNo,
             byte[] faceImageBytes,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Cập nhật loại người dùng trên thiết bị FaceID (normal: bình thường, blackList: danh sách đen/tạm khóa)
+        /// </summary>
+        Task<FaceIdTerminalResultDto> SetUserTypeAsync(
+            FaceIdTerminalConfig terminal,
+            string employeeNo,
+            string userType,
+            CancellationToken cancellationToken = default);
     }
 }
