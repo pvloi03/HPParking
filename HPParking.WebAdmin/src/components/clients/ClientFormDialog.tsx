@@ -988,7 +988,7 @@ export function ClientFormDialog({
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {/* 1. Thẻ từ RFID */}
+                {/* 1. Thẻ từ */}
                 <label
                   className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${selectedAuthMethods.includes('Card')
                     ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 font-medium'
@@ -1012,7 +1012,7 @@ export function ClientFormDialog({
                   />
                   <div className="flex items-center gap-1.5 min-w-0">
                     <CreditCard className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span>Thẻ từ RFID</span>
+                    <span>Thẻ từ</span>
                   </div>
                 </label>
 
@@ -1083,10 +1083,10 @@ export function ClientFormDialog({
                   <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
                   <div className="space-y-0.5">
                     <span className="font-semibold text-blue-900 dark:text-blue-100">
-                      Chú thích FaceID:
+                      Lưu ý:
                     </span>{' '}
                     <span>
-                      Cần mã thẻ để định danh cho dữ liệu khuôn mặt trên thiết bị FaceID (hệ thống tự động kích hoạt thẻ RFID).
+                      Cần mã thẻ để định danh cho dữ liệu khuôn mặt trên thiết bị FaceID (hệ thống tự động kích hoạt Thẻ từ).
                     </span>
                   </div>
                 </div>
@@ -1150,17 +1150,17 @@ export function ClientFormDialog({
                     : '-- Chọn thẻ định danh Person trong kho --'
                 }
                 allowClear={true}
-                clearLabel="-- Không gán thẻ từ (None) --"
+                clearLabel="-- Không gán Thẻ từ (None) --"
               />
               {errors.cardCode && (
                 <p className="text-[11px] text-destructive font-medium">{errors.cardCode.message}</p>
               )}
               <p className="text-[10px] text-muted-foreground">
                 {isNoneAuth
-                  ? 'Khi chọn Làn tự do, hệ thống sẽ tự động gỡ toàn bộ liên kết thẻ RFID & dữ liệu trên máy FaceID.'
+                  ? 'Khi chọn Làn tự do, hệ thống sẽ tự động gỡ toàn bộ liên kết Thẻ từ & dữ liệu trên máy FaceID.'
                   : selectedAuthMethods.includes('FaceId')
                     ? 'Cần mã thẻ để định danh cho dữ liệu khuôn mặt trên thiết bị FaceID.'
-                    : 'Chọn thẻ từ kho thẻ có loại là Nhân sự (Person).'}
+                    : 'Chọn Thẻ từ kho thẻ có loại là Nhân sự (Person).'}
               </p>
             </div>
 

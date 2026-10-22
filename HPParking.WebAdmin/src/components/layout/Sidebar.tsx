@@ -104,7 +104,7 @@ const menuConfig: MenuItem[] = [
       children: [
         { title: 'Nhân sự', href: '/clients', icon: Users },
         { title: 'Phương tiện', href: '/vehicles', icon: Car },
-        { title: 'Kho Thẻ RFID', href: '/cards', icon: CreditCard },
+        { title: 'Kho Thẻ từ', href: '/cards', icon: CreditCard },
       ],
     },
   },

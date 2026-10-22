@@ -248,4 +248,70 @@ describe('ClientsPage Component', () => {
       expect(screen.getByRole('button', { name: /Xuất Excel/i })).toBeInTheDocument();
     });
   });
+
+  it('hiển thị cảnh báo gỡ Thẻ từ và thu hồi FaceID khi nhấn xóa nhân sự đang có thẻ và FaceID', async () => {
+    vi.mocked(companiesApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: { pageIndex: 1, pageSize: 100, totalCount: 0, totalPages: 0, hasPreviousPage: false, hasNextPage: false },
+    });
+    vi.mocked(departmentsApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: { pageIndex: 1, pageSize: 200, totalCount: 0, totalPages: 0, hasPreviousPage: false, hasNextPage: false },
+    });
+    vi.mocked(contractorsApi.getPaged).mockResolvedValueOnce({
+      items: [],
+      pagination: { pageIndex: 1, pageSize: 100, totalCount: 0, totalPages: 0, hasPreviousPage: false, hasNextPage: false },
+    });
+
+    vi.mocked(clientApi.getPaged).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'cli-warning',
+          code: 'KH_WARN_01',
+          name: 'Trần Cảnh Báo',
+          phoneNumber: '0977888999',
+          address: 'Hà Nội',
+          birthDay: new Date().toISOString(),
+          type: 0,
+          cardCode: '0001234567',
+          authMethods: ['Card', 'FaceId'],
+          verifyVehiclePlate: false,
+          avatar: 'http://example.com/avatar.jpg',
+          gender: 1,
+          isActive: true,
+          expired: { enable: false, startDay: '', endDay: '' },
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      pagination: {
+        pageIndex: 1,
+        pageSize: 15,
+        totalCount: 1,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ClientsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Trần Cảnh Báo').length).toBeGreaterThan(0);
+    });
+
+    const deleteBtns = screen.getAllByRole('button', { name: /Xóa mềm/i });
+    deleteBtns[0].click();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cảnh báo gỡ thẻ & thu hồi quyền:/i)).toBeInTheDocument();
+      expect(screen.getByText('0001234567')).toBeInTheDocument();
+      expect(screen.getByText(/Dữ liệu khuôn mặt và quyền truy cập sẽ bị thu hồi/i)).toBeInTheDocument();
+    });
+  });
 });

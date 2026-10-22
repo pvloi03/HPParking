@@ -52,7 +52,7 @@ namespace HPParking.Core.Models.Entities
         public string PhoneNumber { get; set; } = "";
 
         /// <summary>
-        /// Mã thẻ định danh chuẩn hóa 10 chữ số (cho quẹt thẻ RFID và nạp Wiegand FaceID)
+        /// Mã thẻ định danh chuẩn hóa 10 chữ số (cho quẹt Thẻ từ và nạp Wiegand FaceID)
         /// </summary>
         public string CardCode { get; set; } = string.Empty;
 
@@ -90,7 +90,7 @@ namespace HPParking.Core.Models.Entities
             AuthMethods != null && AuthMethods.Any(m => string.Equals(m?.Trim(), AuthMethodConstants.FaceId, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
-        /// Kiểm tra người dùng có đăng ký và sử dụng phương thức xác thực bằng thẻ từ (Card) hay không.
+        /// Kiểm tra người dùng có đăng ký và sử dụng phương thức xác thực bằng Thẻ từ (Card) hay không.
         /// </summary>
         public bool UsesCardAuth() =>
             AuthMethods != null && AuthMethods.Any(m => string.Equals(m?.Trim(), AuthMethodConstants.Card, StringComparison.OrdinalIgnoreCase));

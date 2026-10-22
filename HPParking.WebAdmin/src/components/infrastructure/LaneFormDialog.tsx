@@ -66,8 +66,8 @@ const laneSchema = z.object({
   inputReader: z.coerce
     .number()
     .int()
-    .min(1, 'Đầu đọc thẻ từ 1 đến 4')
-    .max(4, 'Đầu đọc thẻ từ 1 đến 4'),
+    .min(1, 'Đầu đọc Thẻ từ 1 đến 4')
+    .max(4, 'Đầu đọc Thẻ từ 1 đến 4'),
   isActive: z.boolean(),
 });
 
@@ -304,11 +304,10 @@ export function LaneFormDialog({
                     setValue('targetType', LaneTargetType.Vehicle, { shouldValidate: true });
                     setValue('usePlateCam', true);
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    selectedTargetType === LaneTargetType.Vehicle
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${selectedTargetType === LaneTargetType.Vehicle
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-background hover:bg-muted text-muted-foreground border border-border'
-                  }`}
+                    }`}
                 >
                   🚗 Xe cơ giới
                 </button>
@@ -320,11 +319,10 @@ export function LaneFormDialog({
                     setValue('useFaceCam', true);
                     setValue('plateCameraDeviceId', 'none');
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    selectedTargetType === LaneTargetType.Pedestrian
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${selectedTargetType === LaneTargetType.Pedestrian
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'bg-background hover:bg-muted text-muted-foreground border border-border'
-                  }`}
+                    }`}
                 >
                   🚶 Người đi bộ (Turnstile/FaceID)
                 </button>
@@ -568,14 +566,12 @@ export function LaneFormDialog({
             <button
               type="button"
               onClick={() => setValue('isActive', !isActive, { shouldDirty: true })}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isActive ? 'bg-blue-600' : 'bg-muted'
-              }`}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-blue-600' : 'bg-muted'
+                }`}
             >
               <span
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                  isActive ? 'translate-x-4' : 'translate-x-0'
-                }`}
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isActive ? 'translate-x-4' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>

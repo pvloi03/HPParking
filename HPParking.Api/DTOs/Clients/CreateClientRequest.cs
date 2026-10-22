@@ -67,7 +67,7 @@ namespace HPParking.Api.DTOs.Clients
         public string PhoneNumber { get; set; } = string.Empty;
 
         /// <summary>
-        /// Mã thẻ định danh chuẩn hóa 10 chữ số (cho quẹt thẻ RFID và nạp Wiegand FaceID)
+        /// Mã thẻ định danh chuẩn hóa 10 chữ số (cho quẹt Thẻ từ và nạp Wiegand FaceID)
         /// </summary>
         public string CardCode { get; set; } = string.Empty;
 

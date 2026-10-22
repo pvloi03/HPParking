@@ -403,5 +403,126 @@ namespace HPParking.Tests.Api.Unit
                 "",
                 Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task DeleteClientAsync_WhenSoftDeletingClientWithCardAndFaceId_UnlinksCard_ClearsCardCode_RevokesFaceId_AndPreservesAvatar()
+        {
+            // Arrange
+            var service = CreateService();
+            var clientId = "client-soft-delete-1";
+            var client = new Client
+            {
+                Id = clientId,
+                Code = "NV-099",
+                Name = "Nguyễn Văn Xóa Mềm",
+                PhoneNumber = "0987654321",
+                CardCode = "0009991112",
+                Avatar = "/uploads/avatars/nv-099.jpg",
+                AuthMethods = ["Card", "FaceId"],
+                IsActive = true
+            };
+
+            _clientRepo.GetByIdAsync(clientId, Arg.Any<CancellationToken>()).Returns(client);
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Vehicle>());
+
+            var assignedCard = new Card
+            {
+                Id = "card-999",
+                CardNumber = "0009991112",
+                ClientId = clientId,
+                Status = CardStatus.InUse,
+                TargetType = CardTargetType.Person
+            };
+            _cardRepo.FindAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Card> { assignedCard });
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(assignedCard);
+
+            var activeLane = new Lane
+            {
+                Id = "lane-1",
+                Name = "Làn Vào",
+                FaceDeviceId = "dev-face-1",
+                IsActive = true
+            };
+            _laneRepo.FindAsync(Arg.Any<Expression<Func<Lane, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([activeLane]);
+
+            var activeDevice = new Device
+            {
+                Id = "dev-face-1",
+                Type = DeviceType.FaceId,
+                IpAddress = "192.168.1.120",
+                Port = 8000,
+                UserName = "admin",
+                Password = "pwd",
+                IsActive = true
+            };
+            _deviceRepo.FindAsync(Arg.Any<Expression<Func<Device, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([activeDevice]);
+
+            _faceIdService.PingFastAsync("192.168.1.120", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(true);
+            _faceIdService.DeleteUserAsync(Arg.Any<FaceIdTerminalConfig>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(new FaceIdTerminalResultDto { IsSuccess = true, DeviceIp = "192.168.1.120" });
+
+            // Act
+            var result = await service.DeleteClientAsync(clientId, hardDelete: false);
+
+            // Assert
+            result.Should().BeTrue();
+
+            // 1. Gỡ thẻ về Available & ClientId = null
+            assignedCard.ClientId.Should().BeNull();
+            assignedCard.Status.Should().Be(CardStatus.Available);
+            await _cardRepo.Received().UpdateAsync(assignedCard, Arg.Any<CancellationToken>());
+
+            // 2. Client.CardCode bị làm rỗng
+            client.CardCode.Should().BeEmpty();
+            await _clientRepo.Received().UpdateAsync(client, Arg.Any<CancellationToken>());
+
+            // 3. Thu hồi quyền FaceID trên máy trạm
+            await _faceIdService.Received(1).DeleteUserAsync(
+                Arg.Is<FaceIdTerminalConfig>(t => t.DeviceIp == "192.168.1.120"),
+                "NV-099",
+                "0009991112",
+                Arg.Any<CancellationToken>());
+
+            // 4. Bảo lưu ảnh đại diện (KHÔNG xóa tệp ảnh)
+            await _fileStorage.DidNotReceive().DeleteFileAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+            // 5. Đánh dấu xóa mềm
+            await _clientRepo.Received(1).DeleteAsync(clientId, softDelete: true, Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task RestoreClientAsync_WhenRestored_EnsuresCardCodeIsEmpty()
+        {
+            // Arrange
+            var service = CreateService();
+            var deletedClient = new Client
+            {
+                Id = "deleted-restore-1",
+                Code = "NV-200",
+                Name = "Khôi Phục Viên",
+                PhoneNumber = "0911222333",
+                CardCode = "0001239999",
+                IsDeleted = true
+            };
+
+            _clientRepo.GetDeletedByIdAsync("deleted-restore-1", Arg.Any<CancellationToken>()).Returns(deletedClient);
+            _clientRepo.FindOneAsync(Arg.Any<Expression<Func<Client, bool>>>(), Arg.Any<CancellationToken>()).Returns((Client?)null);
+            _clientRepo.RestoreAsync("deleted-restore-1", Arg.Any<CancellationToken>()).Returns(true);
+
+            // Act
+            var result = await service.RestoreClientAsync("deleted-restore-1");
+
+            // Assert
+            result.CardCode.Should().BeEmpty();
+            deletedClient.CardCode.Should().BeEmpty();
+            await _clientRepo.Received().UpdateAsync(deletedClient, Arg.Any<CancellationToken>());
+            await _clientRepo.Received(1).RestoreAsync("deleted-restore-1", Arg.Any<CancellationToken>());
+        }
     }
 }

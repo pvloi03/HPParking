@@ -255,7 +255,7 @@ export function CardsPage() {
             <span>Quản Lý Thẻ Định Danh</span>
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Mã thẻ luôn được chuẩn hóa 10 chữ số, dùng chung cho quẹt thẻ RFID và nạp FaceID.
+            Mã thẻ luôn được chuẩn hóa 10 chữ số, dùng chung cho quẹt Thẻ từ và nạp FaceID.
           </p>
         </div>
       </div>

@@ -8,6 +8,7 @@ import {
   Trash2,
   Loader2,
   CreditCard,
+  AlertTriangle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { formatAvatarUrl } from '@/utils/formatAvatarUrl';
 import { cn } from '@/lib/utils';
 import { hn212Service, type Hn212CardData, type Hn212ReaderStatus } from '@/services/hn212Service';
+import { AuthMethod } from '@/types/client';
 import type {
   ClientDto,
   CreateClientRequest,
@@ -773,7 +775,44 @@ export function ClientsPage() {
         open={Boolean(deleteCandidate)}
         onOpenChange={(open) => !open && setDeleteCandidate(null)}
         title="Xác Nhận Xóa Nhân Sự (Xóa Mềm)"
-        description={`Bạn có chắc chắn muốn chuyển nhân sự "${deleteCandidate?.name || 'này'}" vào thùng rác không? Dữ liệu này có thể được khôi phục sau tại mục Thùng Rác Hệ Thống. Lưu ý: Hệ thống sẽ từ chối xóa nếu nhân sự vẫn còn phương tiện xe đang liên kết hoặc đang gửi trong bãi đỗ.`}
+        description={
+          <div className="space-y-3">
+            <p>
+              Bạn có chắc chắn muốn chuyển nhân sự{' '}
+              <strong className="text-foreground">
+                "{deleteCandidate?.name || 'này'}"
+              </strong>{' '}
+              vào thùng rác không? Dữ liệu này có thể được khôi phục sau tại mục Thùng Rác Hệ Thống.
+            </p>
+
+            {Boolean(deleteCandidate?.cardCode?.trim() || deleteCandidate?.authMethods?.includes(AuthMethod.FaceId)) && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1">
+                  <div className="font-semibold text-amber-800 dark:text-amber-200">
+                    Cảnh báo gỡ thẻ & thu hồi quyền:
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {Boolean(deleteCandidate?.cardCode?.trim()) && (
+                      <li>
+                        Thẻ từ <strong>{deleteCandidate?.cardCode}</strong> sẽ được tự động gỡ liên kết và hoàn trả về kho thẻ khả dụng.
+                      </li>
+                    )}
+                    {Boolean(deleteCandidate?.authMethods?.includes(AuthMethod.FaceId)) && (
+                      <li>
+                        Dữ liệu khuôn mặt và quyền truy cập sẽ bị thu hồi khỏi các thiết bị FaceID vật lý.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-muted-foreground/80 italic">
+              Lưu ý: Hệ thống sẽ từ chối xóa nếu nhân sự vẫn còn phương tiện xe đang liên kết hoặc đang có phiên gửi xe trong bãi đỗ.
+            </p>
+          </div>
+        }
         confirmText="Chuyển Vào Thùng Rác"
         cancelText="Hủy Bỏ"
         variant="destructive"
@@ -792,7 +831,27 @@ export function ClientsPage() {
         open={isBulkDeleteOpen}
         onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
         title="Xác Nhận Xóa Mềm Hàng Loạt"
-        description={`Bạn có chắc chắn muốn chuyển ${selectedRowIds.length} nhân sự đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.`}
+        description={
+          <div className="space-y-3">
+            <p>
+              Bạn có chắc chắn muốn chuyển <strong className="text-foreground">{selectedRowIds.length}</strong> nhân sự đã chọn vào thùng rác không? Toàn bộ các bản ghi bị xóa mềm có thể được xem và khôi phục tập trung tại màn hình Thùng Rác Hệ Thống.
+            </p>
+
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div>
+                <span className="font-semibold text-amber-800 dark:text-amber-200">
+                  Tự động thu hồi:
+                </span>{' '}
+                Mọi thẻ định danh RFID đang gán cho các nhân sự này sẽ được gỡ liên kết hoàn trả về kho thẻ, và dữ liệu khuôn mặt (nếu có) sẽ bị xóa khỏi các máy FaceID.
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground/80 italic">
+              Lưu ý: Các nhân sự còn xe liên kết hoặc đang có xe trong bãi đỗ sẽ bị chặn xóa theo quy tắc toàn vẹn tham chiếu.
+            </p>
+          </div>
+        }
         confirmText={`Chuyển Vào Thùng Rác (${selectedRowIds.length})`}
         cancelText="Hủy Bỏ"
         variant="destructive"

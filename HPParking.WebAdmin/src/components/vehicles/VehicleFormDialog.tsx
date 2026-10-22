@@ -394,7 +394,7 @@ export function VehicleFormDialog({
                 clearLabel="-- Không gán thẻ xe (None) --"
               />
               <p className="text-[11px] text-muted-foreground">
-                Chọn thẻ từ kho thẻ có loại Phương tiện (Vehicle). Thường dùng cho phương tiện nội bộ hoặc xe dùng chung qua lại các cổng.
+                Chọn Thẻ từ kho thẻ có loại Phương tiện (Vehicle). Thường dùng cho phương tiện nội bộ hoặc xe dùng chung qua lại các cổng.
               </p>
             </div>
           )}

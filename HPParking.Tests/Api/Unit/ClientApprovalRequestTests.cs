@@ -520,7 +520,7 @@ namespace HPParking.Tests.Api.Unit
             await _approvalRepo.Received(1).DeleteAsync("appr-past", softDelete: false, Arg.Any<CancellationToken>());
         }
         [Fact]
-        public async Task DeleteClientAsync_WhenClientHasCardCodeProperty_ThrowsConflictException_PerRule1()
+        public async Task DeleteClientAsync_WhenClientHasCardCodeProperty_UnlinksCard_ClearsCardCode_AndSoftDeletes()
         {
             // Arrange
             var service = CreateService();
@@ -540,17 +540,29 @@ namespace HPParking.Tests.Api.Unit
             _approvalRepo.CountAsync(Arg.Any<Expression<Func<ClientApprovalRequest, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(0);
 
-            // Act
-            var act = () => service.DeleteClientAsync(clientId, hardDelete: false);
+            var assignedCard = new Card
+            {
+                Id = "card-008",
+                CardNumber = "0012345678",
+                ClientId = clientId,
+                Status = CardStatus.InUse,
+                TargetType = CardTargetType.Person
+            };
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(assignedCard);
 
-            // Assert (Universal Restrict Deletion: Chặn xóa 409 Conflict khi còn thẻ)
-            var ex = await act.Should().ThrowAsync<ConflictException>();
-            ex.Which.ErrorCode.Should().Be(ErrorCodes.CLIENT_HAS_CARD);
-            ex.Which.Message.Should().Contain("vẫn đang được gán thẻ định danh '0012345678'");
+            // Act
+            var result = await service.DeleteClientAsync(clientId, hardDelete: false);
+
+            // Assert
+            result.Should().BeTrue();
+            client.CardCode.Should().BeEmpty();
+            await _clientRepo.Received(1).DeleteAsync(clientId, softDelete: true, Arg.Any<CancellationToken>());
+            await _cardRepo.Received().UpdateAsync(Arg.Is<Card>(c => c.ClientId == null && c.Status == CardStatus.Available), Arg.Any<CancellationToken>());
         }
 
         [Fact]
-        public async Task DeleteClientAsync_WhenClientHasCardInCardRepo_ThrowsConflictException_PerRule1()
+        public async Task DeleteClientAsync_WhenClientHasCardInCardRepo_UnlinksCard_AndSoftDeletes()
         {
             // Arrange
             var service = CreateService();
@@ -575,18 +587,21 @@ namespace HPParking.Tests.Api.Unit
                 Id = "card-123",
                 CardNumber = "0099988877",
                 ClientId = clientId,
+                Status = CardStatus.InUse,
                 TargetType = CardTargetType.Person
             };
-            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
-                .Returns(assignedCard);
+            _cardRepo.FindAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Card> { assignedCard });
 
             // Act
-            var act = () => service.DeleteClientAsync(clientId, hardDelete: false);
+            var result = await service.DeleteClientAsync(clientId, hardDelete: false);
 
             // Assert
-            var ex = await act.Should().ThrowAsync<ConflictException>();
-            ex.Which.ErrorCode.Should().Be(ErrorCodes.CLIENT_HAS_CARD);
-            ex.Which.Message.Should().Contain("0099988877");
+            result.Should().BeTrue();
+            assignedCard.ClientId.Should().BeNull();
+            assignedCard.Status.Should().Be(CardStatus.Available);
+            await _cardRepo.Received().UpdateAsync(assignedCard, Arg.Any<CancellationToken>());
+            await _clientRepo.Received(1).DeleteAsync(clientId, softDelete: true, Arg.Any<CancellationToken>());
         }
     }
 }

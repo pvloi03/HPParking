@@ -60,7 +60,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     );
   };
 
-  it('yêu cầu gán thẻ RFID khi phương thức xác thực không phải None và chưa có thẻ', async () => {
+  it('yêu cầu gán Thẻ từ khi phương thức xác thực không phải None và chưa có thẻ', async () => {
     renderDialog();
 
     // Điền các trường cơ bản bắt buộc
@@ -77,7 +77,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
     fireEvent.click(submitBtn);
 
-    // Chờ thông báo lỗi yêu cầu thẻ RFID hiển thị
+    // Chờ thông báo lỗi yêu cầu Thẻ từ hiển thị
     await waitFor(() => {
       expect(
         screen.getByText(/Vui lòng gán thẻ định danh RFID cho nhân sự khi kích hoạt phương thức xác thực/i)
@@ -275,7 +275,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     fireEvent.change(nameInput, { target: { value: 'Trần Văn Auto' } });
     fireEvent.change(phoneInput, { target: { value: '0987654321' } });
 
-    // Chọn Làn tự do (None) để không yêu cầu thẻ RFID và tự động tắt/ẩn đối soát xe
+    // Chọn Làn tự do (None) để không yêu cầu Thẻ từ và tự động tắt/ẩn đối soát xe
     const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
     fireEvent.click(noneCheckbox);
 
@@ -289,7 +289,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     });
   });
 
-  it('khi chọn làn tự do (None) thì xóa dữ liệu thẻ và không cho phép gán thẻ RFID', async () => {
+  it('khi chọn làn tự do (None) thì xóa dữ liệu thẻ và không cho phép gán Thẻ từ', async () => {
     const mockSubmit = vi.fn();
     renderDialog({
       initialData: {
@@ -340,7 +340,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     });
   });
 
-  it('khi chọn phương thức khuôn mặt thì tick luôn cả thẻ RFID và hiển thị chú thích', async () => {
+  it('khi chọn phương thức khuôn mặt thì tick luôn cả Thẻ từ và hiển thị chú thích', async () => {
     renderDialog({
       initialData: {
         id: 'client-2',
@@ -354,7 +354,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
       } as any,
     });
 
-    const cardCheckbox = screen.getByRole('checkbox', { name: /Thẻ từ RFID/i });
+    const cardCheckbox = screen.getByRole('checkbox', { name: /Thẻ từ/i });
     const faceIdCheckbox = screen.getByRole('checkbox', { name: /Khuôn mặt FaceID/i });
 
     expect(cardCheckbox).toBeChecked();

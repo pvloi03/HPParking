@@ -887,40 +887,67 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            // Universal Restrict Deletion Policy (Quy tắc 1 - 100% No Cascade):
-            // Chặn xóa (409 Conflict) nếu nhân sự còn thẻ định danh đang được gán
-            string? assignedCardNumber = null;
-            if (!string.IsNullOrWhiteSpace(client.CardCode))
-            {
-                assignedCardNumber = client.CardCode;
-            }
-            else if (_cardRepo != null)
-            {
-                var assignedCard = await _cardRepo.FindOneAsync(
-                    c => c.ClientId == id && c.TargetType == CardTargetType.Person && !c.IsDeleted,
-                    cancellationToken);
-                if (assignedCard != null)
-                {
-                    assignedCardNumber = assignedCard.CardNumber;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(assignedCardNumber))
-            {
-                throw new ConflictException(
-                    $"Không thể xóa nhân sự '{client.Name}' vì vẫn đang được gán thẻ định danh '{assignedCardNumber}'. Vui lòng gỡ thẻ khỏi hồ sơ nhân sự trước khi xóa.",
-                    ErrorCodes.CLIENT_HAS_CARD);
-            }
-
             if (!hardDelete)
             {
                 // =========================================================================
                 // XÓA MỀM (Soft Delete - Mặc định):
-                // 1. Đánh dấu xóa mềm Client
-                // 2. BẢO LƯU 100% DỮ LIỆU FACEID: Tuyệt đối không xóa trên thiết bị FaceID
+                // 1. Tự động gỡ liên kết thẻ định danh (nếu có) và hoàn trả thẻ về kho (Available)
+                // 2. Làm rỗng client.CardCode để tránh xung đột mã thẻ trong thùng rác
+                // 3. Thu hồi quyền vật lý: Xóa dữ liệu FaceID và thẻ trên toàn bộ thiết bị FaceID active
+                // 4. Bảo lưu tệp avatar trên đĩa và trong DB để có thể khôi phục nguyên vẹn sau này
+                // 5. Đánh dấu xóa mềm Client trong CSDL
                 // =========================================================================
+                var oldCardCode = client.CardCode;
+                if (_cardRepo != null)
+                {
+                    var assignedCards = await _cardRepo.FindAsync(c => c.ClientId == id && !c.IsDeleted, cancellationToken);
+                    foreach (var card in assignedCards)
+                    {
+                        if (string.IsNullOrWhiteSpace(oldCardCode))
+                        {
+                            oldCardCode = card.CardNumber;
+                        }
+                        card.ClientId = null;
+                        card.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(card, cancellationToken);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(oldCardCode))
+                    {
+                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                        if (oldCard != null)
+                        {
+                            oldCard.ClientId = null;
+                            oldCard.Status = CardStatus.Available;
+                            await _cardRepo.UpdateAsync(oldCard, cancellationToken);
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(client.CardCode))
+                {
+                    client.CardCode = string.Empty;
+                    await _clientRepo.UpdateAsync(client, cancellationToken);
+                }
+
+                try
+                {
+                    var terminals = await ResolveActiveFaceIdTerminalsAsync(cancellationToken);
+                    if (terminals.Count > 0)
+                    {
+                        await ExecuteParallelFaceIdActionAsync(
+                            terminals,
+                            t => _faceIdService.DeleteUserAsync(t, client.Code, oldCardCode ?? "", cancellationToken),
+                            cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi thu hồi FaceID khi xóa mềm nhân sự {Id}: {Message}", id, ex.Message);
+                }
+
                 await _clientRepo.DeleteAsync(id, softDelete: true, cancellationToken);
-                _logger.LogInformation("Đã XÓA MỀM nhân sự {Id}: {Name} (bảo lưu FaceID).", id, client.Name);
+                _logger.LogInformation("Đã XÓA MỀM nhân sự {Id}: {Name} (đã gỡ thẻ và thu hồi quyền FaceID).", id, client.Name);
 
 
 
@@ -955,14 +982,30 @@ namespace HPParking.Api.Services.Implementations
 
             await _clientRepo.DeleteAsync(id, softDelete: false, cancellationToken);
 
-            if (_cardRepo != null && !string.IsNullOrWhiteSpace(client.CardCode))
+            var oldHardCardCode = client.CardCode;
+            if (_cardRepo != null)
             {
-                var card = await _cardRepo.FindOneAsync(c => c.CardNumber == client.CardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
-                if (card != null)
+                var assignedCards = await _cardRepo.FindAsync(c => c.ClientId == id && !c.IsDeleted, cancellationToken);
+                foreach (var card in assignedCards)
                 {
+                    if (string.IsNullOrWhiteSpace(oldHardCardCode))
+                    {
+                        oldHardCardCode = card.CardNumber;
+                    }
                     card.ClientId = null;
                     card.Status = CardStatus.Available;
                     await _cardRepo.UpdateAsync(card, cancellationToken);
+                }
+
+                if (!string.IsNullOrWhiteSpace(oldHardCardCode))
+                {
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == oldHardCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    if (card != null)
+                    {
+                        card.ClientId = null;
+                        card.Status = CardStatus.Available;
+                        await _cardRepo.UpdateAsync(card, cancellationToken);
+                    }
                 }
             }
 
@@ -997,7 +1040,7 @@ namespace HPParking.Api.Services.Implementations
                 {
                     await ExecuteParallelFaceIdActionAsync(
                         terminals,
-                        t => _faceIdService.DeleteUserAsync(t, client.Code, client.CardCode ?? "", cancellationToken),
+                        t => _faceIdService.DeleteUserAsync(t, client.Code, oldHardCardCode ?? "", cancellationToken),
                         cancellationToken);
                 }
             }
@@ -1100,6 +1143,17 @@ namespace HPParking.Api.Services.Implementations
             if (!success)
             {
                 throw new AppException("Khôi phục nhân sự thất bại.", 500, ErrorCodes.RESTORE_FAILED);
+            }
+
+            // Đảm bảo mã thẻ trống khi khôi phục từ thùng rác (tránh xung đột mã thẻ)
+            if (!string.IsNullOrWhiteSpace(client.CardCode))
+            {
+                client.CardCode = string.Empty;
+                await _clientRepo.UpdateAsync(client, cancellationToken);
+            }
+            else
+            {
+                client.CardCode = string.Empty;
             }
 
             client.IsDeleted = false;

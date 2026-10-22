@@ -9,7 +9,7 @@ namespace HPParking.Core.Constants
     public static class AuthMethodConstants
     {
         /// <summary>
-        /// Xác thực bằng thẻ từ RFID
+        /// Xác thực bằng Thẻ từ
         /// </summary>
         public const string Card = "Card";
 
