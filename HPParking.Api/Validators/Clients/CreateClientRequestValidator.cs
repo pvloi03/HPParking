@@ -42,7 +42,7 @@ namespace HPParking.Api.Validators.Clients
                 .MaximumLength(500).WithMessage("Ghi chú không được vượt quá 500 ký tự.");
 
             RuleFor(x => x.AuthMethods)
-                .NotEmpty().WithMessage("Phương thức xác thực người dùng không được để trống.")
+                .NotEmpty().WithMessage("Phương thức xác thực dùng không được để trống.")
                 .Must(HPParking.Core.Constants.AuthMethodConstants.IsValid)
                 .WithMessage("Phương thức xác thực không hợp lệ. Nếu chọn 'None' (làn tự do) thì không được kết hợp cùng 'Card' hoặc 'FaceId'.");
 
@@ -51,6 +51,13 @@ namespace HPParking.Api.Validators.Clients
                 RuleFor(x => x.CardCode)
                     .NotEmpty()
                     .WithMessage("Khi sử dụng phương thức xác thực (Thẻ/FaceID), bắt buộc phải gán thẻ định danh RFID.");
+            });
+
+            When(x => x.AuthMethods != null && x.AuthMethods.Contains(HPParking.Core.Constants.AuthMethodConstants.None), () =>
+            {
+                RuleFor(x => x.CardCode)
+                    .Must(string.IsNullOrWhiteSpace)
+                    .WithMessage("Phương thức xác thực Làn tự do (None) không áp dụng gán thẻ định danh RFID.");
             });
 
             When(x => x.VerifyVehiclePlate, () =>

@@ -30,6 +30,7 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<Department> _departmentRepo = Substitute.For<IRepository<Department>>();
         private readonly IRepository<ClientApprovalRequest> _approvalRepo = Substitute.For<IRepository<ClientApprovalRequest>>();
         private readonly IRepository<ParkingSession> _parkingSessionRepo = Substitute.For<IRepository<ParkingSession>>();
+        private readonly IRepository<Card> _cardRepo = Substitute.For<IRepository<Card>>();
         private readonly IEmailSenderService _emailSender = Substitute.For<IEmailSenderService>();
 
         private ClientService CreateService()
@@ -43,6 +44,7 @@ namespace HPParking.Tests.Api.Unit
                 _faceIdService,
                 _logger,
                 departmentRepo: _departmentRepo,
+                cardRepo: _cardRepo,
                 approvalRepo: _approvalRepo,
                 parkingSessionRepo: _parkingSessionRepo,
                 emailSenderService: _emailSender);
@@ -516,6 +518,75 @@ namespace HPParking.Tests.Api.Unit
             // Assert: Bản ghi ClientApprovalRequest phải được xóa vĩnh viễn (softDelete: false)
             result.Should().BeTrue();
             await _approvalRepo.Received(1).DeleteAsync("appr-past", softDelete: false, Arg.Any<CancellationToken>());
+        }
+        [Fact]
+        public async Task DeleteClientAsync_WhenClientHasCardCodeProperty_ThrowsConflictException_PerRule1()
+        {
+            // Arrange
+            var service = CreateService();
+            var clientId = "client-with-cardcode";
+            var client = new Client
+            {
+                Id = clientId,
+                Name = "Lê Văn Card",
+                Code = "NV-008",
+                CardCode = "0012345678",
+                IsActive = false
+            };
+
+            _clientRepo.GetByIdAsync(clientId, Arg.Any<CancellationToken>()).Returns(client);
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Vehicle>());
+            _approvalRepo.CountAsync(Arg.Any<Expression<Func<ClientApprovalRequest, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(0);
+
+            // Act
+            var act = () => service.DeleteClientAsync(clientId, hardDelete: false);
+
+            // Assert (Universal Restrict Deletion: Chặn xóa 409 Conflict khi còn thẻ)
+            var ex = await act.Should().ThrowAsync<ConflictException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.CLIENT_HAS_CARD);
+            ex.Which.Message.Should().Contain("vẫn đang được gán thẻ định danh '0012345678'");
+        }
+
+        [Fact]
+        public async Task DeleteClientAsync_WhenClientHasCardInCardRepo_ThrowsConflictException_PerRule1()
+        {
+            // Arrange
+            var service = CreateService();
+            var clientId = "client-with-card-repo";
+            var client = new Client
+            {
+                Id = clientId,
+                Name = "Đỗ Văn Thẻ",
+                Code = "NV-009",
+                CardCode = "",
+                IsActive = false
+            };
+
+            _clientRepo.GetByIdAsync(clientId, Arg.Any<CancellationToken>()).Returns(client);
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Vehicle>());
+            _approvalRepo.CountAsync(Arg.Any<Expression<Func<ClientApprovalRequest, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(0);
+
+            var assignedCard = new Card
+            {
+                Id = "card-123",
+                CardNumber = "0099988877",
+                ClientId = clientId,
+                TargetType = CardTargetType.Person
+            };
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(assignedCard);
+
+            // Act
+            var act = () => service.DeleteClientAsync(clientId, hardDelete: false);
+
+            // Assert
+            var ex = await act.Should().ThrowAsync<ConflictException>();
+            ex.Which.ErrorCode.Should().Be(ErrorCodes.CLIENT_HAS_CARD);
+            ex.Which.Message.Should().Contain("0099988877");
         }
     }
 }

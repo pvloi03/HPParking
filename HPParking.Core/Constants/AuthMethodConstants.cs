@@ -4,7 +4,7 @@ using System.Linq;
 namespace HPParking.Core.Constants
 {
     /// <summary>
-    /// Các phương thức xác thực người dùng ra vào hệ thống
+    /// Các phương thức xác thực dùng ra vào hệ thống
     /// </summary>
     public static class AuthMethodConstants
     {

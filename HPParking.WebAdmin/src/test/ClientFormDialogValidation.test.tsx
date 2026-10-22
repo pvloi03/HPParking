@@ -86,24 +86,21 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
   });
 
   it('bắt buộc thêm xe khi verifyVehiclePlate = true và không có phương tiện nào', async () => {
-    renderDialog();
+    renderDialog({
+      initialData: {
+        id: 'client-1',
+        code: 'NV-001',
+        name: 'Nguyễn Văn Test',
+        phoneNumber: '0912345678',
+        cardCode: '0000123456',
+        authMethods: ['Card'],
+        verifyVehiclePlate: true,
+        isActive: true,
+      } as any,
+    });
 
-    // Điền các trường cơ bản
-    const codeInput = screen.getByPlaceholderText('VD: NV-001 hoặc 001200012345');
-    fireEvent.change(codeInput, { target: { value: '001200012345' } });
-
-    const nameInput = screen.getByPlaceholderText('VD: Nguyễn Văn Nam');
-    fireEvent.change(nameInput, { target: { value: 'Nguyễn Văn Test' } });
-
-    const phoneInput = screen.getByPlaceholderText('VD: 0987654321');
-    fireEvent.change(phoneInput, { target: { value: '0912345678' } });
-
-    // Chuyển phương thức xác thực sang None để không bị chặn bởi lỗi thẻ
-    const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
-    fireEvent.click(noneCheckbox);
-
-    // Submit form (lúc này verifyVehiclePlate mặc định là true và chưa có xe nào)
-    const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
+    // Submit form (lúc này verifyVehiclePlate là true và chưa có xe nào)
+    const submitBtn = screen.getByRole('button', { name: /Cập nhật/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -278,15 +275,9 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     fireEvent.change(nameInput, { target: { value: 'Trần Văn Auto' } });
     fireEvent.change(phoneInput, { target: { value: '0987654321' } });
 
-    // Chọn Làn tự do (None) để không yêu cầu thẻ RFID
+    // Chọn Làn tự do (None) để không yêu cầu thẻ RFID và tự động tắt/ẩn đối soát xe
     const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
     fireEvent.click(noneCheckbox);
-
-    // Bỏ chọn Bắt buộc đối chiếu biển số xe để không yêu cầu thêm xe
-    const verifyPlateCheckbox = screen.getByRole('checkbox', {
-      name: /Bắt buộc xác thực đối chiếu biển số xe khi qua cổng/i,
-    });
-    fireEvent.click(verifyPlateCheckbox);
 
     const submitBtn = screen.getByRole('button', { name: /Thêm mới/i });
     fireEvent.click(submitBtn);
@@ -296,5 +287,90 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
       const submittedData = mockSubmit.mock.calls[0][0];
       expect(submittedData.approvingDepartmentId).toBe('dept-hr-default');
     });
+  });
+
+  it('khi chọn làn tự do (None) thì xóa dữ liệu thẻ và không cho phép gán thẻ RFID', async () => {
+    const mockSubmit = vi.fn();
+    renderDialog({
+      initialData: {
+        id: 'client-1',
+        code: 'NV-001',
+        name: 'Nguyễn Văn A',
+        phoneNumber: '0987654321',
+        cardCode: '0000123456',
+        authMethods: ['FaceId', 'Card'],
+        verifyVehiclePlate: false,
+        isActive: true,
+      } as any,
+      onSubmit: mockSubmit,
+    });
+
+    // Ban đầu có mã thẻ
+    expect(screen.getByText(/Mã thẻ: 0000123456/i)).toBeInTheDocument();
+
+    // Chọn Làn tự do (None)
+    const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
+    fireEvent.click(noneCheckbox);
+
+    // Badge hiển thị mã thẻ phải biến mất
+    await waitFor(() => {
+      expect(screen.queryByText(/Mã thẻ: 0000123456/i)).not.toBeInTheDocument();
+    });
+
+    // Thông báo Làn tự do được hiển thị: ảnh lưu trong hệ thống nhưng không đồng bộ FaceID
+    expect(
+      screen.getByText(/Ảnh chân dung sẽ được lưu làm ảnh đại diện hồ sơ trong hệ thống \(không đồng bộ lên thiết bị FaceID\)/i)
+    ).toBeInTheDocument();
+
+    // Khối cờ bắt buộc đối soát biển số xe phải bị ẩn khi chọn Làn tự do (None)
+    expect(
+      screen.queryByRole('checkbox', { name: /Bắt buộc xác thực đối chiếu biển số xe/i })
+    ).not.toBeInTheDocument();
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /Cập nhật/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      const payload = mockSubmit.mock.calls[0][0];
+      expect(payload.authMethods).toEqual(['None']);
+      expect(payload.cardCode).toBeFalsy();
+      expect(payload.verifyVehiclePlate).toBe(false);
+    });
+  });
+
+  it('khi chọn phương thức khuôn mặt thì tick luôn cả thẻ RFID và hiển thị chú thích', async () => {
+    renderDialog({
+      initialData: {
+        id: 'client-2',
+        code: 'NV-002',
+        name: 'Trần Thị B',
+        phoneNumber: '0912345678',
+        cardCode: '0000123456',
+        authMethods: ['Card'], // Chỉ chọn Card ban đầu
+        verifyVehiclePlate: false,
+        isActive: true,
+      } as any,
+    });
+
+    const cardCheckbox = screen.getByRole('checkbox', { name: /Thẻ từ RFID/i });
+    const faceIdCheckbox = screen.getByRole('checkbox', { name: /Khuôn mặt FaceID/i });
+
+    expect(cardCheckbox).toBeChecked();
+    expect(faceIdCheckbox).not.toBeChecked();
+
+    // Click chọn Khuôn mặt FaceID
+    fireEvent.click(faceIdCheckbox);
+
+    // Cả hai checkbox đều phải được tick
+    expect(faceIdCheckbox).toBeChecked();
+    expect(cardCheckbox).toBeChecked();
+
+    // Hiển thị chú thích cần mã thẻ để định danh cho dữ liệu khuôn mặt
+    expect(screen.getByText(/Chú thích FaceID:/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Cần mã thẻ để định danh cho dữ liệu khuôn mặt/i).length
+    ).toBeGreaterThan(0);
   });
 });

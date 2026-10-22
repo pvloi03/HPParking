@@ -87,8 +87,8 @@ describe('ConfirmClientStatusPage Component', () => {
     await waitFor(() => {
       expect(screen.getByText('Yêu Cầu Phê Duyệt Đã Hết Hạn')).toBeInTheDocument();
       expect(screen.getByText('Liên kết đã hết hiệu lực')).toBeInTheDocument();
-      expect(screen.getByText(/Hướng dẫn xử lý tiếp theo/i)).toBeInTheDocument();
-      expect(screen.getByText(/Gửi lại email phê duyệt/i)).toBeInTheDocument();
+      expect(screen.getByText(/Liên kết xác nhận đã hết hạn \(quá 24 giờ\)/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Quay về trang đăng nhập/i })).toBeInTheDocument();
     });
   });
 
@@ -114,10 +114,10 @@ describe('ConfirmClientStatusPage Component', () => {
     await waitFor(() => {
       expect(screen.getByText('Yêu Cầu Này Đã Được Xử Lý')).toBeInTheDocument();
       expect(screen.getByText('Yêu cầu đã được xác nhận')).toBeInTheDocument();
-      expect(screen.getByText(/Thông tin trạng thái/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Yêu cầu này đã được phê duyệt xác nhận vào lúc 20\/10\/2026 14:00/i)
       ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Truy cập hệ thống quản trị/i })).toBeInTheDocument();
     });
   });
 

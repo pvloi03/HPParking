@@ -139,7 +139,6 @@ export function VehicleFormDialog({
   const assignedRouteId = watch('assignedRouteId');
   const selectedCardCode = watch('cardCode');
   const isActive = watch('isActive');
-  const watchedPlate = watch('plateNumber');
 
   useEffect(() => {
     if (open) {
@@ -248,14 +247,12 @@ export function VehicleFormDialog({
                     }
                   }
                 }}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  isShared ? 'bg-amber-600' : 'bg-muted'
-                }`}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isShared ? 'bg-amber-600' : 'bg-muted'
+                  }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                    isShared ? 'translate-x-4' : 'translate-x-0'
-                  }`}
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isShared ? 'translate-x-4' : 'translate-x-0'
+                    }`}
                 />
               </button>
             </div>
@@ -320,11 +317,6 @@ export function VehicleFormDialog({
                 className="uppercase font-mono text-xs"
                 autoFocus={!isEditing}
               />
-              {watchedPlate && (
-                <span className="text-[10px] text-muted-foreground block">
-                  Chuẩn hóa: <strong>{normalizePlateNumber(watchedPlate)}</strong>
-                </span>
-              )}
               {errors.plateNumber && (
                 <p className="text-[11px] text-destructive">{errors.plateNumber.message}</p>
               )}
@@ -430,14 +422,12 @@ export function VehicleFormDialog({
             <button
               type="button"
               onClick={() => setValue('isActive', !isActive, { shouldDirty: true })}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isActive ? 'bg-blue-600' : 'bg-muted'
-              }`}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isActive ? 'bg-blue-600' : 'bg-muted'
+                }`}
             >
               <span
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                  isActive ? 'translate-x-4' : 'translate-x-0'
-                }`}
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${isActive ? 'translate-x-4' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>

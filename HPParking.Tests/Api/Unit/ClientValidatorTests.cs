@@ -181,6 +181,31 @@ namespace HPParking.Tests.Api.Unit
             result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateClientRequest.Code));
         }
 
+        [Fact]
+        public void Validate_ShouldFail_WhenAuthMethodsIsNoneAndCardCodeIsNotEmpty()
+        {
+            var req = CreateValidRequest();
+            req.AuthMethods = [AuthMethodConstants.None];
+            req.CardCode = "0000012345";
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeFalse();
+            result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateClientRequest.CardCode));
+            result.Errors.First(e => e.PropertyName == nameof(CreateClientRequest.CardCode)).ErrorMessage
+                .Should().Contain("Làn tự do (None) không áp dụng gán thẻ định danh RFID");
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenAuthMethodsIsNoneAndCardCodeIsEmpty()
+        {
+            var req = CreateValidRequest();
+            req.AuthMethods = [AuthMethodConstants.None];
+            req.CardCode = "";
+
+            var result = _validator.Validate(req);
+            result.IsValid.Should().BeTrue();
+        }
+
         [Theory]
         [InlineData("")]
         [InlineData(null)]

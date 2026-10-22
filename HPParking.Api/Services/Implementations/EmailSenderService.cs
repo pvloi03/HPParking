@@ -146,7 +146,8 @@ namespace HPParking.Api.Services.Implementations
                 var message = CreateMimeMessage(recipientList, subject, htmlBody, attachmentPath, attachmentDisplayName);
 
                 using var client = new SmtpClient();
-                client.Timeout = 15000; // 15s timeout
+                client.Timeout = 10000;
+                client.CheckCertificateRevocation = false;
                 var secureSocketOptions = port == 465 ? SecureSocketOptions.SslOnConnect : (enableSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.None);
 
                 await client.ConnectAsync(host, port, secureSocketOptions, cancellationToken);
@@ -161,6 +162,11 @@ namespace HPParking.Api.Services.Implementations
 
                 _logger.LogInformation("Gửi email thành công tới: {Recipients}, Tiêu đề: {Subject}", string.Join(", ", recipientList), subject);
                 return true;
+            }
+            catch (OperationCanceledException ex)
+            {
+                _logger.LogWarning("Hủy hoặc quá thời gian gửi email qua SMTP: {Message}", ex.Message);
+                return false;
             }
             catch (Exception ex)
             {

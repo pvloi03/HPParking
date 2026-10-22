@@ -218,5 +218,190 @@ namespace HPParking.Tests.Api.Unit
             ex.ErrorCode.Should().Be(ErrorCodes.CLIENT_CODE_DUPLICATE);
             ex.Message.Should().Contain("Mã định danh 'NV-999' đã tồn tại trong hệ thống (Người Cũ Lưu Chữ Thường)");
         }
+
+        [Fact]
+        public async Task UpdateClientAsync_WhenAuthMethodsSetToNone_ClearsCardCodeAvatarAndUnlinksCardsAndCallsDeleteUserOnTerminals()
+        {
+            // Arrange
+            var service = CreateService();
+            var existingClient = new Client
+            {
+                Id = "client1",
+                Code = "NV-001",
+                Name = "Nguyễn Văn A",
+                PhoneNumber = "0364336088",
+                CardCode = "0000012345",
+                Avatar = "avatars/client1.jpg",
+                AuthMethods = [AuthMethodConstants.Card, AuthMethodConstants.FaceId],
+                IsActive = true
+            };
+            _clientRepo.GetByIdAsync("client1", Arg.Any<CancellationToken>())
+                .Returns(existingClient);
+
+            var linkedCard = new Card
+            {
+                Id = "card1",
+                CardNumber = "0000012345",
+                ClientId = "client1",
+                Status = CardStatus.InUse,
+                TargetType = CardTargetType.Person
+            };
+            _cardRepo.FindAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([linkedCard]);
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(linkedCard);
+
+            var activeLane = new Lane
+            {
+                Id = "lane1",
+                FaceDeviceId = "dev1",
+                IsActive = true
+            };
+            _laneRepo.FindAsync(Arg.Any<Expression<Func<Lane, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([activeLane]);
+
+            var activeDevice = new Device
+            {
+                Id = "dev1",
+                IpAddress = "192.168.1.100",
+                Port = 8000,
+                UserName = "admin",
+                Password = "password123",
+                IsActive = true
+            };
+            _deviceRepo.FindAsync(Arg.Any<Expression<Func<Device, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([activeDevice]);
+
+            _faceIdService.PingFastAsync("192.168.1.100", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            _faceIdService.DeleteUserAsync(Arg.Any<FaceIdTerminalConfig>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(new FaceIdTerminalResultDto { IsSuccess = true, DeviceIp = "192.168.1.100" });
+
+            var updateReq = new UpdateClientRequest
+            {
+                Code = "NV-001",
+                Name = "Nguyễn Văn A",
+                PhoneNumber = "0364336088",
+                CardCode = "0000012345",
+                AuthMethods = [AuthMethodConstants.None],
+                VerifyVehiclePlate = false
+            };
+
+            // Act
+            var result = await service.UpdateClientAsync("client1", updateReq);
+
+            // Assert
+            existingClient.CardCode.Should().BeEmpty();
+            existingClient.Avatar.Should().Be("avatars/client1.jpg"); // Ảnh đại diện được bảo lưu trong hệ thống
+            existingClient.AuthMethods.Should().ContainSingle(m => m == AuthMethodConstants.None);
+
+            // Tệp avatar cũ không bị xóa khỏi hệ thống lưu trữ
+            await _fileStorage.DidNotReceive().DeleteFileAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+            // Thẻ trong _cardRepo phải được giải phóng
+            linkedCard.ClientId.Should().BeNull();
+            linkedCard.Status.Should().Be(CardStatus.Available);
+            await _cardRepo.Received().UpdateAsync(linkedCard, Arg.Any<CancellationToken>());
+
+            // Trên thiết bị FaceID phải gọi DeleteUserAsync để dọn dẹp khuôn mặt và thẻ
+            await _faceIdService.Received(1).DeleteUserAsync(
+                Arg.Is<FaceIdTerminalConfig>(t => t.DeviceIp == "192.168.1.100"),
+                "NV-001",
+                "0000012345",
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task UploadAvatarAsync_WhenClientHasNoneAuthMethod_SavesAvatarSuccessfullyWithoutPushingToFaceIdTerminals()
+        {
+            // Arrange
+            var service = CreateService();
+            var existingClient = new Client
+            {
+                Id = "client1",
+                Code = "NV-001",
+                Name = "Nguyễn Văn A",
+                PhoneNumber = "0364336088",
+                AuthMethods = [AuthMethodConstants.None],
+                IsActive = true
+            };
+            _clientRepo.GetByIdAsync("client1", Arg.Any<CancellationToken>())
+                .Returns(existingClient);
+
+            var mockFile = Substitute.For<Microsoft.AspNetCore.Http.IFormFile>();
+            _fileStorage.SaveAvatarAsync(mockFile, "NV-001", Arg.Any<CancellationToken>())
+                .Returns("avatars/NV-001.jpg");
+
+            // Act
+            var result = await service.UploadAvatarAsync("client1", mockFile);
+
+            // Assert
+            result.Should().Be("avatars/NV-001.jpg");
+            existingClient.Avatar.Should().Be("avatars/NV-001.jpg");
+            await _clientRepo.Received(1).UpdateAsync(existingClient, Arg.Any<CancellationToken>());
+            await _faceIdService.DidNotReceive().UpdateFaceImageAsync(
+                Arg.Any<FaceIdTerminalConfig>(),
+                Arg.Any<string>(),
+                Arg.Any<byte[]>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task SyncFaceIdAsync_WhenClientHasNoneAuthMethod_CallsDeleteUserAsyncOnTerminals()
+        {
+            // Arrange
+            var service = CreateService();
+            var existingClient = new Client
+            {
+                Id = "client1",
+                Code = "NV-001",
+                Name = "Nguyễn Văn A",
+                PhoneNumber = "0364336088",
+                CardCode = "",
+                AuthMethods = [AuthMethodConstants.None],
+                IsActive = true
+            };
+            _clientRepo.GetByIdAsync("client1", Arg.Any<CancellationToken>())
+                .Returns(existingClient);
+
+            var activeLane = new Lane
+            {
+                Id = "lane1",
+                FaceDeviceId = "dev1",
+                IsActive = true
+            };
+            _laneRepo.FindAsync(Arg.Any<Expression<Func<Lane, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([activeLane]);
+
+            var activeDevice = new Device
+            {
+                Id = "dev1",
+                IpAddress = "192.168.1.100",
+                Port = 8000,
+                UserName = "admin",
+                Password = "password123",
+                IsActive = true
+            };
+            _deviceRepo.FindAsync(Arg.Any<Expression<Func<Device, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns([activeDevice]);
+
+            _faceIdService.PingFastAsync("192.168.1.100", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            _faceIdService.DeleteUserAsync(Arg.Any<FaceIdTerminalConfig>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(new FaceIdTerminalResultDto { IsSuccess = true, DeviceIp = "192.168.1.100" });
+
+            // Act
+            var res = await service.SyncFaceIdAsync("client1");
+
+            // Assert
+            res.SuccessCount.Should().Be(1);
+            await _faceIdService.Received(1).DeleteUserAsync(
+                Arg.Is<FaceIdTerminalConfig>(t => t.DeviceIp == "192.168.1.100"),
+                "NV-001",
+                "",
+                Arg.Any<CancellationToken>());
+        }
     }
 }

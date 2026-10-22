@@ -210,6 +210,7 @@ export function ClientFormDialog({
   const isFromHn212 = Boolean(hn212CardData);
   const queryClient = useQueryClient();
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [isAvatarRemoved, setIsAvatarRemoved] = useState(false);
   const [isStatusChangeOpen, setIsStatusChangeOpen] = useState(false);
 
   const departmentsWithEmail = useMemo(() => {
@@ -285,7 +286,7 @@ export function ClientFormDialog({
       name: '',
       phoneNumber: '',
       cardCode: '',
-      authMethods: ['FaceId'],
+      authMethods: ['Card', 'FaceId'],
       verifyVehiclePlate: true,
       type: ClientType.Employee,
       gender: 1, // 1: Nam
@@ -308,7 +309,8 @@ export function ClientFormDialog({
   const selectedCompanyId = watch('companyId');
   const selectedDepartmentId = watch('departmentId');
   const selectedContractorId = watch('contractorId');
-  const selectedAuthMethods = watch('authMethods') || ['FaceId'];
+  const selectedAuthMethods = watch('authMethods') || ['Card', 'FaceId'];
+  const isNoneAuth = selectedAuthMethods.includes('None');
   const cardCodeInput = watch('cardCode') || '';
   const verifyVehiclePlate = watch('verifyVehiclePlate');
   const expiredEnable = watch('expiredEnable');
@@ -321,6 +323,7 @@ export function ClientFormDialog({
 
   useEffect(() => {
     if (open) {
+      setIsAvatarRemoved(false);
       setVehicleSectionError(null);
       setPendingVehicles([]);
       queryClient.invalidateQueries({ queryKey: ['cards', 'available-person'] });
@@ -374,8 +377,12 @@ export function ClientFormDialog({
             name: cccdName,
             phoneNumber: initialData.phoneNumber || '',
             cardCode: initialData.cardCode || '',
-            authMethods: initialData.authMethods && initialData.authMethods.length > 0 ? initialData.authMethods : ['FaceId'],
-            verifyVehiclePlate: initialData.verifyVehiclePlate ?? true,
+            authMethods: initialData.authMethods && initialData.authMethods.length > 0
+              ? (initialData.authMethods.includes('FaceId') && !initialData.authMethods.includes('Card') && !initialData.authMethods.includes('None')
+                ? [...initialData.authMethods, 'Card']
+                : initialData.authMethods)
+              : ['Card', 'FaceId'],
+            verifyVehiclePlate: initialData.authMethods?.includes('None') ? false : (initialData.verifyVehiclePlate ?? true),
             type: initialData.type ?? ClientType.Employee,
             gender: genderVal,
             birthDay: parsedDob || '1995-01-01',
@@ -397,8 +404,12 @@ export function ClientFormDialog({
             name: initialData.name || '',
             phoneNumber: initialData.phoneNumber || '',
             cardCode: initialData.cardCode || '',
-            authMethods: initialData.authMethods && initialData.authMethods.length > 0 ? initialData.authMethods : ['FaceId'],
-            verifyVehiclePlate: initialData.verifyVehiclePlate ?? true,
+            authMethods: initialData.authMethods && initialData.authMethods.length > 0
+              ? (initialData.authMethods.includes('FaceId') && !initialData.authMethods.includes('Card') && !initialData.authMethods.includes('None')
+                ? [...initialData.authMethods, 'Card']
+                : initialData.authMethods)
+              : ['Card', 'FaceId'],
+            verifyVehiclePlate: initialData.authMethods?.includes('None') ? false : (initialData.verifyVehiclePlate ?? true),
             type: initialData.type ?? ClientType.Employee,
             gender: initialData.gender ?? 1,
             birthDay: toDateInputValue(initialData.birthDay) || '1995-01-01',
@@ -435,7 +446,7 @@ export function ClientFormDialog({
           name: cccdName,
           phoneNumber: '',
           cardCode: '',
-          authMethods: ['FaceId'],
+          authMethods: ['Card', 'FaceId'],
           verifyVehiclePlate: true,
           type: ClientType.Employee,
           gender: genderVal,
@@ -459,7 +470,7 @@ export function ClientFormDialog({
           name: '',
           phoneNumber: '',
           cardCode: '',
-          authMethods: ['FaceId'],
+          authMethods: ['Card', 'FaceId'],
           verifyVehiclePlate: true,
           type: ClientType.Employee,
           gender: 1,
@@ -498,7 +509,8 @@ export function ClientFormDialog({
   }, [open, initialData, departmentsWithEmail, getValues, setValue]);
 
   const onFormSubmit = async (formData: ClientFormData) => {
-    if (formData.verifyVehiclePlate) {
+    const isNoneAuth = formData.authMethods.includes('None');
+    if (!isNoneAuth && formData.verifyVehiclePlate) {
       const totalVehicles = existingVehicles.length + pendingVehicles.length;
       if (totalVehicles === 0) {
         setVehicleSectionError(
@@ -575,7 +587,7 @@ export function ClientFormDialog({
       phoneNumber: formData.phoneNumber.trim(),
       cardCode: formData.cardCode?.trim() || undefined,
       authMethods: formData.authMethods,
-      verifyVehiclePlate: formData.verifyVehiclePlate,
+      verifyVehiclePlate: isNoneAuth ? false : formData.verifyVehiclePlate,
       isActive: isEditing ? (initialData?.isActive ?? false) : false,
       note: formData.note?.trim() || undefined,
       expired: {
@@ -648,10 +660,19 @@ export function ClientFormDialog({
 
             {/* Ảnh đại diện Avatar & FaceID (Vẫn cho phép chỉnh sửa hoặc chụp lại) */}
             <AvatarUploadField
-              currentUrl={formatAvatarUrl(initialData?.avatar, initialData?.updatedAt || initialData?.createdAt)}
+              currentUrl={
+                isAvatarRemoved
+                  ? null
+                  : formatAvatarUrl(initialData?.avatar, initialData?.updatedAt || initialData?.createdAt)
+              }
               initialFile={selectedAvatarFile}
               cccdPhotoFile={cccdAvatarFile}
-              onFileSelected={setSelectedAvatarFile}
+              onFileSelected={(file) => {
+                setSelectedAvatarFile(file);
+                if (file) {
+                  setIsAvatarRemoved(false);
+                }
+              }}
               disabled={isSubmitting}
             />
 
@@ -960,13 +981,10 @@ export function ClientFormDialog({
               </span>
             </div>
 
-            {/* Phương thức xác thực người dùng (AuthMethods) */}
+            {/* Phương thức xác thực dùng (AuthMethods) */}
             <div className="space-y-2">
               <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Phương thức xác thực người <span className="text-destructive">*</span></span>
-                <span className="text-[10px] text-muted-foreground font-normal">
-                  (Hệ thống tự động kích hoạt thiết bị tương ứng)
-                </span>
+                <span>Phương thức xác thực <span className="text-destructive">*</span></span>
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -984,12 +1002,13 @@ export function ClientFormDialog({
                       if (e.target.checked) {
                         const next = selectedAuthMethods.filter((m) => m !== 'None').concat('Card');
                         setValue('authMethods', next, { shouldValidate: true, shouldDirty: true });
+                        setIsAvatarRemoved(false);
                       } else {
                         const next = selectedAuthMethods.filter((m) => m !== 'Card');
                         setValue('authMethods', next.length > 0 ? next : ['FaceId'], { shouldValidate: true, shouldDirty: true });
                       }
                     }}
-                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 cursor-pointer rounded border-border text-indigo-600 focus:ring-indigo-500"
                   />
                   <div className="flex items-center gap-1.5 min-w-0">
                     <CreditCard className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -1009,18 +1028,22 @@ export function ClientFormDialog({
                     checked={selectedAuthMethods.includes('FaceId')}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        const next = selectedAuthMethods.filter((m) => m !== 'None').concat('FaceId');
+                        const currentWithoutNone = selectedAuthMethods.filter((m) => m !== 'None');
+                        const next = Array.from(new Set([...currentWithoutNone, 'FaceId', 'Card']));
                         setValue('authMethods', next, { shouldValidate: true, shouldDirty: true });
+                        setIsAvatarRemoved(false);
                       } else {
                         const next = selectedAuthMethods.filter((m) => m !== 'FaceId');
                         setValue('authMethods', next.length > 0 ? next : ['Card'], { shouldValidate: true, shouldDirty: true });
                       }
                     }}
-                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 cursor-pointer rounded border-border text-indigo-600 focus:ring-indigo-500"
                   />
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <ScanFace className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span>Khuôn mặt FaceID</span>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <ScanFace className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <span>Khuôn mặt FaceID</span>
+                    </div>
                   </div>
                 </label>
 
@@ -1037,11 +1060,15 @@ export function ClientFormDialog({
                     onChange={(e) => {
                       if (e.target.checked) {
                         setValue('authMethods', ['None'], { shouldValidate: true, shouldDirty: true });
+                        setValue('cardCode', '', { shouldValidate: true, shouldDirty: true });
+                        setValue('verifyVehiclePlate', false, { shouldValidate: true, shouldDirty: true });
+                        setVehicleSectionError(null);
                       } else {
-                        setValue('authMethods', ['FaceId'], { shouldValidate: true, shouldDirty: true });
+                        setValue('authMethods', ['Card', 'FaceId'], { shouldValidate: true, shouldDirty: true });
+                        setValue('verifyVehiclePlate', true, { shouldValidate: true, shouldDirty: true });
                       }
                     }}
-                    className="h-4 w-4 rounded border-border text-amber-600 focus:ring-amber-500"
+                    className="h-4 w-4 cursor-pointer rounded border-border text-amber-600 focus:ring-amber-500"
                   />
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Radio className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -1049,6 +1076,21 @@ export function ClientFormDialog({
                   </div>
                 </label>
               </div>
+
+              {/* Chú thích khi kích hoạt FaceID */}
+              {selectedAuthMethods.includes('FaceId') && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-xs text-blue-800 dark:text-blue-200">
+                  <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-blue-900 dark:text-blue-100">
+                      Chú thích FaceID:
+                    </span>{' '}
+                    <span>
+                      Cần mã thẻ để định danh cho dữ liệu khuôn mặt trên thiết bị FaceID (hệ thống tự động kích hoạt thẻ RFID).
+                    </span>
+                  </div>
+                </div>
+              )}
               {errors.authMethods && (
                 <p className="text-[11px] text-destructive">{errors.authMethods.message}</p>
               )}
@@ -1060,8 +1102,18 @@ export function ClientFormDialog({
                 <span className="flex items-center gap-1.5">
                   <CreditCard className="h-3.5 w-3.5 text-indigo-500" />
                   <span>Mã thẻ định danh RFID</span>
-                  {selectedAuthMethods.some((m) => m.toLowerCase() !== 'none') && (
+                  {!isNoneAuth && (
                     <span className="text-destructive font-bold">*</span>
+                  )}
+                  {isNoneAuth && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">
+                      (Không áp dụng cho Làn tự do)
+                    </span>
+                  )}
+                  {selectedAuthMethods.includes('FaceId') && !isNoneAuth && (
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-normal">
+                      (Cần mã thẻ để định danh cho dữ liệu khuôn mặt)
+                    </span>
                   )}
                 </span>
                 {cardCodeInput && cardCodeInput.trim() && (
@@ -1091,7 +1143,12 @@ export function ClientFormDialog({
                     shouldValidate: true,
                   });
                 }}
-                placeholder="-- Chọn thẻ định danh Person trong kho --"
+                disabled={isSubmitting || isNoneAuth}
+                placeholder={
+                  isNoneAuth
+                    ? 'Làn tự do (None) — Không sử dụng thẻ định danh RFID'
+                    : '-- Chọn thẻ định danh Person trong kho --'
+                }
                 allowClear={true}
                 clearLabel="-- Không gán thẻ từ (None) --"
               />
@@ -1099,38 +1156,44 @@ export function ClientFormDialog({
                 <p className="text-[11px] text-destructive font-medium">{errors.cardCode.message}</p>
               )}
               <p className="text-[10px] text-muted-foreground">
-                Chọn thẻ từ kho thẻ có loại là Nhân sự (Person).
+                {isNoneAuth
+                  ? 'Khi chọn Làn tự do, hệ thống sẽ tự động gỡ toàn bộ liên kết thẻ RFID & dữ liệu trên máy FaceID.'
+                  : selectedAuthMethods.includes('FaceId')
+                    ? 'Cần mã thẻ để định danh cho dữ liệu khuôn mặt trên thiết bị FaceID.'
+                    : 'Chọn thẻ từ kho thẻ có loại là Nhân sự (Person).'}
               </p>
             </div>
 
-            {/* CỜ XÁC THỰC ĐỐI CHIẾU XE (VERIFYVEHICLEPLATE) */}
-            <div className="pt-2 border-t border-border/60">
-              <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
-                <input
-                  type="checkbox"
-                  {...register('verifyVehiclePlate', {
-                    onChange: (e) => {
-                      if (!e.target.checked) {
-                        setVehicleSectionError(null);
-                      }
-                    },
-                  })}
-                  className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
-                />
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Car className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                    <span className="text-xs font-semibold text-foreground">
-                      Bắt buộc xác thực đối chiếu biển số xe khi qua cổng
-                    </span>
+            {/* CỜ XÁC THỰC ĐỐI CHIẾU XE (VERIFYVEHICLEPLATE) - Ẩn khi ở chế độ Làn tự do (None) */}
+            {!isNoneAuth && (
+              <div className="pt-2 border-t border-border/60">
+                <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
+                  <input
+                    type="checkbox"
+                    {...register('verifyVehiclePlate', {
+                      onChange: (e) => {
+                        if (!e.target.checked) {
+                          setVehicleSectionError(null);
+                        }
+                      },
+                    })}
+                    className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
+                  />
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Car className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span className="text-xs font-semibold text-foreground">
+                        Bắt buộc xác thực đối chiếu biển số xe khi qua cổng
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      - <strong>Có tích chọn (Mặc định):</strong> Bắt buộc đăng ký xe và camera OCR đối soát biển số xe. Nếu biển số sai sẽ bị chặn.<br />
+                      - <strong>Bỏ tích:</strong> Miễn đối soát xe. Barrier sẽ mở ngay khi nhận diện Thẻ/FaceID hợp lệ (phù hợp cho VIP, khách thăm, lãnh đạo hoặc người đi bộ).
+                    </p>
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    - <strong>Có tích chọn (Mặc định):</strong> Bắt buộc đăng ký xe và camera OCR đối soát biển số xe. Nếu biển số sai sẽ bị chặn.<br />
-                    - <strong>Bỏ tích:</strong> Miễn đối soát xe. Barrier sẽ mở ngay khi nhận diện Thẻ/FaceID hợp lệ (phù hợp cho VIP, khách thăm, lãnh đạo hoặc người đi bộ).
-                  </p>
-                </div>
-              </label>
-            </div>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* 4. KHỐI PHƯƠNG TIỆN ĐĂNG KÝ */}
