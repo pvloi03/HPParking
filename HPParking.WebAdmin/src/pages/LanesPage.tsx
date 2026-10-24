@@ -4,7 +4,6 @@ import { toast } from '@/hooks/use-toast';
 import {
   Route,
   Trash2,
-  SlidersHorizontal,
   ArrowDownLeft,
   ArrowUpRight,
   ArrowLeftRight,
@@ -209,7 +208,7 @@ export function LanesPage() {
       cell: (item) => {
         if (item.targetType === LaneTargetType.Pedestrian) {
           return (
-            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1 text-[11px] font-medium">
+            <Badge className="w-max bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1 text-[11px] font-medium">
               <span>🚶 Người</span>
             </Badge>
           );
@@ -220,8 +219,8 @@ export function LanesPage() {
           </Badge>
         );
       },
-      className: 'w-24',
-      mobileLabel: 'Loại',
+      className: 'w-max',
+      mobileLabel: 'Đối tượng',
     },
     {
       header: 'Cổng trực thuộc',
@@ -259,22 +258,6 @@ export function LanesPage() {
       },
       className: 'w-36',
       mobileLabel: 'Hướng',
-    },
-    {
-      header: 'Cấu hình ngoại vi',
-      cell: (item) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setDetailLaneId(item.id)}
-          className="h-7 text-xs gap-1.5 px-2.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 border-blue-200 dark:border-blue-900 cursor-pointer"
-        >
-          <SlidersHorizontal className="h-3.5 w-3.5 text-blue-500" />
-          <span>Xem chi tiết</span>
-        </Button>
-      ),
-      className: 'w-36',
-      mobileLabel: 'Cấu hình',
     },
     {
       header: 'Trạng thái',
@@ -402,9 +385,9 @@ export function LanesPage() {
         onAddNew={
           canWrite
             ? () => {
-                setSelectedLane(null);
-                setIsFormOpen(true);
-              }
+              setSelectedLane(null);
+              setIsFormOpen(true);
+            }
             : undefined
         }
         addNewLabel="Thêm mới làn xe"
@@ -412,14 +395,14 @@ export function LanesPage() {
           onView: (item) => setDetailLaneId(item.id),
           onEdit: canWrite
             ? (item) => {
-                setSelectedLane(item);
-                setIsFormOpen(true);
-              }
+              setSelectedLane(item);
+              setIsFormOpen(true);
+            }
             : undefined,
           onDelete: canWrite
             ? (item) => {
-                setDeleteCandidate(item);
-              }
+              setDeleteCandidate(item);
+            }
             : undefined,
         }}
         emptyTitle="Không có làn xe nào"

@@ -221,7 +221,7 @@ export function LaneFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[90vw] max-h-[90vh] w-[575px] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
@@ -297,7 +297,7 @@ export function LaneFormDialog({
               <label className="text-xs font-bold text-foreground">
                 Đối tượng kiểm soát <span className="text-destructive">*</span>
               </label>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -305,8 +305,8 @@ export function LaneFormDialog({
                     setValue('usePlateCam', true);
                   }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${selectedTargetType === LaneTargetType.Vehicle
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-background hover:bg-muted text-muted-foreground border border-border'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-background hover:bg-muted text-muted-foreground border border-border'
                     }`}
                 >
                   🚗 Xe cơ giới
@@ -320,11 +320,11 @@ export function LaneFormDialog({
                     setValue('plateCameraDeviceId', 'none');
                   }}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${selectedTargetType === LaneTargetType.Pedestrian
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'bg-background hover:bg-muted text-muted-foreground border border-border'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-background hover:bg-muted text-muted-foreground border border-border'
                     }`}
                 >
-                  🚶 Người đi bộ (Turnstile/FaceID)
+                  🚶 Người đi bộ
                 </button>
               </div>
             </div>
@@ -526,7 +526,7 @@ export function LaneFormDialog({
                 className="text-xs font-mono"
               />
               <p className="text-[11px] text-muted-foreground">
-                Cổng kích mở Barrier trên bộ điều khiển (mặc định: 1).
+                Cổng kích mở Barrier trên bộ điều khiển.
               </p>
               {errors.outputRelay && (
                 <p className="text-[11px] text-destructive">{errors.outputRelay.message}</p>
@@ -545,7 +545,7 @@ export function LaneFormDialog({
                 className="text-xs font-mono"
               />
               <p className="text-[11px] text-muted-foreground">
-                Cổng nhận mã thẻ Wiegand trên Controller (mặc định: 1).
+                Cổng nhận mã thẻ Wiegand trên Controller.
               </p>
               {errors.inputReader && (
                 <p className="text-[11px] text-destructive">{errors.inputReader.message}</p>

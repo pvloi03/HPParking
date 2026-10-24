@@ -39,7 +39,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         preventOutsideClose={false}
-        className="max-w-md p-0 overflow-hidden flex flex-col bg-card border border-border shadow-2xl"
+        className="max-w-[90vw] w-[450px] p-0 overflow-hidden flex flex-col bg-card border border-border shadow-2xl"
       >
         <div className="p-6 flex items-start gap-4">
           <div className="h-11 w-11 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center shrink-0 shadow-xs">

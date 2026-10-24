@@ -124,6 +124,10 @@ _Avoid_: WrongPlate, InvalidPlateMatch
 Quy tắc kiểm soát khuôn mặt tại làn xe: chỉ kích hoạt chụp và nhận diện FaceID (`needFace: true`) khi làn được trang bị phần cứng FaceID (`Lane.HasFaceDevice()`) VÀ hồ sơ Client có đăng ký phương thức xác thực `FaceId` (`client.UsesFaceAuth()`). Với Client chỉ dùng thẻ hoặc làn không có FaceID, và đối với toàn bộ luồng xe công vụ / dùng chung (`SharedVehicle`), FaceID luôn ở trạng thái tắt (`needFace: false`).
 _Avoid_: ForceLaneFace, AlwaysFaceCapture, SharedVehicleFaceScan
 
+**AutoOpenBarrier**:
+Chính sách cấu hình trên từng hồ sơ nhân sự quyết định việc tự động kích hoạt rơ-le mở barie hoặc cổng quay turnstile theo từng chiều vào và ra sau khi xác thực thành công. Khi tắt ở một chiều, phiên lưu thông hợp lệ vẫn được ghi nhận nhưng thanh chắn giữ nguyên để bảo vệ kiểm soát và mở thủ công.
+_Avoid_: ManualVerifyDialog, BlockSessionOnClosedBarrier, LaneLevelAutoOpen
+
 ### Hardware & Peripherals
 
 **Barrier**:

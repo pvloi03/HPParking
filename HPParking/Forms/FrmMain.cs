@@ -115,7 +115,7 @@ namespace HPParking.Forms
 
             var gateLanes = await _laneRepository.FindAsync(x => x.GateId == _currentGate.Id && x.IsActive && !x.IsDeleted);
             _lanes = gateLanes?.OrderBy(x => x.InputReader).ToList() ?? [];
-            _laneContexts = [.. _lanes.Select(l => new LaneRuntimeContext(l))];
+
 
             Text = $"HPPARKING - {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code})";
             lblGateInfo.Text = $"CỔNG: {(_currentGate.Name ?? "CỔNG KIỂM SOÁT").ToUpperInvariant()} (MÃ: {_currentGate.Code}) - SỐ LÀN KẾT NỐI: {_lanes.Count}";
@@ -131,7 +131,7 @@ namespace HPParking.Forms
             SetFormConfigurationLocked(false);
 
             // Liên kết Làn 1-1 và áp dụng Dynamic Layout
-            BindLanesToUiSlots();
+            ApplyLaneContexts([.. _lanes.Select(l => new LaneRuntimeContext(l))]);
 
             // Khởi tạo Thiết bị Phần Cứng & LiveView Camera
             _devices = (await _deviceRepository.FindAsync(x => x.IsActive && !x.IsDeleted))?.ToList() ?? [];
@@ -149,6 +149,24 @@ namespace HPParking.Forms
         #endregion
 
         #region --- 2. DYNAMIC 1-1 LANE BINDING & OPTION B LAYOUT ---
+
+        internal void ApplyLaneContexts(List<LaneRuntimeContext> contexts)
+        {
+            _laneContexts = contexts ?? [];
+            _lanes = [.. _laneContexts.Select(c => c.Lane)];
+            BindLanesToUiSlots();
+        }
+
+        internal string GetSlotTitleText(int slotIndex) => GetSlotTitleLabel(slotIndex).Text;
+
+        private Label GetSlotTitleLabel(int slotIndex) => slotIndex switch
+        {
+            0 => lblTitleLane1,
+            1 => lblTitleLane2,
+            2 => lblTitleLane3,
+            3 => lblTitleLane4,
+            _ => throw new ArgumentOutOfRangeException(nameof(slotIndex))
+        };
 
         private void BindLanesToUiSlots()
         {
@@ -180,22 +198,7 @@ namespace HPParking.Forms
 
         private void ConfigureSlotHeader(int slotIndex, Lane lane)
         {
-
-            switch (slotIndex)
-            {
-                case 0:
-                    lblTitleLane1.Text = $"{lane.Name.ToUpperInvariant()}";
-                    break;
-                case 1:
-                    lblTitleLane2.Text = $"{lane.Name.ToUpperInvariant()}";
-                    break;
-                case 2:
-                    lblTitleLane3.Text = $"{lane.Name.ToUpperInvariant()}";
-                    break;
-                case 3:
-                    lblTitleLane4.Text = $"{lane.Name.ToUpperInvariant()}";
-                    break;
-            }
+            GetSlotTitleLabel(slotIndex).Text = $"{lane.Name.ToUpperInvariant()} [F{slotIndex + 1}]";
         }
 
         private (PictureBox Overview, PictureBox Plate, PictureBox Face) GetLaneCamBoxes(int slotIndex)
@@ -1129,6 +1132,50 @@ namespace HPParking.Forms
 
         #region --- 5. UI ACTIONS & HARDWARE RELOAD ---
 
+        internal static int? ResolveHotkeySlot(Keys keyData) => keyData switch
+        {
+            Keys.F1 => 0,
+            Keys.F2 => 1,
+            Keys.F3 => 2,
+            Keys.F4 => 3,
+            _ => null
+        };
+
+        internal bool TryOpenBarrierByHotkey(int slotIndex, Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null)
+        {
+            if (!tlpLanes.Enabled || _laneContexts == null || slotIndex < 0 || slotIndex >= _laneContexts.Count || slotIndex >= 4)
+            {
+                return false;
+            }
+
+            LaneRuntimeContext context = _laneContexts[slotIndex];
+            if (context.OpenBarrier())
+            {
+                return true;
+            }
+
+            int relayPort = context.Lane.OutputRelay > 0 ? context.Lane.OutputRelay : context.Lane.InputReader;
+            string controllerIp = context.Controller?.Config?.IP ?? "N/A";
+            string errorMsg = $"[Hotkey F{slotIndex + 1}] Mở barrier thất bại tại làn '{context.Lane.Name}' (Relay={relayPort}, Controller={controllerIp}).";
+            System.Diagnostics.Debug.WriteLine(errorMsg);
+            Console.WriteLine(errorMsg);
+
+            var failHandler = onBarrierOpenFailed ?? HandleBarrierOpenFailed;
+            return failHandler(context);
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            int? slotIndex = ResolveHotkeySlot(keyData);
+            if (slotIndex.HasValue)
+            {
+                TryOpenBarrierByHotkey(slotIndex.Value);
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
         private async void BtnReloadHardware_Click(object? sender, EventArgs e)
         {
             try
@@ -1206,7 +1253,7 @@ namespace HPParking.Forms
         /// Khóa/mở toàn bộ giao diện làn. Khi locked, chỉ btnReloadHardware hoạt động.
         /// Dùng khi chưa có Cổng hoặc Làn hợp lệ để ngăn vận hành nhầm.
         /// </summary>
-        private void SetFormConfigurationLocked(bool locked)
+        internal void SetFormConfigurationLocked(bool locked)
         {
             tlpLanes.Enabled = !locked;
             // btnReloadHardware nằm trong pnlFooter — luôn giữ enabled

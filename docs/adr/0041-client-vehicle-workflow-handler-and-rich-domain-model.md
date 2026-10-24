@@ -35,6 +35,7 @@ Quyết định kiến trúc về việc tái cấu trúc luồng kiểm soát x
    - Thêm phương thức `RequiresPlateVerification()`: Trả về giá trị của cờ `VerifyVehiclePlate`.
    - Thêm phương thức `UsesFaceAuth()`: Kiểm tra người dùng có đăng ký và sử dụng phương thức xác thực khuôn mặt (`FaceId`) hay không.
    - Thêm phương thức `UsesCardAuth()`: Kiểm tra người dùng có đăng ký phương thức xác thực bằng thẻ từ (`Card`) hay không.
+   - Thêm value object `AutoOpenBarrier { OnEntry, OnExit }` (null-safe, mặc định `true/true`) và phương thức `ShouldAutoOpenBarrier(LaneDirection direction)`: Trả về `AutoOpenBarrier.OnEntry` khi `direction == LaneDirection.In`, `AutoOpenBarrier.OnExit` khi `direction == LaneDirection.Out`, và ném `ArgumentOutOfRangeException` với các giá trị chiều không tường minh (như `Bidirectional`). Các hàm xử lý chiều vào/ra truyền trực tiếp `LaneDirection.In` hoặc `LaneDirection.Out` theo ngữ cảnh nghiệp vụ thay vì đọc `context.Lane.Direction`.
 
 ### 2. Định Nghĩa Giao Diện Chuyên Trách `IClientVehicleWorkflowHandler` và `ClientVehicleExecutionContext`
 Áp dụng mẫu thiết kế **Introduce Parameter Object** nhằm triệt tiêu mùi mã **Data Clumps** (7 tham số lặp lại), tạo mới DTO `ClientVehicleExecutionContext` và giao diện [IClientVehicleWorkflowHandler.cs](../../HPParking/Services/Parking/Handlers/IClientVehicleWorkflowHandler.cs) tại tầng Service:
@@ -70,14 +71,14 @@ Lớp `ClientVehicleWorkflowHandler` đóng gói toàn bộ quy trình kiểm so
   4. Đối soát biển số:
      - Nếu `VerifyVehiclePlate == true`: Không nhận diện được hoặc không khớp danh mục xe đã đăng ký -> Trả về `LprFailed` hoặc `PlateMismatch`.
      - Nếu `VerifyVehiclePlate == false` (VIP Seamless Gate Access): Miễn xác thực biển số và mở barie ngay. Nếu LPR nhận diện được biển số thực tế, lưu biển số đó (`matchedVehicle?.PlateNumber ?? recognizedPlate`). Nếu LPR không nhận diện được, bỏ qua và lưu `PlateNumber = ""` (chuỗi rỗng), tuyệt đối không nối chuỗi `; ` hay gán bừa xe khác.
-  5. Mở barrier và tạo phiên `ParkingSession` mới, lưu ảnh ngầm qua `IWorkflowImageStorageOrchestrator`.
+  5. Nếu `client.ShouldAutoOpenBarrier(LaneDirection.In)` là `true`, gọi `TryOpenBarrier` kích hoạt rơ-le mở thanh chắn (nếu `false` thì bỏ qua lệnh kích rơ-le để bảo vệ mở thủ công bằng `F1–F4`); sau đó tạo phiên `ParkingSession` mới (`ProcessStatus.Success`) và lưu ảnh ngầm qua `IWorkflowImageStorageOrchestrator`.
 - **Quy trình Lúc Ra (`ProcessExitAsync`)**:
   1. Kiểm tra phiên gửi đang hoạt động (`NotInParking`).
   2. Chụp camera làn ra và chạy LPR nhận diện biển số ra.
   3. Thực thi chính sách kiểm soát ra:
      - Nếu `VerifyVehiclePlate == true`: Áp dụng **Strict Exit Lockout**, nếu biển số ra không khớp biển số vào (`Vehicle.MatchesPlate`), chặn cứng 100%, không mở barrier và trả về `PlateMismatch`.
      - Nếu `VerifyVehiclePlate == false` (VIP): Miễn trừ Strict Exit Lockout, mở barrier ra và đóng phiên thành công bất kể biển số ra đọc được hay không.
-  4. Mở barrier ra, cập nhật phiên `ParkingSession` (`Status = Completed`, `OutTime`) và lưu ảnh ra nền ngầm.
+  4. Nếu `client.ShouldAutoOpenBarrier(LaneDirection.Out)` là `true`, gọi `TryOpenBarrier` kích hoạt rơ-le mở thanh chắn ra (tương tự áp dụng cho cả luồng người đi bộ `ProcessPedestrianEntryAsync` / `ProcessPedestrianExitAsync`); cập nhật phiên `ParkingSession` (`Status = Completed`, `OutTime`) và lưu ảnh ra nền ngầm.
 - **Quy tắc Kiểm Soát Chụp FaceID (`needFace`)**:
   - Tại cả `ProcessEntryAsync` và `ProcessExitAsync`: Chỉ kích hoạt chụp FaceID (`needFace: true`) khi thỏa mãn đồng thời:
     1. Làn có thiết bị/camera FaceID: `context.Lane?.HasFaceDevice() ?? false`.
