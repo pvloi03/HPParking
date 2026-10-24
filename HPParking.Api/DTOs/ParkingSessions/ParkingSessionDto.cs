@@ -1,5 +1,6 @@
 using HPParking.Api.DTOs.Common;
 using HPParking.Core.Models.Enums;
+using System;
 
 namespace HPParking.Api.DTOs.ParkingSessions
 {
@@ -17,6 +18,7 @@ namespace HPParking.Api.DTOs.ParkingSessions
         public double? FaceMatchScore { get; set; }
 
         // --- LƯỢT VÀO ---
+        public long? InOrderNumber { get; set; }
         public DateTime? InTime { get; set; }
         public string? InLaneName { get; set; }
         public string InOverviewImagePath { get; set; } = string.Empty;

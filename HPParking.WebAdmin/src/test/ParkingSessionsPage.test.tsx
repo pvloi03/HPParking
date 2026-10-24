@@ -49,6 +49,7 @@ describe('ParkingSessionsPage Component', () => {
   const mockSessions = [
     {
       id: 'sess-1',
+      inOrderNumber: 99,
       plateNumber: '30A-111.22',
       vehicleType: VehicleType.Car,
       status: ParkingSessionStatus.Active,
@@ -97,6 +98,8 @@ describe('ParkingSessionsPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('30A-111.22').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('#99').length).toBeGreaterThan(0);
+      expect(screen.getByText('Thời Gian Vào')).toBeInTheDocument();
       expect(screen.getAllByText('29B-999.88').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Nguyễn Văn A').length).toBeGreaterThan(0);
     });
@@ -118,6 +121,8 @@ describe('ParkingSessionsPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('30A-111.22').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('#99').length).toBeGreaterThan(0);
+      expect(screen.getByText('Thời Gian Vào')).toBeInTheDocument();
     });
 
     // Bấm nút xem nhanh Hôm nay

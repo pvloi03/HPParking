@@ -24,6 +24,7 @@ export interface ParkingSessionDto {
   faceMatchScore?: number;
 
   // --- LƯỢT VÀO ---
+  inOrderNumber?: number;
   inTime?: string;
   inLaneName?: string;
   inOverviewImagePath: string;

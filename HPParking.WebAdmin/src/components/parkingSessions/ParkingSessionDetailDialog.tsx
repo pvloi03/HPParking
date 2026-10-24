@@ -29,6 +29,7 @@ import { parkingSessionApi } from '@/api/parkingSessionApi';
 import { ParkingSessionStatus } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
 import { LaneTargetType } from '@/types/infrastructure';
+import { formatInOrderTag } from '@/utils/formatters';
 
 export interface ParkingSessionDetailDialogProps {
   open: boolean;
@@ -114,8 +115,8 @@ export function ParkingSessionDetailDialog({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-bold tracking-wide">
                   {isPedestrian
-                    ? `Chi Tiết Lượt Người Vào Ra: ${session?.personFullName || session?.personCode || 'Khách'}`
-                    : `Chi Tiết Lượt Xe: ${session?.plateNumber || 'Đang tải...'}`}
+                    ? `Chi Tiết Lượt Người Vào Ra${formatInOrderTag(session)}: ${session?.personFullName || session?.personCode || 'Khách'}`
+                    : `Chi Tiết Lượt Xe${formatInOrderTag(session)}: ${session?.plateNumber || 'Đang tải...'}`}
                 </span>
                 <span className="text-xs text-muted-foreground font-normal">
                   {isPedestrian

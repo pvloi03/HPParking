@@ -162,6 +162,7 @@ namespace HPParking.Api.Services.Implementations
 
                     return new PedestrianSessionExcelDto
                     {
+                        InOrderDisplay = FormatInOrderDisplay(s.InTime, s.InOrderNumber),
                         PersonCode = client?.Code ?? string.Empty,
                         PersonName = client?.Name ?? (string.IsNullOrWhiteSpace(s.PersonId) ? "Khách vãng lai" : "Chưa xác định"),
                         Status = statusText,
@@ -212,6 +213,7 @@ namespace HPParking.Api.Services.Implementations
 
                 return new ParkingSessionExcelDto
                 {
+                    InOrderDisplay = FormatInOrderDisplay(s.InTime, s.InOrderNumber),
                     PlateNumber = s.PlateNumber,
                     VehicleType = s.VehicleType,
                     Status = s.Status,
@@ -511,6 +513,13 @@ namespace HPParking.Api.Services.Implementations
                 "targetentity" => isAsc ? sortBuilder.Ascending(x => x.TargetEntity) : sortBuilder.Descending(x => x.TargetEntity),
                 _ => isAsc ? sortBuilder.Ascending(x => x.CreatedAt) : sortBuilder.Descending(x => x.CreatedAt)
             };
+        }
+
+        private static string FormatInOrderDisplay(DateTime? inTime, long? inOrderNumber)
+        {
+            return inTime.HasValue && inOrderNumber.HasValue
+                ? $"#{inOrderNumber.Value}"
+                : string.Empty;
         }
 
         private static string FormatDuration(DateTime? inTime, DateTime? outTime)

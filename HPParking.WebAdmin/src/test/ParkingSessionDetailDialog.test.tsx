@@ -30,6 +30,7 @@ describe('ParkingSessionDetailDialog Component', () => {
 
   const mockSessionNormal = {
     id: 'session-normal',
+    inOrderNumber: 102,
     plateNumber: '30A-999.88',
     vehicleType: VehicleType.Car,
     status: ParkingSessionStatus.Completed,
@@ -68,6 +69,7 @@ describe('ParkingSessionDetailDialog Component', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText(/30A-999.88/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Chi Tiết Lượt Xe #102:/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Trần Văn B/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/2 giờ 30 phút/i).length).toBeGreaterThan(0);
     });
@@ -107,6 +109,7 @@ describe('ParkingSessionDetailDialog Component', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText(/30A-999.88/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Chi Tiết Lượt Xe #102:/i).length).toBeGreaterThan(0);
     });
 
     // Bấm tab Bảng Thông Số Chi Tiết
@@ -141,6 +144,7 @@ describe('ParkingSessionDetailDialog Component', () => {
   it('hiển thị đúng câu từ người vào ra cho phiên đi bộ (không bị ám ảnh bởi phương tiện)', async () => {
     const mockPedestrianSession = {
       id: 'session-ped-01',
+      inOrderNumber: 55,
       plateNumber: '',
       vehicleType: null,
       targetType: 1, // LaneTargetType.Pedestrian
@@ -171,7 +175,7 @@ describe('ParkingSessionDetailDialog Component', () => {
 
     await waitFor(() => {
       // Header dialog hiển thị Lượt Người Vào Ra
-      expect(screen.getByText(/Chi Tiết Lượt Người Vào Ra/i)).toBeInTheDocument();
+      expect(screen.getByText(/Chi Tiết Lượt Người Vào Ra #55/i)).toBeInTheDocument();
       expect(screen.getAllByText(/Nguyễn Thu Trang/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/EMP-999/i).length).toBeGreaterThan(0);
       // Badge trạng thái người: Đang bên trong

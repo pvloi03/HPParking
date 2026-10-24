@@ -35,6 +35,12 @@ namespace HPParking.Core.Models.Entities
         public double? FaceMatchScore { get; set; }
 
         // --- THÔNG TIN LƯỢT VÀO (CHECK-IN) ---
+        /// <summary>
+        /// Số thứ tự lượt vào xuyên suốt theo từng phân hệ (TargetType), tính từ 1 trở đi dựa theo InTime.
+        /// Bằng null nếu bản ghi không có InTime (ví dụ: Ra không vào).
+        /// </summary>
+        public long? InOrderNumber { get; set; }
+
         [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
         public DateTime? InTime { get; set; }
 

@@ -51,6 +51,7 @@ describe('VehicleSessionsPage & PedestrianSessionsPage', () => {
   const mockVehicleSessions = [
     {
       id: 'sess-v1',
+      inOrderNumber: 42,
       plateNumber: '30A-111.22',
       vehicleType: VehicleType.Car,
       status: ParkingSessionStatus.Active,
@@ -64,6 +65,7 @@ describe('VehicleSessionsPage & PedestrianSessionsPage', () => {
   const mockPedestrianSessions = [
     {
       id: 'sess-p1',
+      inOrderNumber: 15,
       cardNumber: 'CARD-PED-001',
       cardCode: 'RFID001',
       personFullName: 'Trần Thị B',
@@ -106,6 +108,8 @@ describe('VehicleSessionsPage & PedestrianSessionsPage', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('30A-111.22').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('#42').length).toBeGreaterThan(0);
+      expect(screen.getByText('Thời Gian Vào')).toBeInTheDocument();
     });
 
     // Xác nhận API được gọi với targetType = 0 (LaneTargetType.Vehicle)
@@ -160,6 +164,8 @@ describe('VehicleSessionsPage & PedestrianSessionsPage', () => {
       expect(screen.getAllByText('Trần Thị B').length).toBeGreaterThan(0);
       expect(screen.getAllByText('EMP-002').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Làn Đi Bộ 01').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('#15').length).toBeGreaterThan(0);
+      expect(screen.getByText('Thời Gian Vào')).toBeInTheDocument();
     });
 
     // Xác nhận API được gọi với targetType = 1 (LaneTargetType.Pedestrian)

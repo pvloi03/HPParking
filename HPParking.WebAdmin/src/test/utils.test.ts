@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDateTimeVi } from '@/utils/formatters';
+import { formatDateTimeVi, formatInOrderNumber, formatInOrderTag } from '@/utils/formatters';
 import { createEmptyPagedResult } from '@/utils/pagination';
 
 describe('formatDateTimeVi', () => {
@@ -18,6 +18,41 @@ describe('formatDateTimeVi', () => {
     const formatted = formatDateTimeVi(isoString);
     expect(formatted).not.toBe('—');
     expect(formatted).toContain('2026');
+  });
+});
+
+describe('formatInOrderNumber', () => {
+  it('trả về "--" khi session là null hoặc undefined', () => {
+    expect(formatInOrderNumber(null)).toBe('--');
+    expect(formatInOrderNumber(undefined)).toBe('--');
+  });
+
+  it('trả về "--" khi inTime bị thiếu hoặc rỗng', () => {
+    expect(formatInOrderNumber({ inTime: null, inOrderNumber: 42 })).toBe('--');
+    expect(formatInOrderNumber({ inTime: '', inOrderNumber: 42 })).toBe('--');
+  });
+
+  it('trả về "--" khi inOrderNumber bị thiếu hoặc null', () => {
+    expect(formatInOrderNumber({ inTime: '2026-09-28T07:15:00Z', inOrderNumber: null })).toBe('--');
+    expect(formatInOrderNumber({ inTime: '2026-09-28T07:15:00Z', inOrderNumber: undefined })).toBe('--');
+  });
+
+  it('trả về "#<inOrderNumber>" khi có cả inTime và inOrderNumber', () => {
+    expect(formatInOrderNumber({ inTime: '2026-09-28T07:15:00Z', inOrderNumber: 137 })).toBe('#137');
+    expect(formatInOrderNumber({ inTime: '2026-09-28T07:15:00Z', inOrderNumber: 1 })).toBe('#1');
+  });
+});
+
+describe('formatInOrderTag', () => {
+  it('trả về chuỗi rỗng khi session là null hoặc thiếu inTime / inOrderNumber', () => {
+    expect(formatInOrderTag(null)).toBe('');
+    expect(formatInOrderTag(undefined)).toBe('');
+    expect(formatInOrderTag({ inTime: null, inOrderNumber: 42 })).toBe('');
+    expect(formatInOrderTag({ inTime: '2026-09-28T07:15:00Z', inOrderNumber: null })).toBe('');
+  });
+
+  it('trả về " #<inOrderNumber>" khi có cả inTime và inOrderNumber', () => {
+    expect(formatInOrderTag({ inTime: '2026-09-28T07:15:00Z', inOrderNumber: 102 })).toBe(' #102');
   });
 });
 

@@ -6,6 +6,7 @@ using HPParking.Interfaces;
 using HPParking.Models;
 using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
+using HPParking.Services.Parking;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -165,12 +166,14 @@ namespace HPParking.Services.Parking.Handlers
             string sessionPlate = matchedVehicle?.PlateNumber
                 ?? (!string.IsNullOrWhiteSpace(recognizedPlate) ? recognizedPlate : string.Empty);
 
+            var inOrderNumber = await _sessionRepository.GetNextInOrderNumberAsync(LaneTargetType.Vehicle);
             var parking = new ParkingSession
             {
                 PersonId = client.Id,
                 PlateNumber = sessionPlate,
                 VehicleType = matchedVehicle?.Type ?? clientVehicles.FirstOrDefault()?.Type ?? VehicleType.Car,
                 TargetType = LaneTargetType.Vehicle,
+                InOrderNumber = inOrderNumber,
                 InTime = (trigger.TriggerTime != default && trigger.TriggerTime != DateTime.MinValue) ? trigger.TriggerTime : DateTime.Now,
                 InLaneName = context.Lane?.Name ?? string.Empty,
                 Status = ParkingSessionStatus.Active,

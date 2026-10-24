@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
+import { inOrderNumberColumn } from './inOrderNumberColumn';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
@@ -149,6 +150,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
 
   // Cấu hình cột bảng riêng biệt cho Phương tiện vs Người đi bộ
   const vehicleColumns: ColumnDef<ParkingSessionDto>[] = [
+    inOrderNumberColumn,
     {
       header: 'Biển Số Xe',
       cell: (item) => {
@@ -212,7 +214,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Vào',
+      header: 'Thời Gian Vào',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -226,7 +228,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Ra',
+      header: 'Thời Gian Ra',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -317,6 +319,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
   ];
 
   const pedestrianColumns: ColumnDef<ParkingSessionDto>[] = [
+    inOrderNumberColumn,
     {
       header: 'Mã định danh',
       cell: (item) => (
@@ -339,7 +342,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Vào',
+      header: 'Thời Gian Vào',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -353,7 +356,7 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       ),
     },
     {
-      header: 'Lượt Ra',
+      header: 'Thời Gian Ra',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">

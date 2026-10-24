@@ -292,11 +292,13 @@ namespace HPParking.Services.Parking
                 };
             }
 
+            var inOrderNumber = await _sessionRepository.GetNextInOrderNumberAsync(LaneTargetType.Pedestrian);
             var session = new ParkingSession
             {
                 TargetType = LaneTargetType.Pedestrian,
                 PersonId = client.Id,
                 VehicleType = null,
+                InOrderNumber = inOrderNumber,
                 InTime = trigger.TriggerTime,
                 InLaneName = context.Lane.Name,
                 Status = ParkingSessionStatus.Active,
@@ -484,11 +486,13 @@ namespace HPParking.Services.Parking
                 };
             }
 
+            var inOrderNumber = await _sessionRepository.GetNextInOrderNumberAsync(LaneTargetType.Vehicle);
             var session = new ParkingSession
             {
                 PlateNumber = vehicle.PlateNumber,
                 VehicleType = vehicle.Type,
                 TargetType = LaneTargetType.Vehicle,
+                InOrderNumber = inOrderNumber,
                 InTime = trigger.TriggerTime,
                 InLaneName = context.Lane.Name,
                 Status = ParkingSessionStatus.Active,

@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/common/DataTable';
+import { inOrderNumberColumn } from '@/components/parkingSessions/inOrderNumberColumn';
 import { ParkingSessionDetailDialog } from '@/components/parkingSessions/ParkingSessionDetailDialog';
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
@@ -161,6 +162,7 @@ export function ParkingSessionsPage() {
 
   // Định nghĩa các cột cho DataTable
   const columns: ColumnDef<ParkingSessionDto>[] = [
+    inOrderNumberColumn,
     {
       header: 'Đối Tượng',
       cell: (item) => {
@@ -249,7 +251,7 @@ export function ParkingSessionsPage() {
       },
     },
     {
-      header: 'Lượt Vào',
+      header: 'Thời Gian Vào',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
@@ -263,7 +265,7 @@ export function ParkingSessionsPage() {
       ),
     },
     {
-      header: 'Lượt Ra',
+      header: 'Thời Gian Ra',
       cell: (item) => (
         <div className="text-xs space-y-0.5">
           <div className="font-mono text-foreground font-medium">
