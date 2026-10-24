@@ -62,6 +62,7 @@ import {
   type CreateClientRequest,
   type UpdateClientRequest,
   type AutoOpenBarrier,
+  DEFAULT_AUTO_OPEN_BARRIER,
 } from '@/types/client';
 
 export const CLIENT_TYPE_OPTIONS = [
@@ -166,7 +167,7 @@ type ClientFormData = z.infer<typeof clientSchema>;
 
 export function resolveAutoOpenBarrier(client?: ClientDto | null): AutoOpenBarrier {
   if (client?.authMethods?.includes('None')) {
-    return { onEntry: true, onExit: true };
+    return DEFAULT_AUTO_OPEN_BARRIER;
   }
   return {
     onEntry: client?.autoOpenBarrier?.onEntry ?? true,
@@ -303,10 +304,7 @@ export function ClientFormDialog({
       cardCode: '',
       authMethods: ['Card', 'FaceId'],
       verifyVehiclePlate: true,
-      autoOpenBarrier: {
-        onEntry: true,
-        onExit: true,
-      },
+      autoOpenBarrier: DEFAULT_AUTO_OPEN_BARRIER,
       type: ClientType.Employee,
       gender: 1, // 1: Nam
       birthDay: '1995-01-01',
@@ -469,10 +467,7 @@ export function ClientFormDialog({
           cardCode: '',
           authMethods: ['Card', 'FaceId'],
           verifyVehiclePlate: true,
-          autoOpenBarrier: {
-            onEntry: true,
-            onExit: true,
-          },
+          autoOpenBarrier: DEFAULT_AUTO_OPEN_BARRIER,
           type: ClientType.Employee,
           gender: genderVal,
           birthDay: parsedDob,
@@ -497,10 +492,7 @@ export function ClientFormDialog({
           cardCode: '',
           authMethods: ['Card', 'FaceId'],
           verifyVehiclePlate: true,
-          autoOpenBarrier: {
-            onEntry: true,
-            onExit: true,
-          },
+          autoOpenBarrier: DEFAULT_AUTO_OPEN_BARRIER,
           type: ClientType.Employee,
           gender: 1,
           birthDay: '1995-01-01',
@@ -618,7 +610,7 @@ export function ClientFormDialog({
       authMethods: formData.authMethods,
       verifyVehiclePlate: isNoneAuth ? false : formData.verifyVehiclePlate,
       autoOpenBarrier: isNoneAuth
-        ? { onEntry: true, onExit: true }
+        ? DEFAULT_AUTO_OPEN_BARRIER
         : formData.autoOpenBarrier,
       isActive: isEditing ? (initialData?.isActive ?? false) : false,
       note: formData.note?.trim() || undefined,
@@ -1094,12 +1086,12 @@ export function ClientFormDialog({
                         setValue('authMethods', ['None'], { shouldValidate: true, shouldDirty: true });
                         setValue('cardCode', '', { shouldValidate: true, shouldDirty: true });
                         setValue('verifyVehiclePlate', false, { shouldValidate: true, shouldDirty: true });
-                        setValue('autoOpenBarrier', { onEntry: true, onExit: true }, { shouldValidate: true, shouldDirty: true });
+                        setValue('autoOpenBarrier', DEFAULT_AUTO_OPEN_BARRIER, { shouldValidate: true, shouldDirty: true });
                         setVehicleSectionError(null);
                       } else {
                         setValue('authMethods', ['Card', 'FaceId'], { shouldValidate: true, shouldDirty: true });
                         setValue('verifyVehiclePlate', true, { shouldValidate: true, shouldDirty: true });
-                        setValue('autoOpenBarrier', { onEntry: true, onExit: true }, { shouldValidate: true, shouldDirty: true });
+                        setValue('autoOpenBarrier', DEFAULT_AUTO_OPEN_BARRIER, { shouldValidate: true, shouldDirty: true });
                       }
                     }}
                     className="h-4 w-4 cursor-pointer rounded border-border text-amber-600 focus:ring-amber-500"

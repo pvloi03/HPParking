@@ -30,6 +30,11 @@ export interface AutoOpenBarrier {
   onExit: boolean;
 }
 
+export const DEFAULT_AUTO_OPEN_BARRIER: AutoOpenBarrier = Object.freeze({
+  onEntry: true,
+  onExit: true,
+});
+
 export interface ClientDto {
   id: string;
   code: string;
