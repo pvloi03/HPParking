@@ -208,5 +208,20 @@ namespace HPParking.Core.Models.Entities
         /// Tự động mở barrier làn RA khi xác thực thành công (mặc định: true).
         /// </summary>
         public bool OnExit { get; set; } = true;
+
+        /// <summary>
+        /// Chuẩn hóa cấu hình AutoOpenBarrier: Khi ở chế độ làn tự do (isNoneAuth = true),
+        /// barrier luôn được tự động mở cả 2 chiều (OnEntry = true, OnExit = true).
+        /// Ngược lại, trả về cấu hình chỉ định hoặc giá trị mặc định.
+        /// </summary>
+        public static AutoOpenBarrier Resolve(bool isNoneAuth, AutoOpenBarrier? input = null)
+        {
+            if (isNoneAuth)
+            {
+                return new AutoOpenBarrier { OnEntry = true, OnExit = true };
+            }
+
+            return input ?? new AutoOpenBarrier();
+        }
     }
 }

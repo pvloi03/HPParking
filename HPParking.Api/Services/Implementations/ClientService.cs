@@ -340,9 +340,7 @@ namespace HPParking.Api.Services.Implementations
                 CardCode = cleanCardCode,
                 AuthMethods = authMethods,
                 VerifyVehiclePlate = isNoneAuth ? false : request.VerifyVehiclePlate,
-                AutoOpenBarrier = isNoneAuth
-                    ? new AutoOpenBarrier { OnEntry = true, OnExit = true }
-                    : request.AutoOpenBarrier ?? new AutoOpenBarrier(),
+                AutoOpenBarrier = AutoOpenBarrier.Resolve(isNoneAuth, request.AutoOpenBarrier),
                 IsActive = false, // Nhân sự mới luôn bắt đầu ở trạng thái Chưa kích hoạt, chờ phòng ban phê duyệt (ADR 0042)
                 Expired = request.Expired ?? new(),
                 Note = request.Note,
@@ -625,9 +623,7 @@ namespace HPParking.Api.Services.Implementations
             client.CardCode = cleanCardCode;
             client.AuthMethods = authMethods;
             client.VerifyVehiclePlate = isNoneAuth ? false : request.VerifyVehiclePlate;
-            client.AutoOpenBarrier = isNoneAuth
-                ? new AutoOpenBarrier { OnEntry = true, OnExit = true }
-                : request.AutoOpenBarrier ?? new AutoOpenBarrier();
+            client.AutoOpenBarrier = AutoOpenBarrier.Resolve(isNoneAuth, request.AutoOpenBarrier);
 
 
             // Bảo toàn trạng thái hoạt động: thay đổi trạng thái IsActive bắt buộc phải thông qua phê duyệt email phòng ban (ADR 0042)

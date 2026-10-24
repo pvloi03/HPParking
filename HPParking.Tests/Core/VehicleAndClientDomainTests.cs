@@ -408,5 +408,42 @@ namespace HPParking.Tests.Core
         }
 
         #endregion
+
+        [Fact]
+        public void AutoOpenBarrier_Resolve_WhenIsNoneAuthTrue_ShouldReturnTrueTrue()
+        {
+            var resolvedNull = AutoOpenBarrier.Resolve(isNoneAuth: true, null);
+            resolvedNull.OnEntry.Should().BeTrue();
+            resolvedNull.OnExit.Should().BeTrue();
+
+            var customInput = new AutoOpenBarrier { OnEntry = false, OnExit = false };
+            var resolvedCustom = AutoOpenBarrier.Resolve(isNoneAuth: true, customInput);
+            resolvedCustom.OnEntry.Should().BeTrue();
+            resolvedCustom.OnExit.Should().BeTrue();
+        }
+
+        [Fact]
+        public void AutoOpenBarrier_Resolve_WhenIsNoneAuthFalseAndInputNull_ShouldDefaultToTrueTrue()
+        {
+            var resolved = AutoOpenBarrier.Resolve(isNoneAuth: false, input: null);
+
+            resolved.OnEntry.Should().BeTrue();
+            resolved.OnExit.Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public void AutoOpenBarrier_Resolve_WhenIsNoneAuthFalseAndInputProvided_ShouldPreserveValues(bool onEntry, bool onExit)
+        {
+            var input = new AutoOpenBarrier { OnEntry = onEntry, OnExit = onExit };
+
+            var resolved = AutoOpenBarrier.Resolve(isNoneAuth: false, input);
+
+            resolved.OnEntry.Should().Be(onEntry);
+            resolved.OnExit.Should().Be(onExit);
+        }
     }
 }

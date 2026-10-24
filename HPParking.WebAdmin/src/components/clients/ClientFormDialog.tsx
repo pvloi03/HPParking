@@ -61,6 +61,7 @@ import {
   type ClientDto,
   type CreateClientRequest,
   type UpdateClientRequest,
+  type AutoOpenBarrier,
 } from '@/types/client';
 
 export const CLIENT_TYPE_OPTIONS = [
@@ -162,6 +163,16 @@ const clientSchema = z
   });
 
 type ClientFormData = z.infer<typeof clientSchema>;
+
+export function resolveAutoOpenBarrier(client?: ClientDto | null): AutoOpenBarrier {
+  if (client?.authMethods?.includes('None')) {
+    return { onEntry: true, onExit: true };
+  }
+  return {
+    onEntry: client?.autoOpenBarrier?.onEntry ?? true,
+    onExit: client?.autoOpenBarrier?.onExit ?? true,
+  };
+}
 
 interface ClientFormDialogProps {
   open: boolean;
@@ -391,12 +402,7 @@ export function ClientFormDialog({
                 : initialData.authMethods)
               : ['Card', 'FaceId'],
             verifyVehiclePlate: initialData.authMethods?.includes('None') ? false : (initialData.verifyVehiclePlate ?? true),
-            autoOpenBarrier: initialData.authMethods?.includes('None')
-              ? { onEntry: true, onExit: true }
-              : {
-                  onEntry: initialData.autoOpenBarrier?.onEntry ?? true,
-                  onExit: initialData.autoOpenBarrier?.onExit ?? true,
-                },
+            autoOpenBarrier: resolveAutoOpenBarrier(initialData),
             type: initialData.type ?? ClientType.Employee,
             gender: genderVal,
             birthDay: parsedDob || '1995-01-01',
@@ -424,12 +430,7 @@ export function ClientFormDialog({
                 : initialData.authMethods)
               : ['Card', 'FaceId'],
             verifyVehiclePlate: initialData.authMethods?.includes('None') ? false : (initialData.verifyVehiclePlate ?? true),
-            autoOpenBarrier: initialData.authMethods?.includes('None')
-              ? { onEntry: true, onExit: true }
-              : {
-                  onEntry: initialData.autoOpenBarrier?.onEntry ?? true,
-                  onExit: initialData.autoOpenBarrier?.onExit ?? true,
-                },
+            autoOpenBarrier: resolveAutoOpenBarrier(initialData),
             type: initialData.type ?? ClientType.Employee,
             gender: initialData.gender ?? 1,
             birthDay: toDateInputValue(initialData.birthDay) || '1995-01-01',
