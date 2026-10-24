@@ -2,9 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CardFormDialog } from '@/components/cards/CardFormDialog';
-import { clientApi } from '@/api/clientApi';
-import { vehicleApi } from '@/api/vehicleApi';
-import { toast } from '@/hooks/use-toast';
 import { CardTargetType, CardStatus, type CardDto } from '@/types/card';
 
 vi.mock('@/api/clientApi', () => ({

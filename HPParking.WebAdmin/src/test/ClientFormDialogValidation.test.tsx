@@ -373,4 +373,80 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
       screen.getAllByText(/Cần mã thẻ để định danh cho dữ liệu khuôn mặt/i).length
     ).toBeGreaterThan(0);
   });
+
+  it('hiển thị 2 checkbox tự động mở barrier làn Vào và Ra khi không phải None và submit đúng giá trị', async () => {
+    const mockSubmit = vi.fn();
+    renderDialog({
+      initialData: {
+        id: 'client-barrier-1',
+        code: 'NV-BARRIER',
+        name: 'Trần Văn Barrier',
+        phoneNumber: '0912345999',
+        cardCode: '0000123456',
+        authMethods: ['Card'],
+        verifyVehiclePlate: false,
+        autoOpenBarrier: { onEntry: true, onExit: true },
+        isActive: true,
+      } as any,
+      onSubmit: mockSubmit,
+    });
+
+    const entryBarrierCheckbox = screen.getByRole('checkbox', { name: /Tự động mở barrier làn VÀO/i });
+    const exitBarrierCheckbox = screen.getByRole('checkbox', { name: /Tự động mở barrier làn RA/i });
+
+    expect(entryBarrierCheckbox).toBeInTheDocument();
+    expect(exitBarrierCheckbox).toBeInTheDocument();
+    expect(entryBarrierCheckbox).toBeChecked();
+    expect(exitBarrierCheckbox).toBeChecked();
+
+    // Bỏ tick làn VÀO
+    fireEvent.click(entryBarrierCheckbox);
+    expect(entryBarrierCheckbox).not.toBeChecked();
+    expect(exitBarrierCheckbox).toBeChecked();
+
+    const submitBtn = screen.getByRole('button', { name: /Cập nhật/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      const payload = mockSubmit.mock.calls[0][0];
+      expect(payload.autoOpenBarrier).toEqual({ onEntry: false, onExit: true });
+    });
+  });
+
+  it('ẩn 2 checkbox tự động mở barrier khi chọn làn tự do (None) và ép autoOpenBarrier thành true/true khi submit', async () => {
+    const mockSubmit = vi.fn();
+    renderDialog({
+      initialData: {
+        id: 'client-barrier-2',
+        code: 'NV-BARRIER-2',
+        name: 'Lê Văn Tự Do',
+        phoneNumber: '0912345888',
+        cardCode: '0000123456',
+        authMethods: ['Card'],
+        verifyVehiclePlate: false,
+        autoOpenBarrier: { onEntry: false, onExit: false },
+        isActive: true,
+      } as any,
+      onSubmit: mockSubmit,
+    });
+
+    // Chọn Làn tự do (None)
+    const noneCheckbox = screen.getByRole('checkbox', { name: /Làn tự do \(None\)/i });
+    fireEvent.click(noneCheckbox);
+
+    // 2 checkbox Barrier phải bị ẩn
+    expect(screen.queryByRole('checkbox', { name: /Tự động mở barrier làn VÀO/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /Tự động mở barrier làn RA/i })).not.toBeInTheDocument();
+
+    const submitBtn = screen.getByRole('button', { name: /Cập nhật/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      const payload = mockSubmit.mock.calls[0][0];
+      expect(payload.authMethods).toEqual(['None']);
+      expect(payload.autoOpenBarrier).toEqual({ onEntry: true, onExit: true });
+    });
+  });
 });

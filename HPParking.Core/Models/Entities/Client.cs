@@ -70,6 +70,35 @@ namespace HPParking.Core.Models.Entities
 
         public bool IsActive { get; set; } = true;
 
+        private AutoOpenBarrier _autoOpenBarrier = new();
+
+        /// <summary>
+        /// Cấu hình tự động mở barrier cho từng chiều (Vào / Ra) khi xác thực người dùng thành công.
+        /// Mặc định: OnEntry = true, OnExit = true.
+        /// </summary>
+        public AutoOpenBarrier AutoOpenBarrier
+        {
+            get => _autoOpenBarrier ??= new();
+            set => _autoOpenBarrier = value ?? new();
+        }
+
+        /// <summary>
+        /// Kiểm tra xem có tự động mở barrier ở làn theo chiều chỉ định hay không.
+        /// </summary>
+        /// <param name="direction">Chiều làn xe (In / Out)</param>
+        /// <returns>True nếu cấu hình tự động mở barrier, False nếu bỏ qua lệnh mở barrier</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Ném ra khi chiều là Bidirectional hoặc không hợp lệ</exception>
+        public bool ShouldAutoOpenBarrier(LaneDirection direction)
+        {
+            var config = AutoOpenBarrier ?? new AutoOpenBarrier();
+            return direction switch
+            {
+                LaneDirection.In => config.OnEntry,
+                LaneDirection.Out => config.OnExit,
+                _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "LaneDirection must be In or Out.")
+            };
+        }
+
         private Expired _expired = new();
 
         public Expired Expired
@@ -166,5 +195,33 @@ namespace HPParking.Core.Models.Entities
 
         [BsonDateTimeOptions(Kind = DateTimeKind.Local)]
         public DateTime EndDay { get; set; } = DateTime.Now;
+    }
+
+    public class AutoOpenBarrier
+    {
+        /// <summary>
+        /// Tự động mở barrier làn VÀO khi xác thực thành công (mặc định: true).
+        /// </summary>
+        public bool OnEntry { get; set; } = true;
+
+        /// <summary>
+        /// Tự động mở barrier làn RA khi xác thực thành công (mặc định: true).
+        /// </summary>
+        public bool OnExit { get; set; } = true;
+
+        /// <summary>
+        /// Chuẩn hóa cấu hình AutoOpenBarrier: Khi ở chế độ làn tự do (isNoneAuth = true),
+        /// barrier luôn được tự động mở cả 2 chiều (OnEntry = true, OnExit = true).
+        /// Ngược lại, trả về cấu hình chỉ định hoặc giá trị mặc định.
+        /// </summary>
+        public static AutoOpenBarrier Resolve(bool isNoneAuth, AutoOpenBarrier? input = null)
+        {
+            if (isNoneAuth)
+            {
+                return new AutoOpenBarrier { OnEntry = true, OnExit = true };
+            }
+
+            return input ?? new AutoOpenBarrier();
+        }
     }
 }

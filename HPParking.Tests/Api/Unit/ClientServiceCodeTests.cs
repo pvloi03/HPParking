@@ -524,5 +524,153 @@ namespace HPParking.Tests.Api.Unit
             await _clientRepo.Received().UpdateAsync(deletedClient, Arg.Any<CancellationToken>());
             await _clientRepo.Received(1).RestoreAsync("deleted-restore-1", Arg.Any<CancellationToken>());
         }
+
+        [Fact]
+        public async Task CreateClientAsync_WhenAuthMethodsContainsNone_ForcesAutoOpenBarrierToTrueTrue()
+        {
+            // Arrange
+            var service = CreateService();
+            Client? addedClient = null;
+            _clientRepo.AddAsync(Arg.Do<Client>(c => addedClient = c), Arg.Any<CancellationToken>())
+                .Returns(callInfo => Task.FromResult(callInfo.Arg<Client>()));
+
+            var req = new CreateClientRequest
+            {
+                Code = "NV-NONE-01",
+                Name = "Khách Làn Tự Do",
+                PhoneNumber = "0988000111",
+                Type = ClientType.Employee,
+                Gender = 1,
+                CardCode = "",
+                AuthMethods = [AuthMethodConstants.None],
+                VerifyVehiclePlate = false,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = false, OnExit = false }
+            };
+
+            // Act
+            var result = await service.CreateClientAsync(req);
+
+            // Assert
+            addedClient.Should().NotBeNull();
+            addedClient!.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            addedClient.AutoOpenBarrier.OnExit.Should().BeTrue();
+            result.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            result.AutoOpenBarrier.OnExit.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task CreateClientAsync_WhenCustomAutoOpenBarrier_PersistsConfiguredValues()
+        {
+            // Arrange
+            var service = CreateService();
+            Client? addedClient = null;
+            _clientRepo.AddAsync(Arg.Do<Client>(c => addedClient = c), Arg.Any<CancellationToken>())
+                .Returns(callInfo => Task.FromResult(callInfo.Arg<Client>()));
+
+            var req = new CreateClientRequest
+            {
+                Code = "NV-CARD-01",
+                Name = "Khách Dùng Thẻ",
+                PhoneNumber = "0988000222",
+                Type = ClientType.Employee,
+                Gender = 1,
+                CardCode = "0001112223",
+                AuthMethods = [AuthMethodConstants.Card],
+                VerifyVehiclePlate = true,
+                Vehicles = [new HPParking.Api.DTOs.Vehicles.CreateVehicleRequest { PlateNumber = "29A-12345", Type = VehicleType.Car }],
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = false, OnExit = true }
+            };
+
+            // Act
+            var result = await service.CreateClientAsync(req);
+
+            // Assert
+            addedClient.Should().NotBeNull();
+            addedClient!.AutoOpenBarrier.OnEntry.Should().BeFalse();
+            addedClient.AutoOpenBarrier.OnExit.Should().BeTrue();
+            result.AutoOpenBarrier.OnEntry.Should().BeFalse();
+            result.AutoOpenBarrier.OnExit.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task UpdateClientAsync_WhenAuthMethodsContainsNone_ForcesAutoOpenBarrierToTrueTrue()
+        {
+            // Arrange
+            var service = CreateService();
+            var existingClient = new Client
+            {
+                Id = "client-update-none",
+                Code = "NV-UPDATE-01",
+                Name = "Khách Cũ",
+                PhoneNumber = "0988000333",
+                CardCode = "0003334445",
+                AuthMethods = [AuthMethodConstants.Card],
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = false, OnExit = false }
+            };
+            _clientRepo.GetByIdAsync("client-update-none", Arg.Any<CancellationToken>()).Returns(existingClient);
+
+            var req = new UpdateClientRequest
+            {
+                Code = "NV-UPDATE-01",
+                Name = "Khách Cũ Sang None",
+                PhoneNumber = "0988000333",
+                Type = ClientType.Employee,
+                Gender = 1,
+                CardCode = "",
+                AuthMethods = [AuthMethodConstants.None],
+                VerifyVehiclePlate = false,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = false, OnExit = false }
+            };
+
+            // Act
+            var result = await service.UpdateClientAsync("client-update-none", req);
+
+            // Assert
+            existingClient.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            existingClient.AutoOpenBarrier.OnExit.Should().BeTrue();
+            result.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            result.AutoOpenBarrier.OnExit.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task UpdateClientAsync_WhenCustomAutoOpenBarrier_PersistsConfiguredValues()
+        {
+            // Arrange
+            var service = CreateService();
+            var existingClient = new Client
+            {
+                Id = "client-update-custom",
+                Code = "NV-UPDATE-02",
+                Name = "Khách Cũ",
+                PhoneNumber = "0988000444",
+                CardCode = "0004445556",
+                AuthMethods = [AuthMethodConstants.Card],
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = true, OnExit = true }
+            };
+            _clientRepo.GetByIdAsync("client-update-custom", Arg.Any<CancellationToken>()).Returns(existingClient);
+            _vehicleRepo.CountAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>()).Returns(1);
+
+            var req = new UpdateClientRequest
+            {
+                Code = "NV-UPDATE-02",
+                Name = "Khách Cũ Đổi Barrier",
+                PhoneNumber = "0988000444",
+                Type = ClientType.Employee,
+                Gender = 1,
+                CardCode = "0004445556",
+                AuthMethods = [AuthMethodConstants.Card],
+                VerifyVehiclePlate = true,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = true, OnExit = false }
+            };
+
+            // Act
+            var result = await service.UpdateClientAsync("client-update-custom", req);
+
+            // Assert
+            existingClient.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            existingClient.AutoOpenBarrier.OnExit.Should().BeFalse();
+            result.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            result.AutoOpenBarrier.OnExit.Should().BeFalse();
+        }
     }
 }

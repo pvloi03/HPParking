@@ -25,6 +25,11 @@ namespace HPParking.Api.DTOs.Clients
         public bool VerifyVehiclePlate { get; set; } = true;
         public bool IsActive { get; set; } = true;
         public Expired Expired { get; set; } = new();
+
+        /// <summary>
+        /// Cấu hình tự động mở barrier (Vào / Ra) khi xác thực người dùng thành công (mặc định: OnEntry = true, OnExit = true)
+        /// </summary>
+        public AutoOpenBarrier? AutoOpenBarrier { get; set; } = new();
         public string? Note { get; set; }
 
         /// <summary>

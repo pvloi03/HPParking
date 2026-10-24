@@ -25,6 +25,16 @@ export interface Expired {
   endDay: string;
 }
 
+export interface AutoOpenBarrier {
+  onEntry: boolean;
+  onExit: boolean;
+}
+
+export const DEFAULT_AUTO_OPEN_BARRIER: AutoOpenBarrier = Object.freeze({
+  onEntry: true,
+  onExit: true,
+});
+
 export interface ClientDto {
   id: string;
   code: string;
@@ -44,6 +54,7 @@ export interface ClientDto {
   verifyVehiclePlate: boolean;
   isActive: boolean;
   expired: Expired;
+  autoOpenBarrier?: AutoOpenBarrier;
   note?: string;
   createdAt: string;
   updatedAt?: string;
@@ -146,6 +157,7 @@ export interface CreateClientRequest {
   verifyVehiclePlate: boolean;
   isActive: boolean;
   expired: Expired;
+  autoOpenBarrier?: AutoOpenBarrier;
   note?: string;
   vehicles?: CreateVehicleRequest[];
 }
@@ -167,6 +179,7 @@ export interface UpdateClientRequest {
   verifyVehiclePlate: boolean;
   isActive: boolean;
   expired: Expired;
+  autoOpenBarrier?: AutoOpenBarrier;
   note?: string;
   vehicles?: CreateVehicleRequest[];
 }

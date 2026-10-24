@@ -23,6 +23,8 @@ namespace HPParking.Api.DTOs.Clients
         public bool VerifyVehiclePlate { get; set; } = true;
         public bool IsActive { get; set; } = true;
         public Expired Expired { get; set; } = new();
+
+        public AutoOpenBarrier AutoOpenBarrier { get; set; } = new();
         public string? Note { get; set; }
     }
 }

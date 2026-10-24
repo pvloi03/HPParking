@@ -61,6 +61,8 @@ import {
   type ClientDto,
   type CreateClientRequest,
   type UpdateClientRequest,
+  type AutoOpenBarrier,
+  DEFAULT_AUTO_OPEN_BARRIER,
 } from '@/types/client';
 
 export const CLIENT_TYPE_OPTIONS = [
@@ -76,6 +78,10 @@ const clientSchema = z
     cardCode: z.string().trim().optional(),
     authMethods: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất một phương thức xác thực'),
     verifyVehiclePlate: z.boolean(),
+    autoOpenBarrier: z.object({
+      onEntry: z.boolean(),
+      onExit: z.boolean(),
+    }),
     code: z
       .string()
       .trim()
@@ -158,6 +164,16 @@ const clientSchema = z
   });
 
 type ClientFormData = z.infer<typeof clientSchema>;
+
+export function resolveAutoOpenBarrier(client?: ClientDto | null): AutoOpenBarrier {
+  if (client?.authMethods?.includes('None')) {
+    return DEFAULT_AUTO_OPEN_BARRIER;
+  }
+  return {
+    onEntry: client?.autoOpenBarrier?.onEntry ?? true,
+    onExit: client?.autoOpenBarrier?.onExit ?? true,
+  };
+}
 
 interface ClientFormDialogProps {
   open: boolean;
@@ -288,6 +304,7 @@ export function ClientFormDialog({
       cardCode: '',
       authMethods: ['Card', 'FaceId'],
       verifyVehiclePlate: true,
+      autoOpenBarrier: DEFAULT_AUTO_OPEN_BARRIER,
       type: ClientType.Employee,
       gender: 1, // 1: Nam
       birthDay: '1995-01-01',
@@ -383,6 +400,7 @@ export function ClientFormDialog({
                 : initialData.authMethods)
               : ['Card', 'FaceId'],
             verifyVehiclePlate: initialData.authMethods?.includes('None') ? false : (initialData.verifyVehiclePlate ?? true),
+            autoOpenBarrier: resolveAutoOpenBarrier(initialData),
             type: initialData.type ?? ClientType.Employee,
             gender: genderVal,
             birthDay: parsedDob || '1995-01-01',
@@ -410,6 +428,7 @@ export function ClientFormDialog({
                 : initialData.authMethods)
               : ['Card', 'FaceId'],
             verifyVehiclePlate: initialData.authMethods?.includes('None') ? false : (initialData.verifyVehiclePlate ?? true),
+            autoOpenBarrier: resolveAutoOpenBarrier(initialData),
             type: initialData.type ?? ClientType.Employee,
             gender: initialData.gender ?? 1,
             birthDay: toDateInputValue(initialData.birthDay) || '1995-01-01',
@@ -448,6 +467,7 @@ export function ClientFormDialog({
           cardCode: '',
           authMethods: ['Card', 'FaceId'],
           verifyVehiclePlate: true,
+          autoOpenBarrier: DEFAULT_AUTO_OPEN_BARRIER,
           type: ClientType.Employee,
           gender: genderVal,
           birthDay: parsedDob,
@@ -472,6 +492,7 @@ export function ClientFormDialog({
           cardCode: '',
           authMethods: ['Card', 'FaceId'],
           verifyVehiclePlate: true,
+          autoOpenBarrier: DEFAULT_AUTO_OPEN_BARRIER,
           type: ClientType.Employee,
           gender: 1,
           birthDay: '1995-01-01',
@@ -588,6 +609,9 @@ export function ClientFormDialog({
       cardCode: formData.cardCode?.trim() || undefined,
       authMethods: formData.authMethods,
       verifyVehiclePlate: isNoneAuth ? false : formData.verifyVehiclePlate,
+      autoOpenBarrier: isNoneAuth
+        ? DEFAULT_AUTO_OPEN_BARRIER
+        : formData.autoOpenBarrier,
       isActive: isEditing ? (initialData?.isActive ?? false) : false,
       note: formData.note?.trim() || undefined,
       expired: {
@@ -1062,10 +1086,12 @@ export function ClientFormDialog({
                         setValue('authMethods', ['None'], { shouldValidate: true, shouldDirty: true });
                         setValue('cardCode', '', { shouldValidate: true, shouldDirty: true });
                         setValue('verifyVehiclePlate', false, { shouldValidate: true, shouldDirty: true });
+                        setValue('autoOpenBarrier', DEFAULT_AUTO_OPEN_BARRIER, { shouldValidate: true, shouldDirty: true });
                         setVehicleSectionError(null);
                       } else {
                         setValue('authMethods', ['Card', 'FaceId'], { shouldValidate: true, shouldDirty: true });
                         setValue('verifyVehiclePlate', true, { shouldValidate: true, shouldDirty: true });
+                        setValue('autoOpenBarrier', DEFAULT_AUTO_OPEN_BARRIER, { shouldValidate: true, shouldDirty: true });
                       }
                     }}
                     className="h-4 w-4 cursor-pointer rounded border-border text-amber-600 focus:ring-amber-500"
@@ -1207,6 +1233,48 @@ export function ClientFormDialog({
                     </p>
                   </div>
                 </label>
+              </div>
+            )}
+
+            {/* CẤU HÌNH TỰ ĐỘNG MỞ BARRIER (AUTOOPENBARRIER) - Ẩn khi ở chế độ Làn tự do (None) */}
+            {!isNoneAuth && (
+              <div className="pt-2 border-t border-border/60 space-y-2">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+                  Cấu hình tự động mở barrier khi xác thực thành công
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
+                    <input
+                      type="checkbox"
+                      {...register('autoOpenBarrier.onEntry')}
+                      className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
+                    />
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-xs font-semibold text-foreground block">
+                        Tự động mở barrier làn VÀO
+                      </span>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Tự kích rơ le mở barrier khi xác thực vào thành công. Nếu bỏ tích, bảo vệ mở thủ công.
+                      </p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-all">
+                    <input
+                      type="checkbox"
+                      {...register('autoOpenBarrier.onExit')}
+                      className="h-4 w-4 mt-0.5 rounded border-border text-blue-600 focus:ring-blue-500 shrink-0"
+                    />
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="text-xs font-semibold text-foreground block">
+                        Tự động mở barrier làn RA
+                      </span>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Tự kích rơ le mở barrier khi xác thực ra thành công. Nếu bỏ tích, bảo vệ mở thủ công.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             )}
           </div>
