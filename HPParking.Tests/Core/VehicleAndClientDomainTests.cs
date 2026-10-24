@@ -338,5 +338,75 @@ namespace HPParking.Tests.Core
         }
 
         #endregion
+
+        #region --- 3. Client AutoOpenBarrier Domain Tests ---
+
+        [Fact]
+        public void Client_ShouldAutoOpenBarrier_DefaultClient_ShouldReturnTrueForEntryAndExit()
+        {
+            var client = new Client();
+
+            client.AutoOpenBarrier.Should().NotBeNull();
+            client.AutoOpenBarrier.OnEntry.Should().BeTrue();
+            client.AutoOpenBarrier.OnExit.Should().BeTrue();
+
+            client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.In).Should().BeTrue();
+            client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.Out).Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData(true, true)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(false, false)]
+        public void Client_ShouldAutoOpenBarrier_WithCustomConfig_ShouldReturnConfiguredValues(bool onEntry, bool onExit)
+        {
+            var client = new Client
+            {
+                AutoOpenBarrier = new AutoOpenBarrier
+                {
+                    OnEntry = onEntry,
+                    OnExit = onExit
+                }
+            };
+
+            client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.In).Should().Be(onEntry);
+            client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.Out).Should().Be(onExit);
+        }
+
+        [Fact]
+        public void Client_ShouldAutoOpenBarrier_WhenAutoOpenBarrierIsNull_ShouldFallbackToTrue()
+        {
+            var client = new Client();
+            client.AutoOpenBarrier = null!;
+
+            client.AutoOpenBarrier.Should().NotBeNull();
+            client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.In).Should().BeTrue();
+            client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.Out).Should().BeTrue();
+        }
+
+        [Fact]
+        public void Client_ShouldAutoOpenBarrier_WhenBidirectional_ShouldThrowArgumentOutOfRangeException()
+        {
+            var client = new Client();
+
+            var act = () => client.ShouldAutoOpenBarrier(HPParking.Core.Models.Enums.LaneDirection.Bidirectional);
+
+            act.Should().Throw<ArgumentOutOfRangeException>()
+               .WithParameterName("direction");
+        }
+
+        [Fact]
+        public void Client_ShouldAutoOpenBarrier_WhenInvalidDirection_ShouldThrowArgumentOutOfRangeException()
+        {
+            var client = new Client();
+
+            var act = () => client.ShouldAutoOpenBarrier((HPParking.Core.Models.Enums.LaneDirection)999);
+
+            act.Should().Throw<ArgumentOutOfRangeException>()
+               .WithParameterName("direction");
+        }
+
+        #endregion
     }
 }

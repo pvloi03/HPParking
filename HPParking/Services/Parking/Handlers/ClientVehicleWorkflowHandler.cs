@@ -149,7 +149,7 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 5. Thao tác mở thanh chắn Barrier
-            if (!_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
+            if (client.ShouldAutoOpenBarrier(LaneDirection.In) && !_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
             {
                 return BuildResult(
                     ProcessStatus.BarrierFailed,
@@ -304,7 +304,7 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 5. Thao tác mở thanh chắn Barrier
-            if (!_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
+            if (client.ShouldAutoOpenBarrier(LaneDirection.Out) && !_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
             {
                 return BuildResult(
                     ProcessStatus.BarrierFailed,

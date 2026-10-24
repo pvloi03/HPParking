@@ -92,6 +92,11 @@ namespace HPParking.Api.DTOs.Clients
         public Expired Expired { get; set; } = new();
 
         /// <summary>
+        /// Cấu hình tự động mở barrier (Vào / Ra) khi xác thực người dùng thành công (mặc định: OnEntry = true, OnExit = true)
+        /// </summary>
+        public AutoOpenBarrier? AutoOpenBarrier { get; set; } = new();
+
+        /// <summary>
         /// Ghi chú bổ sung
         /// </summary>
         public string? Note { get; set; }

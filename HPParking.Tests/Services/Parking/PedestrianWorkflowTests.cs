@@ -246,5 +246,182 @@ namespace HPParking.Tests.Services.Parking
             result.Client.Should().NotBeNull();
             result.Client!.Name.Should().Be("Lê Hoàng C");
         }
+
+        [Fact]
+        public async Task PedestrianEntry_WhenAutoOpenBarrierOnEntryFalse_ShouldNotCallTryOpenBarrierAndReturnSuccess()
+        {
+            // Arrange
+            var service = CreateService();
+            var lane = new Lane
+            {
+                Id = "lane-ped-in-nobarrier",
+                Name = "Làn Người Đi Bộ Vào",
+                Direction = LaneDirection.In,
+                TargetType = LaneTargetType.Pedestrian,
+                UseFaceCam = false,
+                UsePlateCam = false,
+                UseOverviewCam = false
+            };
+            var context = new LaneRuntimeContext(lane);
+
+            var client = new Client
+            {
+                Id = "emp-no-barrier-in",
+                Name = "Nguyễn Văn Không Mở Cổng Vào",
+                Code = "NV_NO_BARRIER_IN",
+                IsActive = true,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = false, OnExit = true }
+            };
+            var card = new Card
+            {
+                Id = "card-emp-no-barrier-in",
+                CardNumber = "9998881111",
+                TargetType = CardTargetType.Person,
+                ClientId = client.Id,
+                Status = CardStatus.InUse
+            };
+
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Card?>(card));
+            _clientRepo.GetByIdAsync("emp-no-barrier-in").Returns(Task.FromResult<Client?>(client));
+
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = "9998881111",
+                TriggerTime = DateTime.UtcNow
+            };
+
+            var callbackCount = 0;
+            Func<LaneRuntimeContext, bool> onBarrierOpenFailed = _ => { callbackCount++; return false; };
+
+            // Act
+            var result = await service.ProcessWorkflowAsync(context, trigger, "C:\\Images", onBarrierOpenFailed);
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.Success);
+            callbackCount.Should().Be(0);
+            await _sessionRepo.Received(1).AddAsync(Arg.Is<ParkingSession>(s =>
+                s.TargetType == LaneTargetType.Pedestrian &&
+                s.PersonId == "emp-no-barrier-in" &&
+                s.Status == ParkingSessionStatus.Active));
+        }
+
+        [Fact]
+        public async Task PedestrianExit_WhenAutoOpenBarrierOnExitFalse_ShouldNotCallTryOpenBarrierAndReturnSuccess()
+        {
+            // Arrange
+            var service = CreateService();
+            var lane = new Lane
+            {
+                Id = "lane-ped-out-nobarrier",
+                Name = "Làn Người Đi Bộ Ra",
+                Direction = LaneDirection.Out,
+                TargetType = LaneTargetType.Pedestrian
+            };
+            var context = new LaneRuntimeContext(lane);
+
+            var client = new Client
+            {
+                Id = "emp-no-barrier-out",
+                Name = "Nguyễn Văn Không Mở Cổng Ra",
+                Code = "NV_NO_BARRIER_OUT",
+                IsActive = true,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = true, OnExit = false }
+            };
+            var card = new Card
+            {
+                Id = "card-emp-no-barrier-out",
+                CardNumber = "9998882222",
+                TargetType = CardTargetType.Person,
+                ClientId = client.Id,
+                Status = CardStatus.InUse
+            };
+            var activeSession = new ParkingSession
+            {
+                Id = "sess-ped-out",
+                PersonId = client.Id,
+                TargetType = LaneTargetType.Pedestrian,
+                Status = ParkingSessionStatus.Active
+            };
+
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Card?>(card));
+            _clientRepo.GetByIdAsync("emp-no-barrier-out").Returns(Task.FromResult<Client?>(client));
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(activeSession));
+
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = "9998882222",
+                TriggerTime = DateTime.UtcNow
+            };
+
+            var callbackCount = 0;
+            Func<LaneRuntimeContext, bool> onBarrierOpenFailed = _ => { callbackCount++; return false; };
+
+            // Act
+            var result = await service.ProcessWorkflowAsync(context, trigger, "C:\\Images", onBarrierOpenFailed);
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.Success);
+            callbackCount.Should().Be(0);
+            activeSession.Status.Should().Be(ParkingSessionStatus.Completed);
+            await _sessionRepo.Received(1).UpdateAsync(activeSession);
+        }
+
+        [Fact]
+        public async Task PedestrianFacePass_WhenBidirectionalLaneAndAutoOpenBarrierOnExitFalse_ShouldNotCallTryOpenBarrierAndReturnSuccess()
+        {
+            // Arrange
+            var service = CreateService();
+            var lane = new Lane
+            {
+                Id = "lane-ped-bidi-face",
+                Direction = LaneDirection.Bidirectional,
+                TargetType = LaneTargetType.Pedestrian,
+                UseFaceCam = true
+            };
+            var context = new LaneRuntimeContext(lane);
+
+            var client = new Client
+            {
+                Id = "emp-bidi-face",
+                Name = "Nguyễn Văn Làn 2 Chiều",
+                Code = "NV_BIDI",
+                IsActive = true,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = true, OnExit = false }
+            };
+            var card = new Card
+            {
+                Id = "card-bidi-face",
+                CardNumber = "NV_BIDI",
+                TargetType = CardTargetType.Person,
+                ClientId = client.Id,
+                Status = CardStatus.InUse
+            };
+
+            _cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Card?>(card));
+            _clientRepo.GetByIdAsync("emp-bidi-face").Returns(Task.FromResult<Client?>(client));
+
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.FaceTerminal,
+                RawCardNo = "NV_BIDI",
+                TriggerTime = DateTime.UtcNow
+            };
+
+            var callbackCount = 0;
+            Func<LaneRuntimeContext, bool> onBarrierOpenFailed = _ => { callbackCount++; return false; };
+
+            // Act
+            var result = await service.ProcessWorkflowAsync(context, trigger, "C:\\Images", onBarrierOpenFailed);
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.Success);
+            callbackCount.Should().Be(0);
+        }
     }
 }

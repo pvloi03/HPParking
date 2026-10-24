@@ -1046,5 +1046,71 @@ namespace HPParking.Tests.Services.Parking
         }
 
         #endregion
+
+        [Fact]
+        public async Task ProcessEntryAsync_WhenAutoOpenBarrierOnEntryFalse_ShouldNotCallTryOpenBarrierAndReturnSuccess()
+        {
+            // Arrange
+            var context = CreateContext(LaneDirection.In);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c-no-barrier-entry",
+                Name = "User No Barrier Entry",
+                VerifyVehiclePlate = false,
+                IsActive = true,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = false, OnExit = true }
+            };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(null));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30A-999.99", new LprResult { Success = true, Plate = "30A-999.99" }));
+
+            // Act
+            var result = await _handler.ProcessEntryAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.Success);
+            _hardwareOrchestrator.DidNotReceiveWithAnyArgs().TryOpenBarrier(default!, default!);
+            await _sessionRepo.Received(1).AddAsync(Arg.Any<ParkingSession>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ProcessExitAsync_WhenAutoOpenBarrierOnExitFalse_ShouldNotCallTryOpenBarrierAndReturnSuccess()
+        {
+            // Arrange
+            var context = CreateContext(LaneDirection.Out);
+            var trigger = CreateTrigger();
+            var client = new Client
+            {
+                Id = "c-no-barrier-exit",
+                Name = "User No Barrier Exit",
+                VerifyVehiclePlate = true,
+                IsActive = true,
+                AutoOpenBarrier = new AutoOpenBarrier { OnEntry = true, OnExit = false }
+            };
+            var vehicle = new Vehicle { Id = "v-exit-1", PlateNumber = "30E-123.45", OwnerClientId = client.Id, IsActive = true };
+            var session = new ParkingSession { Id = "s-exit-1", PersonId = client.Id, PlateNumber = "30E-123.45", Status = ParkingSessionStatus.Active };
+
+            _sessionRepo.FindOneAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<ParkingSession?>(session));
+            _vehicleRepo.FindAsync(Arg.Any<Expression<Func<Vehicle, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Vehicle>>([vehicle]));
+
+            _hardwareOrchestrator.RecognizePlateAsync(Arg.Any<LaneRuntimeContext>(), Arg.Any<Bitmap?>(), Arg.Any<string>(), Arg.Any<Func<LaneRuntimeContext, string?, Task<string?>>>())
+                .Returns((true, "30E-123.45", new LprResult { Success = true, Plate = "30E-123.45" }));
+
+            // Act
+            var result = await _handler.ProcessExitAsync(new ClientVehicleExecutionContext(context, trigger, client, "C:\\Images"));
+
+            // Assert
+            result.Status.Should().Be(ProcessStatus.Success);
+            session.Status.Should().Be(ParkingSessionStatus.Completed);
+            session.OutTime.Should().NotBeNull();
+            _hardwareOrchestrator.DidNotReceiveWithAnyArgs().TryOpenBarrier(default!, default!);
+            await _sessionRepo.Received(1).UpdateAsync(session);
+        }
     }
 }

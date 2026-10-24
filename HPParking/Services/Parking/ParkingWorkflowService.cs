@@ -278,7 +278,7 @@ namespace HPParking.Services.Parking
                 needFace: context.Lane.HasFaceDevice() || context.Lane.TargetType == LaneTargetType.Pedestrian);
 
             // Mở Turnstile
-            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            if (client.ShouldAutoOpenBarrier(LaneDirection.In) && !TryOpenBarrier(context, onBarrierOpenFailed))
             {
                 var (_, failFace, failOverview) = ExtractWorkflowImages(images, null);
                 return new ProcessResult
@@ -356,7 +356,7 @@ namespace HPParking.Services.Parking
                 needPlate: false,
                 needFace: context.Lane.HasFaceDevice() || context.Lane.TargetType == LaneTargetType.Pedestrian);
 
-            if (!TryOpenBarrier(context, onBarrierOpenFailed))
+            if (client.ShouldAutoOpenBarrier(LaneDirection.Out) && !TryOpenBarrier(context, onBarrierOpenFailed))
             {
                 var (_, failFace, failOverview) = ExtractWorkflowImages(images, null);
                 return new ProcessResult

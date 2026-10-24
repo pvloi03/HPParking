@@ -302,6 +302,17 @@ export function CardFormDialog({
                 </span>
                 <span className="text-[10px] text-muted-foreground">Chọn người để gán thẻ</span>
               </label>
+              {hasAssignedClient && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-semibold">Thẻ đang được gán cho nhân sự này</span>
+                    <p className="text-[11px] leading-relaxed">
+                      Hệ thống không cho phép chuyển thẻ trực tiếp giữa 2 nhân sự. Để đổi chủ thẻ, vui lòng gỡ thẻ về kho bằng cách chọn &quot;-- Chưa gán (Lưu trong kho) --&quot; rồi lưu lại trước.
+                    </p>
+                  </div>
+                </div>
+              )}
               <InfiniteSearchableSelect<ClientDto>
                 queryKey={['activeClientsForCardsInfinite']}
                 fetchFn={(params) => clientApi.getPaged({ ...params, isActive: true })}
