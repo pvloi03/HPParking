@@ -24,12 +24,7 @@ namespace HPParking.Api.DTOs.Clients
         public bool IsActive { get; set; } = true;
         public Expired Expired { get; set; } = new();
 
-        private AutoOpenBarrier _autoOpenBarrier = new();
-        public AutoOpenBarrier AutoOpenBarrier
-        {
-            get => _autoOpenBarrier ??= new();
-            set => _autoOpenBarrier = value ?? new();
-        }
+        public AutoOpenBarrier AutoOpenBarrier { get; set; } = new();
         public string? Note { get; set; }
     }
 }
