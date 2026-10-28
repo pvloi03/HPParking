@@ -66,7 +66,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-emp",
                 CardNumber = "1234567890",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -127,7 +127,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-emp-2",
                 CardNumber = "9876543210",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -222,7 +222,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-face-1",
                 CardNumber = "NV003",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -276,7 +276,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-emp-no-barrier-in",
                 CardNumber = "9998881111",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -333,7 +333,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-emp-no-barrier-out",
                 CardNumber = "9998882222",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -397,7 +397,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-bidi-face",
                 CardNumber = "NV_BIDI",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };

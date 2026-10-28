@@ -283,7 +283,7 @@ export function VehicleDetailDialog({
                             {ownerClient.cardCode && (
                               <div className="space-y-0.5">
                                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <CreditCard className="h-3 w-3 text-indigo-500" /> Thẻ nhân sự:
+                                  <CreditCard className="h-3 w-3 text-indigo-500" /> Thẻ định danh:
                                 </span>
                                 <span className="text-xs font-mono font-bold text-foreground">
                                   {ownerClient.cardCode}

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog';
 import { cardApi } from '@/api/cardApi';
 import { VehicleType, type VehicleDto } from '@/types/vehicle';
+import { CardTargetType } from '@/types/card';
 import { useFeatureFlagsStore } from '@/config/featureFlags';
 
 vi.mock('@/api/cardApi', () => ({
@@ -13,7 +14,7 @@ vi.mock('@/api/cardApi', () => ({
         {
           id: 'card-v1',
           cardNumber: '0000888999',
-          targetType: 2,
+          targetType: 0, // CardTargetType.Vehicle
           status: 0,
           createdAt: new Date().toISOString(),
         },
@@ -66,7 +67,7 @@ describe('VehicleFormDialog Unassigned Cards Filter Tests', () => {
     expect(screen.queryByText(/Phương tiện nội bộ \/ xe dùng chung/i)).not.toBeInTheDocument();
   });
 
-  it('gọi cardApi.getCards với targetType: 2 và unassignedOnly: true khi tạo mới phương tiện dùng chung', async () => {
+  it('gọi cardApi.getCards với targetType: CardTargetType.Vehicle và unassignedOnly: true khi tạo mới phương tiện dùng chung', async () => {
     useFeatureFlagsStore.setState({ enableFleetDispatch: true });
     renderDialog();
 
@@ -80,7 +81,7 @@ describe('VehicleFormDialog Unassigned Cards Filter Tests', () => {
     await waitFor(() => {
       expect(cardApi.getCards).toHaveBeenCalledWith(
         expect.objectContaining({
-          targetType: 2, // Vehicle
+          targetType: CardTargetType.Vehicle,
           unassignedOnly: true,
         })
       );
@@ -103,7 +104,7 @@ describe('VehicleFormDialog Unassigned Cards Filter Tests', () => {
     await waitFor(() => {
       expect(cardApi.getCards).toHaveBeenCalledWith(
         expect.objectContaining({
-          targetType: 2, // Vehicle
+          targetType: CardTargetType.Vehicle,
           unassignedOnly: true,
           assignedVehicleId: 'vehicle-123',
         })

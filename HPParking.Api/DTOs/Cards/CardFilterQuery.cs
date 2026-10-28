@@ -11,6 +11,7 @@ namespace HPParking.Api.DTOs.Cards
         public CardTargetType? TargetType { get; set; }
         public CardStatus? Status { get; set; }
         public bool? UnassignedOnly { get; set; }
+        public bool? ClientBoundOnly { get; set; }
         public string? AssignedClientId { get; set; }
         public string? AssignedVehicleId { get; set; }
     }

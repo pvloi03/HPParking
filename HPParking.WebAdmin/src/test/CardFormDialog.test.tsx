@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CardFormDialog } from '@/components/cards/CardFormDialog';
@@ -74,7 +74,7 @@ describe('CardFormDialog Component', () => {
     const assignedCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       clientId: 'client-1',
       clientName: 'Nguyễn Văn A',
       status: CardStatus.InUse,
@@ -95,7 +95,7 @@ describe('CardFormDialog Component', () => {
     const assignedCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       clientId: 'client-1',
       clientName: 'Nguyễn Văn A',
       status: CardStatus.InUse,
@@ -114,7 +114,7 @@ describe('CardFormDialog Component', () => {
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
-          targetType: CardTargetType.Person,
+          targetType: CardTargetType.Monthly,
           clientId: 'client-1',
           status: CardStatus.InUse,
         })
@@ -126,7 +126,7 @@ describe('CardFormDialog Component', () => {
     const assignedCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       clientId: 'client-1',
       clientName: 'Nguyễn Văn A',
       status: CardStatus.InUse,

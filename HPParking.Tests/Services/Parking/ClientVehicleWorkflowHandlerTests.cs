@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HPParking.Core.Constants;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Common;
@@ -1157,7 +1157,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-locked-id",
                 CardNumber = "CARD-LOCKED",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = status
             };
 
@@ -1269,7 +1269,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "c-card-fee",
                 CardNumber = "FEE-CARD-1",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 IsChargeable = true,
                 TariffId = "tariff-1",
                 Status = CardStatus.InUse
@@ -1322,7 +1322,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "c-card-fee-2",
                 CardNumber = "FEE-CARD-2",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 IsChargeable = true,
                 TariffId = "tariff-1",
                 Status = CardStatus.InUse
@@ -1367,7 +1367,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-no-calc",
                 CardNumber = "FEE-CARD-NO-CALC",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 IsChargeable = true,
                 TariffId = "tariff-1",
                 Status = CardStatus.InUse

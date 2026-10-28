@@ -7,7 +7,7 @@ namespace HPParking.Api.DTOs.Cards
     public class CardDto : AuditableDto
     {
         public string CardNumber { get; set; } = string.Empty;
-        public CardTargetType TargetType { get; set; } = CardTargetType.Person;
+        public CardTargetType TargetType { get; set; } = CardTargetType.Monthly;
         public string? ClientId { get; set; }
         public string? ClientCode { get; set; }
         public string? ClientName { get; set; }
@@ -34,7 +34,7 @@ namespace HPParking.Api.DTOs.Cards
     public class CreateCardRequest : ICardValidityRequest
     {
         public string CardNumber { get; set; } = string.Empty;
-        public CardTargetType TargetType { get; set; } = CardTargetType.Person;
+        public CardTargetType TargetType { get; set; } = CardTargetType.Monthly;
         public string? ClientId { get; set; }
         public string? VehicleId { get; set; }
         public VehicleType? VehicleType { get; set; }
@@ -48,7 +48,7 @@ namespace HPParking.Api.DTOs.Cards
 
     public class UpdateCardRequest : ICardValidityRequest
     {
-        public CardTargetType TargetType { get; set; } = CardTargetType.Person;
+        public CardTargetType TargetType { get; set; } = CardTargetType.Monthly;
         public string? ClientId { get; set; }
         public string? VehicleId { get; set; }
         public VehicleType? VehicleType { get; set; }

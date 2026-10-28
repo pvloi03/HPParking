@@ -1,4 +1,5 @@
 using System.Linq;
+using HPParking.Core.Models.Entities;
 
 namespace HPParking.Core.Helpers
 {
@@ -8,6 +9,14 @@ namespace HPParking.Core.Helpers
     public static class CardHelper
     {
         public const int StandardCardLength = 10;
+
+        /// <summary>
+        /// Kiểm tra loại thẻ có thuộc nhóm liên kết Khách hàng / Nhân sự (Client) hay không (Monthly hoặc VIP).
+        /// </summary>
+        public static bool IsClientBound(this CardTargetType targetType)
+        {
+            return targetType == CardTargetType.Monthly || targetType == CardTargetType.VIP;
+        }
 
         /// <summary>
         /// Chuẩn hóa mã thẻ luôn gồm 10 chữ số (đệm 0 ở đầu nếu chưa đủ 10 số).

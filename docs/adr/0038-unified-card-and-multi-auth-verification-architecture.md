@@ -18,6 +18,8 @@ Quyết định kiến trúc về việc chuyển đổi hệ thống HPParking 
 1. **Chuẩn hóa mã thẻ 10 chữ số thống nhất (Unified Card 10-digit)**:
    - Toàn bộ mã thẻ nhập vào hệ thống hoặc nhận diện từ đầu đọc Wiegand/Controller/FaceID đều được chuẩn hóa qua `CardHelper.NormalizeCardCode(cardCode)`: chỉ giữ lại các chữ số và tự động thêm các số 0 ở đầu (`PadLeft(10, '0')`).
    - Xây dựng thực thể [Card.cs](file:///c:/Users/ADMIN/source/repos/HPParking/HPParking.Core/Models/Entities/Card.cs) và dịch vụ quản lý kho thẻ [CardService.cs](file:///c:/Users/ADMIN/source/repos/HPParking/HPParking.Api/Services/CardService.cs) phân loại rõ Thẻ người (`TargetType = Person`) và Thẻ cắm trên xe dùng chung (`TargetType = Vehicle`).
+     > [!IMPORTANT]
+     > **Cập nhật kiến trúc (ADR 0043)**: Loại thẻ nhân sự (`CardTargetType.Person`) ban đầu đã được **xóa bỏ hoàn toàn khỏi toàn bộ hệ thống** (loại bỏ khỏi enum `CardTargetType`, backend API và giao diện WebAdmin). Do hệ thống triển khai mới không có dữ liệu cũ cần tương thích ngược, các luồng gán người dùng chuyển dịch triệt để sang 2 phân loại vận hành chuẩn mực: Thẻ tháng (`Monthly`) và Thẻ VIP (`VIP`).
 
 2. **Tách biệt cấu hình Xác thực Người, Xác thực Xe và Tự động mở Barrier**:
    - **Khối 1: Phương thức xác thực người (`AuthMethods`)**: Mảng chuỗi chứa các phương thức hợp lệ gồm `Card`, `FaceId`, `None`. Phương thức `None` mang tính loại trừ tuyệt đối (nếu chọn `None` thì không được kết hợp `Card` hay `FaceId`).

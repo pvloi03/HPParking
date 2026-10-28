@@ -10,12 +10,11 @@ namespace HPParking.Core.Models.Entities
 {
     public enum CardTargetType
     {
-        Person = 1,    // Thẻ cấp cho Nhân sự (Client)
-        Vehicle = 2,   // Thẻ cấp cho Phương tiện nội bộ / Xe dùng chung (Vehicle) (Đóng gói qua FeatureOptions)
-        // Chú ý: CardTargetType.Visitor = 3 (thẻ lượt vãng lai, không gán Client) khác ClientType.Visitor = 2 (hồ sơ khách trong Client)
-        Visitor = 3,   // Thẻ lượt (Khách vãng lai - không gán Client, bắt buộc chọn VehicleType)
-        Monthly = 4,   // Thẻ tháng (Bắt buộc gán Client + bắt buộc ValidFrom / ValidTo)
-        VIP = 5        // Thẻ VIP (Bắt buộc gán Client + cố định IsChargeable = false)
+        Vehicle = 0,   // Thẻ cấp cho Phương tiện nội bộ / Xe dùng chung (Vehicle) (Đóng gói qua FeatureOptions)
+        // Chú ý: CardTargetType.Visitor = 1 (thẻ lượt vãng lai, không gán Client) khác ClientType.Visitor = 2 (hồ sơ khách trong Client)
+        Visitor = 1,   // Thẻ lượt (Khách vãng lai - không gán Client, bắt buộc chọn VehicleType)
+        Monthly = 2,   // Thẻ tháng (Gán Client hoặc lưu kho + bắt buộc ValidFrom / ValidTo khi quẹt cổng)
+        VIP = 3        // Thẻ VIP (Gán Client hoặc lưu kho + cố định IsChargeable = false)
     }
 
     public enum CardStatus
@@ -25,6 +24,8 @@ namespace HPParking.Core.Models.Entities
         Locked = 2,    // Tạm khóa
         Lost = 3       // Báo mất
     }
+
+
 
     /// <summary>
     /// Thực thể quản lý Thẻ định danh 10 chữ số trong toàn hệ thống
@@ -38,13 +39,13 @@ namespace HPParking.Core.Models.Entities
         public string CardNumber { get; set; } = string.Empty;
 
         /// <summary>
-        /// Loại đối tượng sử dụng thẻ: Person, Vehicle, Visitor, Monthly, VIP
+        /// Loại đối tượng sử dụng thẻ: Vehicle, Visitor, Monthly, VIP
         /// </summary>
         [BsonRepresentation(BsonType.String)]
-        public CardTargetType TargetType { get; set; } = CardTargetType.Person;
+        public CardTargetType TargetType { get; set; } = CardTargetType.Monthly;
 
         /// <summary>
-        /// Khóa ngoại liên kết Nhân sự (nếu TargetType == Person, Monthly, VIP)
+        /// Khóa ngoại liên kết Khách hàng / Nhân sự (nếu TargetType == Monthly, VIP)
         /// </summary>
         [BsonRepresentation(BsonType.ObjectId)]
         public string? ClientId { get; set; }
@@ -88,7 +89,7 @@ namespace HPParking.Core.Models.Entities
         [BsonRepresentation(BsonType.String)]
         public CardStatus Status { get; set; } = CardStatus.InUse;
 
-        public bool IsClientBound() => TargetType == CardTargetType.Person || TargetType == CardTargetType.Monthly || TargetType == CardTargetType.VIP;
+        public bool IsClientBound() => TargetType == CardTargetType.Monthly || TargetType == CardTargetType.VIP;
 
         public bool IsVisitorCard() => TargetType == CardTargetType.Visitor;
 

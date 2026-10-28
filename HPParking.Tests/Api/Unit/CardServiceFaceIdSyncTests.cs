@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Cards;
 using HPParking.Api.DTOs.Clients;
@@ -97,7 +97,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0001112223",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-A",
                 Status = CardStatus.InUse
             };
@@ -115,7 +115,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Thử chuyển trực tiếp sang Client B (client-B)
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-B",
                 Status = CardStatus.InUse
             };
@@ -138,7 +138,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0009998887",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = null,
                 Status = CardStatus.Available
             };
@@ -158,7 +158,7 @@ namespace HPParking.Tests.Api.Unit
                 Id = "card-old-b",
                 CardNumber = "0001110000",
                 ClientId = "client-B",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.InUse
             };
 
@@ -170,7 +170,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Gán thẻ từ kho cho Client B
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-B",
                 Status = CardStatus.InUse
             };
@@ -215,7 +215,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0005556667",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-C",
                 Status = CardStatus.InUse
             };
@@ -235,7 +235,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Đổi trạng thái thẻ sang Locked (Tạm khóa)
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-C",
                 Status = CardStatus.Locked
             };
@@ -259,7 +259,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0007778889",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-D",
                 Status = CardStatus.Locked
             };
@@ -279,7 +279,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Mở lại thẻ sang InUse
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-D",
                 Status = CardStatus.InUse
             };
@@ -303,7 +303,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0003334445",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-E",
                 Status = CardStatus.InUse
             };
@@ -323,7 +323,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Gỡ thẻ về kho (ClientId = null)
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = null,
                 Status = CardStatus.Available
             };
@@ -351,7 +351,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0005556667",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-G",
                 Status = CardStatus.InUse
             };
@@ -370,7 +370,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Unassign but request still has InUse
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = null,
                 Status = CardStatus.InUse // Chưa đổi status trên request
             };
@@ -391,7 +391,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0007778889",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = null,
                 Status = CardStatus.Available
             };
@@ -412,7 +412,7 @@ namespace HPParking.Tests.Api.Unit
             // Act: Gán cho client nhưng request vẫn để Available
             var request = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-H",
                 Status = CardStatus.Available
             };
@@ -445,7 +445,7 @@ namespace HPParking.Tests.Api.Unit
             var request = new CreateCardRequest
             {
                 CardNumber = "0008881112",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-F",
                 Status = CardStatus.InUse
             };

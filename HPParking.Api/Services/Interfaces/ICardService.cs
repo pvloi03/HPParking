@@ -12,6 +12,7 @@ namespace HPParking.Api.Services.Interfaces
             CardTargetType? targetType = null,
             CardStatus? status = null,
             bool? unassignedOnly = null,
+            bool? clientBoundOnly = null,
             string? assignedClientId = null,
             string? assignedVehicleId = null,
             CancellationToken cancellationToken = default);

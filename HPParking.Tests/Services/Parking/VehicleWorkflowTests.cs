@@ -75,7 +75,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-1",
                 CardNumber = "CARD001",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -138,7 +138,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-1",
                 CardNumber = "CARD001",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -199,7 +199,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "card-exit-1",
                 CardNumber = "CARD999",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 ClientId = client.Id,
                 Status = CardStatus.InUse
             };
@@ -573,7 +573,7 @@ namespace HPParking.Tests.Services.Parking
             {
                 Id = "c-card-di",
                 CardNumber = "FEE-CARD-DI",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.VIP,
                 IsChargeable = true,
                 TariffId = "tariff-di",
                 Status = CardStatus.InUse

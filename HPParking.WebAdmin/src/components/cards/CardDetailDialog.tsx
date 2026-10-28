@@ -222,7 +222,8 @@ export function CardDetailDialog({
                 </Badge>
               </div>
 
-              {card.targetType === CardTargetType.Person && (
+              {(card.targetType === CardTargetType.Monthly ||
+                card.targetType === CardTargetType.VIP) && (
                 <>
                   {isLoadingClient ? (
                     <Skeleton className="h-12 w-full" />

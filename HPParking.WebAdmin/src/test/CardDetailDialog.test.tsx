@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CardDetailDialog } from '@/components/cards/CardDetailDialog';
@@ -83,7 +83,7 @@ describe('CardDetailDialog Component', () => {
     const mockCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       clientId: 'client-1',
       clientName: 'Trần Văn B',
       status: CardStatus.InUse,
@@ -155,7 +155,7 @@ describe('CardDetailDialog Component', () => {
     const mockCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       status: CardStatus.Available,
       createdAt: '2026-03-01T10:00:00Z',
     };
@@ -186,7 +186,7 @@ describe('CardDetailDialog Component', () => {
     const mockCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       status: CardStatus.Available,
       createdAt: '2026-03-01T10:00:00Z',
     };
@@ -241,7 +241,7 @@ describe('CardDetailDialog Component', () => {
     const mockCard: CardDto = {
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       status: CardStatus.Available,
       createdAt: '2026-03-01T10:00:00Z',
     };

@@ -130,6 +130,17 @@ Tại `VisitorVehicleWorkflowHandler` và `ClientVehicleWorkflowHandler`:
     `Status == ParkingSessionStatus.Completed && IsFeeCollected == true && !IsDeleted`.
   - Loại trừ tuyệt đối các phiên chưa hoàn thành (`Active`), phiên không thu tiền (`FeeAmount == 0` hoặc miễn phí) và các phiên đã xóa mềm, bảo đảm số liệu doanh thu trên Excel khớp 100% với số liệu thực tế.
 
+### 7. Xóa Hẳn Loại Thẻ Nhân Sự (`Person`) & Chuẩn Hóa 4 Nhóm Thẻ Vận Hành
+- **Lý do & Ngữ cảnh**:
+  - Ban đầu (theo ADR 0038), hệ thống chỉ phân biệt hai nhóm thẻ thô sơ: `Person` (Thẻ người) và `Vehicle` (Thẻ xe).
+  - Khi phân hệ Tính phí và Vé tháng (`Tariff`) được đưa vào vận hành với các loại thẻ cụ thể: `Monthly` (Thẻ tháng/Vé tháng), `VIP` (Thẻ miễn phí/Ưu tiên), `Visitor` (Thẻ khách vãng lai), và `Vehicle` (Thẻ phương tiện nội bộ), loại thẻ `Person` trở nên dư thừa và gây nhập nhằng trong quản lý biểu phí (không rõ thẻ này có thu phí theo tháng hay miễn phí).
+- **Quy chuẩn Xóa Bỏ Hoàn Toàn (Hệ thống mới không cần tương thích ngược)**:
+  - **Xóa hẳn khỏi Enum `CardTargetType`**: Loại bỏ hoàn toàn giá trị `Person = 1` khỏi định nghĩa enum trong C# và TypeScript. Do hệ thống chưa có dữ liệu vận hành thực tế nên không cần duy trì các cơ chế tương thích ngược phức tạp. Hệ thống chuẩn hóa tuyệt đối 4 loại thẻ vận hành: `Vehicle = 2`, `Visitor = 3`, `Monthly = 4`, `VIP = 5`.
+  - **Lưu trữ chuẩn BSON String**: `Card.TargetType` lưu trữ thuần túy bằng `[BsonRepresentation(BsonType.String)]`, không cần custom migration serializer.
+  - **Phương thức Domain `card.IsClientBound()`**: Được định nghĩa tập trung qua `CardHelper.IsClientBound(this CardTargetType targetType)`: `targetType == CardTargetType.Monthly || targetType == CardTargetType.VIP`.
+  - **Loại bỏ hoàn toàn trên WebAdmin**: Mọi dropdown, bộ lọc, form tạo mới/chỉnh sửa thẻ và tài liệu mẫu Excel không còn bất kỳ dấu vết nào của loại thẻ `Person`.
+  - **Bộ lọc ClientBoundOnly**: Bổ sung cờ `clientBoundOnly` vào `CardFilterQuery` giúp các màn hình quản lý khách hàng (`ClientFormDialog`) tải nhanh toàn bộ các thẻ gán người dùng (`Monthly`, `VIP`).
+
 ---
 
 ## Hệ quả & Đánh đổi (Consequences)

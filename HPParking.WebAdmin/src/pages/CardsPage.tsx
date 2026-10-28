@@ -205,7 +205,7 @@ export function CardsPage() {
             return (
               <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30 text-[11px]">
                 <Car className="h-3 w-3" />
-                <span>Thẻ khách (Vãng lai)</span>
+                <span>Thẻ vãng lai</span>
               </Badge>
             );
           }
@@ -213,7 +213,7 @@ export function CardsPage() {
             return (
               <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-[11px]">
                 <User className="h-3 w-3" />
-                <span>Thẻ tháng (Vé tháng)</span>
+                <span>Thẻ tháng</span>
               </Badge>
             );
           }
@@ -221,14 +221,14 @@ export function CardsPage() {
             return (
               <Badge variant="outline" className="gap-1 border-indigo-300 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30 text-[11px]">
                 <User className="h-3 w-3" />
-                <span>Thẻ VIP / Miễn phí</span>
+                <span>Thẻ VIP</span>
               </Badge>
             );
           }
           return (
             <Badge variant="outline" className="gap-1 border-purple-300 text-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-950/30 text-[11px]">
               <User className="h-3 w-3" />
-              <span>Nhân sự (Client)</span>
+              <span>Khác</span>
             </Badge>
           );
         },
@@ -247,7 +247,7 @@ export function CardsPage() {
             return (
               <div className="text-xs">
                 <span className="font-medium text-foreground block">
-                  {item.tariffName || 'Chưa gán biểu phí'}
+                  {item.tariffName || '---'}
                 </span>
               </div>
             );
@@ -336,11 +336,11 @@ export function CardsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs">Tất cả đối tượng</SelectItem>
-                <SelectItem value={String(CardTargetType.Person)} className="text-xs">Thẻ nhân sự</SelectItem>
+
                 <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">Thẻ phương tiện nội bộ</SelectItem>
-                <SelectItem value={String(CardTargetType.Visitor)} className="text-xs">Thẻ khách (Vãng lai)</SelectItem>
-                <SelectItem value={String(CardTargetType.Monthly)} className="text-xs">Thẻ tháng (Vé tháng)</SelectItem>
-                <SelectItem value={String(CardTargetType.VIP)} className="text-xs">Thẻ VIP / Miễn phí</SelectItem>
+                <SelectItem value={String(CardTargetType.Visitor)} className="text-xs">Thẻ vãng lai</SelectItem>
+                <SelectItem value={String(CardTargetType.Monthly)} className="text-xs">Thẻ tháng</SelectItem>
+                <SelectItem value={String(CardTargetType.VIP)} className="text-xs">Thẻ VIP</SelectItem>
               </SelectContent>
             </Select>
 

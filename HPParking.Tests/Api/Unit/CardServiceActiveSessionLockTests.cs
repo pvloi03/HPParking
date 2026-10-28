@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Cards;
 using HPParking.Api.Services.Implementations;
@@ -72,7 +72,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-active-update",
                 CardNumber = "CARD002",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-old",
                 Status = CardStatus.InUse,
                 IsChargeable = false,
@@ -105,7 +105,7 @@ namespace HPParking.Tests.Api.Unit
                 Id = "card-client-active",
                 CardNumber = "CARD003",
                 ClientId = "c-client-1",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.InUse
             };
 
@@ -256,7 +256,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-active-available",
                 CardNumber = "CARD-AVAIL-01",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-1",
                 Status = CardStatus.InUse,
                 IsDeleted = false
@@ -268,7 +268,7 @@ namespace HPParking.Tests.Api.Unit
 
             var req = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-1",
                 Status = CardStatus.Available // Cấm chuyển về Available khi có xe trong bãi!
             };
@@ -289,7 +289,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = $"card-active-{newStatus}",
                 CardNumber = $"CARD-{newStatus}",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-1",
                 Status = CardStatus.InUse,
                 IsDeleted = false
@@ -301,7 +301,7 @@ namespace HPParking.Tests.Api.Unit
 
             var req = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-1",
                 Status = newStatus
             };

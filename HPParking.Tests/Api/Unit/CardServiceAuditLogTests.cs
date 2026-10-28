@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Cards;
 using HPParking.Api.Services.Implementations;
@@ -51,7 +51,7 @@ namespace HPParking.Tests.Api.Unit
             var request = new CreateCardRequest
             {
                 CardNumber = "0001234567",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.Available,
                 Note = "Thẻ cấp mới cho cán bộ"
             };
@@ -86,7 +86,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0009998888",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.Available,
                 Note = "Thẻ kho"
             };
@@ -96,7 +96,7 @@ namespace HPParking.Tests.Api.Unit
 
             var updateRequest = new UpdateCardRequest
             {
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.InUse,
                 Note = "Đã bàn giao sử dụng"
             };
@@ -126,7 +126,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0005556666",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.Available,
                 ClientId = null,
                 VehicleId = null
@@ -160,7 +160,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = cardId,
                 CardNumber = "0007778888",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.InUse,
                 ClientId = null,
                 VehicleId = null
@@ -194,7 +194,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "c1",
                 CardNumber = "0000000001",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-100",
                 Status = CardStatus.InUse
             };
@@ -202,7 +202,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "c2",
                 CardNumber = "0000000002",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-100",
                 Status = CardStatus.InUse
             };
@@ -229,7 +229,7 @@ namespace HPParking.Tests.Api.Unit
             var request = new CreateCardRequest
             {
                 CardNumber = "0001234567",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-100",
                 Status = CardStatus.InUse
             };
@@ -238,7 +238,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "old-c1",
                 CardNumber = "0009999999",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-100",
                 Status = CardStatus.InUse
             };
