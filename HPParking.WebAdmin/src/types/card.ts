@@ -1,26 +1,26 @@
 import type { PaginationQuery } from './masterData';
 
 export const CardTargetType = {
-  Person: 1,
-  Vehicle: 2,
-  Visitor: 3,
-  Monthly: 4,
-  VIP: 5,
+
+  Vehicle: 0,
+  Visitor: 1,
+  Monthly: 2,
+  VIP: 3,
 } as const;
 export type CardTargetType = (typeof CardTargetType)[keyof typeof CardTargetType];
 
 export function getCardTargetTypeLabel(type: CardTargetType): string {
   switch (type) {
-    case CardTargetType.Person:
-      return 'Thẻ người (Nhân sự)';
+
+
     case CardTargetType.Vehicle:
       return 'Thẻ xe nội bộ';
     case CardTargetType.Visitor:
-      return 'Thẻ khách (Vãng lai)';
+      return 'Thẻ vãng lai';
     case CardTargetType.Monthly:
-      return 'Thẻ tháng (Vé tháng)';
+      return 'Thẻ tháng';
     case CardTargetType.VIP:
-      return 'Thẻ VIP / Miễn phí';
+      return 'Thẻ VIP';
     default:
       return 'Không xác định';
   }
@@ -73,6 +73,7 @@ export interface CardFilterQuery extends PaginationQuery {
   unassignedOnly?: boolean;
   assignedClientId?: string;
   assignedVehicleId?: string;
+  clientBoundOnly?: boolean;
 }
 
 export interface CreateCardRequest {

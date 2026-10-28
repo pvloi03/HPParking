@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CardsPage } from '@/pages/CardsPage';
@@ -82,7 +82,7 @@ describe('CardsPage Component', () => {
         {
           id: 'card-1',
           cardNumber: '0000012345',
-          targetType: CardTargetType.Person,
+          targetType: CardTargetType.Monthly,
           clientId: 'client-1',
           clientName: 'Nguyễn Văn A',
           status: CardStatus.InUse,
@@ -115,7 +115,7 @@ describe('CardsPage Component', () => {
         return {
           id: 'card-1',
           cardNumber: '0000012345',
-          targetType: CardTargetType.Person,
+          targetType: CardTargetType.Monthly,
           clientId: 'client-1',
           clientName: 'Nguyễn Văn A',
           status: CardStatus.InUse,
@@ -204,7 +204,7 @@ describe('CardsPage Component', () => {
     vi.mocked(cardApi.create).mockResolvedValue({
       id: 'card-new',
       cardNumber: '0000099999',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       status: CardStatus.Available,
       createdAt: '2026-03-03T00:00:00Z',
     });
@@ -212,7 +212,7 @@ describe('CardsPage Component', () => {
     vi.mocked(cardApi.update).mockResolvedValue({
       id: 'card-1',
       cardNumber: '0000012345',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       status: CardStatus.Locked,
       createdAt: '2026-03-01T00:00:00Z',
     });
@@ -301,7 +301,7 @@ describe('CardsPage Component', () => {
       expect(cardApi.update).toHaveBeenCalledWith(
         'card-1',
         expect.objectContaining({
-          targetType: CardTargetType.Person,
+          targetType: CardTargetType.Monthly,
         })
       );
     });

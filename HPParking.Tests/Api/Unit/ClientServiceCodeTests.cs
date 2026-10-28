@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Clients;
 using HPParking.Api.Services.Implementations;
@@ -244,7 +244,7 @@ namespace HPParking.Tests.Api.Unit
                 CardNumber = "0000012345",
                 ClientId = "client1",
                 Status = CardStatus.InUse,
-                TargetType = CardTargetType.Person
+                TargetType = CardTargetType.Monthly
             };
             _cardRepo.FindAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns([linkedCard]);
@@ -432,7 +432,7 @@ namespace HPParking.Tests.Api.Unit
                 CardNumber = "0009991112",
                 ClientId = clientId,
                 Status = CardStatus.InUse,
-                TargetType = CardTargetType.Person
+                TargetType = CardTargetType.Monthly
             };
             _cardRepo.FindAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
                 .Returns(new List<Card> { assignedCard });

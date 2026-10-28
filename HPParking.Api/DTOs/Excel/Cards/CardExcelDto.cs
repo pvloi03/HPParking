@@ -9,7 +9,7 @@ namespace HPParking.Api.DTOs.Excel.Cards
     public class CardExcelDto
     {
         public string CardNumber { get; set; } = string.Empty;
-        public CardTargetType? TargetType { get; set; } = CardTargetType.Person;
+        public CardTargetType? TargetType { get; set; } = CardTargetType.Monthly;
         public string? ClientCode { get; set; }
         public string? PlateNumber { get; set; }
         public bool? IsChargeable { get; set; }
@@ -43,9 +43,9 @@ namespace HPParking.Api.DTOs.Excel.Cards
         public CardExcelProfile()
         {
             Map(x => x.CardNumber).ColumnName("Mã thẻ (10 số)").Order(1).Required().WithComment("Mã thẻ 10 chữ số (VD: 0012345678). Nếu nhập thiếu số 0 ở đầu, hệ thống sẽ tự động đệm đủ 10 số.");
-            Map(x => x.TargetType).ColumnName("Loại đối tượng").Order(2).EnumDropdown<CardTargetType>().WithComment("Chọn: Person (Nhân sự) hoặc Vehicle (Phương tiện nội bộ)");
-            Map(x => x.ClientCode).ColumnName("Mã nhân sự").Order(3).WithComment("Mã nhân sự hoặc CCCD/SĐT nếu loại thẻ là Person (VD: NV001). Bỏ trống nếu là thẻ lưu kho.");
-            Map(x => x.PlateNumber).ColumnName("Biển số xe").Order(4).WithComment("Biển số xe cá nhân (đối với thẻ Person) hoặc xe nội bộ (đối với thẻ Vehicle, VD: 30A-12345). Bỏ trống nếu là thẻ lưu kho.");
+            Map(x => x.TargetType).ColumnName("Loại đối tượng").Order(2).EnumDropdown<CardTargetType>().WithComment("Chọn: Monthly (Thẻ tháng), VIP (Thẻ VIP), Visitor (Thẻ vãng lai) hoặc Vehicle (Phương tiện nội bộ)");
+            Map(x => x.ClientCode).ColumnName("Mã nhân sự").Order(3).WithComment("Mã nhân sự hoặc CCCD/SĐT nếu loại thẻ là Monthly hoặc VIP (VD: NV001). Bỏ trống nếu là thẻ lưu kho.");
+            Map(x => x.PlateNumber).ColumnName("Biển số xe").Order(4).WithComment("Biển số xe cá nhân (đối với thẻ Monthly hoặc VIP) hoặc xe nội bộ (đối với thẻ Vehicle, VD: 30A-12345). Bỏ trống nếu là thẻ lưu kho.");
             Map(x => x.IsChargeable).ColumnName("Thu phí").Order(5).WithComment("Có thu phí hay không (Có/Không hoặc True/False)");
             Map(x => x.TariffCode).ColumnName("Mã biểu phí").Order(6).WithComment("Mã biểu phí áp dụng khi có thu phí (VD: TARIFF_CAR_FLAT). Bỏ trống nếu không thu phí.");
             Map(x => x.Status).ColumnName("Trạng thái").Order(7).EnumDropdown<CardStatus>().WithComment("Chọn: Available (Trong kho), InUse (Đang sử dụng), Locked (Tạm khóa), Lost (Báo mất)");

@@ -82,7 +82,7 @@ namespace HPParking.Api.Services.Implementations
             var sampleData = new CardExcelDto
             {
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientCode = "NV001",
                 PlateNumber = null,
                 IsChargeable = false,
@@ -223,12 +223,12 @@ namespace HPParking.Api.Services.Implementations
                     rowHasError = true;
                 }
 
-                var targetType = row.TargetType ?? CardTargetType.Person;
+                var targetType = row.TargetType ?? CardTargetType.Monthly;
                 string? resolvedClientId = null;
                 Client? matchedClient = null;
                 string? resolvedVehicleId = null;
 
-                if (targetType == CardTargetType.Person)
+                if (targetType.IsClientBound())
                 {
                     if (!string.IsNullOrWhiteSpace(row.ClientCode))
                     {
@@ -251,7 +251,7 @@ namespace HPParking.Api.Services.Implementations
                         }
                     }
 
-                    // Xử lý Biển số xe đối với Thẻ nhân sự (xe cá nhân)
+                    // Xử lý Biển số xe đối với Thẻ khách hàng (xe cá nhân)
                     if (!string.IsNullOrWhiteSpace(row.PlateNumber))
                     {
                         var cleanPlate = PlateHelper.Normalize(row.PlateNumber);
@@ -273,7 +273,7 @@ namespace HPParking.Api.Services.Implementations
                                 Row = rowIndex,
                                 Column = "Biển số xe",
                                 Value = row.PlateNumber,
-                                ErrorMessage = "Không thể liên kết biển số xe cho thẻ nhân sự khi chưa chỉ định mã nhân sự hợp lệ."
+                                ErrorMessage = "Không thể liên kết biển số xe cho thẻ khi chưa chỉ định mã nhân sự hợp lệ."
                             });
                             rowHasError = true;
                         }
@@ -466,7 +466,7 @@ namespace HPParking.Api.Services.Implementations
                     {
                         bool isChangingBinding =
                             existingCard.TargetType != targetType ||
-                            (targetType == CardTargetType.Person && existingCard.ClientId != resolvedClientId) ||
+                            (targetType.IsClientBound() && existingCard.ClientId != resolvedClientId) ||
                             (targetType == CardTargetType.Vehicle && existingCard.VehicleId != resolvedVehicleId);
 
                         bool isInvalidatingStatus =
@@ -516,7 +516,7 @@ namespace HPParking.Api.Services.Implementations
 
                                 foreach (var c in cardsByNumber.Values)
                                 {
-                                    if (c.ClientId == resolvedClientId && c.TargetType == CardTargetType.Person && c.Id != existingCard.Id)
+                                    if (c.ClientId == resolvedClientId && c.IsClientBound() && c.Id != existingCard.Id)
                                     {
                                         c.ClientId = null;
                                         c.Status = CardStatus.Available;
@@ -541,7 +541,7 @@ namespace HPParking.Api.Services.Implementations
                         }
 
                         existingCard.TargetType = targetType;
-                        existingCard.ClientId = targetType == CardTargetType.Person ? resolvedClientId : null;
+                        existingCard.ClientId = targetType.IsClientBound() ? resolvedClientId : null;
                         existingCard.VehicleId = resolvedVehicleId;
                         existingCard.IsChargeable = isChargeable;
                         existingCard.TariffId = resolvedTariffId;
@@ -559,7 +559,7 @@ namespace HPParking.Api.Services.Implementations
                 // Tạo mới Thẻ
                 if (!dryRun)
                 {
-                    if (targetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(resolvedClientId) && matchedClient != null)
+                    if (targetType.IsClientBound() && !string.IsNullOrWhiteSpace(resolvedClientId) && matchedClient != null)
                     {
                         await _cardService.RevokeClientCardsAsync(resolvedClientId, cancellationToken: cancellationToken);
                         matchedClient.CardCode = normalizedCard;
@@ -567,7 +567,7 @@ namespace HPParking.Api.Services.Implementations
 
                         foreach (var c in cardsByNumber.Values)
                         {
-                            if (c.ClientId == resolvedClientId && c.TargetType == CardTargetType.Person)
+                            if (c.ClientId == resolvedClientId && c.IsClientBound())
                             {
                                 c.ClientId = null;
                                 c.Status = CardStatus.Available;
@@ -592,7 +592,7 @@ namespace HPParking.Api.Services.Implementations
                     {
                         CardNumber = normalizedCard,
                         TargetType = targetType,
-                        ClientId = targetType == CardTargetType.Person ? resolvedClientId : null,
+                        ClientId = targetType.IsClientBound() ? resolvedClientId : null,
                         VehicleId = resolvedVehicleId,
                         IsChargeable = isChargeable,
                         TariffId = resolvedTariffId,
@@ -641,12 +641,12 @@ namespace HPParking.Api.Services.Implementations
                     CardTargetType.Visitor => "Thẻ lượt (Khách)",
                     CardTargetType.Monthly => "Thẻ tháng",
                     CardTargetType.VIP => "Thẻ VIP",
-                    _ => "Nhân sự"
+                    _ => "Không xác định"
                 };
                 string? assignedCode = null;
                 string? assignedName = null;
 
-                if ((c.TargetType == CardTargetType.Person || c.TargetType == CardTargetType.Monthly || c.TargetType == CardTargetType.VIP) && !string.IsNullOrWhiteSpace(c.ClientId))
+                if (c.TargetType.IsClientBound() && !string.IsNullOrWhiteSpace(c.ClientId))
                 {
                     assignedCode = c.ClientCode;
                     assignedName = c.ClientName;

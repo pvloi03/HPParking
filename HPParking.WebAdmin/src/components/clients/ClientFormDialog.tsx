@@ -1164,11 +1164,11 @@ export function ClientFormDialog({
                 )}
               </label>
               <InfiniteSearchableSelect<CardDto>
-                queryKey={['cards', 'available-person', initialData?.id || 'new']}
+                queryKey={['cards', 'available-client-cards', initialData?.id || 'new']}
                 fetchFn={(params) =>
                   cardApi.getCards({
                     ...params,
-                    targetType: CardTargetType.Person,
+                    clientBoundOnly: true,
                     unassignedOnly: true,
                     assignedClientId: initialData?.id,
                   })
@@ -1188,7 +1188,7 @@ export function ClientFormDialog({
                 placeholder={
                   isNoneAuth
                     ? 'Làn tự do (None) — Không sử dụng thẻ định danh RFID'
-                    : '-- Chọn thẻ định danh Person trong kho --'
+                    : '-- Chọn thẻ định danh trong kho --'
                 }
                 allowClear={true}
                 clearLabel="-- Không gán Thẻ từ (None) --"

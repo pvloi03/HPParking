@@ -57,7 +57,7 @@ const cardFormSchema = z.object({
     .min(1, 'Vui lòng nhập mã thẻ')
     .max(10, 'Mã thẻ tối đa 10 chữ số')
     .regex(/^\d+$/, 'Mã thẻ chỉ được chứa các chữ số 0-9'),
-  targetType: z.number().int().min(1).max(5),
+  targetType: z.number().int().min(0).max(3),
   clientId: z.string().optional(),
   vehicleId: z.string().optional(),
   vehicleType: z.number().int().optional(),
@@ -107,7 +107,7 @@ export function CardFormDialog({
     resolver: zodResolver(cardFormSchema),
     defaultValues: {
       cardNumber: '',
-      targetType: CardTargetType.Person,
+      targetType: CardTargetType.Monthly,
       clientId: '',
       vehicleId: '',
       vehicleType: VehicleType.Car,
@@ -129,7 +129,6 @@ export function CardFormDialog({
   const watchedTariffId = watch('tariffId');
 
   const isAssigned = Boolean(
-    (watchedTargetType === CardTargetType.Person && watchedClientId) ||
     (watchedTargetType === CardTargetType.Vehicle && watchedVehicleId) ||
     (watchedTargetType === CardTargetType.Monthly && watchedClientId) ||
     (watchedTargetType === CardTargetType.VIP && watchedClientId)
@@ -147,7 +146,6 @@ export function CardFormDialog({
     if (open) {
       if (initialData) {
         const assigned = Boolean(
-          (initialData.targetType === CardTargetType.Person && initialData.clientId) ||
           (initialData.targetType === CardTargetType.Vehicle && initialData.vehicleId) ||
           (initialData.targetType === CardTargetType.Monthly && initialData.clientId) ||
           (initialData.targetType === CardTargetType.VIP && initialData.clientId)
@@ -175,7 +173,7 @@ export function CardFormDialog({
       } else {
         reset({
           cardNumber: '',
-          targetType: CardTargetType.Person,
+          targetType: CardTargetType.Monthly,
           clientId: '',
           vehicleId: '',
           vehicleType: VehicleType.Car,
@@ -191,15 +189,14 @@ export function CardFormDialog({
   }, [open, initialData, reset]);
 
   const handleFormSubmit = async (data: CardFormData) => {
-    const isPersonLike =
-      Number(data.targetType) === CardTargetType.Person ||
+    const isClientBound =
       Number(data.targetType) === CardTargetType.Monthly ||
       Number(data.targetType) === CardTargetType.VIP;
 
     if (isEditing) {
       const payload: UpdateCardRequest = {
         targetType: Number(data.targetType) as CardTargetType,
-        clientId: isPersonLike && data.clientId ? data.clientId : undefined,
+        clientId: isClientBound && data.clientId ? data.clientId : undefined,
         vehicleId: Number(data.targetType) === CardTargetType.Vehicle && data.vehicleId ? data.vehicleId : undefined,
         vehicleType: Number(data.targetType) === CardTargetType.Visitor && data.vehicleType ? Number(data.vehicleType) : undefined,
         isChargeable: Boolean(data.isChargeable),
@@ -215,7 +212,7 @@ export function CardFormDialog({
       const payload: CreateCardRequest = {
         cardNumber: padded,
         targetType: Number(data.targetType) as CardTargetType,
-        clientId: isPersonLike && data.clientId ? data.clientId : undefined,
+        clientId: isClientBound && data.clientId ? data.clientId : undefined,
         vehicleId: Number(data.targetType) === CardTargetType.Vehicle && data.vehicleId ? data.vehicleId : undefined,
         vehicleType: Number(data.targetType) === CardTargetType.Visitor && data.vehicleType ? Number(data.vehicleType) : undefined,
         isChargeable: Boolean(data.isChargeable),
@@ -301,22 +298,19 @@ export function CardFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={String(CardTargetType.Person)} className="text-xs">
-                    Thẻ người (Nhân sự)
-                  </SelectItem>
                   {(enableFleetDispatch || (isEditing && initialData?.targetType === CardTargetType.Vehicle)) && (
                     <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">
                       Thẻ phương tiện nội bộ
                     </SelectItem>
                   )}
                   <SelectItem value={String(CardTargetType.Visitor)} className="text-xs">
-                    Thẻ khách (Vãng lai)
+                    Thẻ vãng lai
                   </SelectItem>
                   <SelectItem value={String(CardTargetType.Monthly)} className="text-xs">
-                    Thẻ tháng (Vé tháng)
+                    Thẻ tháng
                   </SelectItem>
                   <SelectItem value={String(CardTargetType.VIP)} className="text-xs">
-                    Thẻ VIP / Miễn phí
+                    Thẻ VIP
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -363,54 +357,53 @@ export function CardFormDialog({
           </div>
 
           {/* Gán nhân sự cho Thẻ người, Thẻ tháng, Thẻ VIP */}
-          {(watchedTargetType === CardTargetType.Person ||
-            watchedTargetType === CardTargetType.Monthly ||
+          {(watchedTargetType === CardTargetType.Monthly ||
             watchedTargetType === CardTargetType.VIP) && (
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-purple-600" />
-                  Gán cho Nhân sự (Khách hàng)
-                </span>
-                <span className="text-[10px] text-muted-foreground">Chọn người để gán thẻ</span>
-              </label>
-              {hasAssignedClient && (
-                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <span className="font-semibold">Thẻ đang được gán cho nhân sự này</span>
-                    <p className="text-[11px] leading-relaxed">
-                      Hệ thống không cho phép chuyển thẻ trực tiếp giữa 2 nhân sự. Để đổi chủ thẻ, vui lòng gỡ thẻ về kho bằng cách chọn &quot;-- Chưa gán (Lưu trong kho) --&quot; rồi lưu lại trước.
-                    </p>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-purple-600" />
+                    Gán cho Nhân sự (Khách hàng)
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Chọn người để gán thẻ</span>
+                </label>
+                {hasAssignedClient && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-semibold">Thẻ đang được gán cho nhân sự này</span>
+                      <p className="text-[11px] leading-relaxed">
+                        Hệ thống không cho phép chuyển thẻ trực tiếp giữa 2 nhân sự. Để đổi chủ thẻ, vui lòng gỡ thẻ về kho bằng cách chọn &quot;-- Chưa gán (Lưu trong kho) --&quot; rồi lưu lại trước.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-              <InfiniteSearchableSelect<ClientDto>
-                queryKey={['activeClientsForCardsInfinite']}
-                fetchFn={(params) => clientApi.getPaged({ ...params, isActive: true })}
-                fetchById={(id) => clientApi.getById(String(id))}
-                value={watchedClientId || ''}
-                onValueChange={(val) => {
-                  if (hasAssignedClient && val && val !== initialData?.clientId) {
-                    toast.warning(
-                      'Thẻ hiện đang được gán cho nhân sự khác. Vui lòng chọn "-- Chưa gán (Lưu trong kho) --" và lưu lại trước khi gán cho người mới.'
-                    );
-                    return;
-                  }
-                  setValue('clientId', val, { shouldDirty: true });
-                  if (val && watchedStatus === CardStatus.Available) {
-                    setValue('status', CardStatus.InUse, { shouldDirty: true });
-                  } else if (!val && watchedStatus === CardStatus.InUse) {
-                    setValue('status', CardStatus.Available, { shouldDirty: true });
-                  }
-                }}
-                placeholder="-- Chưa gán (Lưu trong kho) --"
-                allowClear={true}
-                clearLabel="-- Chưa gán (Lưu trong kho) --"
-                getLabel={(client) => `${client.name} (${client.code}${client.phoneNumber ? ` - ${client.phoneNumber}` : ''})`}
-              />
-            </div>
-          )}
+                )}
+                <InfiniteSearchableSelect<ClientDto>
+                  queryKey={['activeClientsForCardsInfinite']}
+                  fetchFn={(params) => clientApi.getPaged({ ...params, isActive: true })}
+                  fetchById={(id) => clientApi.getById(String(id))}
+                  value={watchedClientId || ''}
+                  onValueChange={(val) => {
+                    if (hasAssignedClient && val && val !== initialData?.clientId) {
+                      toast.warning(
+                        'Thẻ hiện đang được gán cho nhân sự khác. Vui lòng chọn "-- Chưa gán (Lưu trong kho) --" và lưu lại trước khi gán cho người mới.'
+                      );
+                      return;
+                    }
+                    setValue('clientId', val, { shouldDirty: true });
+                    if (val && watchedStatus === CardStatus.Available) {
+                      setValue('status', CardStatus.InUse, { shouldDirty: true });
+                    } else if (!val && watchedStatus === CardStatus.InUse) {
+                      setValue('status', CardStatus.Available, { shouldDirty: true });
+                    }
+                  }}
+                  placeholder="-- Chưa gán (Lưu trong kho) --"
+                  allowClear={true}
+                  clearLabel="-- Chưa gán (Lưu trong kho) --"
+                  getLabel={(client) => `${client.name} (${client.code}${client.phoneNumber ? ` - ${client.phoneNumber}` : ''})`}
+                />
+              </div>
+            )}
 
           {/* Gán phương tiện nội bộ */}
           {watchedTargetType === CardTargetType.Vehicle && (
@@ -443,7 +436,7 @@ export function CardFormDialog({
             </div>
           )}
 
-          {/* Thẻ khách (Vãng lai) - Chọn loại phương tiện */}
+          {/* Thẻ vãng lai - Chọn loại phương tiện */}
           {watchedTargetType === CardTargetType.Visitor && (
             <div className="space-y-1">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -504,7 +497,7 @@ export function CardFormDialog({
           )}
 
           {/* Cấu hình tính phí (Áp dụng cho Thẻ khách hoặc Thẻ người) */}
-          {(watchedTargetType === CardTargetType.Visitor || watchedTargetType === CardTargetType.Person) && (
+          {watchedTargetType === CardTargetType.Visitor && (
             <div className="p-3 rounded-lg border bg-muted/20 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">

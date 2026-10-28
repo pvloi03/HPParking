@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using HPParking.Api.Common.Excel;
 using HPParking.Api.DTOs.Cards;
 using HPParking.Api.DTOs.Excel;
@@ -119,7 +119,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "12345", // Cần được pad thành 0000012345
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = "NV001"
                 }
             };
@@ -167,7 +167,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0000000000", // Toàn số 0 (tín hiệu rác không hợp lệ)
-                    TargetType = CardTargetType.Person
+                    TargetType = CardTargetType.Monthly
                 }
             };
             SetupExcelParseResult(excelRows);
@@ -198,8 +198,8 @@ namespace HPParking.Tests.Api.Unit
 
             var excelRows = new List<CardExcelDto>
             {
-                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Person },
-                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Person }
+                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Monthly },
+                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Monthly }
             };
             SetupExcelParseResult(excelRows);
 
@@ -223,7 +223,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-001",
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.Available,
                 IsDeleted = false
             };
@@ -236,7 +236,7 @@ namespace HPParking.Tests.Api.Unit
 
             var excelRows = new List<CardExcelDto>
             {
-                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Person }
+                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Monthly }
             };
             SetupExcelParseResult(excelRows);
 
@@ -262,7 +262,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-001",
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.Available,
                 IsDeleted = false
             };
@@ -278,7 +278,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     Status = CardStatus.Locked,
                     Note = "Đã khóa thẻ do nghi vấn mất"
                 }
@@ -307,7 +307,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-001",
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 Status = CardStatus.Available,
                 IsDeleted = false
             };
@@ -320,7 +320,7 @@ namespace HPParking.Tests.Api.Unit
 
             var excelRows = new List<CardExcelDto>
             {
-                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Person }
+                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Monthly }
             };
             SetupExcelParseResult(excelRows);
 
@@ -349,7 +349,7 @@ namespace HPParking.Tests.Api.Unit
 
             var excelRows = new List<CardExcelDto>
             {
-                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Person }
+                new CardExcelDto { CardNumber = "0012345678", TargetType = CardTargetType.Monthly }
             };
             SetupExcelParseResult(excelRows);
 
@@ -375,7 +375,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "c-1",
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-1",
                 ClientCode = "NV001",
                 ClientName = "Nguyễn Văn B",
@@ -467,7 +467,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-001",
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-old",
                 Status = CardStatus.InUse,
                 IsDeleted = false
@@ -502,7 +502,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = "NV_NEW"
                 }
             };
@@ -564,7 +564,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = "NV001",
                     PlateNumber = "29A-88888"
                 }
@@ -623,7 +623,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = "NV001",
                     PlateNumber = "29A-99999"
                 }
@@ -659,7 +659,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = null, // Không chỉ định nhân sự
                     PlateNumber = "29A-12345"
                 }
@@ -686,7 +686,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-active-1",
                 CardNumber = "0012345678",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-old",
                 Status = CardStatus.InUse
             };
@@ -716,7 +716,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = "NV002", // Cố thay đổi chủ sở hữu sang người mới
                     Status = CardStatus.InUse
                 }
@@ -743,7 +743,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-active-2",
                 CardNumber = "0088899900",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 ClientId = "client-person-1",
                 Status = CardStatus.InUse
             };
@@ -809,7 +809,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     IsChargeable = true,
                     TariffCode = ""
                 }
@@ -845,7 +845,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     IsChargeable = true,
                     TariffCode = "TF_NON_EXISTENT"
                 }
@@ -913,7 +913,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     IsChargeable = false,
                     TariffCode = "TF_01"
                 }
@@ -959,7 +959,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     IsChargeable = true,
                     TariffCode = "TF_CAR_01"
                 }
@@ -988,7 +988,7 @@ namespace HPParking.Tests.Api.Unit
             {
                 Id = "card-active-tariff",
                 CardNumber = "0011223344",
-                TargetType = CardTargetType.Person,
+                TargetType = CardTargetType.Monthly,
                 IsChargeable = false,
                 TariffId = null,
                 Status = CardStatus.InUse
@@ -1027,7 +1027,7 @@ namespace HPParking.Tests.Api.Unit
                 new CardExcelDto
                 {
                     CardNumber = "0011223344",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     IsChargeable = true,
                     TariffCode = "TF_01",
                     Status = CardStatus.InUse
@@ -1057,7 +1057,7 @@ namespace HPParking.Tests.Api.Unit
                 {
                     Id = "card-1",
                     CardNumber = "0012345678",
-                    TargetType = CardTargetType.Person,
+                    TargetType = CardTargetType.Monthly,
                     ClientCode = "NV001",
                     ClientName = "Nguyễn Văn A",
                     IsChargeable = true,

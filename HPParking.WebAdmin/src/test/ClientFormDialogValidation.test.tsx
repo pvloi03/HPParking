@@ -11,7 +11,7 @@ vi.mock('@/api/cardApi', () => ({
         {
           id: 'card-1',
           cardNumber: '0000123456',
-          targetType: 1,
+          targetType: 2, // Monthly
           status: 0,
           createdAt: new Date().toISOString(),
         },
@@ -116,7 +116,7 @@ describe('ClientFormDialog Validation & Unassigned Filter Tests', () => {
     await waitFor(() => {
       expect(cardApi.getCards).toHaveBeenCalledWith(
         expect.objectContaining({
-          targetType: 1, // Person
+          clientBoundOnly: true,
           unassignedOnly: true,
         })
       );

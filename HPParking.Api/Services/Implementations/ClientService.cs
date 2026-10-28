@@ -294,7 +294,11 @@ namespace HPParking.Api.Services.Implementations
 
                 if (_cardRepo != null)
                 {
-                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && !c.IsDeleted, cancellationToken);
+                    if (card != null && !card.IsClientBound())
+                    {
+                        throw new BadRequestException($"Thẻ định danh '{cleanCardCode}' là thẻ {card.TargetType}, không thể gán cho khách hàng.");
+                    }
                     if (card != null && !string.IsNullOrWhiteSpace(card.ClientId))
                     {
                         var assignedClient = await _clientRepo.FindOneAsync(c => c.Id == card.ClientId && !c.IsDeleted, cancellationToken);
@@ -369,7 +373,7 @@ namespace HPParking.Api.Services.Implementations
 
             if (_cardRepo != null && !string.IsNullOrWhiteSpace(cleanCardCode))
             {
-                var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && !c.IsDeleted, cancellationToken);
                 if (card != null)
                 {
                     card.ClientId = client.Id;
@@ -588,7 +592,11 @@ namespace HPParking.Api.Services.Implementations
 
                 if (_cardRepo != null)
                 {
-                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && !c.IsDeleted, cancellationToken);
+                    if (card != null && !card.IsClientBound())
+                    {
+                        throw new BadRequestException($"Thẻ định danh '{cleanCardCode}' là thẻ {card.TargetType}, không thể gán cho khách hàng.");
+                    }
                     if (card != null && !string.IsNullOrWhiteSpace(card.ClientId) && card.ClientId != id)
                     {
                         var assignedClient = await _clientRepo.FindOneAsync(c => c.Id == card.ClientId && !c.IsDeleted, cancellationToken);
@@ -650,7 +658,7 @@ namespace HPParking.Api.Services.Implementations
 
                     if (!string.IsNullOrWhiteSpace(oldCardCode))
                     {
-                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && !c.IsDeleted, cancellationToken);
                         if (oldCard != null && oldCard.ClientId == id)
                         {
                             oldCard.ClientId = null;
@@ -663,7 +671,7 @@ namespace HPParking.Api.Services.Implementations
                 {
                     if (!string.IsNullOrWhiteSpace(oldCardCode))
                     {
-                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && !c.IsDeleted, cancellationToken);
                         if (oldCard != null && oldCard.ClientId == id)
                         {
                             oldCard.ClientId = null;
@@ -674,7 +682,7 @@ namespace HPParking.Api.Services.Implementations
 
                     if (!string.IsNullOrWhiteSpace(cleanCardCode))
                     {
-                        var newCard = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                        var newCard = await _cardRepo.FindOneAsync(c => c.CardNumber == cleanCardCode && !c.IsDeleted, cancellationToken);
                         if (newCard != null)
                         {
                             newCard.ClientId = id;
@@ -915,7 +923,7 @@ namespace HPParking.Api.Services.Implementations
 
                     if (!string.IsNullOrWhiteSpace(oldCardCode))
                     {
-                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                        var oldCard = await _cardRepo.FindOneAsync(c => c.CardNumber == oldCardCode && !c.IsDeleted, cancellationToken);
                         if (oldCard != null)
                         {
                             oldCard.ClientId = null;
@@ -1000,7 +1008,7 @@ namespace HPParking.Api.Services.Implementations
 
                 if (!string.IsNullOrWhiteSpace(oldHardCardCode))
                 {
-                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == oldHardCardCode && c.TargetType == CardTargetType.Person && !c.IsDeleted, cancellationToken);
+                    var card = await _cardRepo.FindOneAsync(c => c.CardNumber == oldHardCardCode && !c.IsDeleted, cancellationToken);
                     if (card != null)
                     {
                         card.ClientId = null;
