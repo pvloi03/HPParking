@@ -193,13 +193,39 @@ export function CardsPage() {
         accessorKey: 'targetType',
         header: 'Đối Tượng Gán',
         cell: (item: CardDto) => {
-          const isVehicle = item.targetType === CardTargetType.Vehicle;
-          return isVehicle ? (
-            <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30 text-[11px]">
-              <Car className="h-3 w-3" />
-              <span>Phương tiện nội bộ</span>
-            </Badge>
-          ) : (
+          if (item.targetType === CardTargetType.Vehicle) {
+            return (
+              <Badge variant="outline" className="gap-1 border-blue-300 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/30 text-[11px]">
+                <Car className="h-3 w-3" />
+                <span>Phương tiện nội bộ</span>
+              </Badge>
+            );
+          }
+          if (item.targetType === CardTargetType.Visitor) {
+            return (
+              <Badge variant="outline" className="gap-1 border-amber-300 text-amber-700 dark:text-amber-300 bg-amber-50/50 dark:bg-amber-950/30 text-[11px]">
+                <Car className="h-3 w-3" />
+                <span>Thẻ khách (Vãng lai)</span>
+              </Badge>
+            );
+          }
+          if (item.targetType === CardTargetType.Monthly) {
+            return (
+              <Badge variant="outline" className="gap-1 border-emerald-300 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/30 text-[11px]">
+                <User className="h-3 w-3" />
+                <span>Thẻ tháng (Vé tháng)</span>
+              </Badge>
+            );
+          }
+          if (item.targetType === CardTargetType.VIP) {
+            return (
+              <Badge variant="outline" className="gap-1 border-indigo-300 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/30 text-[11px]">
+                <User className="h-3 w-3" />
+                <span>Thẻ VIP / Miễn phí</span>
+              </Badge>
+            );
+          }
+          return (
             <Badge variant="outline" className="gap-1 border-purple-300 text-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-950/30 text-[11px]">
               <User className="h-3 w-3" />
               <span>Nhân sự (Client)</span>
@@ -215,6 +241,15 @@ export function CardsPage() {
               <span className="font-semibold text-xs text-foreground">
                 {item.plateNumber || '—'}
               </span>
+            );
+          }
+          if (item.targetType === CardTargetType.Visitor) {
+            return (
+              <div className="text-xs">
+                <span className="font-medium text-foreground block">
+                  {item.tariffName || 'Chưa gán biểu phí'}
+                </span>
+              </div>
             );
           }
           return (
@@ -303,6 +338,9 @@ export function CardsPage() {
                 <SelectItem value="all" className="text-xs">Tất cả đối tượng</SelectItem>
                 <SelectItem value={String(CardTargetType.Person)} className="text-xs">Thẻ nhân sự</SelectItem>
                 <SelectItem value={String(CardTargetType.Vehicle)} className="text-xs">Thẻ phương tiện nội bộ</SelectItem>
+                <SelectItem value={String(CardTargetType.Visitor)} className="text-xs">Thẻ khách (Vãng lai)</SelectItem>
+                <SelectItem value={String(CardTargetType.Monthly)} className="text-xs">Thẻ tháng (Vé tháng)</SelectItem>
+                <SelectItem value={String(CardTargetType.VIP)} className="text-xs">Thẻ VIP / Miễn phí</SelectItem>
               </SelectContent>
             </Select>
 

@@ -197,7 +197,7 @@ namespace HPParking.Api.Services.Implementations
                 return (pedBytes, pedFileName, isTruncated);
             }
 
-            var data = sessions.Select(s =>
+            var dataList = sessions.Select(s =>
             {
                 string? clientId = s.PersonId;
                 if ((string.IsNullOrWhiteSpace(clientId) || !clients.ContainsKey(clientId)) && !string.IsNullOrWhiteSpace(s.PlateNumber))
@@ -227,11 +227,43 @@ namespace HPParking.Api.Services.Implementations
                     OutLaneName = s.OutLaneName,
                     OutPlateImagePath = s.OutPlateImagePath,
                     OutOverviewImagePath = s.OutOverviewImagePath,
-                    Duration = FormatDuration(s.InTime, s.OutTime)
+                    Duration = FormatDuration(s.InTime, s.OutTime),
+                    FeeAmount = s.FeeAmount,
+                    IsFeeCollected = s.IsFeeCollected,
+                    CardNumber = s.CardNumber,
+                    RawInPlateOcr = s.RawInPlateOcr,
+                    RawOutPlateOcr = s.RawOutPlateOcr,
+                    IsManualPlateIn = s.IsManualPlateIn,
+                    IsManualPlateOut = s.IsManualPlateOut,
+                    CloseReason = s.CloseReason,
+                    ClosedBy = s.ClosedBy
                 };
-            });
+            }).ToList();
 
-            var bytes = await _excelService.WriteAsync(data, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe", "BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE", cancellationToken);
+            var paidCompletedSessions = sessions
+                .Where(s => s.Status == ParkingSessionStatus.Completed && s.IsFeeCollected && !s.IsDeleted)
+                .ToList();
+            var totalRevenue = paidCompletedSessions.Sum(s => s.FeeAmount);
+            var paidCount = paidCompletedSessions.Count;
+
+            if (dataList.Count > 0)
+            {
+                dataList.Add(new ParkingSessionExcelDto
+                {
+                    InOrderDisplay = "TỔNG CỘNG THỰC THU",
+                    PlateNumber = $"Đã thu: {paidCount}/{sessions.Count} lượt",
+                    Status = null,
+                    FeeAmount = totalRevenue,
+                    IsFeeCollected = true,
+                    Duration = $"Tổng: {totalRevenue:#,##0} VNĐ"
+                });
+            }
+
+            var reportTitle = totalRevenue > 0
+                ? $"BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE (Tổng thực thu: {totalRevenue:#,##0} VNĐ)"
+                : "BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE";
+
+            var bytes = await _excelService.WriteAsync(dataList, new ParkingSessionExcelProfile(), "Lich_Su_Do_Xe", reportTitle, cancellationToken);
             var fileName = $"Lich_Su_Do_Xe_{timestamp}.xlsx";
 
             _logger.LogInformation("Đã xuất {Count}/{Total} dòng lịch sử phiên đỗ xe ra Excel (Truncated: {IsTruncated})",

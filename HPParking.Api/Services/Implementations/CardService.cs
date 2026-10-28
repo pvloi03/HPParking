@@ -1,6 +1,5 @@
 using HPParking.Api.Common.Exceptions;
 using HPParking.Api.DTOs.Cards;
-using HPParking.Api.DTOs.Clients;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Constants;
@@ -8,50 +7,34 @@ using HPParking.Core.Helpers;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using Microsoft.Extensions.Logging;
+using HPParking.Core.Models.ValueObjects;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HPParking.Api.Services.Implementations
 {
-    public class CardService : ICardService
+    public class CardService(
+        IRepository<Card> cardRepo,
+        IRepository<Client> clientRepo,
+        IRepository<Vehicle> vehicleRepo,
+        IRepository<Tariff> tariffRepo,
+        IRepository<ParkingSession> sessionRepo,
+        IAuditLogService auditLogService,
+        ILogger<CardService> logger,
+        IFaceIdService? faceIdService = null,
+        IRepository<Lane>? laneRepo = null,
+        IRepository<Device>? deviceRepo = null) : ICardService
     {
-        private readonly IRepository<Card> _cardRepo;
-        private readonly IRepository<Client> _clientRepo;
-        private readonly IRepository<Vehicle> _vehicleRepo;
-        private readonly IAuditLogService? _auditLogService;
-        private readonly IFaceIdService? _faceIdService;
-        private readonly IRepository<Lane>? _laneRepo;
-        private readonly IRepository<Device>? _deviceRepo;
-        private readonly ILogger<CardService>? _logger;
-
-        public CardService(
-            IRepository<Card> cardRepo,
-            IRepository<Client> clientRepo,
-            IRepository<Vehicle> vehicleRepo,
-            IAuditLogService? auditLogService = null,
-            IFaceIdService? faceIdService = null,
-            IRepository<Lane>? laneRepo = null,
-            IRepository<Device>? deviceRepo = null,
-            ILogger<CardService>? logger = null)
-        {
-            _cardRepo = cardRepo;
-            _clientRepo = clientRepo;
-            _vehicleRepo = vehicleRepo;
-            _auditLogService = auditLogService;
-            _faceIdService = faceIdService;
-            _laneRepo = laneRepo;
-            _deviceRepo = deviceRepo;
-            _logger = logger;
-        }
-
-        public CardService(
-            IRepository<Card> cardRepo,
-            IRepository<Client> clientRepo,
-            IRepository<Vehicle> vehicleRepo)
-            : this(cardRepo, clientRepo, vehicleRepo, null, null, null, null, null)
-        {
-        }
+        private readonly IRepository<Card> _cardRepo = cardRepo ?? throw new ArgumentNullException(nameof(cardRepo));
+        private readonly IRepository<Client> _clientRepo = clientRepo ?? throw new ArgumentNullException(nameof(clientRepo));
+        private readonly IRepository<Vehicle> _vehicleRepo = vehicleRepo ?? throw new ArgumentNullException(nameof(vehicleRepo));
+        private readonly IRepository<Tariff> _tariffRepo = tariffRepo ?? throw new ArgumentNullException(nameof(tariffRepo));
+        private readonly IRepository<ParkingSession> _sessionRepo = sessionRepo ?? throw new ArgumentNullException(nameof(sessionRepo));
+        private readonly IAuditLogService _auditLogService = auditLogService ?? throw new ArgumentNullException(nameof(auditLogService));
+        private readonly ILogger<CardService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        private readonly IFaceIdService? _faceIdService = faceIdService;
+        private readonly IRepository<Lane>? _laneRepo = laneRepo;
+        private readonly IRepository<Device>? _deviceRepo = deviceRepo;
 
         public static FilterDefinition<Card> BuildFilter(CardFilterQuery query)
         {
@@ -119,12 +102,13 @@ namespace HPParking.Api.Services.Implementations
             return filter;
         }
 
-        private async Task<(Dictionary<string, (string Code, string Name)> ClientMap, Dictionary<string, string> VehicleMap)>
-            LoadClientAndVehicleMapsAsync(IEnumerable<Card> cards, CancellationToken cancellationToken = default)
+        private async Task<(Dictionary<string, (string Code, string Name)> ClientMap, Dictionary<string, string> VehicleMap, Dictionary<string, (string Code, string Name)> TariffMap)>
+            LoadClientVehicleAndTariffMapsAsync(IEnumerable<Card> cards, CancellationToken cancellationToken = default)
         {
             var cardList = cards.ToList();
             var clientIds = cardList.Where(c => !string.IsNullOrWhiteSpace(c.ClientId)).Select(c => c.ClientId!).Distinct().ToList();
             var vehicleIds = cardList.Where(c => !string.IsNullOrWhiteSpace(c.VehicleId)).Select(c => c.VehicleId!).Distinct().ToList();
+            var tariffIds = cardList.Where(c => !string.IsNullOrWhiteSpace(c.TariffId)).Select(c => c.TariffId!).Distinct().ToList();
 
             var clientMap = new Dictionary<string, (string Code, string Name)>();
             if (clientIds.Count > 0)
@@ -140,7 +124,14 @@ namespace HPParking.Api.Services.Implementations
                 vehicleMap = vehicles.ToDictionary(v => v.Id, v => v.PlateNumber);
             }
 
-            return (clientMap, vehicleMap);
+            var tariffMap = new Dictionary<string, (string Code, string Name)>();
+            if (tariffIds.Count > 0)
+            {
+                var tariffs = await _tariffRepo.FindAsync(t => tariffIds.Contains(t.Id) && !t.IsDeleted, cancellationToken: cancellationToken);
+                tariffMap = tariffs.ToDictionary(t => t.Id, t => (t.Code, t.Name));
+            }
+
+            return (clientMap, vehicleMap, tariffMap);
         }
 
         public async Task<PagedResult<CardDto>> GetCardsPagedAsync(
@@ -169,7 +160,7 @@ namespace HPParking.Api.Services.Implementations
             var totalCount = await _cardRepo.CountAsync(filter, onlyDeleted: false, cancellationToken);
             var pagedCards = await _cardRepo.FindAsync(filter, sort, query.Skip, query.PageSize, onlyDeleted: false, cancellationToken);
 
-            var (clientMap, vehicleMap) = await LoadClientAndVehicleMapsAsync(pagedCards, cancellationToken);
+            var (clientMap, vehicleMap, tariffMap) = await LoadClientVehicleAndTariffMapsAsync(pagedCards, cancellationToken);
 
             var dtoList = pagedCards.Select(card => new CardDto
             {
@@ -181,6 +172,13 @@ namespace HPParking.Api.Services.Implementations
                 ClientName = card.ClientId != null && clientMap.TryGetValue(card.ClientId, out var clientInfo) ? clientInfo.Name : null,
                 VehicleId = card.VehicleId,
                 PlateNumber = card.VehicleId != null && vehicleMap.TryGetValue(card.VehicleId, out var pNum) ? pNum : null,
+                VehicleType = card.VehicleType,
+                IsChargeable = card.IsChargeable,
+                TariffId = card.TariffId,
+                TariffCode = card.TariffId != null && tariffMap.TryGetValue(card.TariffId, out var tInfo) ? tInfo.Code : null,
+                TariffName = card.TariffId != null && tariffMap.TryGetValue(card.TariffId, out var tName) ? tName.Name : null,
+                ValidFrom = card.ValidFrom,
+                ValidTo = card.ValidTo,
                 Status = card.Status,
                 Note = card.Note,
                 CreatedAt = card.CreatedAt,
@@ -204,7 +202,7 @@ namespace HPParking.Api.Services.Implementations
             var sort = Builders<Card>.Sort.Descending(x => x.CreatedAt);
             var cards = await _cardRepo.FindAsync(filter, sort, skip: 0, limit: take, onlyDeleted: false, cancellationToken: cancellationToken);
 
-            var (clientMap, vehicleMap) = await LoadClientAndVehicleMapsAsync(cards, cancellationToken);
+            var (clientMap, vehicleMap, tariffMap) = await LoadClientVehicleAndTariffMapsAsync(cards, cancellationToken);
 
             var dtoList = cards.Select(card => new CardDto
             {
@@ -216,6 +214,13 @@ namespace HPParking.Api.Services.Implementations
                 ClientName = card.ClientId != null && clientMap.TryGetValue(card.ClientId, out var clientInfo) ? clientInfo.Name : null,
                 VehicleId = card.VehicleId,
                 PlateNumber = card.VehicleId != null && vehicleMap.TryGetValue(card.VehicleId, out var pNum) ? pNum : null,
+                VehicleType = card.VehicleType,
+                IsChargeable = card.IsChargeable,
+                TariffId = card.TariffId,
+                TariffCode = card.TariffId != null && tariffMap.TryGetValue(card.TariffId, out var tInfo) ? tInfo.Code : null,
+                TariffName = card.TariffId != null && tariffMap.TryGetValue(card.TariffId, out var tName) ? tName.Name : null,
+                ValidFrom = card.ValidFrom,
+                ValidTo = card.ValidTo,
                 Status = card.Status,
                 Note = card.Note,
                 CreatedAt = card.CreatedAt,
@@ -223,6 +228,29 @@ namespace HPParking.Api.Services.Implementations
             }).ToList();
 
             return (dtoList, isTruncated);
+        }
+
+        private async Task<bool> HasActiveParkingSessionAsync(string cardId, CancellationToken cancellationToken = default)
+        {
+            return await _sessionRepo.ExistsAsync(
+                s => s.CardId == cardId && s.Status == ParkingSessionStatus.Active && !s.IsDeleted,
+                cancellationToken);
+        }
+
+        private async Task EnsureNoActiveParkingSessionAsync(
+            string cardId,
+            string cardNumber,
+            string actionDescription,
+            CancellationToken cancellationToken = default,
+            string? resolutionGuide = null)
+        {
+            if (await HasActiveParkingSessionAsync(cardId, cancellationToken))
+            {
+                var guide = resolutionGuide ?? "Vui lòng cho xe ra khỏi bãi hoặc đóng phiên đỗ xe (Báo mất thẻ) trước khi thực hiện.";
+                throw new ConflictException(
+                    $"Không thể {actionDescription} vì thẻ '{cardNumber}' hiện đang có xe trong bãi (phiên đỗ xe đang hoạt động). {guide}".Trim(),
+                    ErrorCodes.CARD_HAS_ACTIVE_PARKING_SESSION);
+            }
         }
 
         public async Task RevokeVehicleCardsAsync(
@@ -241,6 +269,13 @@ namespace HPParking.Api.Services.Implementations
                 if (!string.IsNullOrWhiteSpace(excludeCardId) && oc.Id == excludeCardId)
                     continue;
 
+                await EnsureNoActiveParkingSessionAsync(
+                    oc.Id,
+                    oc.CardNumber,
+                    "cấp/gán thẻ mới",
+                    cancellationToken,
+                    "Vui lòng cho xe ra khỏi bãi hoặc đóng phiên đỗ xe (Báo mất thẻ) trước khi đổi thẻ.");
+
                 oc.VehicleId = null;
                 oc.Status = CardStatus.Available;
                 await _cardRepo.UpdateAsync(oc, cancellationToken);
@@ -255,13 +290,23 @@ namespace HPParking.Api.Services.Implementations
             if (string.IsNullOrWhiteSpace(clientId)) return;
 
             var oldCards = await _cardRepo.FindAsync(
-                c => c.ClientId == clientId && c.TargetType == CardTargetType.Person && !c.IsDeleted,
+                c => c.ClientId == clientId && (c.TargetType == CardTargetType.Person || c.TargetType == CardTargetType.Monthly || c.TargetType == CardTargetType.VIP) && !c.IsDeleted,
                 cancellationToken: cancellationToken);
+
+            var client = await _clientRepo.GetByIdAsync(clientId, cancellationToken);
+            var clientName = client?.Name ?? clientId;
 
             foreach (var oc in oldCards)
             {
                 if (!string.IsNullOrWhiteSpace(excludeCardId) && oc.Id == excludeCardId)
                     continue;
+
+                await EnsureNoActiveParkingSessionAsync(
+                    oc.Id,
+                    oc.CardNumber,
+                    $"cấp/gán thẻ mới cho nhân sự '{clientName}'",
+                    cancellationToken,
+                    "Vui lòng cho xe ra khỏi bãi hoặc đóng phiên đỗ xe (Báo mất thẻ) trước khi đổi thẻ.");
 
                 oc.ClientId = null;
                 oc.Status = CardStatus.Available;
@@ -280,6 +325,163 @@ namespace HPParking.Api.Services.Implementations
             return await MapToDtoAsync(card);
         }
 
+        private static void ValidateValidityPeriod(string? validFrom, string? validTo)
+        {
+            if (!string.IsNullOrWhiteSpace(validFrom) && !string.IsNullOrWhiteSpace(validTo))
+            {
+                if (CardValidityPeriod.TryParseDate(validFrom, out var from) &&
+                    CardValidityPeriod.TryParseDate(validTo, out var to))
+                {
+                    if (to < from)
+                    {
+                        throw new BadRequestException("Ngày kết thúc hiệu lực phải lớn hơn hoặc bằng ngày bắt đầu.");
+                    }
+                }
+                else if (string.CompareOrdinal(validTo, validFrom) < 0)
+                {
+                    throw new BadRequestException("Ngày kết thúc hiệu lực phải lớn hơn hoặc bằng ngày bắt đầu.");
+                }
+            }
+        }
+
+        private async Task ApplyTargetTypeConfigurationAsync(
+            Card card,
+            CardTargetType targetType,
+            string? clientId,
+            string? vehicleId,
+            VehicleType? vehicleType,
+            bool isChargeable,
+            string? tariffId,
+            string? validFrom,
+            string? validTo,
+            CancellationToken cancellationToken)
+        {
+            card.TargetType = targetType;
+
+            if (card.TargetType == CardTargetType.Visitor)
+            {
+                if (!vehicleType.HasValue)
+                {
+                    throw new BadRequestException("Thẻ lượt (Visitor) bắt buộc phải chọn loại phương tiện.");
+                }
+
+                card.VehicleType = vehicleType.Value;
+                card.ClientId = null;
+                card.VehicleId = null;
+                card.ValidFrom = null;
+                card.ValidTo = null;
+
+                await ValidateTariffForCardAsync(card, isChargeable, tariffId, cancellationToken);
+            }
+            else if (card.IsClientBound())
+            {
+                card.VehicleId = null;
+                card.VehicleType = null;
+                card.ClientId = clientId;
+
+                if (card.TargetType == CardTargetType.Monthly)
+                {
+                    if (string.IsNullOrWhiteSpace(clientId))
+                        throw new BadRequestException("Thẻ tháng bắt buộc phải gán cho nhân sự.");
+
+                    if (string.IsNullOrWhiteSpace(validFrom) || string.IsNullOrWhiteSpace(validTo))
+                        throw new BadRequestException("Thẻ tháng bắt buộc phải có thời hạn ValidFrom và ValidTo.");
+
+                    ValidateValidityPeriod(validFrom, validTo);
+
+                    card.ValidFrom = validFrom;
+                    card.ValidTo = validTo;
+                }
+                else if (card.TargetType == CardTargetType.VIP)
+                {
+                    if (string.IsNullOrWhiteSpace(clientId))
+                        throw new BadRequestException("Thẻ VIP bắt buộc phải gán cho nhân sự.");
+
+                    card.ValidFrom = null;
+                    card.ValidTo = null;
+                }
+                else // Person
+                {
+                    card.ValidFrom = null;
+                    card.ValidTo = null;
+                }
+
+                await ValidateTariffForCardAsync(card, isChargeable, tariffId, cancellationToken);
+            }
+            else if (card.TargetType == CardTargetType.Vehicle)
+            {
+                card.VehicleId = vehicleId;
+                card.ClientId = null;
+                card.VehicleType = null;
+                card.IsChargeable = false;
+                card.TariffId = null;
+                card.ValidFrom = null;
+                card.ValidTo = null;
+            }
+        }
+
+        private async Task ValidateTariffForCardAsync(Card card, bool isChargeable, string? tariffId, CancellationToken cancellationToken)
+        {
+            if (card.TargetType == CardTargetType.Monthly)
+            {
+                if (isChargeable || !string.IsNullOrWhiteSpace(tariffId))
+                {
+                    throw new BadRequestException("Thẻ tháng không áp dụng thu phí theo lượt tại cổng.");
+                }
+                card.IsChargeable = false;
+                card.TariffId = null;
+                return;
+            }
+
+            if (card.TargetType == CardTargetType.VIP)
+            {
+                if (isChargeable || !string.IsNullOrWhiteSpace(tariffId))
+                {
+                    throw new BadRequestException("Thẻ VIP được miễn phí 100%, không được bật thu phí hoặc gán biểu phí.");
+                }
+                card.IsChargeable = false;
+                card.TariffId = null;
+                return;
+            }
+
+            if (!isChargeable)
+            {
+                card.IsChargeable = false;
+                card.TariffId = null;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(tariffId))
+            {
+                throw new BadRequestException("Vui lòng chọn biểu phí khi bật thu phí.");
+            }
+
+            var tariff = await _tariffRepo.GetByIdAsync(tariffId, cancellationToken);
+            if (tariff == null || tariff.IsDeleted || !tariff.IsActive)
+            {
+                throw new BadRequestException("Biểu phí đã chọn không tồn tại hoặc đã ngừng hoạt động.");
+            }
+
+            if (card.TargetType == CardTargetType.Visitor)
+            {
+                if (card.VehicleType.HasValue && tariff.VehicleType != card.VehicleType.Value)
+                {
+                    throw new BadRequestException($"Loại xe của biểu phí ({tariff.VehicleType}) không khớp với loại xe của thẻ ({card.VehicleType}).");
+                }
+            }
+            else if (card.TargetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(card.ClientId))
+            {
+                var vehicle = await _vehicleRepo.FindOneAsync(v => v.OwnerClientId == card.ClientId && v.IsActive && !v.IsDeleted, cancellationToken);
+                if (vehicle != null && vehicle.Type != tariff.VehicleType)
+                {
+                    throw new BadRequestException($"Loại xe của biểu phí ({tariff.VehicleType}) không khớp với phương tiện của nhân sự ({vehicle.Type}).");
+                }
+            }
+
+            card.IsChargeable = true;
+            card.TariffId = tariffId;
+        }
+
         public async Task<CardDto> CreateAsync(CreateCardRequest request, CancellationToken cancellationToken = default)
         {
             string normalizedCard = CardHelper.NormalizeCardCode(request.CardNumber);
@@ -288,19 +490,32 @@ namespace HPParking.Api.Services.Implementations
 
             var existing = await _cardRepo.FindOneAsync(x => x.CardNumber == normalizedCard && !x.IsDeleted);
             if (existing != null)
-                throw new ConflictException($"Mã thẻ {normalizedCard} đã tồn tại trong hệ thống.");
+                throw new ConflictException($"Mã thẻ {normalizedCard} đã tồn tại trong hệ thống.", ErrorCodes.CARD_DUPLICATE_NUMBER);
 
             var card = new Card
             {
                 CardNumber = normalizedCard,
-                TargetType = request.TargetType,
-                ClientId = request.TargetType == CardTargetType.Person ? request.ClientId : null,
-                VehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null,
-                Status = request.Status,
                 Note = request.Note
             };
 
-            if (card.TargetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(card.ClientId))
+            var reqClientId = (request.TargetType == CardTargetType.Person || request.TargetType == CardTargetType.Monthly || request.TargetType == CardTargetType.VIP)
+                ? request.ClientId
+                : null;
+            var reqVehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null;
+
+            await ApplyTargetTypeConfigurationAsync(
+                card,
+                request.TargetType,
+                reqClientId,
+                reqVehicleId,
+                request.VehicleType,
+                request.IsChargeable,
+                request.TariffId,
+                request.ValidFrom,
+                request.ValidTo,
+                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(card.ClientId))
             {
                 card.Status = request.Status == CardStatus.Locked || request.Status == CardStatus.Lost
                     ? request.Status
@@ -312,16 +527,15 @@ namespace HPParking.Api.Services.Implementations
                 {
                     client.CardCode = normalizedCard;
                     await _clientRepo.UpdateAsync(client, cancellationToken);
-
-                    // Đồng bộ thẻ mới lên thiết bị FaceID nếu nhân sự có phương thức FaceId
                     await SyncClientFaceIdCardAsync(client, normalizedCard, card.Status, cancellationToken);
                 }
             }
-            else if (card.TargetType == CardTargetType.Vehicle && !string.IsNullOrWhiteSpace(card.VehicleId))
+            else if (!string.IsNullOrWhiteSpace(card.VehicleId))
             {
                 card.Status = request.Status == CardStatus.Locked || request.Status == CardStatus.Lost
                     ? request.Status
                     : CardStatus.InUse;
+
                 await RevokeVehicleCardsAsync(card.VehicleId, cancellationToken: cancellationToken);
             }
             else
@@ -333,18 +547,15 @@ namespace HPParking.Api.Services.Implementations
 
             await _cardRepo.AddAsync(card, cancellationToken);
 
-            if (_auditLogService != null)
-            {
-                string targetDesc = card.TargetType == CardTargetType.Vehicle ? "Gán xe" : "Gán nhân sự";
-                string statusDesc = card.Status == CardStatus.InUse ? "Đang sử dụng" : "Trong kho";
-                await _auditLogService.LogActivityAsync(
-                    AuditActionType.Create,
-                    "Card",
-                    card.Id,
-                    card.CardNumber,
-                    reason: $"Tạo mới thẻ '{card.CardNumber}' (Mục đích: {targetDesc}, Trạng thái: {statusDesc}).",
-                    cancellationToken: cancellationToken);
-            }
+            string targetDesc = card.TargetType.ToString();
+            string statusDesc = card.Status.ToString();
+            await _auditLogService.LogActivityAsync(
+                AuditActionType.Create,
+                "Card",
+                card.Id,
+                card.CardNumber,
+                reason: $"Tạo mới thẻ '{card.CardNumber}' (Loại: {targetDesc}, Trạng thái: {statusDesc}).",
+                cancellationToken: cancellationToken);
 
             return await MapToDtoAsync(card);
         }
@@ -357,10 +568,106 @@ namespace HPParking.Api.Services.Implementations
             if (card.IsDeleted)
                 throw new NotFoundException($"Thẻ ID: {id} đã bị xóa.");
 
-            var newClientId = request.TargetType == CardTargetType.Person ? request.ClientId : null;
+            // Kiểm tra thẻ có đang có phiên Active trong bãi không
+            bool hasActiveSession = await HasActiveParkingSessionAsync(id, cancellationToken);
+
+            if (hasActiveSession)
+            {
+                var reqClientId = (request.TargetType == CardTargetType.Person || request.TargetType == CardTargetType.Monthly || request.TargetType == CardTargetType.VIP)
+                    ? request.ClientId
+                    : null;
+                var reqVehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null;
+
+                bool targetTypeChanged = card.TargetType != request.TargetType;
+                bool clientChanged = (card.ClientId ?? string.Empty) != (reqClientId ?? string.Empty);
+                bool vehicleChanged = (card.VehicleId ?? string.Empty) != (reqVehicleId ?? string.Empty);
+                bool vehicleTypeChanged = card.VehicleType != request.VehicleType;
+                bool chargeableChanged = card.IsChargeable != request.IsChargeable;
+                bool tariffChanged = (card.TariffId ?? string.Empty) != (request.TariffId ?? string.Empty);
+
+                if (targetTypeChanged || clientChanged || vehicleChanged || vehicleTypeChanged || chargeableChanged || tariffChanged)
+                {
+                    throw new ConflictException(
+                        "Thẻ hiện đang có xe trong bãi (phiên đỗ xe đang hoạt động). Không thể sửa đối tượng, loại xe hoặc biểu phí của thẻ.",
+                        ErrorCodes.CARD_HAS_ACTIVE_PARKING_SESSION);
+                }
+
+                // Cho phép sửa Status (Locked, Lost) và gia hạn ValidTo cho thẻ Monthly (chặn sửa ValidFrom theo Rule 9)
+                if (card.TargetType == CardTargetType.Monthly)
+                {
+                    if (!string.IsNullOrWhiteSpace(request.ValidFrom) && (card.ValidFrom ?? string.Empty) != request.ValidFrom)
+                    {
+                        throw new ConflictException(
+                            "Thẻ hiện đang có xe trong bãi (phiên đỗ xe đang hoạt động).",
+                            ErrorCodes.CARD_HAS_ACTIVE_PARKING_SESSION);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(request.ValidTo))
+                    {
+                        if (!string.IsNullOrWhiteSpace(card.ValidTo))
+                        {
+                            bool isShortened = CardValidityPeriod.TryParseDate(request.ValidTo, out var newTo) &&
+                                               CardValidityPeriod.TryParseDate(card.ValidTo, out var currentTo)
+                                ? newTo < currentTo
+                                : string.CompareOrdinal(request.ValidTo, card.ValidTo) < 0;
+
+                            if (isShortened)
+                            {
+                                throw new BadRequestException(
+                                    $"Ngày kết thúc hiệu lực mới ({request.ValidTo}) phải lớn hơn hoặc bằng ngày kết thúc hiện tại ({card.ValidTo}). Không được rút ngắn thời hạn thẻ khi xe đang trong bãi.");
+                            }
+                        }
+
+                        ValidateValidityPeriod(card.ValidFrom, request.ValidTo);
+
+                        card.ValidTo = request.ValidTo;
+                    }
+                }
+
+                if (request.Status != card.Status)
+                {
+                    if (request.Status != CardStatus.Locked && request.Status != CardStatus.Lost)
+                    {
+                        throw new ConflictException(
+                            "Thẻ hiện đang có xe trong bãi (phiên đỗ xe đang hoạt động).",
+                            ErrorCodes.CARD_HAS_ACTIVE_PARKING_SESSION);
+                    }
+
+                    card.Status = request.Status;
+                    if (!string.IsNullOrWhiteSpace(card.ClientId))
+                    {
+                        var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
+                        if (client != null)
+                        {
+                            await SyncClientFaceIdUserTypeAsync(client, request.Status, cancellationToken);
+                        }
+                    }
+                }
+
+                card.Note = request.Note;
+                await _cardRepo.UpdateAsync(card, cancellationToken);
+
+                await _auditLogService.LogActivityAsync(
+                    AuditActionType.Update,
+                    "Card",
+                    card.Id,
+                    card.CardNumber,
+                    reason: $"Cập nhật trạng thái thẻ đang trong bãi '{card.CardNumber}' (Trạng thái: {card.Status}).",
+                    cancellationToken: cancellationToken);
+
+                return await MapToDtoAsync(card);
+            }
+
+            var newClientId = (request.TargetType == CardTargetType.Person || request.TargetType == CardTargetType.Monthly || request.TargetType == CardTargetType.VIP)
+                ? request.ClientId
+                : null;
             var newVehicleId = request.TargetType == CardTargetType.Vehicle ? request.VehicleId : null;
 
-            // 1. Chặn đổi chủ thẻ trực tiếp giữa 2 nhân sự
+            var previousClientId = card.ClientId;
+            var isClientChanged = previousClientId != newClientId;
+            var previousVehicleId = card.VehicleId;
+            var isVehicleChanged = previousVehicleId != newVehicleId;
+
             if (!string.IsNullOrWhiteSpace(card.ClientId) &&
                 !string.IsNullOrWhiteSpace(newClientId) &&
                 card.ClientId != newClientId)
@@ -368,16 +675,24 @@ namespace HPParking.Api.Services.Implementations
                 var currentClient = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
                 var currentName = currentClient?.Name ?? card.ClientId;
                 throw new ConflictException(
-                    $"Thẻ '{card.CardNumber}' hiện đang được gán cho nhân sự '{currentName}'. Hệ thống không cho phép chuyển thẻ trực tiếp giữa 2 nhân sự. Vui lòng gỡ thẻ về trạng thái 'Trong kho' trước khi gán cho nhân sự khác.",
+                    $"Thẻ '{card.CardNumber}' hiện đang được gán cho nhân sự '{currentName}'.",
                     ErrorCodes.CARD_ALREADY_ASSIGNED_TO_OTHER_CLIENT);
             }
 
-            var previousClientId = card.ClientId;
-            var isClientChanged = card.ClientId != newClientId;
+            await ApplyTargetTypeConfigurationAsync(
+                card,
+                request.TargetType,
+                newClientId,
+                newVehicleId,
+                request.VehicleType,
+                request.IsChargeable,
+                request.TariffId,
+                request.ValidFrom,
+                request.ValidTo,
+                cancellationToken);
 
             if (isClientChanged)
             {
-                // Gỡ thẻ khỏi Client cũ
                 if (!string.IsNullOrWhiteSpace(previousClientId))
                 {
                     var oldClient = await _clientRepo.GetByIdAsync(previousClientId, cancellationToken);
@@ -389,12 +704,10 @@ namespace HPParking.Api.Services.Implementations
                             await _clientRepo.UpdateAsync(oldClient, cancellationToken);
                         }
 
-                        // Thu hồi quyền vật lý trên FaceID cho client cũ vì không còn thẻ
                         await RevokeClientFaceIdAsync(oldClient, card.CardNumber, cancellationToken);
                     }
                 }
 
-                // Gán thẻ cho Client mới từ kho
                 if (!string.IsNullOrWhiteSpace(newClientId))
                 {
                     await RevokeClientCardsAsync(newClientId, excludeCardId: id, cancellationToken: cancellationToken);
@@ -404,7 +717,6 @@ namespace HPParking.Api.Services.Implementations
                         newClient.CardCode = card.CardNumber;
                         await _clientRepo.UpdateAsync(newClient, cancellationToken);
 
-                        // Chuẩn hóa trạng thái: thẻ có chủ thì phải là InUse (hoặc giữ Locked/Lost)
                         var effectiveStatus = (request.Status == CardStatus.Locked || request.Status == CardStatus.Lost)
                             ? request.Status
                             : CardStatus.InUse;
@@ -414,7 +726,6 @@ namespace HPParking.Api.Services.Implementations
             }
             else if (!string.IsNullOrWhiteSpace(card.ClientId) && request.Status != card.Status)
             {
-                // Thẻ không đổi Client, nhưng đổi trạng thái (VD: InUse <-> Locked / Lost)
                 var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
                 if (client != null)
                 {
@@ -427,7 +738,6 @@ namespace HPParking.Api.Services.Implementations
                 await RevokeVehicleCardsAsync(newVehicleId, excludeCardId: id, cancellationToken: cancellationToken);
             }
 
-            // Chuẩn hóa trạng thái thẻ theo chủ sở hữu
             CardStatus normalizedStatus;
             if (!string.IsNullOrWhiteSpace(newClientId) || !string.IsNullOrWhiteSpace(newVehicleId))
             {
@@ -442,24 +752,18 @@ namespace HPParking.Api.Services.Implementations
                     : CardStatus.Available;
             }
 
-            card.TargetType = request.TargetType;
-            card.ClientId = newClientId;
-            card.VehicleId = newVehicleId;
             card.Status = normalizedStatus;
             card.Note = request.Note;
 
             await _cardRepo.UpdateAsync(card, cancellationToken);
 
-            if (_auditLogService != null)
-            {
-                await _auditLogService.LogActivityAsync(
-                    AuditActionType.Update,
-                    "Card",
-                    card.Id,
-                    card.CardNumber,
-                    reason: $"Cập nhật thông tin thẻ '{card.CardNumber}' (Trạng thái: {card.Status}, Ghi chú: {card.Note ?? "---"}).",
-                    cancellationToken: cancellationToken);
-            }
+            await _auditLogService.LogActivityAsync(
+                AuditActionType.Update,
+                "Card",
+                card.Id,
+                card.CardNumber,
+                reason: $"Cập nhật thông tin thẻ '{card.CardNumber}' (Loại: {card.TargetType}, Trạng thái: {card.Status}, Thu phí: {card.IsChargeable}).",
+                cancellationToken: cancellationToken);
 
             return await MapToDtoAsync(card);
         }
@@ -608,15 +912,17 @@ namespace HPParking.Api.Services.Implementations
             var card = await _cardRepo.GetByIdAsync(id, cancellationToken)
                 ?? throw new NotFoundException($"Không tìm thấy thẻ với ID: {id}");
 
+            // Chặn xóa nếu thẻ đang có phiên Active trong bãi
+            await EnsureNoActiveParkingSessionAsync(id, card.CardNumber, "xóa thẻ", cancellationToken);
+
             // Universal Restrict Deletion (Quy tắc 1 - ADR 0030/0031):
-            // Tuyệt đối không xóa thẻ khi thẻ đang được gán cho nhân sự hoặc phương tiện
             if (!string.IsNullOrWhiteSpace(card.ClientId))
             {
                 var client = await _clientRepo.GetByIdAsync(card.ClientId, cancellationToken);
                 if (client != null && !client.IsDeleted)
                 {
                     throw new ConflictException(
-                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được gán cho nhân sự '{client.Name}'. Vui lòng gỡ thẻ khỏi hồ sơ nhân sự trước khi xóa.");
+                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được gán cho nhân sự '{client.Name}'.");
                 }
             }
 
@@ -626,37 +932,36 @@ namespace HPParking.Api.Services.Implementations
                 if (vehicle != null && !vehicle.IsDeleted)
                 {
                     throw new ConflictException(
-                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được gán cho phương tiện nội bộ '{vehicle.PlateNumber}'. Vui lòng gỡ thẻ khỏi phương tiện trước khi xóa.");
+                        $"Không thể xóa thẻ '{card.CardNumber}' vì đang được gán cho phương tiện nội bộ '{vehicle.PlateNumber}'.");
                 }
             }
 
             if (card.Status == CardStatus.InUse)
             {
                 throw new ConflictException(
-                    $"Không thể xóa thẻ '{card.CardNumber}' đang ở trạng thái 'Đang sử dụng'. Vui lòng đưa thẻ về trạng thái 'Trong kho' trước khi xóa.");
+                    $"Không thể xóa thẻ '{card.CardNumber}' đang ở trạng thái 'Đang sử dụng'.");
             }
 
             await _cardRepo.DeleteAsync(id, softDelete: true, cancellationToken: cancellationToken);
 
-            if (_auditLogService != null)
-            {
-                await _auditLogService.LogActivityAsync(
-                    AuditActionType.Delete,
-                    "Card",
-                    card.Id,
-                    card.CardNumber,
-                    reason: $"Xóa thẻ định danh '{card.CardNumber}' khỏi hệ thống (Xóa mềm).",
-                    cancellationToken: cancellationToken);
-            }
+            await _auditLogService.LogActivityAsync(
+                AuditActionType.Delete,
+                "Card",
+                card.Id,
+                card.CardNumber,
+                reason: $"Xóa thẻ định danh '{card.CardNumber}' khỏi hệ thống.",
+                cancellationToken: cancellationToken);
         }
 
         private async Task<CardDto> MapToDtoAsync(Card card)
         {
             string? clientName = null;
+            string? clientCode = null;
             if (!string.IsNullOrWhiteSpace(card.ClientId))
             {
                 var client = await _clientRepo.GetByIdAsync(card.ClientId);
                 clientName = client?.Name;
+                clientCode = client?.Code;
             }
 
             string? plateNumber = null;
@@ -666,15 +971,32 @@ namespace HPParking.Api.Services.Implementations
                 plateNumber = vehicle?.PlateNumber;
             }
 
+            string? tariffName = null;
+            string? tariffCode = null;
+            if (!string.IsNullOrWhiteSpace(card.TariffId))
+            {
+                var tariff = await _tariffRepo.GetByIdAsync(card.TariffId);
+                tariffName = tariff?.Name;
+                tariffCode = tariff?.Code;
+            }
+
             return new CardDto
             {
                 Id = card.Id,
                 CardNumber = card.CardNumber,
                 TargetType = card.TargetType,
                 ClientId = card.ClientId,
+                ClientCode = clientCode,
                 ClientName = clientName,
                 VehicleId = card.VehicleId,
                 PlateNumber = plateNumber,
+                VehicleType = card.VehicleType,
+                IsChargeable = card.IsChargeable,
+                TariffId = card.TariffId,
+                TariffCode = tariffCode,
+                TariffName = tariffName,
+                ValidFrom = card.ValidFrom,
+                ValidTo = card.ValidTo,
                 Status = card.Status,
                 Note = card.Note,
                 CreatedAt = card.CreatedAt,

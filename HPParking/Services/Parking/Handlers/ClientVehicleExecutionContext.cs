@@ -17,5 +17,7 @@ namespace HPParking.Services.Parking.Handlers
         string ImageBasePath,
         Func<LaneRuntimeContext, bool>? OnBarrierOpenFailed = null,
         Func<LaneRuntimeContext, string?, Task<string?>>? OnManualPlateInput = null,
-        string? DepartmentName = null);
+        string? DepartmentName = null,
+        Card? Card = null,
+        Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? OnFeeConfirmationRequired = null);
 }

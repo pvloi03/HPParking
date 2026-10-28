@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthGuard } from '@/components/layout/AuthGuard';
 import { RoleGuard } from '@/components/layout/RoleGuard';
+import { FeatureGuard } from '@/components/layout/FeatureGuard';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { UserRole } from '@/types/user';
 import { LoginPage } from '@/pages/LoginPage';
@@ -19,6 +20,7 @@ import { UsersPage } from '@/pages/UsersPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { RecycleBinPage } from '@/pages/RecycleBinPage';
 import { CardsPage } from '@/pages/CardsPage';
+import { TariffsPage } from '@/pages/TariffsPage';
 import { GateRoutesPage } from '@/pages/GateRoutesPage';
 import { FleetDispatchPage } from '@/pages/FleetDispatchPage';
 import { ConfirmClientStatusPage } from '@/pages/ConfirmClientStatusPage';
@@ -90,12 +92,24 @@ export const router = createBrowserRouter([
         element: <CardsPage />,
       },
       {
+        path: 'tariffs',
+        element: <TariffsPage />,
+      },
+      {
         path: 'gate-routes',
-        element: <GateRoutesPage />,
+        element: (
+          <FeatureGuard feature="enableFleetDispatch">
+            <GateRoutesPage />
+          </FeatureGuard>
+        ),
       },
       {
         path: 'fleet-dispatch',
-        element: <FleetDispatchPage />,
+        element: (
+          <FeatureGuard feature="enableFleetDispatch">
+            <FleetDispatchPage />
+          </FeatureGuard>
+        ),
       },
       {
         path: 'sessions/vehicles',

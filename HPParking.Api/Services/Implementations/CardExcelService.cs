@@ -22,6 +22,8 @@ namespace HPParking.Api.Services.Implementations
         private readonly IRepository<Card> _cardRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
+        private readonly IRepository<ParkingSession>? _sessionRepo;
+        private readonly IRepository<Tariff>? _tariffRepo;
         private readonly IAuditLogService? _auditLogService;
         private readonly ILogger<CardExcelService> _logger;
 
@@ -32,7 +34,9 @@ namespace HPParking.Api.Services.Implementations
             IRepository<Client> clientRepo,
             IRepository<Vehicle> vehicleRepo,
             ILogger<CardExcelService> logger,
-            IAuditLogService? auditLogService = null)
+            IAuditLogService? auditLogService = null,
+            IRepository<ParkingSession>? sessionRepo = null,
+            IRepository<Tariff>? tariffRepo = null)
         {
             _excelService = excelService;
             _cardService = cardService;
@@ -41,6 +45,36 @@ namespace HPParking.Api.Services.Implementations
             _vehicleRepo = vehicleRepo;
             _logger = logger;
             _auditLogService = auditLogService;
+            _sessionRepo = sessionRepo;
+            _tariffRepo = tariffRepo;
+        }
+
+        public CardExcelService(
+            IExcelService excelService,
+            ICardService cardService,
+            IRepository<Card> cardRepo,
+            IRepository<Client> clientRepo,
+            IRepository<Vehicle> vehicleRepo,
+            IRepository<ParkingSession> sessionRepo,
+            ILogger<CardExcelService> logger,
+            IAuditLogService? auditLogService = null)
+            : this(excelService, cardService, cardRepo, clientRepo, vehicleRepo, logger, auditLogService, sessionRepo, null)
+        {
+        }
+
+        [ActivatorUtilitiesConstructor]
+        public CardExcelService(
+            IExcelService excelService,
+            ICardService cardService,
+            IRepository<Card> cardRepo,
+            IRepository<Client> clientRepo,
+            IRepository<Vehicle> vehicleRepo,
+            IRepository<ParkingSession> sessionRepo,
+            IRepository<Tariff> tariffRepo,
+            ILogger<CardExcelService> logger,
+            IAuditLogService? auditLogService = null)
+            : this(excelService, cardService, cardRepo, clientRepo, vehicleRepo, logger, auditLogService, sessionRepo, tariffRepo)
+        {
         }
 
         public async Task<byte[]> GenerateTemplateAsync(CancellationToken cancellationToken = default)
@@ -51,6 +85,8 @@ namespace HPParking.Api.Services.Implementations
                 TargetType = CardTargetType.Person,
                 ClientCode = "NV001",
                 PlateNumber = null,
+                IsChargeable = false,
+                TariffCode = null,
                 Status = CardStatus.InUse,
                 Note = "Thẻ cấp cho nhân sự mới"
             };
@@ -129,7 +165,33 @@ namespace HPParking.Api.Services.Implementations
                     vehiclesByPlate[clean] = v;
             }
 
+            var tariffMapByCode = new Dictionary<string, Tariff>(StringComparer.OrdinalIgnoreCase);
+            if (_tariffRepo != null)
+            {
+                var existingTariffs = await _tariffRepo.FindAsync(t => !t.IsDeleted && t.IsActive, cancellationToken);
+                foreach (var t in existingTariffs)
+                {
+                    if (!string.IsNullOrWhiteSpace(t.Code))
+                        tariffMapByCode[t.Code.Trim()] = t;
+                }
+            }
+
             var seenCardsInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var activeCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (_sessionRepo != null)
+            {
+                var activeSessions = await _sessionRepo.FindAsync(
+                    s => s.Status == ParkingSessionStatus.Active && !s.IsDeleted,
+                    cancellationToken);
+                foreach (var s in activeSessions)
+                {
+                    if (!string.IsNullOrEmpty(s.CardId))
+                    {
+                        activeCardIds.Add(s.CardId);
+                    }
+                }
+            }
 
             int rowIndex = 1;
             foreach (var row in parseResult.SuccessData)
@@ -295,6 +357,68 @@ namespace HPParking.Api.Services.Implementations
                     }
                 }
 
+                bool isChargeable = row.IsChargeable ?? false;
+                string? resolvedTariffId = null;
+
+                if (targetType == CardTargetType.Vehicle)
+                {
+                    if (row.IsChargeable == true || !string.IsNullOrWhiteSpace(row.TariffCode))
+                    {
+                        resultDto.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Thu phí",
+                            Value = row.IsChargeable?.ToString() ?? row.TariffCode,
+                            ErrorMessage = "Thẻ phương tiện nội bộ không áp dụng thu phí hoặc gán biểu phí."
+                        });
+                        rowHasError = true;
+                    }
+                }
+                else
+                {
+                    if (row.IsChargeable == false && !string.IsNullOrWhiteSpace(row.TariffCode))
+                    {
+                        resultDto.Errors.Add(new ExcelRowErrorDto
+                        {
+                            Row = rowIndex,
+                            Column = "Mã biểu phí",
+                            Value = row.TariffCode,
+                            ErrorMessage = "Không thể chỉ định mã biểu phí khi cột 'Thu phí' là False/Không."
+                        });
+                        rowHasError = true;
+                    }
+                    else if (isChargeable || (!row.IsChargeable.HasValue && !string.IsNullOrWhiteSpace(row.TariffCode)))
+                    {
+                        isChargeable = true;
+                        if (string.IsNullOrWhiteSpace(row.TariffCode))
+                        {
+                            resultDto.Errors.Add(new ExcelRowErrorDto
+                            {
+                                Row = rowIndex,
+                                Column = "Mã biểu phí",
+                                Value = row.TariffCode,
+                                ErrorMessage = "Vui lòng chỉ định mã biểu phí khi bật thu phí."
+                            });
+                            rowHasError = true;
+                        }
+                        else if (!tariffMapByCode.TryGetValue(row.TariffCode.Trim(), out var matchedTariff))
+                        {
+                            resultDto.Errors.Add(new ExcelRowErrorDto
+                            {
+                                Row = rowIndex,
+                                Column = "Mã biểu phí",
+                                Value = row.TariffCode,
+                                ErrorMessage = $"Mã biểu phí '{row.TariffCode}' không tồn tại hoặc đã ngừng hoạt động."
+                            });
+                            rowHasError = true;
+                        }
+                        else
+                        {
+                            resolvedTariffId = matchedTariff.Id;
+                        }
+                    }
+                }
+
                 if (rowHasError)
                 {
                     resultDto.FailedCount++;
@@ -335,6 +459,37 @@ namespace HPParking.Api.Services.Implementations
                         });
                         resultDto.FailedCount++;
                         continue;
+                    }
+
+                    // Kiểm tra ràng buộc thẻ đang có phiên đỗ xe Active trong bãi (Quy tắc 9 / ADR 0043)
+                    if (activeCardIds.Contains(existingCard.Id))
+                    {
+                        bool isChangingBinding =
+                            existingCard.TargetType != targetType ||
+                            (targetType == CardTargetType.Person && existingCard.ClientId != resolvedClientId) ||
+                            (targetType == CardTargetType.Vehicle && existingCard.VehicleId != resolvedVehicleId);
+
+                        bool isInvalidatingStatus =
+                            row.Status.HasValue &&
+                            row.Status.Value == CardStatus.Available &&
+                            existingCard.Status != CardStatus.Available;
+
+                        bool isChangingTariff =
+                            existingCard.IsChargeable != isChargeable ||
+                            (existingCard.TariffId ?? string.Empty) != (resolvedTariffId ?? string.Empty);
+
+                        if (isChangingBinding || isInvalidatingStatus || isChangingTariff)
+                        {
+                            resultDto.Errors.Add(new ExcelRowErrorDto
+                            {
+                                Row = rowIndex,
+                                Column = "Mã thẻ (10 số)",
+                                Value = row.CardNumber,
+                                ErrorMessage = $"Thẻ '{normalizedCard}' hiện đang có xe trong bãi (phiên đỗ xe đang hoạt động). Không thể thay đổi đối tượng gán, chủ xe, trạng thái kho hoặc biểu phí/thu phí."
+                            });
+                            resultDto.FailedCount++;
+                            continue;
+                        }
                     }
 
                     // DuplicateMode.Update
@@ -388,6 +543,8 @@ namespace HPParking.Api.Services.Implementations
                         existingCard.TargetType = targetType;
                         existingCard.ClientId = targetType == CardTargetType.Person ? resolvedClientId : null;
                         existingCard.VehicleId = resolvedVehicleId;
+                        existingCard.IsChargeable = isChargeable;
+                        existingCard.TariffId = resolvedTariffId;
                         existingCard.Status = resolvedStatus;
                         if (!string.IsNullOrWhiteSpace(row.Note)) existingCard.Note = row.Note;
                         existingCard.UpdatedAt = DateTime.UtcNow;
@@ -437,6 +594,8 @@ namespace HPParking.Api.Services.Implementations
                         TargetType = targetType,
                         ClientId = targetType == CardTargetType.Person ? resolvedClientId : null,
                         VehicleId = resolvedVehicleId,
+                        IsChargeable = isChargeable,
+                        TariffId = resolvedTariffId,
                         Status = resolvedStatus,
                         Note = row.Note,
                         CreatedAt = DateTime.UtcNow
@@ -476,11 +635,18 @@ namespace HPParking.Api.Services.Implementations
 
             var exportDtos = cards.Select(c =>
             {
-                string targetTypeDesc = c.TargetType == CardTargetType.Vehicle ? "Phương tiện nội bộ" : "Nhân sự";
+                string targetTypeDesc = c.TargetType switch
+                {
+                    CardTargetType.Vehicle => "Phương tiện nội bộ",
+                    CardTargetType.Visitor => "Thẻ lượt (Khách)",
+                    CardTargetType.Monthly => "Thẻ tháng",
+                    CardTargetType.VIP => "Thẻ VIP",
+                    _ => "Nhân sự"
+                };
                 string? assignedCode = null;
                 string? assignedName = null;
 
-                if (c.TargetType == CardTargetType.Person && !string.IsNullOrWhiteSpace(c.ClientId))
+                if ((c.TargetType == CardTargetType.Person || c.TargetType == CardTargetType.Monthly || c.TargetType == CardTargetType.VIP) && !string.IsNullOrWhiteSpace(c.ClientId))
                 {
                     assignedCode = c.ClientCode;
                     assignedName = c.ClientName;
@@ -506,6 +672,9 @@ namespace HPParking.Api.Services.Implementations
                     TargetType = targetTypeDesc,
                     AssignedCode = assignedCode,
                     AssignedName = assignedName,
+                    IsChargeable = c.IsChargeable,
+                    TariffCode = c.TariffCode,
+                    TariffName = c.TariffName,
                     Status = statusDesc,
                     Note = c.Note,
                     CreatedAt = c.CreatedAt

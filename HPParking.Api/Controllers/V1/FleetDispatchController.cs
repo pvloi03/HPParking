@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using HPParking.Api.Common.Attributes;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.FleetDispatch;
 using HPParking.Api.Services.Interfaces;
@@ -10,6 +11,7 @@ namespace HPParking.Api.Controllers.V1
 {
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/fleet-dispatch")]
+    [FleetDispatchFeature]
     public class FleetDispatchController : BaseApiController
     {
         private readonly IFleetDispatchService _fleetService;

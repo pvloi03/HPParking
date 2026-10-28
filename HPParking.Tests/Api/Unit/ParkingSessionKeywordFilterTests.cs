@@ -1,6 +1,7 @@
 using FluentAssertions;
 using HPParking.Api.DTOs.ParkingSessions;
 using HPParking.Api.Services.Implementations;
+using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
@@ -16,6 +17,10 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
+        private readonly IRepository<Card> _cardRepo;
+        private readonly IRepository<Tariff> _tariffRepo;
+        private readonly IParkingFeeCalculator _feeCalculator;
+        private readonly IAuditLogService _auditLogService;
         private readonly ILogger<ParkingSessionService> _logger;
         private readonly ParkingSessionService _service;
 
@@ -24,12 +29,20 @@ namespace HPParking.Tests.Api.Unit
             _sessionRepo = Substitute.For<IRepository<ParkingSession>>();
             _clientRepo = Substitute.For<IRepository<Client>>();
             _vehicleRepo = Substitute.For<IRepository<Vehicle>>();
+            _cardRepo = Substitute.For<IRepository<Card>>();
+            _tariffRepo = Substitute.For<IRepository<Tariff>>();
+            _feeCalculator = Substitute.For<IParkingFeeCalculator>();
+            _auditLogService = Substitute.For<IAuditLogService>();
             _logger = Substitute.For<ILogger<ParkingSessionService>>();
 
             _service = new ParkingSessionService(
                 _sessionRepo,
                 _clientRepo,
                 _vehicleRepo,
+                _cardRepo,
+                _tariffRepo,
+                _feeCalculator,
+                _auditLogService,
                 _logger);
         }
 

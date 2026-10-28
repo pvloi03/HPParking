@@ -1,6 +1,5 @@
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
-using System.Collections.Generic;
 
 namespace HPParking.Api.Services.Interfaces
 {

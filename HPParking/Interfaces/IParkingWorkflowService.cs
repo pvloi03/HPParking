@@ -13,20 +13,23 @@ namespace HPParking.Interfaces
             HPParking.Core.Models.Common.WorkflowTriggerEvent trigger,
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null);
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
+            Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? onFeeConfirmationRequired = null);
 
         Task<ProcessResult> ProcessEntryAsync(
             LaneRuntimeContext context,
             RealtimeLog data,
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null);
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
+            Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? onFeeConfirmationRequired = null);
 
         Task<ProcessResult> ProcessExitAsync(
             LaneRuntimeContext context,
             RealtimeLog data,
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null);
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
+            Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? onFeeConfirmationRequired = null);
     }
 }

@@ -114,12 +114,36 @@ namespace HPParking.Api.Services.Implementations
                 .Facet(vehicleCountFacet, vehicleActiveFacet, vehicleTypeFacet)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            // 3. Đếm số xe đang gửi trong bãi (Status == Active)
-            var sessionFilter = Builders<ParkingSession>.Filter.And(
+            // 3. Pipeline Facet cho ParkingSessions: Đếm xe trong bãi (Active) & Doanh thu thực thu ($sum)
+            var sessionActiveFilter = Builders<ParkingSession>.Filter.And(
                 Builders<ParkingSession>.Filter.Eq(x => x.IsDeleted, false),
                 Builders<ParkingSession>.Filter.Eq(x => x.Status, ParkingSessionStatus.Active)
             );
-            var sessionTask = sessionCollection.CountDocumentsAsync(sessionFilter, cancellationToken: cancellationToken);
+            var sessionRevenueFilter = Builders<ParkingSession>.Filter.And(
+                Builders<ParkingSession>.Filter.Eq(x => x.IsDeleted, false),
+                Builders<ParkingSession>.Filter.Eq(x => x.Status, ParkingSessionStatus.Completed),
+                Builders<ParkingSession>.Filter.Eq(x => x.IsFeeCollected, true)
+            );
+
+            var sessionActiveFacet = AggregateFacet.Create("activeCount",
+                PipelineDefinition<ParkingSession, AggregateCountResult>.Create(new IPipelineStageDefinition[] {
+                    PipelineStageDefinitionBuilder.Match(sessionActiveFilter),
+                    PipelineStageDefinitionBuilder.Count<ParkingSession>()
+                }));
+
+            var sessionRevenueFacet = AggregateFacet.Create("revenueStats",
+                PipelineDefinition<ParkingSession, BsonDocument>.Create(new IPipelineStageDefinition[] {
+                    PipelineStageDefinitionBuilder.Match(sessionRevenueFilter),
+                    PipelineStageDefinitionBuilder.Group<ParkingSession, BsonDocument>(new BsonDocument {
+                        { "_id", BsonNull.Value },
+                        { "totalRevenue", new BsonDocument("$sum", "$FeeAmount") },
+                        { "paidCount", new BsonDocument("$sum", 1) }
+                    })
+                }));
+
+            var sessionTask = sessionCollection.Aggregate()
+                .Facet(sessionActiveFacet, sessionRevenueFacet)
+                .FirstOrDefaultAsync(cancellationToken);
 
             // 4. Đếm số Cổng và Làn xe hạ tầng
             var gateCollection = _mongoContext.GetCollection<Gate>();
@@ -142,10 +166,28 @@ namespace HPParking.Api.Services.Implementations
 
             var clientResult = await clientTask;
             var vehicleResult = await vehicleTask;
-            var activeSessions = await sessionTask;
+            var sessionResult = await sessionTask;
             var totalGates = await gateTask;
             var totalLanes = await laneTotalTask;
             var activeLanes = await laneActiveTask;
+
+            long activeSessions = sessionResult?.Facets.FirstOrDefault(x => x.Name == "activeCount")?.Output<AggregateCountResult>()?.FirstOrDefault()?.Count ?? 0;
+            var revenueDoc = sessionResult?.Facets.FirstOrDefault(x => x.Name == "revenueStats")?.Output<BsonDocument>()?.FirstOrDefault();
+
+            decimal totalRevenue = 0m;
+            long paidSessionsCount = 0;
+            if (revenueDoc != null)
+            {
+                if (revenueDoc.Contains("totalRevenue") && !revenueDoc["totalRevenue"].IsBsonNull)
+                {
+                    var val = revenueDoc["totalRevenue"];
+                    totalRevenue = val.IsDecimal128 ? (decimal)val.AsDecimal128 : Convert.ToDecimal(val.ToDouble());
+                }
+                if (revenueDoc.Contains("paidCount") && !revenueDoc["paidCount"].IsBsonNull)
+                {
+                    paidSessionsCount = revenueDoc["paidCount"].ToInt64();
+                }
+            }
 
             // Xử lý kết quả Client
             long totalClients = clientResult?.Facets.FirstOrDefault(x => x.Name == "total")?.Output<AggregateCountResult>()?.FirstOrDefault()?.Count ?? 0;
@@ -199,7 +241,9 @@ namespace HPParking.Api.Services.Implementations
                 ActiveParkingSessions = activeSessions,
                 TotalGates = totalGates,
                 TotalLanes = totalLanes,
-                ActiveLanes = activeLanes
+                ActiveLanes = activeLanes,
+                TotalRevenue = totalRevenue,
+                PaidParkingSessionsCount = paidSessionsCount
             };
         }
 
@@ -208,6 +252,12 @@ namespace HPParking.Api.Services.Implementations
             var clients = await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var vehicles = await _vehicleRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var activeSessions = await _sessionRepo.CountAsync(x => !x.IsDeleted && x.Status == ParkingSessionStatus.Active, cancellationToken);
+            var completedPaidSessions = await _sessionRepo.FindAsync(
+                x => !x.IsDeleted && x.Status == ParkingSessionStatus.Completed && x.IsFeeCollected,
+                cancellationToken);
+            decimal totalRevenue = completedPaidSessions.Sum(x => x.FeeAmount);
+            long paidSessionsCount = completedPaidSessions.Count;
+
             var totalGates = await _gateRepo.CountAsync(x => !x.IsDeleted, cancellationToken);
             var totalLanes = await _laneRepo.CountAsync(x => !x.IsDeleted, cancellationToken);
             var activeLanes = await _laneRepo.CountAsync(x => !x.IsDeleted && x.IsActive, cancellationToken);
@@ -243,7 +293,9 @@ namespace HPParking.Api.Services.Implementations
                 ActiveParkingSessions = activeSessions,
                 TotalGates = totalGates,
                 TotalLanes = totalLanes,
-                ActiveLanes = activeLanes
+                ActiveLanes = activeLanes,
+                TotalRevenue = totalRevenue,
+                PaidParkingSessionsCount = paidSessionsCount
             };
         }
 

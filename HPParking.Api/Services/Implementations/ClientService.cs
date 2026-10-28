@@ -11,7 +11,6 @@ using HPParking.Core.Models.ValueObjects;
 using Mapster;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace HPParking.Api.Services.Implementations

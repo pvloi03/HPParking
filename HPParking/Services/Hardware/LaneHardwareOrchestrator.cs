@@ -83,6 +83,7 @@ namespace HPParking.Services.Hardware
                 if (lprResult != null && lprResult.Success && !string.IsNullOrWhiteSpace(lprResult.Plate))
                 {
                     recognizedPlate = lprResult.Plate.Trim().ToUpper();
+                    lprResult.RawPlateText = recognizedPlate;
                 }
             }
 
@@ -96,7 +97,8 @@ namespace HPParking.Services.Hardware
                     {
                         Success = true,
                         Plate = recognizedPlate,
-                        PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null
+                        PlateImage = plateImage != null ? (Bitmap)plateImage.Clone() : null,
+                        IsManualOverride = true
                     };
                 }
             }

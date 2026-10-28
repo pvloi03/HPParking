@@ -7,8 +7,6 @@ using HPParking.Core.Models.Enums;
 using Mapster;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
-using System;
-using System.Linq;
 using Xunit;
 
 namespace HPParking.Tests.Api.Unit

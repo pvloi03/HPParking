@@ -3,6 +3,7 @@ using HPParking.Api.Services.Background;
 using HPParking.Api.Services.Implementations;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
+using HPParking.Core.Models.Common;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Interfaces;
@@ -11,6 +12,7 @@ using HPParking.Services.Controller;
 using HPParking.Services.Parking;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using NSubstitute;
 using System.Linq.Expressions;
@@ -20,6 +22,8 @@ namespace HPParking.Tests.Api
 {
     public class FleetDispatchSlaTests
     {
+        private static readonly IOptions<FeatureOptions> EnabledFleetDispatchOptions =
+            Options.Create(new FeatureOptions { EnableFleetDispatch = true });
         // ---------------------------------------------------------------------------------
         // Group 1: FleetDispatchService & MapToDtoAsync (Lưu vết SLA vi phạm sau khi hoàn thành)
         // ---------------------------------------------------------------------------------
@@ -745,7 +749,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-out", GateId = "gate-1", Direction = LaneDirection.Out, Name = "Làn Ra" };
             var context = new LaneRuntimeContext(lane);
@@ -846,7 +851,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-in-2", GateId = "gate-2", Direction = LaneDirection.In, Name = "Làn Vào Cổng 2" };
             var context = new LaneRuntimeContext(lane);
@@ -937,7 +943,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-in-2", GateId = "gate-2", Direction = LaneDirection.In, Name = "Làn Vào" };
             var context = new LaneRuntimeContext(lane);
@@ -1037,7 +1044,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-in-1", GateId = "gate-1", Direction = LaneDirection.In, Name = "Làn Vào" };
             var context = new LaneRuntimeContext(lane);
@@ -1117,7 +1125,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-in-1", GateId = "gate-1", Direction = LaneDirection.In, Name = "Làn Vào" };
             var context = new LaneRuntimeContext(lane);
@@ -1194,7 +1203,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-out-2", GateId = "gate-2", Direction = LaneDirection.Out, Name = "Làn Ra Cổng 2" };
             var context = new LaneRuntimeContext(lane);
@@ -1268,7 +1278,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-out-2", GateId = "gate-2", Direction = LaneDirection.Out, Name = "Làn Ra Cổng 2" };
             var context = new LaneRuntimeContext(lane);
@@ -1365,7 +1376,8 @@ namespace HPParking.Tests.Api
 
             var workflowService = new ParkingWorkflowService(
                 clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
-                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo);
+            vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: EnabledFleetDispatchOptions);
 
             var lane = new Lane { Id = "lane-in-wrong", GateId = "gate-wrong", Direction = LaneDirection.In, Name = "Làn Vào Cổng Phụ" };
             var context = new LaneRuntimeContext(lane);
@@ -1386,6 +1398,52 @@ namespace HPParking.Tests.Api
             devCheckpoint.IsRouteCompliant.Should().BeFalse();
             devCheckpoint.SlaOverdue.IsOverdue.Should().BeTrue("dù lạc tuyến nhưng đến trễ vẫn phải ghi nhận IsOverdue == true");
             devCheckpoint.SlaOverdue.OverdueSeconds.Should().BeInRange(118, 122);
+        }
+
+        [Fact]
+        public async Task ProcessWorkflowAsync_WhenEnableFleetDispatchIsFalse_ShouldReturnAccessDenied()
+        {
+            var clientRepo = Substitute.For<IRepository<Client>>();
+            var sessionRepo = Substitute.For<IRepository<ParkingSession>>();
+            var lprService = Substitute.For<ILprService>();
+            var imageStorage = Substitute.For<IImageStorageService>();
+            var deptRepo = Substitute.For<IRepository<Department>>();
+            var contractorRepo = Substitute.For<IRepository<Contractor>>();
+            var companyRepo = Substitute.For<IRepository<Company>>();
+            var vehicleRepo = Substitute.For<IRepository<Vehicle>>();
+            var cardRepo = Substitute.For<IRepository<Card>>();
+            var tripRepo = Substitute.For<IRepository<VehicleDispatchTrip>>();
+            var routeRepo = Substitute.For<IRepository<GateRouteConfig>>();
+            var gateRepo = Substitute.For<IRepository<Gate>>();
+
+            var sharedCard = new Card
+            {
+                Id = "card-disabled-flag",
+                CardNumber = "0013181773",
+                TargetType = CardTargetType.Vehicle,
+                VehicleId = "veh-disabled-1",
+                Status = CardStatus.InUse
+            };
+            cardRepo.FindOneAsync(Arg.Any<Expression<Func<Card, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<Card?>(sharedCard));
+
+            var workflowService = new ParkingWorkflowService(
+                clientRepo, sessionRepo, lprService, imageStorage, deptRepo, contractorRepo, companyRepo,
+                vehicleRepo, cardRepo, tripRepo, routeRepo, gateRepo,
+                featureOptions: Options.Create(new FeatureOptions { EnableFleetDispatch = false }));
+
+            var lane = new Lane { Id = "lane-out", GateId = "gate-1", Direction = LaneDirection.Out, Name = "Làn Ra" };
+            var context = new LaneRuntimeContext(lane);
+            var trigger = new WorkflowTriggerEvent
+            {
+                Source = TriggerSource.CardSwipe,
+                RawCardNo = "0013181773"
+            };
+
+            var result = await workflowService.ProcessWorkflowAsync(context, trigger, "C:\\Images");
+
+            result.Status.Should().Be(ProcessStatus.AccessDenied);
+            result.Message.Should().Be("Chức năng điều vận xe nội bộ đang tạm khóa trên hệ thống.");
         }
 
         // ---------------------------------------------------------------------------------

@@ -22,7 +22,9 @@ import {
   CreditCard,
   Truck,
   UserCheck,
+  Receipt,
 } from 'lucide-react';
+import { useFeatureFlags } from '@/config/featureFlags';
 import {
   Tooltip,
   TooltipContent,
@@ -105,6 +107,7 @@ const menuConfig: MenuItem[] = [
         { title: 'Nhân sự', href: '/clients', icon: Users },
         { title: 'Phương tiện', href: '/vehicles', icon: Car },
         { title: 'Kho Thẻ từ', href: '/cards', icon: CreditCard },
+        { title: 'Biểu phí đỗ xe', href: '/tariffs', icon: Receipt },
       ],
     },
   },
@@ -183,10 +186,15 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const { hasRole } = usePermissions();
+  const featureFlags = useFeatureFlags();
 
   const filteredMenuConfig = useMemo(() => {
     return menuConfig
       .map((menu) => {
+        if (!featureFlags.enableFleetDispatch && menu.type === 'group' && menu.group.title === 'Điều vận phương tiện nội bộ') {
+          return null;
+        }
+
         if (menu.type === 'single') {
           if (menu.item.roles && !hasRole(menu.item.roles)) {
             return null;
@@ -216,7 +224,7 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps = {}) {
         };
       })
       .filter((menu): menu is MenuItem => menu !== null);
-  }, [hasRole]);
+  }, [hasRole, featureFlags.enableFleetDispatch]);
 
   const effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
 

@@ -6,6 +6,7 @@ using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.Linq.Expressions;
 using Xunit;
@@ -17,7 +18,10 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<Card> _cardRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
+        private readonly IRepository<Tariff> _tariffRepo;
+        private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IAuditLogService _auditLogService;
+        private readonly ILogger<CardService> _logger;
         private readonly CardService _cardService;
 
         public CardServiceAuditLogTests()
@@ -25,13 +29,19 @@ namespace HPParking.Tests.Api.Unit
             _cardRepo = Substitute.For<IRepository<Card>>();
             _clientRepo = Substitute.For<IRepository<Client>>();
             _vehicleRepo = Substitute.For<IRepository<Vehicle>>();
+            _tariffRepo = Substitute.For<IRepository<Tariff>>();
+            _sessionRepo = Substitute.For<IRepository<ParkingSession>>();
             _auditLogService = Substitute.For<IAuditLogService>();
+            _logger = Substitute.For<ILogger<CardService>>();
 
             _cardService = new CardService(
                 _cardRepo,
                 _clientRepo,
                 _vehicleRepo,
-                _auditLogService);
+                _tariffRepo,
+                _sessionRepo,
+                _auditLogService,
+                _logger);
         }
 
         [Fact]

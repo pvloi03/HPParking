@@ -1,12 +1,13 @@
+# Documentation (Tracked)
+!docs/
+!docs/**
+
 # .NET
-*docs/
-*adr
 # *.Tests
 *dist/
 *scripts/
 AGENTS.md
 CONTEXT.md
-*.md
 .codegraph/
 appsettings.json
 bin/
@@ -19,6 +20,8 @@ install.cmd
 [Bb]uild/
 [Bb]uild/[Bb]in/
 [Bb]uild/[Oo]bj/
+
+node_modules/
 
 # NuGet
 *.nupkg

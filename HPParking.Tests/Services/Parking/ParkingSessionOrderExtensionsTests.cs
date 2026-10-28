@@ -5,10 +5,6 @@ using HPParking.Core.Models.Enums;
 using HPParking.Services.Parking;
 using MongoDB.Driver;
 using NSubstitute;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Services.Parking

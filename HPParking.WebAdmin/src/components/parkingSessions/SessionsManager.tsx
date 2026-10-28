@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import {
   Car,
@@ -11,6 +11,7 @@ import {
   ArrowRightCircle,
   ArrowLeftCircle,
   UserCheck,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,8 +29,21 @@ import { ParkingSessionDetailDialog } from '@/components/parkingSessions/Parking
 import { parkingSessionApi, extractErrorMessage } from '@/api/parkingSessionApi';
 import { downloadBlob } from '@/utils/downloadBlob';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { usePermissions } from '@/hooks/usePermissions';
+import {
   ParkingSessionStatus,
+  SessionCloseReason,
   type ParkingSessionDto,
+  type ForceCloseParkingSessionRequest,
 } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
 import { LaneTargetType } from '@/types/infrastructure';
@@ -54,6 +68,28 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
   // State Dialog & Thao tác
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const queryClient = useQueryClient();
+  const { canWrite } = usePermissions();
+
+  const [forceCloseTarget, setForceCloseTarget] = useState<ParkingSessionDto | null>(null);
+  const [forceCloseReason, setForceCloseReason] = useState<SessionCloseReason>(SessionCloseReason.LostCard);
+  const [forceCloseFee, setForceCloseFee] = useState<number>(0);
+  const [forceCloseIsFeeCollected, setForceCloseIsFeeCollected] = useState<boolean>(true);
+  const [forceCloseMarkLost, setForceCloseMarkLost] = useState<boolean>(true);
+  const [forceCloseNote, setForceCloseNote] = useState<string>('');
+
+  const forceCloseMutation = useMutation({
+    mutationFn: (payload: { id: string; req: ForceCloseParkingSessionRequest }) =>
+      parkingSessionApi.forceClose(payload.id, payload.req),
+    onSuccess: () => {
+      toast.success('Đã đóng cưỡng bức phiên đỗ xe thành công');
+      setForceCloseTarget(null);
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: (err) => {
+      toast.error(extractErrorMessage(err));
+    },
+  });
 
   // Bộ chọn ngày nhanh (Date Presets)
   const setDatePreset = (preset: 'today' | 'yesterday' | 'week' | 'month' | 'all') => {
@@ -267,6 +303,19 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
       },
     },
     {
+      header: 'Tiền Phí',
+      cell: (item) => (
+        <div className="text-xs">
+          <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+            {(item.feeAmount ?? 0).toLocaleString('vi-VN')} đ
+          </span>
+          {item.isFeeCollected && (
+            <span className="text-[10px] text-emerald-600 block">Đã thu</span>
+          )}
+        </div>
+      ),
+    },
+    {
       header: 'Trạng Thái',
       cell: (item) => {
         switch (item.status) {
@@ -313,6 +362,25 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
             <FileText className="h-3.5 w-3.5" />
             Xem chi tiết
           </Button>
+          {canWrite && item.status === ParkingSessionStatus.Active && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setForceCloseTarget(item);
+                setForceCloseReason(SessionCloseReason.LostCard);
+                setForceCloseFee(item.feeAmount || 0);
+                setForceCloseIsFeeCollected(true);
+                setForceCloseMarkLost(true);
+                setForceCloseNote('');
+              }}
+              className="h-7 px-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+              title="Đóng cưỡng bức (Mất thẻ / Sự cố)"
+            >
+              <XCircle className="h-3.5 w-3.5 mr-0.5" />
+              Đóng phiên
+            </Button>
+          )}
         </div>
       ),
     },
@@ -660,6 +728,139 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
           sessionId={selectedSessionId}
           targetType={targetType}
         />
+      )}
+
+      {/* Modal Đóng cưỡng bức phiên đỗ xe */}
+      {forceCloseTarget && (
+        <Dialog
+          open={Boolean(forceCloseTarget)}
+          onOpenChange={(open) => !open && setForceCloseTarget(null)}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-rose-600">
+                <ShieldAlert className="h-5 w-5" />
+                <span>Đóng Cưỡng Bức Phiên Đỗ Xe</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Áp dụng khi khách mất thẻ, sự cố barrier hoặc xe ra bất thường.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3.5 py-1 text-xs">
+              <div className="p-2.5 rounded-lg bg-muted/30 border space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Biển số:</span>
+                  <span className="font-mono font-bold text-foreground">{forceCloseTarget.plateNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Thời điểm vào:</span>
+                  <span className="font-mono">{forceCloseTarget.inTime ? new Date(forceCloseTarget.inTime).toLocaleString('vi-VN') : '—'}</span>
+                </div>
+                {forceCloseTarget.cardNumber && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Mã thẻ:</span>
+                    <span className="font-mono">{forceCloseTarget.cardNumber}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">Lý do đóng cưỡng bức</label>
+                <Select
+                  value={String(forceCloseReason)}
+                  onValueChange={(val) => setForceCloseReason(Number(val) as SessionCloseReason)}
+                >
+                  <SelectTrigger className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={String(SessionCloseReason.LostCard)} className="text-xs">
+                      Báo mất thẻ (Lost Card)
+                    </SelectItem>
+                    <SelectItem value={String(SessionCloseReason.AdminForceClose)} className="text-xs">
+                      Admin cưỡng bức / Xử lý sự cố
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">Số tiền phí thu (VNĐ)</label>
+                <Input
+                  type="number"
+                  value={forceCloseFee}
+                  onChange={(e) => setForceCloseFee(Number(e.target.value) || 0)}
+                  className="text-xs font-mono"
+                  min={0}
+                  step={1000}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-lg border bg-muted/20">
+                <span className="text-xs font-medium">Đã thu tiền phí</span>
+                <Switch
+                  checked={forceCloseIsFeeCollected}
+                  onCheckedChange={setForceCloseIsFeeCollected}
+                />
+              </div>
+
+              {forceCloseReason === SessionCloseReason.LostCard && (
+                <div className="flex items-center justify-between p-2.5 rounded-lg border bg-muted/20">
+                  <span className="text-xs font-medium">Khóa và báo mất thẻ trong kho</span>
+                  <Switch
+                    checked={forceCloseMarkLost}
+                    onCheckedChange={setForceCloseMarkLost}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">Ghi chú sự cố / giải trình</label>
+                <Input
+                  value={forceCloseNote}
+                  onChange={(e) => setForceCloseNote(e.target.value)}
+                  placeholder="VD: Khách làm rơi thẻ lúc mua sắm, đã thu phí phạt mất thẻ"
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setForceCloseTarget(null)}
+                className="text-xs h-9 cursor-pointer"
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={forceCloseMutation.isPending}
+                onClick={async () => {
+                  if (forceCloseTarget) {
+                    await forceCloseMutation.mutateAsync({
+                      id: forceCloseTarget.id,
+                      req: {
+                        closeReason: forceCloseReason,
+                        overrideFeeAmount: forceCloseFee,
+                        isFeeCollected: forceCloseIsFeeCollected,
+                        markCardAsLost: forceCloseMarkLost,
+                        note: forceCloseNote || undefined,
+                      },
+                    });
+                  }
+                }}
+                className="text-xs h-9 bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+              >
+                {forceCloseMutation.isPending ? 'Đang xử lý...' : 'Xác nhận đóng phiên'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

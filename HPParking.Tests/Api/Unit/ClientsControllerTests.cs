@@ -8,9 +8,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace HPParking.Tests.Api.Unit

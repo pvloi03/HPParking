@@ -2,6 +2,7 @@ using Asp.Versioning;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using HPParking.Api.Authentication;
+using HPParking.Api.Common.Conventions;
 using HPParking.Api.Configuration;
 using HPParking.Api.Data;
 using HPParking.Api.Middlewares;
@@ -9,7 +10,9 @@ using HPParking.Api.Services.Implementations;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
+using HPParking.Core.Models.Common;
 using HPParking.Core.Repositories;
+using HPParking.Core.Services.Pricing;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -60,6 +63,8 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSet
 builder.Services.Configure<ApiKeySettings>(builder.Configuration.GetSection("ApiKeySettings"));
 builder.Services.Configure<StorageSettings>(builder.Configuration.GetSection("StorageSettings"));
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDb"));
+var featureOptions = builder.Configuration.GetSection(FeatureOptions.SectionName).Get<FeatureOptions>() ?? new FeatureOptions();
+builder.Services.AddSingleton(featureOptions);
 
 // =============================================================================
 // 3. TẦNG DỮ LIỆU & REPOSITORIES (MongoDB) & SERVICES
@@ -91,6 +96,8 @@ builder.Services.AddScoped<IGateService, GateService>();
 builder.Services.AddScoped<ILaneService, LaneService>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IParkingSessionService, ParkingSessionService>();
+builder.Services.AddScoped<ITariffService, TariffService>();
+builder.Services.AddSingleton<IParkingFeeCalculator, ParkingFeeCalculator>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
@@ -108,7 +115,10 @@ builder.Services.AddScoped<IClientApprovalEmailTemplateBuilder, ClientApprovalEm
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IGateRouteService, GateRouteService>();
 builder.Services.AddScoped<IFleetDispatchService, FleetDispatchService>();
-builder.Services.AddHostedService<HPParking.Api.Services.Background.VehicleTransitWatcherService>();
+if (featureOptions.EnableFleetDispatch)
+{
+    builder.Services.AddHostedService<HPParking.Api.Services.Background.VehicleTransitWatcherService>();
+}
 
 // Cấu hình Mapster Object Mapping
 builder.Services.RegisterMapsterConfiguration();
@@ -116,7 +126,10 @@ builder.Services.RegisterMapsterConfiguration();
 // =============================================================================
 // 4. CONTROLLERS & VALIDATION
 // =============================================================================
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+    {
+        options.Conventions.Add(new FleetDispatchControllerConvention(featureOptions));
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;

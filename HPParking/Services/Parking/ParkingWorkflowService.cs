@@ -10,6 +10,7 @@ using HPParking.Services.Hardware;
 using HPParking.Services.LPR;
 using HPParking.Services.Parking.Handlers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using System;
 using System.Drawing;
 using System.Threading.Tasks;
@@ -29,6 +30,8 @@ namespace HPParking.Services.Parking
         private readonly ISharedVehicleWorkflowHandler _sharedVehicleHandler;
         private readonly IClientVehicleWorkflowHandler _clientVehicleHandler;
         private readonly IWorkflowImageStorageOrchestrator _imageOrchestrator;
+        private readonly IVisitorVehicleWorkflowHandler? _visitorVehicleHandler;
+        private readonly FeatureOptions _featureOptions;
 
         /// <summary>
         /// Primary DI Constructor: Bộ điều phối gọn nhẹ (Lightweight Dispatcher) nhận trực tiếp các Handler chuyên trách.
@@ -45,7 +48,9 @@ namespace HPParking.Services.Parking
             IRepository<Card> cardRepository,
             ISharedVehicleWorkflowHandler sharedVehicleHandler,
             IClientVehicleWorkflowHandler clientVehicleHandler,
-            IWorkflowImageStorageOrchestrator imageOrchestrator)
+            IWorkflowImageStorageOrchestrator imageOrchestrator,
+            IVisitorVehicleWorkflowHandler? visitorVehicleHandler = null,
+            IOptions<FeatureOptions>? featureOptions = null)
         {
             _clientRepository = clientRepository;
             _sessionRepository = sessionRepository;
@@ -58,6 +63,37 @@ namespace HPParking.Services.Parking
             _sharedVehicleHandler = sharedVehicleHandler;
             _clientVehicleHandler = clientVehicleHandler;
             _imageOrchestrator = imageOrchestrator;
+            _visitorVehicleHandler = visitorVehicleHandler;
+            _featureOptions = featureOptions?.Value ?? new FeatureOptions();
+        }
+
+        public ParkingWorkflowService(
+            IRepository<Client> clientRepository,
+            IRepository<ParkingSession> sessionRepository,
+            ILprService lprService,
+            IRepository<Department> departmentRepository,
+            IRepository<Contractor> contractorRepository,
+            IRepository<Company> companyRepository,
+            IRepository<Vehicle> vehicleRepository,
+            IRepository<Card> cardRepository,
+            ISharedVehicleWorkflowHandler sharedVehicleHandler,
+            IClientVehicleWorkflowHandler clientVehicleHandler,
+            IWorkflowImageStorageOrchestrator imageOrchestrator)
+            : this(
+                clientRepository,
+                sessionRepository,
+                lprService,
+                departmentRepository,
+                contractorRepository,
+                companyRepository,
+                vehicleRepository,
+                cardRepository,
+                sharedVehicleHandler,
+                clientVehicleHandler,
+                imageOrchestrator,
+                null,
+                null)
+        {
         }
 
         /// <summary>
@@ -78,7 +114,9 @@ namespace HPParking.Services.Parking
             IRepository<Gate> gateRepository,
             ISharedVehicleWorkflowHandler? sharedVehicleHandler = null,
             IClientVehicleWorkflowHandler? clientVehicleHandler = null,
-            IWorkflowImageStorageOrchestrator? imageOrchestrator = null)
+            IWorkflowImageStorageOrchestrator? imageOrchestrator = null,
+            IVisitorVehicleWorkflowHandler? visitorVehicleHandler = null,
+            IOptions<FeatureOptions>? featureOptions = null)
             : this(
                 clientRepository,
                 sessionRepository,
@@ -95,7 +133,9 @@ namespace HPParking.Services.Parking
                 clientVehicleHandler ?? new ClientVehicleWorkflowHandler(
                     vehicleRepository, sessionRepository, imageStorageService, new LaneHardwareOrchestrator(lprService),
                     imageOrchestrator: imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository)),
-                imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository))
+                imageOrchestrator ?? new WorkflowImageStorageOrchestrator(imageStorageService, sessionRepository),
+                visitorVehicleHandler,
+                featureOptions)
         {
         }
 
@@ -106,7 +146,8 @@ namespace HPParking.Services.Parking
             WorkflowTriggerEvent trigger,
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
+            Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? onFeeConfirmationRequired = null)
         {
             Card? cardEntity = null;
             Client? client = null;
@@ -143,16 +184,30 @@ namespace HPParking.Services.Parking
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when trigger.IsSharedVehicle || (cardEntity != null && cardEntity.TargetType == CardTargetType.Vehicle && !string.IsNullOrEmpty(cardEntity.VehicleId))
                     => await ProcessSharedVehicleTripFromTriggerAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput),
 
+                // 2.1 THẺ VÃNG LAI (VISITOR)
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In) when cardEntity?.TargetType == CardTargetType.Visitor
+                    => _visitorVehicleHandler != null
+                        ? await _visitorVehicleHandler.ProcessEntryAsync(new VisitorVehicleExecutionContext(
+                            context, trigger, cardEntity, imageBasePath, onBarrierOpenFailed, onManualPlateInput, onFeeConfirmationRequired))
+                        : new ProcessResult { Status = ProcessStatus.Error, Message = "Trình xử lý thẻ vãng lai chưa được khởi tạo." },
+
+                (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out) when cardEntity?.TargetType == CardTargetType.Visitor
+                    => _visitorVehicleHandler != null
+                        ? await _visitorVehicleHandler.ProcessExitAsync(new VisitorVehicleExecutionContext(
+                            context, trigger, cardEntity, imageBasePath, onBarrierOpenFailed, onManualPlateInput, onFeeConfirmationRequired))
+                        : new ProcessResult { Status = ProcessStatus.Error, Message = "Trình xử lý thẻ vãng lai chưa được khởi tạo." },
+
+                // 2.2 KHÁCH HÀNG / THẺ THÁNG / VIP / PERSON
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, _) when client == null
                     => new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy người dùng." },
 
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.In)
                     => await _clientVehicleHandler.ProcessEntryAsync(new ClientVehicleExecutionContext(
-                        context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)),
+                        context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName, cardEntity, onFeeConfirmationRequired)),
 
                 (LaneTargetType.Vehicle, TriggerSource.CardSwipe, LaneDirection.Out)
                     => await _clientVehicleHandler.ProcessExitAsync(new ClientVehicleExecutionContext(
-                        context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName)),
+                        context, trigger, client!, imageBasePath, onBarrierOpenFailed, onManualPlateInput, departmentName, cardEntity, onFeeConfirmationRequired)),
 
                 // 3. XE CƠ GIỚI - CẢM BIẾN RADAR KÍCH HOẠT (FREE-FLOW)
                 (LaneTargetType.Vehicle, TriggerSource.Radar, LaneDirection.In)
@@ -177,7 +232,8 @@ namespace HPParking.Services.Parking
             RealtimeLog data,
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
+            Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? onFeeConfirmationRequired = null)
         {
             var trigger = new WorkflowTriggerEvent
             {
@@ -195,7 +251,7 @@ namespace HPParking.Services.Parking
                 trigger.IsSharedVehicle = true;
             }
 
-            return await ProcessWorkflowAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+            return await ProcessWorkflowAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput, onFeeConfirmationRequired);
         }
 
         public async Task<ProcessResult> ProcessExitAsync(
@@ -203,7 +259,8 @@ namespace HPParking.Services.Parking
             RealtimeLog data,
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed = null,
-            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null)
+            Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput = null,
+            Func<LaneRuntimeContext, FeeConfirmationRequest, Task<bool>>? onFeeConfirmationRequired = null)
         {
             var trigger = new WorkflowTriggerEvent
             {
@@ -220,7 +277,7 @@ namespace HPParking.Services.Parking
                 trigger.IsSharedVehicle = true;
             }
 
-            return await ProcessWorkflowAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput);
+            return await ProcessWorkflowAsync(context, trigger, imageBasePath, onBarrierOpenFailed, onManualPlateInput, onFeeConfirmationRequired);
         }
 
         #endregion
@@ -235,13 +292,28 @@ namespace HPParking.Services.Parking
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
         {
-            var (_, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
+            var (cardEntity, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
             if (client == null)
             {
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy thông tin người dùng trong hệ thống." };
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
+
+            // 0. Kiểm tra thẻ định danh nếu có
+            if (cardEntity != null && !cardEntity.CanPassGate(trigger.TriggerTime, LaneDirection.In, out string cardRejectReason))
+            {
+                return new ProcessResult
+                {
+                    Status = cardEntity.IsExpired(trigger.TriggerTime) ? ProcessStatus.CardExpired : ProcessStatus.AccessDenied,
+                    Message = cardRejectReason,
+                    Client = client,
+                    Card = cardEntity,
+                    DepartmentName = departmentName
+                };
+            }
+
+            // 1. Kiểm tra điều kiện người dùng
             if (!client.CanPassGate(trigger.TriggerTime, out string rejectReason))
             {
                 return new ProcessResult
@@ -249,12 +321,13 @@ namespace HPParking.Services.Parking
                     Status = !client.IsActive ? ProcessStatus.AccessDenied : ProcessStatus.CardExpired,
                     Message = rejectReason,
                     Client = client,
+                    Card = cardEntity,
                     DepartmentName = departmentName
                 };
             }
 
             var activeSession = await _sessionRepository.FindOneAsync(x =>
-                x.PersonId == client.Id &&
+                ((cardEntity != null && x.CardId == cardEntity.Id) || x.PersonId == client.Id) &&
                 x.TargetType == LaneTargetType.Pedestrian &&
                 x.Status == ParkingSessionStatus.Active &&
                 !x.IsDeleted);
@@ -266,6 +339,7 @@ namespace HPParking.Services.Parking
                     Status = ProcessStatus.AlreadyInParking,
                     Message = "Người dùng này đang có lượt vào chưa hoàn tất.",
                     Client = client,
+                    Card = cardEntity,
                     DepartmentName = departmentName,
                     ParkingSession = activeSession
                 };
@@ -286,6 +360,7 @@ namespace HPParking.Services.Parking
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở cửa Turnstile. Vui lòng kiểm tra kết nối thiết bị.",
                     Client = client,
+                    Card = cardEntity,
                     DepartmentName = departmentName,
                     FaceImage = failFace,
                     OverviewImage = failOverview
@@ -297,6 +372,8 @@ namespace HPParking.Services.Parking
             {
                 TargetType = LaneTargetType.Pedestrian,
                 PersonId = client.Id,
+                CardId = cardEntity?.Id,
+                CardNumber = cardEntity?.CardNumber,
                 VehicleType = null,
                 InOrderNumber = inOrderNumber,
                 InTime = trigger.TriggerTime,
@@ -313,6 +390,7 @@ namespace HPParking.Services.Parking
             {
                 Status = ProcessStatus.Success,
                 Client = client,
+                Card = cardEntity,
                 DepartmentName = departmentName,
                 ParkingSession = session,
                 OverviewImage = pedOverview,
@@ -327,13 +405,32 @@ namespace HPParking.Services.Parking
             string imageBasePath,
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed)
         {
-            var (_, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
+            var (cardEntity, _, client) = await ResolveIdentityAsync(trigger.RawCardNo);
             if (client == null)
             {
                 return new ProcessResult { Status = ProcessStatus.ClientNotFound, Message = "Không tìm thấy thông tin người dùng trong hệ thống." };
             }
 
             string departmentName = await GetDepartmentNameAsync(client);
+
+            // 0. Kiểm tra thẻ định danh nếu có
+            if (cardEntity != null)
+            {
+                bool canPass = cardEntity.CanPassGate(trigger.TriggerTime, LaneDirection.Out, out string cardRejectReason);
+                if (!canPass)
+                {
+                    return new ProcessResult
+                    {
+                        Status = ProcessStatus.AccessDenied,
+                        Message = cardRejectReason,
+                        Client = client,
+                        Card = cardEntity,
+                        DepartmentName = departmentName
+                    };
+                }
+            }
+
+            // 1. Kiểm tra điều kiện người dùng
             if (!client.CanPassGate(trigger.TriggerTime, out string rejectReason))
             {
                 return new ProcessResult
@@ -341,12 +438,13 @@ namespace HPParking.Services.Parking
                     Status = !client.IsActive ? ProcessStatus.AccessDenied : ProcessStatus.CardExpired,
                     Message = rejectReason,
                     Client = client,
+                    Card = cardEntity,
                     DepartmentName = departmentName
                 };
             }
 
             var activeSession = await _sessionRepository.FindOneAsync(x =>
-                x.PersonId == client.Id &&
+                ((cardEntity != null && x.CardId == cardEntity.Id) || x.PersonId == client.Id) &&
                 x.TargetType == LaneTargetType.Pedestrian &&
                 x.Status == ParkingSessionStatus.Active &&
                 !x.IsDeleted);
@@ -364,6 +462,7 @@ namespace HPParking.Services.Parking
                     Status = ProcessStatus.BarrierFailed,
                     Message = "Không thể mở cửa Turnstile ra. Vui lòng kiểm tra kết nối thiết bị.",
                     Client = client,
+                    Card = cardEntity,
                     DepartmentName = departmentName,
                     FaceImage = failFace,
                     OverviewImage = failOverview
@@ -385,6 +484,8 @@ namespace HPParking.Services.Parking
                 {
                     TargetType = LaneTargetType.Pedestrian,
                     PersonId = client.Id,
+                    CardId = cardEntity?.Id,
+                    CardNumber = cardEntity?.CardNumber,
                     VehicleType = null,
                     OutTime = trigger.TriggerTime,
                     OutLaneName = context.Lane.Name,
@@ -614,6 +715,15 @@ namespace HPParking.Services.Parking
             Func<LaneRuntimeContext, bool>? onBarrierOpenFailed,
             Func<LaneRuntimeContext, string?, Task<string?>>? onManualPlateInput)
         {
+            if (!_featureOptions.EnableFleetDispatch)
+            {
+                return new ProcessResult
+                {
+                    Status = ProcessStatus.AccessDenied,
+                    Message = "Chức năng điều vận xe nội bộ đang tạm khóa trên hệ thống."
+                };
+            }
+
             var (cardEntity, _, _) = await ResolveIdentityAsync(trigger.RawCardNo);
             if (cardEntity == null || string.IsNullOrEmpty(cardEntity.VehicleId))
             {
@@ -688,7 +798,7 @@ namespace HPParking.Services.Parking
                 }
             }
 
-            if (client == null)
+            if (client == null && (card == null || (card.TargetType != CardTargetType.Vehicle && card.TargetType != CardTargetType.Visitor)))
             {
                 client = await _clientRepository.FindOneAsync(c =>
                     (c.CardCode == normalizedCard || c.CardCode == rawCard ||

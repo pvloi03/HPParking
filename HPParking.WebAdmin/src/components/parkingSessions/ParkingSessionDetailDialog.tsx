@@ -15,6 +15,8 @@ import {
   Info,
   CheckCircle2,
   AlertCircle,
+  Receipt,
+  CreditCard,
 } from 'lucide-react';
 import {
   Dialog,
@@ -26,7 +28,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EvidenceImageGrid, hasImagePath, formatImageUrl } from './EvidenceImageGrid';
 import { parkingSessionApi } from '@/api/parkingSessionApi';
-import { ParkingSessionStatus } from '@/types/parkingSession';
+import {
+  ParkingSessionStatus,
+  getSessionCloseReasonLabel,
+} from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
 import { LaneTargetType } from '@/types/infrastructure';
 import { formatInOrderTag } from '@/utils/formatters';
@@ -355,6 +360,25 @@ export function ParkingSessionDetailDialog({
                           </span>
                         </div>
                         <div>
+
+                        </div>
+                        {session.closeReason && (
+                          <div>
+                            <span className="text-muted-foreground block text-[11px]">Lý do đóng phiên:</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400 text-xs">
+                              {getSessionCloseReasonLabel(session.closeReason)}
+                            </span>
+                          </div>
+                        )}
+                        {session.closedBy && (
+                          <div>
+                            <span className="text-muted-foreground block text-[11px]">Người đóng phiên:</span>
+                            <span className="font-medium text-foreground text-xs">
+                              {session.closedBy}
+                            </span>
+                          </div>
+                        )}
+                        <div>
                           <span className="text-muted-foreground block text-[11px]">Thời điểm tạo:</span>
                           <span className="text-muted-foreground font-mono text-[11px]">
                             {session.createdAt ? new Date(session.createdAt).toLocaleDateString('vi-VN') : '--'}
@@ -485,6 +509,41 @@ export function ParkingSessionDetailDialog({
                               )
                             )}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card: Thu Phí & Thẻ Định Danh */}
+                    <div className="col-span-1 md:col-span-2 p-3.5 rounded-xl border border-border bg-card space-y-2 shadow-2xs">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 border-b border-border/60 pb-1.5">
+                        <Receipt className="h-4 w-4" />
+                        <span>Thu Phí & Thẻ Định Danh</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-0.5 text-xs">
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">Mã thẻ quẹt:</span>
+                          <span className="font-mono font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                            <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
+                            {session.cardNumber || '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">Số tiền thu:</span>
+                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5 block">
+                            {(session.feeAmount ?? 0).toLocaleString('vi-VN')} VNĐ
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">Trạng thái thu phí:</span>
+                          <span className="mt-0.5 inline-block">
+                            {session.isFeeCollected ? (
+                              <Badge className="bg-emerald-600 text-white text-[10px]">Đã thu tiền</Badge>
+                            ) : (session.feeAmount ?? 0) > 0 ? (
+                              <Badge variant="destructive" className="text-[10px]">Chưa thu tiền</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">Miễn phí (0 đ)</Badge>
+                            )}
+                          </span>
                         </div>
                       </div>
                     </div>

@@ -2,8 +2,6 @@ using FluentAssertions;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Forms;
-using System;
-using System.Threading;
 using System.Windows.Forms;
 using Xunit;
 

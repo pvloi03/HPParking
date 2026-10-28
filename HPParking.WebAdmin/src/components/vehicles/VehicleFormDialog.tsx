@@ -30,6 +30,7 @@ import {
   type CreateVehicleRequest,
   type UpdateVehicleRequest,
 } from '@/types/vehicle';
+import { useFeatureFlags } from '@/config/featureFlags';
 import type { ClientDto } from '@/types/client';
 import type { GateRouteDto } from '@/types/gateRoute';
 import { gateRouteApi } from '@/api/gateRouteApi';
@@ -97,6 +98,7 @@ export function VehicleFormDialog({
 }: VehicleFormDialogProps) {
   const isEditing = Boolean(initialData);
   const queryClient = useQueryClient();
+  const { enableFleetDispatch } = useFeatureFlags();
 
   // Truy vấn tuyến đường mặc định của hệ thống (isDefault hoặc RouteCode DEFAULT)
   const { data: defaultRoute } = useQuery({
@@ -216,6 +218,7 @@ export function VehicleFormDialog({
 
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-3.5 py-1">
           {/* Cấu hình Phương Tiện Nội Bộ / Xe Dùng Chung */}
+          {(enableFleetDispatch || (isEditing && initialData?.isShared)) && (
           <div className="rounded-lg border border-border p-3 bg-muted/20 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -286,6 +289,7 @@ export function VehicleFormDialog({
               </div>
             )}
           </div>
+          )}
 
           {/* Chọn Chủ sở hữu chỉ hiển thị đối với xe cá nhân */}
           {!isShared && (

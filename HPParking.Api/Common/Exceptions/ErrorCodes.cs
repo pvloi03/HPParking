@@ -108,5 +108,15 @@ namespace HPParking.Api.Common.Exceptions
         public const string VEHICLE_HAS_ACTIVE_TRIP = "VEHICLE_HAS_ACTIVE_TRIP";
         public const string ROUTE_HAS_ACTIVE_TRIP = "ROUTE_HAS_ACTIVE_TRIP";
         public const string GATE_IN_USE_BY_ROUTE_OR_TRIP = "GATE_IN_USE_BY_ROUTE_OR_TRIP";
+
+        // Tariff & Fee
+        public const string TARIFF_NOT_FOUND = "TARIFF_NOT_FOUND";
+        public const string TARIFF_CODE_DUPLICATE = "TARIFF_CODE_DUPLICATE";
+        public const string TARIFF_IN_USE_BY_CARDS = "TARIFF_IN_USE_BY_CARDS";
+        public const string TARIFF_ACTIVE_CARDS_EXIST = "TARIFF_ACTIVE_CARDS_EXIST";
+
+        // Card & Session Integrity
+        public const string CARD_HAS_ACTIVE_PARKING_SESSION = "CARD_HAS_ACTIVE_PARKING_SESSION";
+        public const string SESSION_NOT_ACTIVE_OR_ALREADY_CLOSED = "SESSION_NOT_ACTIVE_OR_ALREADY_CLOSED";
     }
 }

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using HPParking.Api.Common.Attributes;
 using HPParking.Api.DTOs.Common;
 using HPParking.Api.DTOs.GateRoutes;
 using HPParking.Api.Services.Interfaces;
@@ -9,6 +10,7 @@ namespace HPParking.Api.Controllers.V1
 {
     [ApiVersion("1.0")]
     [Route("api/v{version:apiVersion}/gate-routes")]
+    [FleetDispatchFeature]
     public class GateRoutesController : BaseApiController
     {
         private readonly IGateRouteService _gateRouteService;

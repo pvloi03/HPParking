@@ -7,6 +7,8 @@ namespace HPParking.Services.LPR
     {
         public bool Success { get; set; }
         public string? Plate { get; set; }
+        public string? RawPlateText { get; set; }
+        public bool IsManualOverride { get; set; } = false;
 
         public float Confidence { get; set; }
 

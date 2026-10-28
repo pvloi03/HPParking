@@ -29,6 +29,9 @@ namespace HPParking.Forms
         private readonly LicenseManager _licenseManager;
         private readonly IParkingWorkflowService _workflowService;
         private readonly IServerHealthService _serverHealthService;
+        private readonly IRepository<AuditLog>? _auditLogRepository;
+
+        internal Task? LastAuditTask { get; private set; }
 
         private DeviceOrchestrator _deviceOrchestrator = new();
 
@@ -39,6 +42,7 @@ namespace HPParking.Forms
         private Timer? _clockTimer;
         private ServerHealthReport? _lastServerHealthReport;
         private CancellationTokenSource? _healthCheckCts;
+        private readonly ProcessResult?[] _lastSlotResults = new ProcessResult?[4];
 
         public FrmMain(
             IRepository<Lane> laneRepository,
@@ -46,7 +50,8 @@ namespace HPParking.Forms
             IRepository<Device> deviceRepository,
             LicenseManager licenseManager,
             IParkingWorkflowService workflowService,
-            IServerHealthService serverHealthService)
+            IServerHealthService serverHealthService,
+            IRepository<AuditLog>? auditLogRepository = null)
         {
             InitializeComponent();
 
@@ -56,6 +61,7 @@ namespace HPParking.Forms
             _licenseManager = licenseManager;
             _workflowService = workflowService;
             _serverHealthService = serverHealthService;
+            _auditLogRepository = auditLogRepository;
 
             _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
         }
@@ -539,11 +545,30 @@ namespace HPParking.Forms
                     trigger,
                     pathImage,
                     HandleBarrierOpenFailed,
-                    HandleManualPlateInputAsync);
+                    HandleManualPlateInputAsync,
+                    HandleFeeConfirmationAsync);
 
                 UpdateLaneSlotUI(slotIndex, context, result);
 
-                if (result.Status == ProcessStatus.PlateMismatch)
+                if (result.Status == ProcessStatus.TariffError)
+                {
+                    ParkingTaskDialog.ShowError(
+                        this,
+                        heading: "LỖI TÍNH PHÍ ĐỖ XE",
+                        text: result.Message,
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Cảnh báo biểu phí: {result.HasTariffWarning}\n• Trạng thái: {result.Status}",
+                        timeoutSeconds: 5);
+                }
+                else if (result.Status == ProcessStatus.FeeConfirmationRequired)
+                {
+                    ParkingTaskDialog.ShowWarning(
+                        this,
+                        heading: "CHƯA XÁC NHẬN THU PHÍ",
+                        text: result.Message,
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Số tiền chưa thu: {result.FeeAmount:N0} VNĐ",
+                        timeoutSeconds: 5);
+                }
+                else if (result.Status == ProcessStatus.PlateMismatch)
                 {
                     ParkingTaskDialog.ShowError(
                         this,
@@ -609,7 +634,8 @@ namespace HPParking.Forms
                     trigger,
                     pathImage,
                     HandleBarrierOpenFailed,
-                    HandleManualPlateInputAsync);
+                    HandleManualPlateInputAsync,
+                    HandleFeeConfirmationAsync);
 
                 UpdateLaneSlotUI(slotIndex, context, result);
 
@@ -648,6 +674,11 @@ namespace HPParking.Forms
 
         private void UpdateLaneSlotUI(int slotIndex, LaneRuntimeContext context, ProcessResult result)
         {
+            if (slotIndex >= 0 && slotIndex < 4)
+            {
+                _lastSlotResults[slotIndex] = result;
+            }
+
             string timeStr = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
             bool isEntry = context.Lane.Direction == LaneDirection.In;
             bool isSuccess = result.Status == ProcessStatus.Success;
@@ -781,6 +812,24 @@ namespace HPParking.Forms
                     // Yêu cầu 1: Xe riêng thì Đơn vị: tên phòng ban / tên công ty / tên nhà thầu / vãng lai
                     string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
                     deptText = $"Đơn vị: {unitName}";
+                }
+
+                if (result.Card?.TargetType == CardTargetType.Visitor)
+                {
+                    driver = $"Khách vãng lai ({result.Card.CardNumber})";
+                    string feeInfo = result.FeeAmount > 0
+                        ? $" - Phí: {result.FeeAmount:N0}đ" + (result.IsFeeCollected ? " (Đã thu)" : "")
+                        : "";
+                    deptText = $"Vé lượt{feeInfo}";
+                }
+                else if (result.FeeAmount > 0)
+                {
+                    deptText += $" | Phí: {result.FeeAmount:N0}đ" + (result.IsFeeCollected ? " (Đã thu)" : "");
+                }
+
+                if (result.HasTariffWarning)
+                {
+                    deptText = "CẢNH BÁO BIỂU PHÍ (Lỗi tính phí)";
                 }
 
                 Color flashColor = isSuccess ? Color.Honeydew : Color.LightCoral;
@@ -1043,6 +1092,12 @@ namespace HPParking.Forms
             return Task.FromResult(plate);
         }
 
+        private Task<bool> HandleFeeConfirmationAsync(LaneRuntimeContext context, FeeConfirmationRequest req)
+        {
+            // Phương án 1: Bỏ hoàn toàn xác nhận popup TaskDialog khi thu phí
+            return Task.FromResult(true);
+        }
+
         private async Task<bool> CheckAndEnforceLicenseAsync()
         {
             string? currentKey = await _licenseManager.GetCurrentLicenseKeyAsync();
@@ -1149,7 +1204,9 @@ namespace HPParking.Forms
             }
 
             LaneRuntimeContext context = _laneContexts[slotIndex];
-            if (context.OpenBarrier())
+            bool success = context.OpenBarrier();
+
+            if (success)
             {
                 return true;
             }

@@ -6,6 +6,7 @@ import type {
   ParkingSessionDetailDto,
   ParkingSessionDto,
   ParkingSessionFilterQuery,
+  ForceCloseParkingSessionRequest,
 } from '@/types/parkingSession';
 import type { ExportBlob } from '@/types/excel';
 
@@ -102,5 +103,19 @@ export const parkingSessionApi = {
     const blob = response.data as ExportBlob;
     blob.isTruncated = isTruncated;
     return blob;
+  },
+
+  /**
+   * Đóng cưỡng bức phiên đỗ xe (mất thẻ, admin can thiệp)
+   */
+  async forceClose(
+    id: string,
+    req: ForceCloseParkingSessionRequest
+  ): Promise<ParkingSessionDto> {
+    const response = await apiClient.post<ApiResponse<ParkingSessionDto>>(
+      `/v1/parking-sessions/${id}/force-close`,
+      req
+    );
+    return response.data.data!;
   },
 };

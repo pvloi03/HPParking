@@ -19,6 +19,8 @@ namespace HPParking.Services.Parking
         AccessDenied,
         FaceMismatch,
         FeeRequired,
+        TariffError,
+        FeeConfirmationRequired,
         Error
     }
 
@@ -28,6 +30,7 @@ namespace HPParking.Services.Parking
         public string Message { get; set; } = "";
         public Client? Client { get; set; }
         public Vehicle? Vehicle { get; set; }
+        public Card? Card { get; set; }
         public string RegisteredPlate => Vehicle?.PlateNumber ?? (!string.IsNullOrEmpty(ParkingSession?.PlateNumber) ? ParkingSession.PlateNumber : "");
         public string DepartmentName { get; set; } = "";
         public ParkingSession? ParkingSession { get; set; }
@@ -37,5 +40,8 @@ namespace HPParking.Services.Parking
         public Bitmap? PlateImage { get; set; }
         public Bitmap? FaceImage { get; set; }
         public double? FaceMatchScore { get; set; }
+        public decimal FeeAmount { get; set; } = 0m;
+        public bool IsFeeCollected { get; set; } = false;
+        public bool HasTariffWarning { get; set; } = false;
     }
 }

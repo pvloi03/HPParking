@@ -15,6 +15,7 @@ import {
   Route,
   Cpu,
   UserCog,
+  Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { vehicleApi } from '@/api/vehicleApi';
 import { companiesApi, departmentsApi, contractorsApi } from '@/api/masterDataApi';
 import { gatesApi, lanesApi, devicesApi } from '@/api/infrastructureApi';
 import { usersApi } from '@/api/userApi';
+import { tariffApi } from '@/api/tariffApi';
 import { extractErrorMessage } from '@/api/clientApi';
 import { usePermissions } from '@/hooks/usePermissions';
 import { UserRole } from '@/types/user';
@@ -41,6 +43,7 @@ type EntityType =
   | 'gates'
   | 'lanes'
   | 'devices'
+  | 'tariffs'
   | 'users';
 
 interface EntityConfig {
@@ -61,6 +64,7 @@ const ENTITY_CONFIGS: EntityConfig[] = [
   { id: 'gates', label: 'Cổng vào ra', icon: DoorOpen, description: 'Cổng kiểm soát ra vào' },
   { id: 'lanes', label: 'Làn xe', icon: Route, description: 'Làn kiểm soát luồng xe ra/vào' },
   { id: 'devices', label: 'Thiết bị', icon: Cpu, description: 'Camera, Barie, LED, Đầu đọc FaceID' },
+  { id: 'tariffs', label: 'Biểu phí', icon: Receipt, description: 'Biểu phí đỗ xe theo lượt & lũy tiến' },
   { id: 'users', label: 'Tài khoản', icon: UserCog, description: 'Tài khoản người dùng & phân quyền', roles: [UserRole.Admin] },
 ];
 
@@ -116,6 +120,7 @@ export function RecycleBinPage() {
         gatesApi.getPaged({ pageSize: 1, onlyDeleted: true }),
         lanesApi.getPaged({ pageSize: 1, onlyDeleted: true }),
         devicesApi.getPaged({ pageSize: 1, onlyDeleted: true }),
+        tariffApi.getPaged({ pageSize: 1, onlyDeleted: true }),
       ];
 
       // Chỉ Admin mới có quyền truy vấn số lượng tài khoản đã xóa
@@ -137,7 +142,8 @@ export function RecycleBinPage() {
         gates: getCount(results[5]),
         lanes: getCount(results[6]),
         devices: getCount(results[7]),
-        users: isAdmin && results[8] ? getCount(results[8]) : 0,
+        tariffs: getCount(results[8]),
+        users: isAdmin && results[9] ? getCount(results[9]) : 0,
       };
 
       counts.all = Object.values(counts).reduce((sum, val) => sum + val, 0);
@@ -163,6 +169,7 @@ export function RecycleBinPage() {
           gatesApi.getPaged({ pageSize: 50, keyword, onlyDeleted: true }),
           lanesApi.getPaged({ pageSize: 50, keyword, onlyDeleted: true }),
           devicesApi.getPaged({ pageSize: 50, keyword, onlyDeleted: true }),
+          tariffApi.getPaged({ pageSize: 50, keyword, onlyDeleted: true }),
         ];
 
         if (isAdmin) {
@@ -188,7 +195,8 @@ export function RecycleBinPage() {
           ...tagItems(results[5], 'gates'),
           ...tagItems(results[6], 'lanes'),
           ...tagItems(results[7], 'devices'),
-          ...(isAdmin && results[8] ? tagItems(results[8], 'users') : []),
+          ...tagItems(results[8], 'tariffs'),
+          ...(isAdmin && results[9] ? tagItems(results[9], 'users') : []),
         ];
 
         // Sắp xếp giảm dần theo thời gian cập nhật/xóa
@@ -233,6 +241,8 @@ export function RecycleBinPage() {
           return lanesApi.getPaged({ pageIndex, pageSize, keyword, onlyDeleted: true });
         case 'devices':
           return devicesApi.getPaged({ pageIndex, pageSize, keyword, onlyDeleted: true });
+        case 'tariffs':
+          return tariffApi.getPaged({ pageIndex, pageSize, keyword, onlyDeleted: true });
         case 'users':
           return usersApi.getPaged({ pageIndex, pageSize, keyword, onlyDeleted: true });
       }
@@ -242,6 +252,11 @@ export function RecycleBinPage() {
 
   const getEntityApi = (type: EntityType) => {
     switch (type) {
+      case 'tariffs':
+        return {
+          restore: (id: string) => tariffApi.restore(id),
+          hardDelete: (id: string) => tariffApi.delete(id),
+        };
       case 'clients':
         return {
           restore: (id: string) => clientApi.restore(id),
@@ -690,6 +705,43 @@ export function RecycleBinPage() {
                 {item.email || item.phoneNumber || '—'}
               </span>
             ),
+          },
+        ];
+
+      case 'tariffs':
+        return [
+          {
+            header: 'Mã biểu phí',
+            accessorKey: 'code',
+            cell: (item: any) => (
+              <span className="font-mono text-xs font-semibold">{item.code || '—'}</span>
+            ),
+          },
+          {
+            header: 'Tên biểu phí',
+            accessorKey: 'name',
+            cell: (item: any) => (
+              <span className="text-xs font-semibold text-foreground">{item.name || '—'}</span>
+            ),
+          },
+          {
+            header: 'Loại tính phí',
+            cell: (item: any) => (
+              <Badge variant="outline" className="text-[11px]">
+                {item.pricingMode === 1 ? 'Lũy tiến block' : 'Đồng giá lượt'}
+              </Badge>
+            ),
+          },
+          {
+            header: 'Mức phí',
+            cell: (item: any) => {
+              const price = item.pricingMode === 1 ? item.basePrice : item.flatPrice;
+              return (
+                <span className="font-mono text-xs font-medium">
+                  {price !== undefined && price !== null ? `${Number(price).toLocaleString('vi-VN')} đ` : '—'}
+                </span>
+              );
+            },
           },
         ];
 

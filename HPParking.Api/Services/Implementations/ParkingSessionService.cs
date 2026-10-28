@@ -16,16 +16,36 @@ namespace HPParking.Api.Services.Implementations
     /// <summary>
     /// Triển khai dịch vụ tra cứu chỉ đọc lịch sử và phiên đỗ xe hiện hành (Read-Only)
     /// </summary>
-    public class ParkingSessionService(
-        IRepository<ParkingSession> sessionRepo,
-        IRepository<Client> clientRepo,
-        IRepository<Vehicle> vehicleRepo,
-        ILogger<ParkingSessionService> logger) : IParkingSessionService
+    public class ParkingSessionService : IParkingSessionService
     {
-        private readonly IRepository<ParkingSession> _sessionRepo = sessionRepo;
-        private readonly IRepository<Client> _clientRepo = clientRepo;
-        private readonly IRepository<Vehicle> _vehicleRepo = vehicleRepo;
-        private readonly ILogger<ParkingSessionService> _logger = logger;
+        private readonly IRepository<ParkingSession> _sessionRepo;
+        private readonly IRepository<Client> _clientRepo;
+        private readonly IRepository<Vehicle> _vehicleRepo;
+        private readonly IRepository<Card> _cardRepo;
+        private readonly IRepository<Tariff> _tariffRepo;
+        private readonly IParkingFeeCalculator _feeCalculator;
+        private readonly IAuditLogService _auditLogService;
+        private readonly ILogger<ParkingSessionService> _logger;
+
+        public ParkingSessionService(
+            IRepository<ParkingSession> sessionRepo,
+            IRepository<Client> clientRepo,
+            IRepository<Vehicle> vehicleRepo,
+            IRepository<Card> cardRepo,
+            IRepository<Tariff> tariffRepo,
+            IParkingFeeCalculator feeCalculator,
+            IAuditLogService auditLogService,
+            ILogger<ParkingSessionService> logger)
+        {
+            _sessionRepo = sessionRepo ?? throw new ArgumentNullException(nameof(sessionRepo));
+            _clientRepo = clientRepo ?? throw new ArgumentNullException(nameof(clientRepo));
+            _vehicleRepo = vehicleRepo ?? throw new ArgumentNullException(nameof(vehicleRepo));
+            _cardRepo = cardRepo ?? throw new ArgumentNullException(nameof(cardRepo));
+            _tariffRepo = tariffRepo ?? throw new ArgumentNullException(nameof(tariffRepo));
+            _feeCalculator = feeCalculator ?? throw new ArgumentNullException(nameof(feeCalculator));
+            _auditLogService = auditLogService ?? throw new ArgumentNullException(nameof(auditLogService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
 
         public async Task<PagedResult<ParkingSessionDto>> GetParkingSessionsPagedAsync(ParkingSessionFilterQuery query, CancellationToken cancellationToken = default)
         {
@@ -323,6 +343,153 @@ namespace HPParking.Api.Services.Implementations
                 session.Id, session.PlateNumber, session.Status, detail.PersonFullName ?? "Khách vãng lai");
 
             return detail;
+        }
+
+        public async Task<ParkingSessionDto> ForceCloseSessionAsync(
+            string id,
+            ForceCloseParkingSessionRequest request,
+            string currentUsername,
+            CancellationToken cancellationToken = default)
+        {
+            var session = await _sessionRepo.GetByIdAsync(id, cancellationToken);
+            if (session == null || session.IsDeleted)
+            {
+                throw new NotFoundException("Không tìm thấy thông tin phiên đỗ xe.", ErrorCodes.PARKING_SESSION_NOT_FOUND);
+            }
+
+            if (session.Status != ParkingSessionStatus.Active)
+            {
+                throw new ConflictException(
+                    "Phiên gửi xe không ở trạng thái Active hoặc đã được đóng bởi một tiến trình khác.",
+                    ErrorCodes.SESSION_NOT_ACTIVE_OR_ALREADY_CLOSED);
+            }
+
+            Card? card = null;
+            if (!string.IsNullOrWhiteSpace(session.CardId))
+            {
+                card = await _cardRepo.GetByIdAsync(session.CardId, cancellationToken);
+            }
+            else if (!string.IsNullOrWhiteSpace(session.CardNumber))
+            {
+                card = await _cardRepo.FindOneAsync(c => c.CardNumber == session.CardNumber && !c.IsDeleted, cancellationToken);
+            }
+
+            DateTime nowUtc = DateTime.UtcNow;
+            decimal finalFee = 0m;
+            decimal? systemCalculatedFee = null;
+
+            if (card != null && card.IsChargeable)
+            {
+                string? effectiveTariffId = session.TariffId ?? card.TariffId;
+                Tariff? tariff = !string.IsNullOrWhiteSpace(effectiveTariffId)
+                    ? await _tariffRepo.GetByIdAsync(effectiveTariffId, cancellationToken)
+                    : null;
+
+                if (tariff != null && !tariff.IsDeleted && tariff.IsActive)
+                {
+                    var feeResult = _feeCalculator.Calculate(card, tariff, session.InTime ?? nowUtc, nowUtc);
+                    if (!feeResult.HasTariffWarning)
+                    {
+                        systemCalculatedFee = feeResult.FeeAmount;
+                    }
+                }
+            }
+
+            if (request.OverrideFeeAmount.HasValue)
+            {
+                finalFee = request.OverrideFeeAmount.Value;
+            }
+            else
+            {
+                if (card != null && card.IsChargeable)
+                {
+                    string? effectiveTariffId = session.TariffId ?? card.TariffId;
+                    Tariff? tariff = !string.IsNullOrWhiteSpace(effectiveTariffId)
+                        ? await _tariffRepo.GetByIdAsync(effectiveTariffId, cancellationToken)
+                        : null;
+
+                    var feeResult = _feeCalculator.Calculate(card, tariff, session.InTime ?? nowUtc, nowUtc);
+                    if (feeResult.HasTariffWarning)
+                    {
+                        throw new BadRequestException(
+                            "Biểu phí của thẻ bị thiếu hoặc đã ngừng hoạt động. Vui lòng cấu hình lại biểu phí hoặc nhập số tiền phí thực tế (OverrideFeeAmount) để đóng phiên.",
+                            ErrorCodes.BAD_REQUEST);
+                    }
+
+                    finalFee = feeResult.FeeAmount;
+                }
+                else
+                {
+                    finalFee = 0m;
+                }
+            }
+
+            var filter = Builders<ParkingSession>.Filter.And(
+                Builders<ParkingSession>.Filter.Eq(x => x.Id, id),
+                Builders<ParkingSession>.Filter.Eq(x => x.Status, ParkingSessionStatus.Active),
+                Builders<ParkingSession>.Filter.Eq(x => x.IsDeleted, false)
+            );
+
+            string? newNote = string.IsNullOrWhiteSpace(request.Note)
+                ? session.Note
+                : (string.IsNullOrWhiteSpace(session.Note) ? request.Note : $"{session.Note} | {request.Note}".Trim(' ', '|'));
+
+            var update = Builders<ParkingSession>.Update
+                .Set(x => x.Status, ParkingSessionStatus.Completed)
+                .Set(x => x.CloseReason, request.CloseReason)
+                .Set(x => x.OutTime, nowUtc)
+                .Set(x => x.FeeAmount, finalFee)
+                .Set(x => x.IsFeeCollected, request.IsFeeCollected)
+                .Set(x => x.ClosedBy, currentUsername)
+                .Set(x => x.Note, newNote)
+                .Set(x => x.UpdatedAt, nowUtc);
+
+            bool updated = await _sessionRepo.UpdateOneAsync(filter, update, cancellationToken);
+            if (!updated)
+            {
+                throw new ConflictException(
+                    "Phiên gửi xe không ở trạng thái Active hoặc đã được đóng bởi một tiến trình khác.",
+                    ErrorCodes.SESSION_NOT_ACTIVE_OR_ALREADY_CLOSED);
+            }
+
+            if (card != null)
+            {
+                if (request.MarkCardAsLost)
+                {
+                    card.Status = CardStatus.Lost;
+                    await _cardRepo.UpdateAsync(card, cancellationToken);
+                }
+                else if (card.TargetType == CardTargetType.Visitor)
+                {
+                    card.Status = CardStatus.Available;
+                    await _cardRepo.UpdateAsync(card, cancellationToken);
+                }
+            }
+
+            string feeDetail = request.OverrideFeeAmount.HasValue
+                ? (systemCalculatedFee.HasValue
+                    ? $"Phí={finalFee:N0}đ (Ghi đè thủ công, Phí hệ thống: {systemCalculatedFee.Value:N0}đ)"
+                    : $"Phí={finalFee:N0}đ (Ghi đè thủ công)")
+                : $"Phí={finalFee:N0}đ";
+
+            await _auditLogService.LogActivityAsync(
+                actionType: AuditActionType.Update,
+                targetEntity: "ParkingSession",
+                targetId: session.Id,
+                targetDisplay: session.PlateNumber,
+                reason: $"Đóng phiên cưỡng bức: Lý do={request.CloseReason}, {feeDetail}, Đã thu={request.IsFeeCollected}, Người đóng={currentUsername}.",
+                cancellationToken: cancellationToken);
+
+            session.Status = ParkingSessionStatus.Completed;
+            session.CloseReason = request.CloseReason;
+            session.OutTime = nowUtc;
+            session.FeeAmount = finalFee;
+            session.IsFeeCollected = request.IsFeeCollected;
+            session.ClosedBy = currentUsername;
+            session.Note = newNote;
+            session.UpdatedAt = nowUtc;
+
+            return session.Adapt<ParkingSessionDto>();
         }
     }
 }

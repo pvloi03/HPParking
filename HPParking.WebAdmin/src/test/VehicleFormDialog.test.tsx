@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { VehicleFormDialog } from '@/components/vehicles/VehicleFormDialog';
 import { cardApi } from '@/api/cardApi';
 import { VehicleType, type VehicleDto } from '@/types/vehicle';
+import { useFeatureFlagsStore } from '@/config/featureFlags';
 
 vi.mock('@/api/cardApi', () => ({
   cardApi: {
@@ -59,7 +60,14 @@ describe('VehicleFormDialog Unassigned Cards Filter Tests', () => {
     );
   };
 
+  it('ẩn công tắc xe dùng chung khi tạo mới nếu enableFleetDispatch = false (mặc định)', () => {
+    useFeatureFlagsStore.setState({ enableFleetDispatch: false });
+    renderDialog();
+    expect(screen.queryByText(/Phương tiện nội bộ \/ xe dùng chung/i)).not.toBeInTheDocument();
+  });
+
   it('gọi cardApi.getCards với targetType: 2 và unassignedOnly: true khi tạo mới phương tiện dùng chung', async () => {
+    useFeatureFlagsStore.setState({ enableFleetDispatch: true });
     renderDialog();
 
     // Bật toggle Phương tiện nội bộ / xe dùng chung để hiển thị mục thẻ xe
@@ -98,6 +106,39 @@ describe('VehicleFormDialog Unassigned Cards Filter Tests', () => {
           targetType: 2, // Vehicle
           unassignedOnly: true,
           assignedVehicleId: 'vehicle-123',
+        })
+      );
+    });
+  });
+
+  it('giữ nguyên isShared và assignedRouteId khi tắt cờ enableFleetDispatch lúc chỉnh sửa xe dùng chung', async () => {
+    useFeatureFlagsStore.setState({ enableFleetDispatch: false });
+    const onSubmit = vi.fn();
+    const existingSharedVehicle: VehicleDto = {
+      id: 'vehicle-shared-flag-off',
+      plateNumber: '15A-888.88',
+      type: VehicleType.Car,
+      isShared: true,
+      assignedRouteId: 'route-fixed-888',
+      cardCode: '0000888999',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    renderDialog({ initialData: existingSharedVehicle, onSubmit });
+
+    // Khi enableFleetDispatch = false, nhưng xe đang edit là isShared = true:
+    // Khối cấu hình phương tiện nội bộ vẫn hiển thị
+    expect(screen.getByText(/Phương tiện nội bộ \/ Xe dùng chung/i)).toBeInTheDocument();
+
+    const submitBtn = screen.getByRole('button', { name: /cập nhật/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isShared: true,
+          assignedRouteId: 'route-fixed-888',
         })
       );
     });

@@ -43,5 +43,18 @@ namespace HPParking.Api.DTOs.Statistics
         /// Số lượng Làn xe đang ở trạng thái hoạt động (IsActive == true)
         /// </summary>
         public long ActiveLanes { get; set; }
+
+        // =========================================================================
+        // --- 5. THỐNG KÊ TÀI CHÍNH & DOANH THU (REVENUE) ---
+        // =========================================================================
+        /// <summary>
+        /// Tổng doanh thu thực thu từ các phiên đỗ xe hoàn tất (Status == Completed, IsFeeCollected == true, !IsDeleted)
+        /// </summary>
+        public decimal TotalRevenue { get; set; }
+
+        /// <summary>
+        /// Tổng số lượt đỗ xe đã thu phí thành công (Status == Completed, IsFeeCollected == true, !IsDeleted)
+        /// </summary>
+        public long PaidParkingSessionsCount { get; set; }
     }
 }

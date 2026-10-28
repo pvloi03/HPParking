@@ -1,5 +1,8 @@
 using FluentAssertions;
+using HPParking.Core.Models.Entities;
+using HPParking.Core.Models.Enums;
 using HPParking.Forms;
+using NSubstitute;
 using System.Windows.Forms;
 using Xunit;
 
@@ -201,17 +204,65 @@ namespace HPParking.Tests.Forms
             }
         }
 
-        private static FrmMain CreateFrmMain()
+        [Fact]
+        public void TryOpenBarrierByHotkey_WhenSuccessful_ShouldOpenBarrierAndNotRecordAuditLog()
         {
-            var laneRepo = NSubstitute.Substitute.For<HPParking.Core.Interfaces.IRepository<HPParking.Core.Models.Entities.Lane>>();
-            var gateRepo = NSubstitute.Substitute.For<HPParking.Core.Interfaces.IRepository<HPParking.Core.Models.Entities.Gate>>();
-            var deviceRepo = NSubstitute.Substitute.For<HPParking.Core.Interfaces.IRepository<HPParking.Core.Models.Entities.Device>>();
-            var licenseRepo = NSubstitute.Substitute.For<HPParking.Core.Interfaces.IRepository<HPParking.Core.Models.Entities.LicenseInfo>>();
-            var licenseManager = new HPParking.Services.License.LicenseManager(licenseRepo);
-            var workflowService = NSubstitute.Substitute.For<HPParking.Interfaces.IParkingWorkflowService>();
-            var serverHealthService = NSubstitute.Substitute.For<HPParking.Interfaces.IServerHealthService>();
+            RunOnStaThread(() =>
+            {
+                var auditRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<AuditLog>>();
+                using var form = CreateFrmMain(auditRepo);
+                var fakeController = new FakeControllerService { ShouldSucceed = true };
+                var lane1 = new Lane { Id = "L1-AUDIT", Name = "Làn Vào Audit", Direction = LaneDirection.In, InputReader = 1, OutputRelay = 1 };
+                var context1 = new HPParking.Models.LaneRuntimeContext(lane1) { Controller = fakeController };
 
-            return new FrmMain(laneRepo, gateRepo, deviceRepo, licenseManager, workflowService, serverHealthService);
+                form.ApplyLaneContexts(new() { context1 });
+
+                // Act - Nhấn phím nóng F1 (slot 0)
+                bool result = form.TryOpenBarrierByHotkey(0);
+
+                // Assert
+                result.Should().BeTrue();
+                fakeController.OpenedDoorIds.Should().Contain(1);
+                // Phím nóng mở barrier tại bốt trạm là thao tác vận hành phần cứng trực tiếp, không ghi nhận AuditLog
+                auditRepo.DidNotReceiveWithAnyArgs().AddAsync(Arg.Any<AuditLog>());
+            });
+        }
+
+        [Fact]
+        public void TryOpenBarrierByHotkey_WhenHardwareFails_ShouldReturnFalseAndNotRecordAuditLog()
+        {
+            RunOnStaThread(() =>
+            {
+                var auditRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<AuditLog>>();
+                using var form = CreateFrmMain(auditRepo);
+                var fakeController = new FakeControllerService { ShouldSucceed = false };
+                var lane1 = new Lane { Id = "L2-FAIL", Name = "Làn Ra Fail", Direction = LaneDirection.Out, InputReader = 2, OutputRelay = 2 };
+                var context1 = new HPParking.Models.LaneRuntimeContext(lane1) { Controller = fakeController };
+
+                form.ApplyLaneContexts(new() { context1 });
+
+                // Act - Nhấn phím nóng F1 (slot 0) nhưng phần cứng fail
+                bool result = form.TryOpenBarrierByHotkey(0, onBarrierOpenFailed: _ => false);
+
+                // Assert
+                result.Should().BeFalse();
+                // Khi phần cứng fail cũng không ghi AuditLog
+                auditRepo.DidNotReceiveWithAnyArgs().AddAsync(Arg.Any<AuditLog>());
+            });
+        }
+
+        private static FrmMain CreateFrmMain(HPParking.Core.Interfaces.IRepository<AuditLog>? auditRepo = null)
+        {
+            var laneRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Lane>>();
+            var gateRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Gate>>();
+            var deviceRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Device>>();
+            var licenseRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<LicenseInfo>>();
+            var licenseManager = new HPParking.Services.License.LicenseManager(licenseRepo);
+            var workflowService = Substitute.For<HPParking.Interfaces.IParkingWorkflowService>();
+            var serverHealthService = Substitute.For<HPParking.Interfaces.IServerHealthService>();
+            var auditLogRepo = auditRepo ?? Substitute.For<HPParking.Core.Interfaces.IRepository<AuditLog>>();
+
+            return new FrmMain(laneRepo, gateRepo, deviceRepo, licenseManager, workflowService, serverHealthService, auditLogRepo);
         }
 
         private static void RunOnStaThread(System.Action action)

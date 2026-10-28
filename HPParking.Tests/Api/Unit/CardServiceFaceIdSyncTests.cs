@@ -20,6 +20,8 @@ namespace HPParking.Tests.Api.Unit
         private readonly IRepository<Card> _cardRepo;
         private readonly IRepository<Client> _clientRepo;
         private readonly IRepository<Vehicle> _vehicleRepo;
+        private readonly IRepository<Tariff> _tariffRepo;
+        private readonly IRepository<ParkingSession> _sessionRepo;
         private readonly IAuditLogService _auditLogService;
         private readonly IFaceIdService _faceIdService;
         private readonly IRepository<Lane> _laneRepo;
@@ -32,6 +34,8 @@ namespace HPParking.Tests.Api.Unit
             _cardRepo = Substitute.For<IRepository<Card>>();
             _clientRepo = Substitute.For<IRepository<Client>>();
             _vehicleRepo = Substitute.For<IRepository<Vehicle>>();
+            _tariffRepo = Substitute.For<IRepository<Tariff>>();
+            _sessionRepo = Substitute.For<IRepository<ParkingSession>>();
             _auditLogService = Substitute.For<IAuditLogService>();
             _faceIdService = Substitute.For<IFaceIdService>();
             _laneRepo = Substitute.For<IRepository<Lane>>();
@@ -42,11 +46,13 @@ namespace HPParking.Tests.Api.Unit
                 _cardRepo,
                 _clientRepo,
                 _vehicleRepo,
+                _tariffRepo,
+                _sessionRepo,
                 _auditLogService,
+                _logger,
                 _faceIdService,
                 _laneRepo,
-                _deviceRepo,
-                _logger);
+                _deviceRepo);
 
             // Cấu hình làn xe và thiết bị FaceID active mặc định
             var activeLane = new Lane

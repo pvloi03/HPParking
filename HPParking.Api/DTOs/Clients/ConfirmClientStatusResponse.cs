@@ -1,5 +1,4 @@
 using HPParking.Core.Models.Enums;
-using System;
 
 namespace HPParking.Api.DTOs.Clients
 {

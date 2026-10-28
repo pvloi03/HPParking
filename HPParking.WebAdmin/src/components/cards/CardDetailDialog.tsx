@@ -26,6 +26,7 @@ import {
   FileText,
   History,
   ExternalLink,
+  Receipt,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cardApi } from '@/api/cardApi';
@@ -291,6 +292,36 @@ export function CardDetailDialog({
                 </>
               )}
             </div>
+
+            {/* Cấu hình tính phí & Hiệu lực */}
+            {(card.isChargeable || card.tariffName || card.validFrom || card.validTo) && (
+              <div className="border border-border rounded-xl p-3.5 space-y-2">
+                <span className="font-semibold text-foreground flex items-center gap-1.5 border-b pb-2">
+                  <Receipt className="h-4 w-4 text-emerald-600" />
+                  <span>Biểu phí & Thời hạn hiệu lực</span>
+                </span>
+                <div className="space-y-1.5 pt-1 text-xs">
+                  {card.tariffName && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Biểu phí áp dụng:</span>
+                      <span className="font-medium text-foreground">{card.tariffName}</span>
+                    </div>
+                  )}
+                  {card.validFrom && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Hiệu lực từ:</span>
+                      <span className="font-mono text-foreground">{card.validFrom.split('T')[0]}</span>
+                    </div>
+                  )}
+                  {card.validTo && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Hiệu lực đến:</span>
+                      <span className="font-mono text-foreground">{card.validTo.split('T')[0]}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Thông tin Ghi chú & Thời gian */}
             <div className="border border-border rounded-xl p-3.5 space-y-2">

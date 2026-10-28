@@ -3,7 +3,6 @@ using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.ValueObjects;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
-using System;
 using System.Text.Json;
 using Xunit;
 
