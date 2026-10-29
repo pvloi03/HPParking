@@ -31,7 +31,7 @@ describe('Sidebar Component', () => {
     );
 
     expect(screen.getByText('Tổng quan')).toBeInTheDocument();
-    expect(screen.getByText('Lịch sử vào ra')).toBeInTheDocument();
+    expect(screen.getByText('Thống kê')).toBeInTheDocument();
     expect(screen.getByText('Tổ chức & đơn vị')).toBeInTheDocument();
     expect(screen.getByText('Hạ tầng')).toBeInTheDocument();
     expect(screen.getByText('Nhân sự & phương tiện')).toBeInTheDocument();
@@ -41,6 +41,7 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Phương tiện vào ra')).toBeInTheDocument();
     expect(screen.getByText('Người vào ra')).toBeInTheDocument();
+    expect(screen.getByText('Báo cáo doanh thu')).toBeInTheDocument();
     expect(screen.getByText('Công ty')).toBeInTheDocument();
     expect(screen.getByText('Phòng ban')).toBeInTheDocument();
     expect(screen.getByText('Cổng vào ra')).toBeInTheDocument();
@@ -104,9 +105,10 @@ describe('Sidebar Component', () => {
 
     // Các mục thông tin chung vẫn xem được
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Lịch sử vào ra')).toBeInTheDocument();
+    expect(screen.getByText('Thống kê')).toBeInTheDocument();
     expect(screen.getByText('Phương tiện vào ra')).toBeInTheDocument();
     expect(screen.getByText('Người vào ra')).toBeInTheDocument();
+    expect(screen.getByText('Báo cáo doanh thu')).toBeInTheDocument();
     expect(screen.getByText('Công ty')).toBeInTheDocument();
   });
 

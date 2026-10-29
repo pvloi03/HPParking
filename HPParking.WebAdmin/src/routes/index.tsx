@@ -24,6 +24,7 @@ import { TariffsPage } from '@/pages/TariffsPage';
 import { GateRoutesPage } from '@/pages/GateRoutesPage';
 import { FleetDispatchPage } from '@/pages/FleetDispatchPage';
 import { ConfirmClientStatusPage } from '@/pages/ConfirmClientStatusPage';
+import { RevenueReportPage } from '@/pages/RevenueReportPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -118,6 +119,14 @@ export const router = createBrowserRouter([
       {
         path: 'sessions/pedestrians',
         element: <PedestrianSessionsPage />,
+      },
+      {
+        path: 'reports/revenue',
+        element: (
+          <RoleGuard allowedRoles={[UserRole.Viewer, UserRole.Manager, UserRole.Admin]}>
+            <RevenueReportPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'audit-logs',

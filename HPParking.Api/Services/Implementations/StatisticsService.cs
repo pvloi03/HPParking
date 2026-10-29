@@ -1,16 +1,18 @@
+using HPParking.Api.Common.Helpers;
 using HPParking.Api.DTOs.Statistics;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Data;
 using HPParking.Core.Interfaces;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
+using HPParking.Core.Helpers;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace HPParking.Api.Services.Implementations
 {
     /// <summary>
-    /// Triển khai dịch vụ báo cáo thống kê đa chiều mới nhất sử dụng MongoDB $facet aggregation (ADR 0024)
+    /// Triển khai dịch vụ báo cáo thống kê đa chiều mới nhất sử dụng MongoDB $facet aggregation (ADR 0024, ADR 0043)
     /// </summary>
     public class StatisticsService : IStatisticsService
     {
@@ -49,17 +51,25 @@ namespace HPParking.Api.Services.Implementations
             _mongoContext = mongoContext;
         }
 
-        public async Task<DashboardStatisticsDto> GetDashboardStatisticsAsync(CancellationToken cancellationToken = default)
+        public async Task<DashboardStatisticsDto> GetDashboardStatisticsAsync(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            CancellationToken cancellationToken = default)
         {
+            var (fromVn, toVn, fromUtc, toUtc) = DateRangeHelper.NormalizeDateRange(fromDate, toDate);
+
             if (_mongoContext != null)
             {
-                return await GetDashboardStatisticsViaFacetAsync(cancellationToken);
+                return await GetDashboardStatisticsViaFacetAsync(fromUtc, toUtc, cancellationToken);
             }
 
-            return await GetDashboardStatisticsViaRepoAsync(cancellationToken);
+            return await GetDashboardStatisticsViaRepoAsync(fromVn, toVn, cancellationToken);
         }
 
-        private async Task<DashboardStatisticsDto> GetDashboardStatisticsViaFacetAsync(CancellationToken cancellationToken)
+        private async Task<DashboardStatisticsDto> GetDashboardStatisticsViaFacetAsync(
+            DateTime fromUtc,
+            DateTime toUtc,
+            CancellationToken cancellationToken)
         {
             var clientCollection = _mongoContext!.GetCollection<Client>();
             var vehicleCollection = _mongoContext.GetCollection<Vehicle>();
@@ -119,11 +129,7 @@ namespace HPParking.Api.Services.Implementations
                 Builders<ParkingSession>.Filter.Eq(x => x.IsDeleted, false),
                 Builders<ParkingSession>.Filter.Eq(x => x.Status, ParkingSessionStatus.Active)
             );
-            var sessionRevenueFilter = Builders<ParkingSession>.Filter.And(
-                Builders<ParkingSession>.Filter.Eq(x => x.IsDeleted, false),
-                Builders<ParkingSession>.Filter.Eq(x => x.Status, ParkingSessionStatus.Completed),
-                Builders<ParkingSession>.Filter.Eq(x => x.IsFeeCollected, true)
-            );
+            var sessionRevenueFilter = RevenueReportHelper.BuildCompletedSessionsFilter(fromUtc, toUtc, isFeeCollected: true);
 
             var sessionActiveFacet = AggregateFacet.Create("activeCount",
                 PipelineDefinition<ParkingSession, AggregateCountResult>.Create(new IPipelineStageDefinition[] {
@@ -247,7 +253,10 @@ namespace HPParking.Api.Services.Implementations
             };
         }
 
-        private async Task<DashboardStatisticsDto> GetDashboardStatisticsViaRepoAsync(CancellationToken cancellationToken)
+        private async Task<DashboardStatisticsDto> GetDashboardStatisticsViaRepoAsync(
+            DateTime from,
+            DateTime to,
+            CancellationToken cancellationToken)
         {
             var clients = await _clientRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
             var vehicles = await _vehicleRepo.FindAsync(x => !x.IsDeleted, cancellationToken);
@@ -255,8 +264,15 @@ namespace HPParking.Api.Services.Implementations
             var completedPaidSessions = await _sessionRepo.FindAsync(
                 x => !x.IsDeleted && x.Status == ParkingSessionStatus.Completed && x.IsFeeCollected,
                 cancellationToken);
-            decimal totalRevenue = completedPaidSessions.Sum(x => x.FeeAmount);
-            long paidSessionsCount = completedPaidSessions.Count;
+
+            var filteredSessions = completedPaidSessions.Where(x =>
+                x.OutTime.HasValue &&
+                VietnamTime.ToVietnamTime(x.OutTime.Value) >= from &&
+                VietnamTime.ToVietnamTime(x.OutTime.Value) <= to
+            ).ToList();
+
+            decimal totalRevenue = filteredSessions.Sum(x => x.FeeAmount);
+            long paidSessionsCount = filteredSessions.Count;
 
             var totalGates = await _gateRepo.CountAsync(x => !x.IsDeleted, cancellationToken);
             var totalLanes = await _laneRepo.CountAsync(x => !x.IsDeleted, cancellationToken);
@@ -497,6 +513,158 @@ namespace HPParking.Api.Services.Implementations
             _logger.LogInformation("Tổng hợp lượt ra vào theo người & xe: {Count} bản ghi.", sorted.Count);
 
             return sorted;
+        }
+
+        public async Task<RevenueReportDto> GetRevenueReportAsync(
+            RevenueStatisticsQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            query ??= new RevenueStatisticsQuery();
+            var (fromVn, toVn, fromUtc, toUtc) = DateRangeHelper.NormalizeDateRange(query.FromDate, query.ToDate);
+
+            if (_mongoContext != null)
+            {
+                return await GetRevenueReportViaFacetAsync(fromVn, toVn, fromUtc, toUtc, cancellationToken);
+            }
+
+            return await GetRevenueReportViaRepoAsync(fromVn, toVn, fromUtc, toUtc, cancellationToken);
+        }
+
+        private async Task<RevenueReportDto> GetRevenueReportViaFacetAsync(
+            DateTime fromVn,
+            DateTime toVn,
+            DateTime fromUtc,
+            DateTime toUtc,
+            CancellationToken cancellationToken)
+        {
+            var sessionCollection = _mongoContext!.GetCollection<ParkingSession>();
+
+            var baseFilter = RevenueReportHelper.BuildCompletedSessionsFilter(fromUtc, toUtc);
+
+            var totalCompletedFacet = AggregateFacet.Create("totalCompleted",
+                PipelineDefinition<ParkingSession, AggregateCountResult>.Create(new IPipelineStageDefinition[] {
+                    PipelineStageDefinitionBuilder.Count<ParkingSession>()
+                }));
+
+            var revenueFacet = AggregateFacet.Create("revenueStats",
+                PipelineDefinition<ParkingSession, BsonDocument>.Create(new IPipelineStageDefinition[] {
+                    PipelineStageDefinitionBuilder.Match<ParkingSession>(x => x.IsFeeCollected),
+                    PipelineStageDefinitionBuilder.Group<ParkingSession, BsonDocument>(new BsonDocument {
+                        { "_id", BsonNull.Value },
+                        { "totalRevenue", new BsonDocument("$sum", "$FeeAmount") },
+                        { "paidCount", new BsonDocument("$sum", 1) }
+                    })
+                }));
+
+            var timelineFacet = AggregateFacet.Create("timeline",
+                PipelineDefinition<ParkingSession, BsonDocument>.Create(new IPipelineStageDefinition[] {
+                    PipelineStageDefinitionBuilder.Group<ParkingSession, BsonDocument>(new BsonDocument {
+                        { "_id", new BsonDocument("$dateToString", new BsonDocument {
+                            { "format", "%Y-%m-%d" },
+                            { "date", "$OutTime" },
+                            { "timezone", "+07:00" }
+                        })},
+                        { "completedCount", new BsonDocument("$sum", 1) },
+                        { "paidCount", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray {
+                            new BsonDocument("$eq", new BsonArray { "$IsFeeCollected", true }),
+                            1,
+                            0
+                        })) },
+                        { "revenue", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray {
+                            new BsonDocument("$eq", new BsonArray { "$IsFeeCollected", true }),
+                            "$FeeAmount",
+                            0
+                        })) }
+                    })
+                }));
+
+            var aggregateResult = await sessionCollection.Aggregate()
+                .Match(baseFilter)
+                .Facet(totalCompletedFacet, revenueFacet, timelineFacet)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            long completedSessionsCount = aggregateResult?.Facets.FirstOrDefault(x => x.Name == "totalCompleted")?.Output<AggregateCountResult>()?.FirstOrDefault()?.Count ?? 0;
+            var revenueDoc = aggregateResult?.Facets.FirstOrDefault(x => x.Name == "revenueStats")?.Output<BsonDocument>()?.FirstOrDefault();
+
+            decimal totalRevenue = 0m;
+            long paidSessionsCount = 0;
+            if (revenueDoc != null)
+            {
+                if (revenueDoc.Contains("totalRevenue") && !revenueDoc["totalRevenue"].IsBsonNull)
+                {
+                    var val = revenueDoc["totalRevenue"];
+                    totalRevenue = val.IsDecimal128 ? (decimal)val.AsDecimal128 : Convert.ToDecimal(val.ToDouble());
+                }
+                if (revenueDoc.Contains("paidCount") && !revenueDoc["paidCount"].IsBsonNull)
+                {
+                    paidSessionsCount = revenueDoc["paidCount"].ToInt64();
+                }
+            }
+
+            var timelineOutput = aggregateResult?.Facets.FirstOrDefault(x => x.Name == "timeline")?.Output<BsonDocument>();
+            var timelineMap = new Dictionary<string, (decimal Revenue, int PaidCount, int CompletedCount)>();
+            if (timelineOutput != null)
+            {
+                foreach (var doc in timelineOutput)
+                {
+                    var dateStr = doc["_id"].AsString;
+                    decimal rev = 0m;
+                    if (doc.Contains("revenue") && !doc["revenue"].IsBsonNull)
+                    {
+                        var val = doc["revenue"];
+                        rev = val.IsDecimal128 ? (decimal)val.AsDecimal128 : Convert.ToDecimal(val.ToDouble());
+                    }
+                    int paid = doc.Contains("paidCount") ? doc["paidCount"].ToInt32() : 0;
+                    int comp = doc.Contains("completedCount") ? doc["completedCount"].ToInt32() : 0;
+                    timelineMap[dateStr] = (rev, paid, comp);
+                }
+            }
+
+            return RevenueReportHelper.BuildRevenueReport(fromVn, toVn, totalRevenue, paidSessionsCount, completedSessionsCount, timelineMap);
+        }
+
+        private async Task<RevenueReportDto> GetRevenueReportViaRepoAsync(
+            DateTime fromVn,
+            DateTime toVn,
+            DateTime fromUtc,
+            DateTime toUtc,
+            CancellationToken cancellationToken)
+        {
+            var sessions = await _sessionRepo.FindAsync(
+                x => !x.IsDeleted &&
+                     x.Status == ParkingSessionStatus.Completed &&
+                     x.OutTime != null &&
+                     x.OutTime >= fromUtc &&
+                     x.OutTime <= toUtc,
+                cancellationToken);
+
+            var validSessions = sessions.Where(s =>
+                !s.IsDeleted &&
+                s.Status == ParkingSessionStatus.Completed &&
+                s.OutTime.HasValue
+            ).ToList();
+
+            var paidSessions = validSessions.Where(s => s.IsFeeCollected).ToList();
+            decimal totalRevenue = paidSessions.Sum(s => s.FeeAmount);
+            long paidSessionsCount = paidSessions.Count;
+            long completedSessionsCount = validSessions.Count;
+
+            var groups = validSessions
+                .GroupBy(s => VietnamTime.ToVietnamTime(s.OutTime!.Value).Date)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var timelineMap = new Dictionary<string, (decimal Revenue, int PaidCount, int CompletedCount)>();
+            foreach (var (day, daySessions) in groups)
+            {
+                var dayPaid = daySessions.Where(s => s.IsFeeCollected).ToList();
+                timelineMap[day.ToString("yyyy-MM-dd")] = (
+                    dayPaid.Sum(s => s.FeeAmount),
+                    dayPaid.Count,
+                    daySessions.Count
+                );
+            }
+
+            return RevenueReportHelper.BuildRevenueReport(fromVn, toVn, totalRevenue, paidSessionsCount, completedSessionsCount, timelineMap);
         }
     }
 }

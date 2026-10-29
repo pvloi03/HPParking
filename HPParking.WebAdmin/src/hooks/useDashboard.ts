@@ -4,7 +4,10 @@ import { parkingSessionApi } from '@/api/parkingSessionApi';
 import type { DashboardFilterState } from '@/types/dashboard';
 
 export const DASHBOARD_QUERY_KEYS = {
-  kpis: ['statistics', 'dashboard'] as const,
+  kpis: (filter?: { fromDate?: string; toDate?: string }) =>
+    filter
+      ? (['statistics', 'dashboard', filter.fromDate, filter.toDate] as const)
+      : (['statistics', 'dashboard'] as const),
   recentSessions: (pageSize = 5) =>
     ['parking-sessions', 'recent', pageSize] as const,
   trafficSessions: (filter: DashboardFilterState) =>
@@ -12,12 +15,12 @@ export const DASHBOARD_QUERY_KEYS = {
 };
 
 /**
- * Hook truy vấn 6 chỉ số KPIs thời gian thực cho trang Dashboard
+ * Hook truy vấn 6 chỉ số KPIs thời gian thực cho trang Dashboard (hỗ trợ lọc thời gian)
  */
-export function useDashboardKPIs() {
+export function useDashboardKPIs(filter?: { fromDate?: string; toDate?: string }) {
   return useQuery({
-    queryKey: DASHBOARD_QUERY_KEYS.kpis,
-    queryFn: () => statisticsApi.getDashboardStatistics(),
+    queryKey: DASHBOARD_QUERY_KEYS.kpis(filter),
+    queryFn: () => statisticsApi.getDashboardStatistics(filter),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });

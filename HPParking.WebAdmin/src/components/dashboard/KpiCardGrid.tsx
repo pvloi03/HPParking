@@ -2,13 +2,15 @@ import {
   Users,
   Car,
   ShieldCheck,
-  Building2,
+  Receipt,
   Route,
   AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardStatisticsDto } from '@/types/statistics';
+import type { KpiCardItem } from '@/types/dashboard';
+import { KpiCard } from './KpiCard';
 
 interface KpiCardGridProps {
   data?: DashboardStatisticsDto;
@@ -42,7 +44,7 @@ export function KpiCardGrid({ data, isLoading }: KpiCardGridProps) {
 
   const isHighCapacity = data.activeParkingSessions >= 180;
 
-  const kpis = [
+  const kpis: KpiCardItem[] = [
     {
       title: 'Nhân Sự',
       value: data.totalClients.toLocaleString(),
@@ -75,12 +77,12 @@ export function KpiCardGrid({ data, isLoading }: KpiCardGridProps) {
       isWarning: isHighCapacity,
     },
     {
-      title: 'Cổng Kiểm Soát',
-      value: data.totalGates.toLocaleString(),
-      subtext: 'Trạm điều khiển trung tâm',
-      icon: Building2,
-      iconColor: 'text-indigo-600 dark:text-indigo-400',
-      iconBg: 'bg-indigo-50 dark:bg-indigo-950/50',
+      title: 'Doanh Thu',
+      value: `${(data.totalRevenue ?? 0).toLocaleString('vi-VN')} đ`,
+      subtext: `Đã thu: ${(data.paidParkingSessionsCount ?? 0).toLocaleString('vi-VN')} lượt`,
+      icon: Receipt,
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-50 dark:bg-emerald-950/50',
     },
     {
       title: 'Làn Vận Hành',
@@ -94,44 +96,9 @@ export function KpiCardGrid({ data, isLoading }: KpiCardGridProps) {
 
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-      {kpis.map((kpi, idx) => {
-        const Icon = kpi.icon;
-        return (
-          <Card
-            key={idx}
-            className={`transition-all duration-200 hover:shadow-md border-border/80 ${
-              kpi.isWarning ? 'border-red-300 dark:border-red-900/60 bg-red-50/20' : ''
-            }`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground truncate">
-                  {kpi.title}
-                </span>
-                <div
-                  className={`h-8 w-8 rounded-xl ${kpi.iconBg} ${kpi.iconColor} flex items-center justify-center shrink-0 shadow-2xs`}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="mt-2.5">
-                <div className="text-xl font-bold tracking-tight text-foreground">
-                  {kpi.value}
-                </div>
-                <p
-                  className={`text-[11px] mt-0.5 truncate ${
-                    kpi.isWarning
-                      ? 'text-red-600 dark:text-red-400 font-medium'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  {kpi.subtext}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
+      {kpis.map((kpi, idx) => (
+        <KpiCard key={idx} item={kpi} />
+      ))}
     </div>
   );
 }

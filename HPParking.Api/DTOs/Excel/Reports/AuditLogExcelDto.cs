@@ -4,7 +4,7 @@ using HPParking.Core.Models.Enums;
 namespace HPParking.Api.DTOs.Excel.Reports
 {
     /// <summary>
-    /// DTO đại diện cho dữ liệu xuất Excel của Nhật ký hệ thống / Audit Log (Chỉ Admin - ADR 0030)
+    /// DTO đại diện cho dữ liệu xuất Excel của Nhật ký hệ thống / Audit Log (Chỉ Admin - ADR 0023, ADR 0037)
     /// </summary>
     public class AuditLogExcelDto
     {

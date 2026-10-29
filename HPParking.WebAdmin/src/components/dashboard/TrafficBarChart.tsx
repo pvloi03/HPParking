@@ -18,6 +18,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardFilterState } from '@/types/dashboard';
 import type { ParkingSessionDto } from '@/types/parkingSession';
+import { formatDateDisplay, formatMonthDisplay } from '@/utils/dateUtils';
 
 const chartConfig = {
   inCount: {
@@ -30,19 +31,6 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-function formatDateDisplay(isoDateStr?: string): string {
-  if (!isoDateStr) return '';
-  const parts = isoDateStr.split('-');
-  if (parts.length !== 3) return isoDateStr;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
-}
-
-function formatMonthDisplay(isoMonthStr?: string): string {
-  if (!isoMonthStr) return '';
-  const parts = isoMonthStr.split('-');
-  if (parts.length !== 2) return isoMonthStr;
-  return `${parts[1]}/${parts[0]}`;
-}
 
 export interface ChartDataItem {
   time: string;

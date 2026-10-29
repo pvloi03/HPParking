@@ -131,7 +131,8 @@ namespace HPParking.Services.Parking.Handlers
                 IsManualPlateIn = isManualPlateIn,
                 TariffId = card.IsChargeable ? card.TariffId : null,
                 InOrderNumber = inOrderNumber,
-                InTime = (trigger.TriggerTime != default && trigger.TriggerTime != DateTime.MinValue) ? trigger.TriggerTime : DateTime.Now,
+                InTime = VietnamTime.ToUtcInstant(
+                    (trigger.TriggerTime != default && trigger.TriggerTime != DateTime.MinValue) ? trigger.TriggerTime : DateTime.Now),
                 InLaneName = context.Lane?.Name ?? string.Empty,
                 Status = ParkingSessionStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -266,7 +267,9 @@ namespace HPParking.Services.Parking.Handlers
             }
 
             // 5. Tính phí đỗ xe
-            DateTime outTime = (trigger.TriggerTime != default && trigger.TriggerTime != DateTime.MinValue) ? trigger.TriggerTime : DateTime.Now;
+            // Chuẩn hóa thành mốc UTC trước khi ghi CSDL (InTime/OutTime là true-UTC) & tính phí (ADR 0024 §1.1)
+            DateTime outTime = VietnamTime.ToUtcInstant(
+                (trigger.TriggerTime != default && trigger.TriggerTime != DateTime.MinValue) ? trigger.TriggerTime : DateTime.Now);
             decimal feeAmount = parking.FeeAmount;
             bool isFeeCollected = parking.IsFeeCollected;
             string tariffName = string.Empty;

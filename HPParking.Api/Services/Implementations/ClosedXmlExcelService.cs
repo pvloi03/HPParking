@@ -7,7 +7,7 @@ using System.Globalization;
 namespace HPParking.Api.Services.Implementations
 {
     /// <summary>
-    /// Triển khai Core Generic Excel Engine sử dụng thư viện ClosedXML (ADR 0023)
+    /// Triển khai Core Generic Excel Engine sử dụng thư viện ClosedXML (ADR 0023, ADR 0043)
     /// </summary>
     public class ClosedXmlExcelService : IExcelService
     {
@@ -24,6 +24,7 @@ namespace HPParking.Api.Services.Implementations
             string sheetName = "Template",
             CancellationToken cancellationToken = default) where T : class
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var workbook = new XLWorkbook();
             var ws = workbook.Worksheets.Add(sheetName);
 
@@ -93,109 +94,34 @@ namespace HPParking.Api.Services.Implementations
             string? reportTitle = null,
             CancellationToken cancellationToken = default) where T : class
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var workbook = new XLWorkbook();
             var ws = workbook.Worksheets.Add(sheetName);
+            RenderWorksheet(ws, data, profile, reportTitle, sheetName);
 
-            var columns = profile.Columns;
-            int totalCols = Math.Max(columns.Count, 1);
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            return Task.FromResult(ms.ToArray());
+        }
 
-            var effectiveTitle = reportTitle;
-            if (string.IsNullOrWhiteSpace(effectiveTitle) && sheetName is not "Data" and not "DataSheet" and not "Template")
-            {
-                effectiveTitle = sheetName.Replace('_', ' ');
-            }
+        public Task<byte[]> WriteTwoSheetsAsync<T1, T2>(
+            ExcelSheetData<T1> sheet1,
+            ExcelSheetData<T2> sheet2,
+            CancellationToken cancellationToken = default)
+            where T1 : class
+            where T2 : class
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var data1 = (sheet1.Data as IReadOnlyList<T1>) ?? sheet1.Data.ToList();
+            var data2 = (sheet2.Data as IReadOnlyList<T2>) ?? sheet2.Data.ToList();
 
-            int headerRowIndex = 1;
-            int dataStartRowIndex = 2;
+            using var workbook = new XLWorkbook();
 
-            // Khối Report Title Banner (nếu có tiêu đề báo cáo)
-            if (!string.IsNullOrWhiteSpace(effectiveTitle))
-            {
-                // 1. Dòng Tên Đơn vị / Hệ thống (Row 1)
-                ws.Range(1, 1, 1, totalCols).Merge();
-                var orgCell = ws.Cell(1, 1);
-                orgCell.Value = "HỆ THỐNG QUẢN LÝ BÃI ĐỖ XE THÔNG MINH HPPARKING";
-                orgCell.Style.Font.Bold = true;
-                orgCell.Style.Font.FontSize = 10;
-                orgCell.Style.Font.FontColor = XLColor.FromHtml("#5F6368");
-                orgCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                orgCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                ws.Row(1).Height = 22;
+            var ws1 = workbook.Worksheets.Add(sheet1.SheetName);
+            RenderWorksheet(ws1, data1, sheet1.Profile, sheet1.ReportTitle, sheet1.SheetName);
 
-                // 2. Dòng Tiêu đề Báo cáo nổi bật (Row 2)
-                ws.Range(2, 1, 2, totalCols).Merge();
-                var titleCell = ws.Cell(2, 1);
-                titleCell.Value = effectiveTitle.Trim().ToUpperInvariant();
-                titleCell.Style.Font.Bold = true;
-                titleCell.Style.Font.FontSize = 15;
-                titleCell.Style.Font.FontColor = XLColor.FromHtml("#1A73E8");
-                titleCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#E8F0FE");
-                titleCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-                titleCell.Style.Border.OutsideBorderColor = XLColor.FromHtml("#1A73E8");
-                titleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                titleCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                ws.Row(2).Height = 36;
-
-                // 3. Dòng Thời gian kết xuất & Metadata (Row 3)
-                ws.Range(3, 1, 3, totalCols).Merge();
-                var metaCell = ws.Cell(3, 1);
-                metaCell.Value = $"Thời gian kết xuất: {DateTime.Now:dd/MM/yyyy HH:mm:ss} | Hệ thống trích xuất tự động";
-                metaCell.Style.Font.Italic = true;
-                metaCell.Style.Font.FontSize = 9.5;
-                metaCell.Style.Font.FontColor = XLColor.FromHtml("#5F6368");
-                metaCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                metaCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                ws.Row(3).Height = 20;
-
-                // 4. Dòng đệm phân cách (Row 4)
-                ws.Row(4).Height = 10;
-
-                headerRowIndex = 5;
-                dataStartRowIndex = 6;
-            }
-
-            // Định dạng dòng Tiêu đề Bảng dữ liệu (Table Header Row)
-            var headerRow = ws.Row(headerRowIndex);
-            headerRow.Height = 28;
-
-            for (int i = 0; i < columns.Count; i++)
-            {
-                int colIdx = i + 1;
-                var col = columns[i];
-                var cell = ws.Cell(headerRowIndex, colIdx);
-
-                cell.Value = col.ColumnName;
-                cell.Style.Font.Bold = true;
-                cell.Style.Font.FontSize = 10.5;
-                cell.Style.Font.FontColor = XLColor.White;
-                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1A73E8");
-                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-                cell.Style.Border.OutsideBorderColor = XLColor.FromHtml("#1557B0");
-            }
-
-            // Dữ liệu bảng (Data Rows)
-            int rowIdx = dataStartRowIndex;
-            foreach (var item in data)
-            {
-                for (int i = 0; i < columns.Count; i++)
-                {
-                    int colIdx = i + 1;
-                    var col = columns[i];
-                    var cell = ws.Cell(rowIdx, colIdx);
-                    var rawVal = col.Property.GetValue(item);
-
-                    SetCellValue(cell, rawVal, col);
-                    cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-                    cell.Style.Border.OutsideBorderColor = XLColor.FromHtml("#EEEEEE");
-                    cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                }
-                ws.Row(rowIdx).Height = 22;
-                rowIdx++;
-            }
-
-            ws.Columns().AdjustToContents();
+            var ws2 = workbook.Worksheets.Add(sheet2.SheetName);
+            RenderWorksheet(ws2, data2, sheet2.Profile, sheet2.ReportTitle, sheet2.SheetName);
 
             using var ms = new MemoryStream();
             workbook.SaveAs(ms);
@@ -208,6 +134,7 @@ namespace HPParking.Api.Services.Implementations
             ExcelImportOptions? options = null,
             CancellationToken cancellationToken = default) where T : class, new()
         {
+            cancellationToken.ThrowIfCancellationRequested();
             options ??= new ExcelImportOptions();
             var result = new ExcelImportResult<T>
             {
@@ -348,6 +275,206 @@ namespace HPParking.Api.Services.Implementations
             return Task.FromResult(result);
         }
 
+        private static object? ParseValue(string str, Type targetType, Type? enumType = null)
+        {
+            var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+            if (enumType != null || underlyingType.IsEnum)
+            {
+                var targetEnum = enumType ?? underlyingType;
+
+                if (targetEnum == typeof(VehicleType))
+                {
+                    var cleanVt = str.Trim().ToLowerInvariant();
+                    if (cleanVt is "ô tô" or "oto" or "car") return VehicleType.Car;
+                    if (cleanVt is "xe máy" or "xemay" or "xe may" or "motorbike") return VehicleType.Motorbike;
+                    if (cleanVt is "xe đạp" or "xedap" or "xe dap" or "bicycle") return VehicleType.Bicycle;
+                    if (cleanVt is "khác" or "khac" or "other") return VehicleType.Other;
+                }
+
+                if (targetEnum == typeof(ParkingSessionStatus))
+                {
+                    var cleanStatus = str.Trim().ToLowerInvariant();
+                    if (cleanStatus is "đang hoạt động" or "hoạt động" or "active") return ParkingSessionStatus.Active;
+                    if (cleanStatus is "đã hoàn thành" or "hoàn thành" or "completed") return ParkingSessionStatus.Completed;
+                    if (cleanStatus is "đã hủy" or "hủy" or "cancelled") return ParkingSessionStatus.Cancelled;
+                }
+
+                if (Enum.TryParse(targetEnum, str, true, out var parsedEnum))
+                {
+                    return parsedEnum;
+                }
+                throw new FormatException($"Giá trị '{str}' không khớp với danh sách lựa chọn của {targetEnum.Name}.");
+            }
+
+            if (underlyingType == typeof(DateTime))
+            {
+                var formats = new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "yyyy/MM/dd", "dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss" };
+                if (DateTime.TryParseExact(str, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+                {
+                    return dt;
+                }
+                if (DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDt))
+                {
+                    return parsedDt;
+                }
+                throw new FormatException("Định dạng ngày tháng không hợp lệ (chuẩn dd/MM/yyyy).");
+            }
+
+            if (underlyingType == typeof(DateOnly))
+            {
+                var formats = new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "yyyy/MM/dd" };
+                if (DateOnly.TryParseExact(str, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dOnly))
+                {
+                    return dOnly;
+                }
+                if (DateOnly.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDOnly))
+                {
+                    return parsedDOnly;
+                }
+                throw new FormatException("Định dạng ngày tháng không hợp lệ (chuẩn dd/MM/yyyy).");
+            }
+
+            if (underlyingType == typeof(int))
+            {
+                return int.Parse(str, CultureInfo.InvariantCulture);
+            }
+
+            if (underlyingType == typeof(long))
+            {
+                return long.Parse(str, CultureInfo.InvariantCulture);
+            }
+
+            if (underlyingType == typeof(double))
+            {
+                return double.Parse(str, CultureInfo.InvariantCulture);
+            }
+
+            if (underlyingType == typeof(decimal))
+            {
+                return decimal.Parse(str, CultureInfo.InvariantCulture);
+            }
+
+            if (underlyingType == typeof(bool))
+            {
+                var clean = str.Trim().ToLowerInvariant();
+                if (clean is "có" or "true" or "1" or "yes" or "hoạt động" or "active" or "đang hoạt động" or "thành công" or "đang trong bãi") return true;
+                if (clean is "không" or "false" or "0" or "no" or "tạm khóa" or "inactive" or "không hoạt động" or "thất bại") return false;
+                return bool.Parse(str);
+            }
+
+            return Convert.ChangeType(str, underlyingType, CultureInfo.InvariantCulture);
+        }
+
+        private static void RenderWorksheet<T>(
+            IXLWorksheet ws,
+            IEnumerable<T> data,
+            ExcelProfile<T> profile,
+            string? reportTitle,
+            string sheetName) where T : class
+        {
+            var columns = profile.Columns;
+            int totalCols = Math.Max(columns.Count, 1);
+
+            var effectiveTitle = reportTitle;
+            if (string.IsNullOrWhiteSpace(effectiveTitle) && sheetName is not "Data" and not "DataSheet" and not "Template")
+            {
+                effectiveTitle = sheetName.Replace('_', ' ');
+            }
+
+            int headerRowIndex = 1;
+            int dataStartRowIndex = 2;
+
+            // Khối Report Title Banner (nếu có tiêu đề báo cáo)
+            if (!string.IsNullOrWhiteSpace(effectiveTitle))
+            {
+                // 1. Dòng Tên Đơn vị / Hệ thống (Row 1)
+                ws.Range(1, 1, 1, totalCols).Merge();
+                var orgCell = ws.Cell(1, 1);
+                orgCell.Value = "HỆ THỐNG QUẢN LÝ BÃI ĐỖ XE THÔNG MINH HPPARKING";
+                orgCell.Style.Font.Bold = true;
+                orgCell.Style.Font.FontSize = 10;
+                orgCell.Style.Font.FontColor = XLColor.FromHtml("#5F6368");
+                orgCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                orgCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                ws.Row(1).Height = 22;
+
+                // 2. Dòng Tiêu đề Báo cáo nổi bật (Row 2)
+                ws.Range(2, 1, 2, totalCols).Merge();
+                var titleCell = ws.Cell(2, 1);
+                titleCell.Value = effectiveTitle.Trim().ToUpperInvariant();
+                titleCell.Style.Font.Bold = true;
+                titleCell.Style.Font.FontSize = 15;
+                titleCell.Style.Font.FontColor = XLColor.FromHtml("#1A73E8");
+                titleCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#E8F0FE");
+                titleCell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                titleCell.Style.Border.OutsideBorderColor = XLColor.FromHtml("#1A73E8");
+                titleCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                titleCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                ws.Row(2).Height = 36;
+
+                // 3. Dòng Thời gian kết xuất & Metadata (Row 3)
+                ws.Range(3, 1, 3, totalCols).Merge();
+                var metaCell = ws.Cell(3, 1);
+                metaCell.Value = $"Thời gian kết xuất: {DateTime.Now:dd/MM/yyyy HH:mm:ss} | Hệ thống trích xuất tự động";
+                metaCell.Style.Font.Italic = true;
+                metaCell.Style.Font.FontSize = 9.5;
+                metaCell.Style.Font.FontColor = XLColor.FromHtml("#5F6368");
+                metaCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                metaCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                ws.Row(3).Height = 20;
+
+                // 4. Dòng đệm phân cách (Row 4)
+                ws.Row(4).Height = 10;
+
+                headerRowIndex = 5;
+                dataStartRowIndex = 6;
+            }
+
+            // Định dạng dòng Tiêu đề Bảng dữ liệu (Table Header Row)
+            var headerRow = ws.Row(headerRowIndex);
+            headerRow.Height = 28;
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                int colIdx = i + 1;
+                var col = columns[i];
+                var cell = ws.Cell(headerRowIndex, colIdx);
+
+                cell.Value = col.ColumnName;
+                cell.Style.Font.Bold = true;
+                cell.Style.Font.FontSize = 10.5;
+                cell.Style.Font.FontColor = XLColor.White;
+                cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1A73E8");
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                cell.Style.Border.OutsideBorderColor = XLColor.FromHtml("#1557B0");
+            }
+
+            // Dữ liệu bảng (Data Rows)
+            int rowIdx = dataStartRowIndex;
+            foreach (var item in data)
+            {
+                for (int i = 0; i < columns.Count; i++)
+                {
+                    int colIdx = i + 1;
+                    var col = columns[i];
+                    var cell = ws.Cell(rowIdx, colIdx);
+                    var rawVal = col.Property.GetValue(item);
+
+                    SetCellValue(cell, rawVal, col);
+                    cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                    cell.Style.Border.OutsideBorderColor = XLColor.FromHtml("#EEEEEE");
+                    cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                }
+                ws.Row(rowIdx).Height = 22;
+                rowIdx++;
+            }
+
+            ws.Columns().AdjustToContents();
+        }
+
         private static void SetCellValue(IXLCell cell, object? val, ExcelColumnDefinition col)
         {
             if (val == null)
@@ -366,6 +493,12 @@ namespace HPParking.Api.Services.Implementations
             {
                 cell.Value = dt;
                 cell.Style.NumberFormat.Format = col.Format ?? "dd/MM/yyyy";
+                return;
+            }
+
+            if (val is DateOnly dOnly)
+            {
+                cell.Value = dOnly.ToString(col.Format ?? "dd/MM/yyyy", CultureInfo.InvariantCulture);
                 return;
             }
 
@@ -388,6 +521,15 @@ namespace HPParking.Api.Services.Implementations
                     cell.Value = b ? "Đang trong bãi" : "Không";
                     cell.Style.Font.Bold = b;
                     cell.Style.Font.FontColor = b ? XLColor.FromHtml("#137333") : XLColor.FromHtml("#5F6368");
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    return;
+                }
+
+                if (colName.Contains("thu") || propName.Contains("collected"))
+                {
+                    cell.Value = b ? "Đã thu" : "Chưa thu";
+                    cell.Style.Font.Bold = b;
+                    cell.Style.Font.FontColor = b ? XLColor.FromHtml("#137333") : XLColor.FromHtml("#C5221F");
                     cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                     return;
                 }
@@ -456,83 +598,6 @@ namespace HPParking.Api.Services.Implementations
             }
 
             cell.Value = val.ToString();
-        }
-
-        private static object? ParseValue(string str, Type targetType, Type? enumType = null)
-        {
-            var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-            if (enumType != null || underlyingType.IsEnum)
-            {
-                var targetEnum = enumType ?? underlyingType;
-
-                if (targetEnum == typeof(VehicleType))
-                {
-                    var cleanVt = str.Trim().ToLowerInvariant();
-                    if (cleanVt is "ô tô" or "oto" or "car") return VehicleType.Car;
-                    if (cleanVt is "xe máy" or "xemay" or "xe may" or "motorbike") return VehicleType.Motorbike;
-                    if (cleanVt is "xe đạp" or "xedap" or "xe dap" or "bicycle") return VehicleType.Bicycle;
-                    if (cleanVt is "khác" or "khac" or "other") return VehicleType.Other;
-                }
-
-                if (targetEnum == typeof(ParkingSessionStatus))
-                {
-                    var cleanStatus = str.Trim().ToLowerInvariant();
-                    if (cleanStatus is "đang hoạt động" or "hoạt động" or "active") return ParkingSessionStatus.Active;
-                    if (cleanStatus is "đã hoàn thành" or "hoàn thành" or "completed") return ParkingSessionStatus.Completed;
-                    if (cleanStatus is "đã hủy" or "hủy" or "cancelled") return ParkingSessionStatus.Cancelled;
-                }
-
-                if (Enum.TryParse(targetEnum, str, true, out var parsedEnum))
-                {
-                    return parsedEnum;
-                }
-                throw new FormatException($"Giá trị '{str}' không khớp với danh sách lựa chọn của {targetEnum.Name}.");
-            }
-
-            if (underlyingType == typeof(DateTime))
-            {
-                var formats = new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "dd-MM-yyyy", "yyyy/MM/dd", "dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss" };
-                if (DateTime.TryParseExact(str, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-                {
-                    return dt;
-                }
-                if (DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDt))
-                {
-                    return parsedDt;
-                }
-                throw new FormatException("Định dạng ngày tháng không hợp lệ (chuẩn dd/MM/yyyy).");
-            }
-
-            if (underlyingType == typeof(int))
-            {
-                return int.Parse(str, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(long))
-            {
-                return long.Parse(str, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(double))
-            {
-                return double.Parse(str, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(decimal))
-            {
-                return decimal.Parse(str, CultureInfo.InvariantCulture);
-            }
-
-            if (underlyingType == typeof(bool))
-            {
-                var clean = str.Trim().ToLowerInvariant();
-                if (clean is "có" or "true" or "1" or "yes" or "hoạt động" or "active" or "đang hoạt động" or "thành công" or "đang trong bãi") return true;
-                if (clean is "không" or "false" or "0" or "no" or "tạm khóa" or "inactive" or "không hoạt động" or "thất bại") return false;
-                return bool.Parse(str);
-            }
-
-            return Convert.ChangeType(str, underlyingType, CultureInfo.InvariantCulture);
         }
     }
 }
