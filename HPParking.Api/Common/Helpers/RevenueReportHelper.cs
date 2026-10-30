@@ -63,29 +63,16 @@ namespace HPParking.Api.Common.Helpers
             {
                 var dateOnly = DateOnly.FromDateTime(day);
                 var dayStr = dateOnly.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                if (timelineMap.TryGetValue(dayStr, out var item))
+                timelineMap.TryGetValue(dayStr, out var item);
+                var avg = item.PaidCount > 0 ? Math.Round(item.Revenue / item.PaidCount, 0) : 0m;
+                timeline.Add(new RevenueDailyItemDto
                 {
-                    var avg = item.PaidCount > 0 ? Math.Round(item.Revenue / item.PaidCount, 0) : 0m;
-                    timeline.Add(new RevenueDailyItemDto
-                    {
-                        Date = dateOnly,
-                        Revenue = item.Revenue,
-                        PaidCount = item.PaidCount,
-                        CompletedCount = item.CompletedCount,
-                        AverageFee = avg
-                    });
-                }
-                else
-                {
-                    timeline.Add(new RevenueDailyItemDto
-                    {
-                        Date = dateOnly,
-                        Revenue = 0m,
-                        PaidCount = 0,
-                        CompletedCount = 0,
-                        AverageFee = 0m
-                    });
-                }
+                    Date = dateOnly,
+                    Revenue = item.Revenue,
+                    PaidCount = item.PaidCount,
+                    CompletedCount = item.CompletedCount,
+                    AverageFee = avg
+                });
             }
 
             return new RevenueReportDto

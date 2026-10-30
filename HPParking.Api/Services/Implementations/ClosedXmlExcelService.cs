@@ -111,16 +111,14 @@ namespace HPParking.Api.Services.Implementations
             where T2 : class
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var data1 = (sheet1.Data as IReadOnlyList<T1>) ?? sheet1.Data.ToList();
-            var data2 = (sheet2.Data as IReadOnlyList<T2>) ?? sheet2.Data.ToList();
 
             using var workbook = new XLWorkbook();
 
             var ws1 = workbook.Worksheets.Add(sheet1.SheetName);
-            RenderWorksheet(ws1, data1, sheet1.Profile, sheet1.ReportTitle, sheet1.SheetName);
+            RenderWorksheet(ws1, sheet1.Data, sheet1.Profile, sheet1.ReportTitle, sheet1.SheetName);
 
             var ws2 = workbook.Worksheets.Add(sheet2.SheetName);
-            RenderWorksheet(ws2, data2, sheet2.Profile, sheet2.ReportTitle, sheet2.SheetName);
+            RenderWorksheet(ws2, sheet2.Data, sheet2.Profile, sheet2.ReportTitle, sheet2.SheetName);
 
             using var ms = new MemoryStream();
             workbook.SaveAs(ms);

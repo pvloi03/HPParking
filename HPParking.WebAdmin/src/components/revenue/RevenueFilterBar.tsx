@@ -27,33 +27,22 @@ export function RevenueFilterBar({
       <CardContent className="p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Quick presets */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            type="button"
-            variant={preset === 'today' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onPresetChange('today')}
-            className="h-8 text-xs font-medium px-3"
-          >
-            Hôm nay
-          </Button>
-          <Button
-            type="button"
-            variant={preset === 'last7days' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onPresetChange('last7days')}
-            className="h-8 text-xs font-medium px-3"
-          >
-            7 ngày qua
-          </Button>
-          <Button
-            type="button"
-            variant={preset === 'thisMonth' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onPresetChange('thisMonth')}
-            className="h-8 text-xs font-medium px-3"
-          >
-            Tháng này
-          </Button>
+          {([
+            { id: 'today', label: 'Hôm nay' },
+            { id: 'last7days', label: '7 ngày qua' },
+            { id: 'thisMonth', label: 'Tháng này' },
+          ] as const).map(({ id, label }) => (
+            <Button
+              key={id}
+              type="button"
+              variant={preset === id ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onPresetChange(id)}
+              className="h-8 text-xs font-medium px-3"
+            >
+              {label}
+            </Button>
+          ))}
         </div>
 
         {/* Date range picker inputs */}

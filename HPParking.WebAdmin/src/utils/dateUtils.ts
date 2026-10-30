@@ -33,24 +33,9 @@ export interface MonthRange {
  */
 export function toMonthRange(monthStr?: string): MonthRange {
   const match = monthStr?.trim().match(/^(\d{4})-(0[1-9]|1[0-2])$/);
-  if (match) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const monthFormatted = String(month).padStart(2, '0');
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const daysFormatted = String(daysInMonth).padStart(2, '0');
-    return {
-      fromDate: `${year}-${monthFormatted}-01T00:00:00`,
-      toDate: `${year}-${monthFormatted}-${daysFormatted}T23:59:59`,
-      year,
-      month,
-      daysInMonth,
-    };
-  }
-
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const year = match ? Number(match[1]) : now.getFullYear();
+  const month = match ? Number(match[2]) : now.getMonth() + 1;
   const monthFormatted = String(month).padStart(2, '0');
   const daysInMonth = new Date(year, month, 0).getDate();
   const daysFormatted = String(daysInMonth).padStart(2, '0');
@@ -103,8 +88,5 @@ export function formatMonthDisplay(isoMonthStr?: string): string {
  * theo phạm vi thời gian (ADR 0023, phải khớp tên do backend sinh cho audit log).
  */
 export function toCompactDate(isoDateStr?: string): string {
-  if (!isoDateStr) return '';
-  const parts = isoDateStr.split('-');
-  if (parts.length !== 3) return isoDateStr;
-  return `${parts[0]}${parts[1]}${parts[2]}`;
+  return isoDateStr?.replace(/-/g, '') ?? '';
 }

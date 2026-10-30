@@ -54,12 +54,14 @@ describe('DashboardPage Component', () => {
     vi.mocked(statisticsApi.getDashboardStatistics).mockResolvedValue(mockStatistics);
     vi.mocked(parkingSessionApi.getParkingSessions).mockResolvedValue({
       items: [],
-      totalCount: 0,
-      pageIndex: 1,
-      pageSize: 100,
-      totalPages: 1,
-      hasPreviousPage: false,
-      hasNextPage: false,
+      pagination: {
+        pageIndex: 1,
+        pageSize: 100,
+        totalCount: 0,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
     });
   });
 
