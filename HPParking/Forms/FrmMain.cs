@@ -207,7 +207,7 @@ namespace HPParking.Forms
             GetSlotTitleLabel(slotIndex).Text = $"{lane.Name.ToUpperInvariant()} [F{slotIndex + 1}]";
         }
 
-        private (PictureBox Overview, PictureBox Plate, PictureBox Face) GetLaneCamBoxes(int slotIndex)
+        internal (PictureBox Overview, PictureBox Plate, PictureBox Face) GetLaneCamBoxes(int slotIndex)
         {
             return slotIndex switch
             {
@@ -219,7 +219,7 @@ namespace HPParking.Forms
             };
         }
 
-        private TableLayoutPanel GetLaneCamsContainer(int slotIndex)
+        internal TableLayoutPanel GetLaneCamsContainer(int slotIndex)
         {
             return slotIndex switch
             {
@@ -412,6 +412,9 @@ namespace HPParking.Forms
             tlpCams.SuspendLayout();
             try
             {
+                tlpCams.SetColumnSpan(cam1, 1);
+                tlpCams.SetColumnSpan(cam2, 1);
+
                 if (isWideMode)
                 {
                     // Phương án B: 2 camera dàn đều 1 hàng ngang (2 Cột 50% / 50%)

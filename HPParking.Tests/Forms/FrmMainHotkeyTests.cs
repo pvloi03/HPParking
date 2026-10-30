@@ -251,6 +251,42 @@ namespace HPParking.Tests.Forms
             });
         }
 
+        [Fact]
+        public void ApplyLaneContexts_WhenLaneHas2Cameras_ShouldSetBothCamerasVisible_AndResetColumnSpanToOne()
+        {
+            RunOnStaThread(() =>
+            {
+                using var form = CreateFrmMain();
+                var lane1 = new Lane
+                {
+                    Id = "L1",
+                    Name = "Làn Vào 1",
+                    Direction = LaneDirection.In,
+                    TargetType = LaneTargetType.Vehicle,
+                    UseOverviewCam = true,
+                    UsePlateCam = true,
+                    OverviewCameraDeviceId = "cam-ov-1",
+                    PlateCameraDeviceId = "cam-pl-1"
+                };
+
+                var context1 = new HPParking.Models.LaneRuntimeContext(lane1);
+
+                // Act
+                form.ApplyLaneContexts(new() { context1 });
+
+                // Assert
+                var tlpCams = form.GetLaneCamsContainer(0);
+                var (pbOverview, pbPlate, pbFace) = form.GetLaneCamBoxes(0);
+
+                // ColumnSpan must be 1 so both cameras render in 50% / 50% columns without overlapping
+                tlpCams.ColumnCount.Should().Be(2);
+                tlpCams.GetColumnSpan(pbOverview).Should().Be(1);
+                tlpCams.GetColumnSpan(pbPlate).Should().Be(1);
+                tlpCams.GetCellPosition(pbOverview).Should().Be(new TableLayoutPanelCellPosition(0, 0));
+                tlpCams.GetCellPosition(pbPlate).Should().Be(new TableLayoutPanelCellPosition(1, 0));
+            });
+        }
+
         private static FrmMain CreateFrmMain(HPParking.Core.Interfaces.IRepository<AuditLog>? auditRepo = null)
         {
             var laneRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Lane>>();
