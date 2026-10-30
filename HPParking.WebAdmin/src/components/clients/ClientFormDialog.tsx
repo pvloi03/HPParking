@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { cardApi } from '@/api/cardApi';
-import { CardTargetType, type CardDto } from '@/types/card';
+import type { CardDto } from '@/types/card';
 import {
   Dialog,
   DialogContent,

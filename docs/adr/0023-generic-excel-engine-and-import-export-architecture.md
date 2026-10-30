@@ -34,6 +34,7 @@ Trong các nghiệp vụ quản lý bãi đỗ xe thông minh, hoạt động nh
      {
          Task<ExcelImportResult<T>> ReadAsync<T>(Stream stream, ExcelImportOptions options, CancellationToken ct = default) where T : class, new();
          Task<byte[]> WriteAsync<T>(IEnumerable<T> data, string sheetName = "Data", CancellationToken ct = default) where T : class;
+         Task<byte[]> WriteTwoSheetsAsync<T1, T2>(ExcelSheetData<T1> sheet1, ExcelSheetData<T2> sheet2, CancellationToken ct = default) where T1 : class where T2 : class;
          Task<byte[]> GenerateTemplateAsync<T>(string sheetName = "Template", CancellationToken ct = default) where T : class;
      }
      ```
@@ -91,7 +92,8 @@ Trong các nghiệp vụ quản lý bãi đỗ xe thông minh, hoạt động nh
 5. **Chiến Lược Xuất Dữ Liệu An Toàn (Safe Export):**
    - Endpoint: `GET /api/v1/{entity}/export?...bộ lọc tìm kiếm...`.
    - Phản hồi: Stream tệp nhị phân MIME `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
-   - Tên tệp xuất: `{entity}_{yyyyMMdd_HHmmss}.xlsx` (VD: `clients_20260917_143000.xlsx`).
+   - Tên tệp xuất: `{entity}_{yyyyMMdd_HHmmss}.xlsx` (VD: `clients_20260917_143000.xlsx`), timestamp là `DateTime.UtcNow` (compact `yyyyMMdd_HHmmss`).
+   - **Ngoại lệ — báo cáo theo phạm vi thời gian (Date-Ranged Reports):** các báo cáo có tham số khoảng ngày (VD `Bao_Cao_Doanh_Thu`) đặt tên theo `{entity}_{fromDate}_{toDate}.xlsx` (compact `yyyyMMdd`, VD `Bao_Cao_Doanh_Thu_20261001_20261031.xlsx`) thay vì timestamp, vì khoảng ngày định danh đúng phạm vi dữ liệu và tệp chỉ được stream tải về (không lưu phía server nên không cần chống trùng tên). Tên tệp do backend sinh (ghi vào audit log) và do frontend dùng cho `downloadBlob` phải **giống hệt** để tránh lệch giữa tên người dùng thấy và tên trong nhật ký.
    - Giới hạn kẹp trần tối đa: **10,000 bản ghi/lần xuất**. Nếu truy vấn có `totalCount > 10000`, hệ thống ưu tiên xuất 10,000 bản ghi đầu theo bộ lọc và thêm cảnh báo vào header `X-Export-Truncated: true`.
 
 6. **Phân Quyền & Bảo Mật File Upload:**
@@ -119,6 +121,7 @@ Trong các nghiệp vụ quản lý bãi đỗ xe thông minh, hoạt động nh
      * `ParkingSessions`: Xuất lịch sử xe vào/ra, làn xe, 4 mốc ảnh bằng chứng và thời lượng đỗ xe động. **Nguyên tắc Sổ cái bất biến: Không cho phép Import.**
      * `AuditLogs`: Xuất nhật ký kiểm toán hệ thống (Chỉ dành cho Admin). **Nguyên tắc Sổ cái bất biến: Không cho phép Import.**
      * `DistributionStatistics`: Xuất ma trận phân bổ Nhân sự & Hạ tầng (Khách hàng, Xe, Cổng, Làn) theo từng Công ty và Phòng ban.
+     * `RevenueReport`: Xuất báo cáo Doanh thu đa trang tính (Multi-sheet: Sheet 1 Tổng hợp theo ngày, Sheet 2 Chi tiết giao dịch theo ADR 0043). **Nguyên tắc Sổ cái bất biến: Không cho phép Import.**
 
 ## Hệ quả
 

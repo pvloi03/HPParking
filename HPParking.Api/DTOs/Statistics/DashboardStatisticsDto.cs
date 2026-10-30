@@ -49,11 +49,13 @@ namespace HPParking.Api.DTOs.Statistics
         // =========================================================================
         /// <summary>
         /// Tổng doanh thu thực thu từ các phiên đỗ xe hoàn tất (Status == Completed, IsFeeCollected == true, !IsDeleted)
+        /// trong khoảng thời gian xuất bãi OutTime [FromDate, ToDate]. Mặc định là ngày hôm nay nếu không truyền khoảng thời gian (ADR 0024, ADR 0043).
         /// </summary>
         public decimal TotalRevenue { get; set; }
 
         /// <summary>
         /// Tổng số lượt đỗ xe đã thu phí thành công (Status == Completed, IsFeeCollected == true, !IsDeleted)
+        /// trong khoảng thời gian xuất bãi OutTime [FromDate, ToDate]. Mặc định là ngày hôm nay nếu không truyền khoảng thời gian (ADR 0024, ADR 0043).
         /// </summary>
         public long PaidParkingSessionsCount { get; set; }
     }

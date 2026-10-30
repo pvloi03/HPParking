@@ -1,4 +1,7 @@
+using System.Globalization;
+using HPParking.Api.Common.Excel;
 using HPParking.Api.Common.Helpers;
+using VietnamTime = HPParking.Core.Helpers.VietnamTime;
 using HPParking.Api.DTOs.AuditLogs;
 using HPParking.Api.DTOs.Excel.Reports;
 using HPParking.Api.DTOs.ParkingSessions;
@@ -14,7 +17,7 @@ using System.Text.RegularExpressions;
 namespace HPParking.Api.Services.Implementations
 {
     /// <summary>
-    /// Hiện thực hóa dịch vụ Xuất Excel cho Sổ cái và Báo cáo (Nhóm III - ADR 0023, ADR 0030)
+    /// Hiện thực hóa dịch vụ Xuất Excel cho Sổ cái và Báo cáo (Nhóm III - ADR 0023, ADR 0043)
     /// </summary>
     public class ReportExcelService : IReportExcelService
     {
@@ -378,6 +381,117 @@ namespace HPParking.Api.Services.Implementations
             }
 
             return (bytes, fileName, isTruncated);
+        }
+
+        public async Task<(byte[] Content, string FileName, bool IsTruncated)> ExportRevenueReportAsync(
+            RevenueStatisticsQuery query,
+            CancellationToken cancellationToken = default)
+        {
+            query ??= new RevenueStatisticsQuery();
+            var report = await _statisticsService.GetRevenueReportAsync(query, cancellationToken);
+            var (fromVn, toVn, fromUtc, toUtc) = DateRangeHelper.NormalizeDateRange(query.FromDate, query.ToDate);
+
+            // 1. Chuẩn bị dữ liệu Sheet 1: Tổng hợp theo ngày (Zero-Fill)
+            var sheet1Data = report.Timeline.Select(t => new RevenueDailySummaryExcelDto
+            {
+                Date = t.Date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+                PaidCount = t.PaidCount,
+                CompletedCount = t.CompletedCount,
+                Revenue = t.Revenue,
+                AverageFee = t.AverageFee
+            }).ToList();
+
+            sheet1Data.Add(new RevenueDailySummaryExcelDto
+            {
+                Date = "Tổng cộng",
+                PaidCount = report.PaidSessionsCount,
+                CompletedCount = report.CompletedSessionsCount,
+                Revenue = report.TotalRevenue,
+                AverageFee = report.AverageFeePerSession
+            });
+
+            var sheet1Profile = new RevenueDailySummaryExcelProfile();
+            var sheet1 = new ExcelSheetData<RevenueDailySummaryExcelDto>(
+                "Tổng hợp theo ngày",
+                sheet1Data,
+                sheet1Profile,
+                $"BÁO CÁO DOANH THU THEO NGÀY ({fromVn:dd/MM/yyyy} - {toVn:dd/MM/yyyy})");
+
+            // 2. Chuẩn bị dữ liệu Sheet 2: Chi tiết giao dịch (Kẹp trần 10,000 dòng)
+            var filter = RevenueReportHelper.BuildCompletedSessionsFilter(fromUtc, toUtc, isFeeCollected: true);
+
+            var totalCount = await _sessionRepo.CountAsync(filter, cancellationToken);
+            var isTruncated = totalCount > MaxExportLimit;
+
+            var sort = Builders<ParkingSession>.Sort.Descending(x => x.OutTime);
+            var sessions = await _sessionRepo.FindAsync(
+                filter: filter,
+                sort: sort,
+                skip: 0,
+                limit: MaxExportLimit,
+                cancellationToken: cancellationToken);
+
+            var personIds = sessions
+                .Where(s => !string.IsNullOrEmpty(s.PersonId))
+                .Select(s => s.PersonId!)
+                .Distinct()
+                .ToList();
+
+            var clientFilter = Builders<Client>.Filter.In(c => c.Id, personIds);
+            var clients = personIds.Count > 0
+                ? (await _clientRepo.FindAsync(clientFilter, cancellationToken: cancellationToken)).ToDictionary(c => c.Id, c => c)
+                : new Dictionary<string, Client>();
+
+            var sheet2Data = sessions.Select(s =>
+            {
+                var clientName = !string.IsNullOrEmpty(s.PersonId) && clients.TryGetValue(s.PersonId, out var c)
+                    ? c.Name
+                    : "Khách vãng lai";
+
+                return new RevenueTransactionExcelDto
+                {
+                    InOrderDisplay = FormatInOrderDisplay(s.InTime, s.InOrderNumber),
+                    PlateNumber = s.PlateNumber ?? string.Empty,
+                    VehicleType = s.VehicleType,
+                    CardNumber = s.CardNumber,
+                    ClientName = clientName,
+                    InTime = s.InTime.HasValue ? VietnamTime.ToVietnamTime(s.InTime.Value) : null,
+                    OutTime = s.OutTime.HasValue ? VietnamTime.ToVietnamTime(s.OutTime.Value) : null,
+                    InLaneName = s.InLaneName ?? (s.InTime.HasValue ? "Cổng vào" : string.Empty),
+                    OutLaneName = s.OutLaneName ?? (s.OutTime.HasValue ? "Cổng ra" : string.Empty),
+                    Duration = FormatDuration(s.InTime, s.OutTime),
+                    FeeAmount = s.FeeAmount,
+                    IsFeeCollected = s.IsFeeCollected
+                };
+            }).ToList();
+
+            var sheet2Profile = new RevenueTransactionExcelProfile();
+            var sheet2 = new ExcelSheetData<RevenueTransactionExcelDto>(
+                "Chi tiết giao dịch",
+                sheet2Data,
+                sheet2Profile,
+                $"DANH SÁCH GIAO DỊCH THU PHÍ ({fromVn:dd/MM/yyyy} - {toVn:dd/MM/yyyy})");
+
+            var content = await _excelService.WriteTwoSheetsAsync(
+                sheet1, sheet2,
+                cancellationToken);
+
+            var fileName = $"Bao_Cao_Doanh_Thu_{fromVn:yyyyMMdd}_{toVn:yyyyMMdd}.xlsx";
+
+            _logger.LogInformation("Đã xuất báo cáo doanh thu ra Excel ({SummaryRows} ngày, {TransactionRows}/{Total} giao dịch, Truncated: {IsTruncated})",
+                sheet1Data.Count, sheet2Data.Count, totalCount, isTruncated);
+
+            if (_auditLogService != null)
+            {
+                await _auditLogService.LogActivityAsync(
+                    actionType: AuditActionType.Export,
+                    targetEntity: "RevenueReport",
+                    targetDisplay: fileName,
+                    reason: $"Xuất Excel báo cáo doanh thu ({sheet2Data.Count} giao dịch).",
+                    cancellationToken: cancellationToken);
+            }
+
+            return (content, fileName, isTruncated);
         }
 
         #region Filter & Sort Builders

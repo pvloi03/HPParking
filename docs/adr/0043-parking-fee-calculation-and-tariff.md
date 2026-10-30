@@ -1,7 +1,7 @@
 # 0043: Module Tính Phí Đỗ Xe Theo Thẻ, Biểu Phí & Đóng Gói Module Điều Vận (Parking Fee Calculation, Tariff & Fleet Dispatch Packaging)
 
 > **Trạng thái:** Chấp thuận (Accepted)  
-> **Liên quan (Related):** [ADR 0030](0030-entity-relationship-and-referential-integrity-policy.md), [ADR 0031](0031-recycle-bin-restore-and-universal-restrict-deletion.md), [ADR 0034](0034-gate-and-lane-management-with-hardware-binding.md), [ADR 0040](0040-multi-target-lane-architecture-and-tuple-pattern-matching.md), [ADR 0041](0041-client-vehicle-workflow-handler-and-rich-domain-model.md), [Referential Integrity Matrix](../standards/referential-integrity-matrix.md)
+> **Liên quan (Related):** [ADR 0023](0023-generic-excel-engine-and-import-export-architecture.md), [ADR 0024](0024-realtime-dashboard-and-domain-statistics-architecture.md), [ADR 0030](0030-entity-relationship-and-referential-integrity-policy.md), [ADR 0031](0031-recycle-bin-restore-and-universal-restrict-deletion.md), [ADR 0034](0034-gate-and-lane-management-with-hardware-binding.md), [ADR 0040](0040-multi-target-lane-architecture-and-tuple-pattern-matching.md), [ADR 0041](0041-client-vehicle-workflow-handler-and-rich-domain-model.md), [Referential Integrity Matrix](../standards/referential-integrity-matrix.md)
 
 Tài liệu quyết định kiến trúc (ADR) chuẩn mực quy định về việc thiết kế và hiện thực Module Tính phí đỗ xe theo thẻ định danh (`Tariff`, `ParkingFeeCalculator`), luồng kiểm soát thu phí fail-closed tại trạm trực bốt bảo vệ (`VisitorVehicleWorkflowHandler`, `ClientVehicleWorkflowHandler`), cơ chế điều khiển mở barie không popup modal (`AutoOpenBarrier`), chuẩn hóa Nhập/Xuất Excel đồng bộ (`CardExcelService`, `ReportExcelService`), các nguyên tắc toàn vẹn tham chiếu và cơ chế đóng gói bảo lưu module Điều vận phương tiện nội bộ (`FleetDispatch`) qua Feature Flag.
 
@@ -129,6 +129,13 @@ Tại `VisitorVehicleWorkflowHandler` và `ClientVehicleWorkflowHandler`:
   - **Điều kiện Lọc Doanh thu Chuẩn mực**: Mọi phép tính tổng doanh thu (`$sum`), báo cáo phân tích ca trực và xuất file Excel doanh thu bắt buộc phải áp dụng bộ lọc:
     `Status == ParkingSessionStatus.Completed && IsFeeCollected == true && !IsDeleted`.
   - Loại trừ tuyệt đối các phiên chưa hoàn thành (`Active`), phiên không thu tiền (`FeeAmount == 0` hoặc miễn phí) và các phiên đã xóa mềm, bảo đảm số liệu doanh thu trên Excel khớp 100% với số liệu thực tế.
+  - **Cấu trúc Báo Cáo Doanh Thu Đa Trang Tính (Multi-Sheet Excel Export — ADR 0023 mở rộng)**:
+    - Báo cáo Doanh thu xuất ra file Excel gồm 2 trang tính độc lập thông qua cơ chế `ExcelSheetData<T>` và `IExcelService.WriteTwoSheetsAsync<T1, T2>` (chuẩn hóa theo ADR 0023):
+      * **Sheet 1 (`RevenueDailySummaryExcelDto`)**: Bảng tổng hợp doanh thu và số lượt xe theo từng ngày (Ngày, Số lượt thu tiền, Tổng lượt ra, Tổng doanh thu, Doanh thu TB).
+      * **Sheet 2 (`RevenueTransactionExcelDto`)**: Bảng kê chi tiết từng giao dịch hoàn tất có thu phí (Lượt vào, Biển số xe, Loại xe, Mã thẻ, Khách hàng, Thời điểm vào, Thời điểm ra, Làn vào, Làn ra, Thời lượng, Tiền phí, Trạng thái thu).
+    - Cả 2 sheet đều áp dụng Report Title Banner đồng bộ nhận diện hệ thống và kẹp trần an toàn 10,000 dòng (`X-Export-Truncated`) theo chuẩn ADR 0023.
+  - **Thống Kê Doanh Thu Thời Gian Thực (ADR 0024 mở rộng)**:
+    - API `GET /api/v1/statistics/revenue` nhận tham số `RevenueStatisticsQuery` và trả về `RevenueReportDto` tổng hợp trực tiếp từ MongoDB qua `$facet` pipeline kèm timeline zero-fill theo từng ngày.
 
 ### 7. Xóa Hẳn Loại Thẻ Nhân Sự (`Person`) & Chuẩn Hóa 4 Nhóm Thẻ Vận Hành
 - **Lý do & Ngữ cảnh**:

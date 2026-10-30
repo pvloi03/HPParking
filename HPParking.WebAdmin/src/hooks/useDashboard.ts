@@ -2,9 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { statisticsApi } from '@/api/statisticsApi';
 import { parkingSessionApi } from '@/api/parkingSessionApi';
 import type { DashboardFilterState } from '@/types/dashboard';
+import { toMonthRange } from '@/utils/dateUtils';
 
 export const DASHBOARD_QUERY_KEYS = {
-  kpis: ['statistics', 'dashboard'] as const,
+  kpis: (filter?: { fromDate?: string; toDate?: string }) =>
+    filter
+      ? (['statistics', 'dashboard', filter.fromDate, filter.toDate] as const)
+      : (['statistics', 'dashboard'] as const),
   recentSessions: (pageSize = 5) =>
     ['parking-sessions', 'recent', pageSize] as const,
   trafficSessions: (filter: DashboardFilterState) =>
@@ -12,12 +16,12 @@ export const DASHBOARD_QUERY_KEYS = {
 };
 
 /**
- * Hook truy vấn 6 chỉ số KPIs thời gian thực cho trang Dashboard
+ * Hook truy vấn 6 chỉ số KPIs thời gian thực cho trang Dashboard (hỗ trợ lọc thời gian)
  */
-export function useDashboardKPIs() {
+export function useDashboardKPIs(filter?: { fromDate?: string; toDate?: string }) {
   return useQuery({
-    queryKey: DASHBOARD_QUERY_KEYS.kpis,
-    queryFn: () => statisticsApi.getDashboardStatistics(),
+    queryKey: DASHBOARD_QUERY_KEYS.kpis(filter),
+    queryFn: () => statisticsApi.getDashboardStatistics(filter),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
@@ -44,11 +48,7 @@ export function useTrafficSessions(filter: DashboardFilterState) {
   if (filter.type === 'day') {
     toDate = `${filter.date}T23:59:59`;
   } else if (filter.type === 'month') {
-    const [yearStr, mStr] = (filter.month || '2026-09').split('-');
-    const year = parseInt(yearStr, 10) || 2026;
-    const month = parseInt(mStr, 10) || 9;
-    const daysInMonth = new Date(year, month, 0).getDate();
-    toDate = `${filter.month}-${String(daysInMonth).padStart(2, '0')}T23:59:59`;
+    toDate = toMonthRange(filter.month).toDate;
   } else if (filter.type === 'year') {
     toDate = `${filter.year}-12-31T23:59:59`;
   } else if (filter.type === 'custom') {

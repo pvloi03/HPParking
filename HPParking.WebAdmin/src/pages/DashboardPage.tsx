@@ -8,22 +8,50 @@ import {
   useTrafficSessions,
 } from '@/hooks/useDashboard';
 import type { DashboardFilterState } from '@/types/dashboard';
+import {
+  getLocalToday,
+  getLocalPastDate,
+  toMonthRange,
+} from '@/utils/dateUtils';
 
 export function DashboardPage() {
   const [filter, setFilter] = useState<DashboardFilterState>(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const month = today.slice(0, 7);
-    const year = today.slice(0, 4);
-    const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+    const today = getLocalToday();
+    const weekAgo = getLocalPastDate(6);
     return {
       type: 'day',
       date: today,
-      month,
-      year,
+      month: today.slice(0, 7),
+      year: today.slice(0, 4),
       customFrom: weekAgo,
       customTo: today,
     };
   });
+
+  const dateRange = (() => {
+    if (filter.type === 'day') {
+      return {
+        fromDate: `${filter.date}T00:00:00`,
+        toDate: `${filter.date}T23:59:59`,
+      };
+    }
+    if (filter.type === 'month') {
+      return toMonthRange(filter.month);
+    }
+    if (filter.type === 'year') {
+      return {
+        fromDate: `${filter.year}-01-01T00:00:00`,
+        toDate: `${filter.year}-12-31T23:59:59`,
+      };
+    }
+    if (filter.type === 'custom') {
+      return {
+        fromDate: `${filter.customFrom}T00:00:00`,
+        toDate: `${filter.customTo}T23:59:59`,
+      };
+    }
+    return undefined;
+  })();
 
   const {
     data: kpiData,
@@ -31,7 +59,7 @@ export function DashboardPage() {
     isRefetching: isKpiRefetching,
     refetch: refetchKpis,
     error: kpiError,
-  } = useDashboardKPIs();
+  } = useDashboardKPIs(dateRange);
 
   const {
     data: trafficSessions,

@@ -1,6 +1,8 @@
 using FluentAssertions;
+using HPParking.Api.Common.Excel;
 using HPParking.Api.DTOs.Excel.Reports;
 using HPParking.Api.DTOs.ParkingSessions;
+using HPParking.Api.DTOs.Statistics;
 using HPParking.Api.Services.Implementations;
 using HPParking.Api.Services.Interfaces;
 using HPParking.Core.Interfaces;
@@ -189,6 +191,141 @@ namespace HPParking.Tests.Api.Unit
             capturedData.Should().NotBeNull();
             capturedData!.Should().BeEmpty();
             capturedTitle.Should().Be("BÁO CÁO LỊCH SỬ PHIÊN ĐỖ XE");
+        }
+
+        [Fact]
+        public async Task ExportRevenueReportAsync_WhenCalled_GeneratesTwoSheetsUsingWriteTwoSheetsAsync()
+        {
+            // Arrange
+            var service = CreateService();
+            var reportDto = new RevenueReportDto
+            {
+                TotalRevenue = 100000m,
+                PaidSessionsCount = 2,
+                CompletedSessionsCount = 3,
+                AverageFeePerSession = 50000m,
+                PaidRatio = 66.7,
+                Timeline = new List<RevenueDailyItemDto>
+                {
+                    new() { Date = new DateOnly(2026, 10, 28), Revenue = 100000m, PaidCount = 2, CompletedCount = 3, AverageFee = 50000m }
+                }
+            };
+
+            _statisticsService.GetRevenueReportAsync(Arg.Any<RevenueStatisticsQuery>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(reportDto));
+
+            IReadOnlyList<ParkingSession> sessions = new List<ParkingSession>
+            {
+                new()
+                {
+                    Id = "s1",
+                    PlateNumber = "29A-12345",
+                    VehicleType = VehicleType.Car,
+                    Status = ParkingSessionStatus.Completed,
+                    IsFeeCollected = true,
+                    FeeAmount = 50000m,
+                    InTime = new DateTime(2026, 10, 28, 8, 0, 0),
+                    OutTime = new DateTime(2026, 10, 28, 10, 0, 0)
+                },
+                new()
+                {
+                    Id = "s2",
+                    PlateNumber = "29B-67890",
+                    VehicleType = VehicleType.Motorbike,
+                    Status = ParkingSessionStatus.Completed,
+                    IsFeeCollected = true,
+                    FeeAmount = 50000m,
+                    InTime = new DateTime(2026, 10, 28, 9, 0, 0),
+                    OutTime = new DateTime(2026, 10, 28, 11, 0, 0)
+                }
+            };
+
+            _sessionRepo.CountAsync(Arg.Any<FilterDefinition<ParkingSession>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult((long)sessions.Count));
+
+            _sessionRepo.FindAsync(
+                filter: Arg.Any<FilterDefinition<ParkingSession>>(),
+                sort: Arg.Any<SortDefinition<ParkingSession>>(),
+                skip: Arg.Any<int>(),
+                limit: Arg.Any<int>(),
+                cancellationToken: Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(sessions));
+
+            _clientRepo.FindAsync(Arg.Any<FilterDefinition<Client>>(), cancellationToken: Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<Client>>(new List<Client>()));
+
+            ExcelSheetData<RevenueDailySummaryExcelDto>? capturedSheet1 = null;
+            ExcelSheetData<RevenueTransactionExcelDto>? capturedSheet2 = null;
+            _excelService.WriteTwoSheetsAsync(
+                Arg.Do<ExcelSheetData<RevenueDailySummaryExcelDto>>(x => capturedSheet1 = x),
+                Arg.Do<ExcelSheetData<RevenueTransactionExcelDto>>(x => capturedSheet2 = x),
+                Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new byte[] { 4, 5, 6 }));
+
+            // Act
+            var query = new RevenueStatisticsQuery
+            {
+                FromDate = new DateTime(2026, 10, 28),
+                ToDate = new DateTime(2026, 10, 28)
+            };
+            var result = await service.ExportRevenueReportAsync(query);
+
+            // Assert
+            result.Content.Should().NotBeNull();
+            result.FileName.Should().StartWith("Bao_Cao_Doanh_Thu_");
+            result.IsTruncated.Should().BeFalse();
+
+            capturedSheet1.Should().NotBeNull();
+            capturedSheet1!.SheetName.Should().Be("Tổng hợp theo ngày");
+            capturedSheet2.Should().NotBeNull();
+            capturedSheet2!.SheetName.Should().Be("Chi tiết giao dịch");
+        }
+
+        [Fact]
+        public async Task ExportRevenueReportAsync_WhenTransactionsExceed10000_SetsTruncatedFlag()
+        {
+            // Arrange
+            var service = CreateService();
+            var reportDto = new RevenueReportDto
+            {
+                TotalRevenue = 50000000m,
+                PaidSessionsCount = 10500,
+                CompletedSessionsCount = 11000,
+                AverageFeePerSession = 4762m,
+                PaidRatio = 95.5,
+                Timeline = new List<RevenueDailyItemDto>()
+            };
+
+            _statisticsService.GetRevenueReportAsync(Arg.Any<RevenueStatisticsQuery>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(reportDto));
+
+            _sessionRepo.CountAsync(Arg.Any<FilterDefinition<ParkingSession>>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(10500L));
+
+            _sessionRepo.FindAsync(
+                filter: Arg.Any<FilterDefinition<ParkingSession>>(),
+                sort: Arg.Any<SortDefinition<ParkingSession>>(),
+                skip: Arg.Any<int>(),
+                limit: Arg.Any<int>(),
+                cancellationToken: Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<ParkingSession>>(new List<ParkingSession>()));
+
+            _excelService.WriteTwoSheetsAsync(
+                Arg.Any<ExcelSheetData<RevenueDailySummaryExcelDto>>(),
+                Arg.Any<ExcelSheetData<RevenueTransactionExcelDto>>(),
+                Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(new byte[] { 7, 8, 9 }));
+
+            // Act
+            var query = new RevenueStatisticsQuery
+            {
+                FromDate = new DateTime(2026, 10, 20),
+                ToDate = new DateTime(2026, 10, 28)
+            };
+            var result = await service.ExportRevenueReportAsync(query);
+
+            // Assert
+            result.IsTruncated.Should().BeTrue();
         }
     }
 }

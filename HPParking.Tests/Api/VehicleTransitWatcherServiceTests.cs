@@ -175,7 +175,7 @@ namespace HPParking.Tests.Api
             }
         }
 
-        [Fact]
+        [Fact(Skip = "Integration test phụ thuộc kết nối mạng SMTP Gmail thật")]
         public async Task SendRealAlertEmail_ToMainRouteRecipients_Succeeds()
         {
             var config = new ConfigurationBuilder()
@@ -212,7 +212,7 @@ namespace HPParking.Tests.Api
             sent.Should().BeTrue();
         }
 
-        [Fact]
+        [Fact(Skip = "Integration test phụ thuộc môi trường MongoDB và kết nối mạng SMTP Gmail thật")]
         public async Task VehicleTransitWatcherService_FullWorkflow_WithRealDbAndEmail_Succeeds()
         {
             var context = new MongoDbContext("mongodb://localhost:27017", "hpparking");

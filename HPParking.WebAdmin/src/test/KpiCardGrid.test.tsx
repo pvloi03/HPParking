@@ -16,6 +16,8 @@ const mockKpiData: DashboardStatisticsDto = {
   totalGates: 3,
   totalLanes: 8,
   activeLanes: 8,
+  totalRevenue: 1500000,
+  paidParkingSessionsCount: 45,
 };
 
 describe('KpiCardGrid Component', () => {
@@ -31,8 +33,9 @@ describe('KpiCardGrid Component', () => {
     expect(screen.getByText('Xe Đang Đỗ')).toBeInTheDocument();
     expect(screen.getByText('85')).toBeInTheDocument();
 
-    expect(screen.getByText('Cổng Kiểm Soát')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('Doanh Thu')).toBeInTheDocument();
+    expect(screen.getByText(/1\.500\.000 đ/)).toBeInTheDocument();
+    expect(screen.getByText(/Đã thu: 45 lượt/)).toBeInTheDocument();
 
     expect(screen.getByText('Làn Vận Hành')).toBeInTheDocument();
     expect(screen.getByText('8 / 8')).toBeInTheDocument();

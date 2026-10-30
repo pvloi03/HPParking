@@ -140,5 +140,49 @@ namespace HPParking.Api.Controllers.V1
             }
             return File(content, ExcelContentType, fileName);
         }
+
+        // =========================================================================
+        // --- 4. XUẤT BÁO CÁO DOANH THU 2 SHEET (REVENUE REPORT) ---
+        // =========================================================================
+
+        /// <summary>
+        /// Xử lý chung cho cả 2 route POST/GET xuất báo cáo doanh thu 2 sheet:
+        /// gọi service, đính kèm header X-Export-Truncated nếu có và trả về tệp Excel.
+        /// </summary>
+        private async Task<IActionResult> HandleRevenueReportExportAsync(RevenueStatisticsQuery? query)
+        {
+            var (content, fileName, isTruncated) = await _reportExcelService.ExportRevenueReportAsync(query ?? new RevenueStatisticsQuery());
+            if (isTruncated)
+            {
+                Response.Headers.Append("X-Export-Truncated", "true");
+            }
+            return File(content, ExcelContentType, fileName);
+        }
+
+        /// <summary>
+        /// Xuất báo cáo doanh thu 2 sheet ra tệp Excel (POST kèm bộ lọc thời gian)
+        /// </summary>
+        [HttpPost("revenue/export")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(FileContentResult), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public Task<IActionResult> ExportRevenueReportPost([FromBody] RevenueStatisticsQuery query)
+        {
+            return HandleRevenueReportExportAsync(query);
+        }
+
+        /// <summary>
+        /// Xuất báo cáo doanh thu 2 sheet ra tệp Excel (GET tải trực tiếp)
+        /// </summary>
+        [HttpGet("revenue/export")]
+        [Authorize(Roles = "Viewer,Manager,Admin")]
+        [ProducesResponseType(typeof(FileContentResult), 200)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 401)]
+        [ProducesResponseType(typeof(ApiResponse<object>), 403)]
+        public Task<IActionResult> ExportRevenueReportGet([FromQuery] RevenueStatisticsQuery query)
+        {
+            return HandleRevenueReportExportAsync(query);
+        }
     }
 }

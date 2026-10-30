@@ -376,7 +376,7 @@ namespace HPParking.Services.Parking
                 CardNumber = cardEntity?.CardNumber,
                 VehicleType = null,
                 InOrderNumber = inOrderNumber,
-                InTime = trigger.TriggerTime,
+                InTime = VietnamTime.ToUtcInstant(trigger.TriggerTime),
                 InLaneName = context.Lane.Name,
                 Status = ParkingSessionStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -471,7 +471,7 @@ namespace HPParking.Services.Parking
 
             if (activeSession != null)
             {
-                activeSession.OutTime = trigger.TriggerTime;
+                activeSession.OutTime = VietnamTime.ToUtcInstant(trigger.TriggerTime);
                 activeSession.OutLaneName = context.Lane.Name;
                 activeSession.Status = ParkingSessionStatus.Completed;
                 activeSession.UpdatedAt = DateTime.UtcNow;
@@ -487,7 +487,7 @@ namespace HPParking.Services.Parking
                     CardId = cardEntity?.Id,
                     CardNumber = cardEntity?.CardNumber,
                     VehicleType = null,
-                    OutTime = trigger.TriggerTime,
+                    OutTime = VietnamTime.ToUtcInstant(trigger.TriggerTime),
                     OutLaneName = context.Lane.Name,
                     Status = ParkingSessionStatus.Completed,
                     CreatedAt = DateTime.UtcNow
@@ -594,7 +594,7 @@ namespace HPParking.Services.Parking
                 VehicleType = vehicle.Type,
                 TargetType = LaneTargetType.Vehicle,
                 InOrderNumber = inOrderNumber,
-                InTime = trigger.TriggerTime,
+                InTime = VietnamTime.ToUtcInstant(trigger.TriggerTime),
                 InLaneName = context.Lane.Name,
                 Status = ParkingSessionStatus.Active,
                 CreatedAt = DateTime.UtcNow
@@ -684,7 +684,7 @@ namespace HPParking.Services.Parking
 
             if (activeSession != null)
             {
-                activeSession.OutTime = trigger.TriggerTime;
+                activeSession.OutTime = VietnamTime.ToUtcInstant(trigger.TriggerTime);
                 activeSession.OutLaneName = context.Lane.Name;
                 activeSession.Status = ParkingSessionStatus.Completed;
                 activeSession.UpdatedAt = DateTime.UtcNow;
