@@ -4,6 +4,7 @@ using HPParking.Services.Controller;
 using HPParking.Services.Devices;
 using HPParking.UI;
 using System;
+using System.Globalization;
 
 namespace HPParking.Models
 {
@@ -20,6 +21,8 @@ namespace HPParking.Models
         public ControllerService? Controller { get; set; }
 
         public VehicleUI? UI { get; set; }
+
+        public LedBoardService? LedBoard { get; set; }
 
         public int InputReader
         {
@@ -47,7 +50,18 @@ namespace HPParking.Models
         }
 
         /// <summary>
-        /// Kích hoạt mở barie cho làn xe thông qua Controller kết nối tương ứng.
+        /// Hiển thị cước phí hoặc vé tháng/miễn phí lên bảng LED ngoại vi tại làn ra.
+        /// </summary>
+        public void DisplayFee(decimal feeAmount, string zeroFeeText)
+        {
+            string text = feeAmount > 0
+                ? $"{feeAmount.ToString("N0", CultureInfo.InvariantCulture)} VND"
+                : zeroFeeText;
+            LedBoard?.Send(text);
+        }
+
+        /// <summary>
+        /// Kích hoạt mở barie cho làn xe thông qua Controller kết nối tương ứng và chào đón trên Bảng LED.
         /// </summary>
         public bool OpenBarrier()
         {
@@ -57,7 +71,12 @@ namespace HPParking.Models
             }
 
             int relayPort = Lane.OutputRelay > 0 ? Lane.OutputRelay : Lane.InputReader;
-            return Controller.OpenBarrier(relayPort, 1);
+            bool opened = Controller.OpenBarrier(relayPort, 1);
+            if (opened)
+            {
+                LedBoard?.Send(Direction == LaneDirection.In ? "XIN CHAO" : "HEN GAP LAI");
+            }
+            return opened;
         }
     }
 }

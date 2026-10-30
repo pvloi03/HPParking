@@ -18,6 +18,7 @@ namespace HPParking.Services.Devices
         private readonly ConcurrentDictionary<string, ControllerService> _controllers = [];
         private readonly ConcurrentDictionary<string, Lazy<Task<ControllerService>>> _controllerConnectTasks = [];
         private readonly ConcurrentBag<IDisposable> _cameras = [];
+        private readonly ConcurrentDictionary<string, LedBoardService> _ledBoards = [];
         private volatile bool _disposed;
 
         public event Action<string, bool, string>? OnControllerStatusChanged;
@@ -192,6 +193,19 @@ namespace HPParking.Services.Devices
                     }
                 }
             }
+
+            // 5. Bảng LED (TCP)
+            Device? ledDev = (!string.IsNullOrEmpty(lane.LedBoardDeviceId) && deviceMap.TryGetValue(lane.LedBoardDeviceId, out var lDev))
+                ? lDev : null;
+
+            if (ledDev != null && !string.IsNullOrWhiteSpace(ledDev.IpAddress))
+            {
+                int port = ledDev.Port;
+                if (port <= 0 || port > 65535) return;
+                string ledKey = $"{ledDev.IpAddress}:{port}";
+                var ledBoard = _ledBoards.GetOrAdd(ledKey, _ => new LedBoardService(ledDev.IpAddress, port));
+                context.LedBoard = ledBoard;
+            }
         }
 
         /// <summary>
@@ -277,6 +291,19 @@ namespace HPParking.Services.Devices
                     Debug.WriteLine($"[Lỗi Dispose Camera]: {ex.Message}");
                 }
             }
+
+            foreach (var led in _ledBoards.Values)
+            {
+                try
+                {
+                    led?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Lỗi Dispose LedBoard]: {ex.Message}");
+                }
+            }
+            _ledBoards.Clear();
 
             _controllers.Clear();
             _controllerConnectTasks.Clear();

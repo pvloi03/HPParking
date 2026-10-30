@@ -588,6 +588,9 @@ export function DevicesPage() {
                   <SelectItem value={String(DeviceType.FaceId)} className="text-xs">
                     FaceID (Khuôn mặt)
                   </SelectItem>
+                  <SelectItem value={String(DeviceType.LedBoard)} className="text-xs">
+                    Bảng LED (TCP)
+                  </SelectItem>
                   <SelectItem value={String(DeviceType.Other)} className="text-xs">
                     Thiết bị khác
                   </SelectItem>

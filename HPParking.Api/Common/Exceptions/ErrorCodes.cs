@@ -72,6 +72,7 @@ namespace HPParking.Api.Common.Exceptions
         public const string DEVICE_ENDPOINT_DUPLICATE = "DEVICE_ENDPOINT_DUPLICATE";
         public const string DEVICE_IN_USE_BY_LANE = "DEVICE_IN_USE_BY_LANE";
         public const string INFRA_ACTIVE_DEPENDENCY_EXISTS = "INFRA_ACTIVE_DEPENDENCY_EXISTS";
+        public const string DEVICE_IS_DELETED = "DEVICE_IS_DELETED";
 
         // Gate
         public const string GATE_NOT_FOUND = "GATE_NOT_FOUND";

@@ -55,6 +55,12 @@ namespace HPParking.Api.Validators.Lanes
                 RuleFor(x => x.FaceDeviceId!)
                     .Matches(@"^[a-fA-F0-9]{24}$").WithMessage("FaceDeviceId phải là chuỗi 24 ký tự Hex của MongoDB ObjectId hợp lệ.");
             });
+
+            When(x => !string.IsNullOrWhiteSpace(x.LedBoardDeviceId), () =>
+            {
+                RuleFor(x => x.LedBoardDeviceId!)
+                    .Matches(@"^[a-fA-F0-9]{24}$").WithMessage("LedBoardDeviceId phải là chuỗi 24 ký tự Hex của MongoDB ObjectId hợp lệ.");
+            });
         }
     }
 }

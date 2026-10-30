@@ -18,6 +18,7 @@ export const DeviceType = {
   Controller: 2,
   FaceId: 3,
   Other: 4,
+  LedBoard: 5,
 } as const;
 export type DeviceType = typeof DeviceType[keyof typeof DeviceType];
 
@@ -155,11 +156,35 @@ export interface LaneDto {
   plateCameraDeviceId?: string;
   controllerDeviceId?: string;
   faceDeviceId?: string;
+  ledBoardDeviceId?: string;
   outputRelay: number;
   inputReader: number;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
+}
+
+
+/**
+ * Nguồn chân lý duy nhất (SSOT): Lấy toàn bộ ID thiết bị ngoại vi được gán vào làn xe.
+ */
+export function getLaneDeviceIds(lane: LaneDto): string[] {
+  const ids = [
+    lane.overviewCameraDeviceId,
+    lane.plateCameraDeviceId,
+    lane.controllerDeviceId,
+    lane.faceDeviceId,
+    lane.ledBoardDeviceId,
+  ];
+  return ids.filter((id): id is string => Boolean(id && id.trim()));
+}
+
+/**
+ * Kiểm tra xem làn xe có đang gắn thiết bị với ID chỉ định hay không.
+ */
+export function laneUsesDevice(lane: LaneDto, deviceId?: string | null): boolean {
+  if (!deviceId) return false;
+  return getLaneDeviceIds(lane).includes(deviceId);
 }
 
 export interface LaneDetailDto extends LaneDto {
@@ -168,6 +193,7 @@ export interface LaneDetailDto extends LaneDto {
   overviewCamera?: DeviceSummaryDto;
   controller?: DeviceSummaryDto;
   faceDevice?: DeviceSummaryDto;
+  ledBoard?: DeviceSummaryDto;
 }
 
 export interface LaneFilterQuery extends PaginationQuery {
@@ -191,6 +217,7 @@ export interface CreateLaneRequest {
   plateCameraDeviceId?: string;
   controllerDeviceId?: string;
   faceDeviceId?: string;
+  ledBoardDeviceId?: string;
   outputRelay: number;
   inputReader: number;
   isActive: boolean;
@@ -209,6 +236,7 @@ export interface UpdateLaneRequest {
   plateCameraDeviceId?: string;
   controllerDeviceId?: string;
   faceDeviceId?: string;
+  ledBoardDeviceId?: string;
   outputRelay: number;
   inputReader: number;
   isActive: boolean;

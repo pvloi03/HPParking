@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Route, Save, Camera, Cpu, ScanFace } from 'lucide-react';
+import { Route, Save, Camera, Cpu, ScanFace, Tv } from 'lucide-react';
 import { InfiniteSearchableSelect } from '@/components/ui/infinite-searchable-select';
 import { gatesApi } from '@/api/infrastructureApi';
 import {
@@ -58,6 +58,7 @@ const laneSchema = z.object({
   overviewCameraDeviceId: z.string().optional(),
   controllerDeviceId: z.string().optional(),
   faceDeviceId: z.string().optional(),
+  ledBoardDeviceId: z.string().optional(),
   outputRelay: z.coerce
     .number()
     .int()
@@ -116,6 +117,7 @@ export function LaneFormDialog({
       overviewCameraDeviceId: 'none',
       controllerDeviceId: 'none',
       faceDeviceId: 'none',
+      ledBoardDeviceId: 'none',
       outputRelay: 1,
       inputReader: 1,
       isActive: true,
@@ -132,6 +134,7 @@ export function LaneFormDialog({
   const selectedOverviewCamera = watch('overviewCameraDeviceId');
   const selectedController = watch('controllerDeviceId');
   const selectedFaceDevice = watch('faceDeviceId');
+  const selectedLedBoard = watch('ledBoardDeviceId');
   const isActive = watch('isActive');
 
   const selectedGate = useMemo(
@@ -143,6 +146,7 @@ export function LaneFormDialog({
   const cameraDevices = devices.filter((d) => d.type === DeviceType.Camera);
   const controllerDevices = devices.filter((d) => d.type === DeviceType.Controller);
   const faceDevices = devices.filter((d) => d.type === DeviceType.FaceId);
+  const ledBoardDevices = devices.filter((d) => d.type === DeviceType.LedBoard);
 
   useEffect(() => {
     if (open) {
@@ -160,6 +164,7 @@ export function LaneFormDialog({
           overviewCameraDeviceId: initialData.overviewCameraDeviceId || 'none',
           controllerDeviceId: initialData.controllerDeviceId || 'none',
           faceDeviceId: initialData.faceDeviceId || 'none',
+          ledBoardDeviceId: initialData.ledBoardDeviceId || 'none',
           outputRelay: initialData.outputRelay || 1,
           inputReader: initialData.inputReader || 1,
           isActive: initialData.isActive,
@@ -178,6 +183,7 @@ export function LaneFormDialog({
           overviewCameraDeviceId: 'none',
           controllerDeviceId: 'none',
           faceDeviceId: 'none',
+          ledBoardDeviceId: 'none',
           outputRelay: 1,
           inputReader: 1,
           isActive: true,
@@ -211,6 +217,10 @@ export function LaneFormDialog({
       faceDeviceId:
         formData.faceDeviceId && formData.faceDeviceId !== 'none'
           ? formData.faceDeviceId
+          : undefined,
+      ledBoardDeviceId:
+        formData.ledBoardDeviceId && formData.ledBoardDeviceId !== 'none'
+          ? formData.ledBoardDeviceId
           : undefined,
       outputRelay: formData.outputRelay,
       inputReader: formData.inputReader,
@@ -504,6 +514,32 @@ export function LaneFormDialog({
                     {faceDevices.map((d) => (
                       <SelectItem key={d.id} value={d.id} className="text-xs">
                         {d.name} ({d.ipAddress})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Bảng LED Hiển Thị (LedBoard) */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                  <Tv className="h-3.5 w-3.5 text-purple-600" />
+                  <span>Bảng LED Hiển Thị (TCP)</span>
+                </label>
+                <Select
+                  value={selectedLedBoard}
+                  onValueChange={(val) => setValue('ledBoardDeviceId', val)}
+                >
+                  <SelectTrigger className="text-xs bg-background">
+                    <SelectValue placeholder="-- Chưa gán bảng LED --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-xs text-muted-foreground">
+                      -- Không dùng / Chưa gán --
+                    </SelectItem>
+                    {ledBoardDevices.map((d) => (
+                      <SelectItem key={d.id} value={d.id} className="text-xs">
+                        {d.name} ({d.ipAddress}:{d.port})
                       </SelectItem>
                     ))}
                   </SelectContent>

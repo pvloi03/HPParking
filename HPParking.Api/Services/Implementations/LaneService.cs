@@ -156,14 +156,8 @@ namespace HPParking.Api.Services.Implementations
                 }
             }
 
-            // 2. Gom toàn bộ ID của 4 thiết bị ngoại vi để truy vấn batch tối ưu I/O (ADR 0034)
-            var deviceIds = new List<string?>
-            {
-                lane.PlateCameraDeviceId,
-                lane.OverviewCameraDeviceId,
-                lane.ControllerDeviceId,
-                lane.FaceDeviceId
-            }.Where(dId => !string.IsNullOrEmpty(dId)).Distinct().ToList();
+            // 2. Gom toàn bộ ID của 5 thiết bị ngoại vi để truy vấn batch tối ưu I/O (ADR 0034)
+            var deviceIds = lane.GetAllDeviceIds().ToList();
 
             if (deviceIds.Count > 0)
             {
@@ -189,6 +183,11 @@ namespace HPParking.Api.Services.Implementations
                 if (!string.IsNullOrEmpty(lane.FaceDeviceId) && devDict.TryGetValue(lane.FaceDeviceId, out var faceDev))
                 {
                     dto.FaceDevice = faceDev;
+                }
+
+                if (!string.IsNullOrEmpty(lane.LedBoardDeviceId) && devDict.TryGetValue(lane.LedBoardDeviceId, out var ledDev))
+                {
+                    dto.LedBoard = ledDev;
                 }
             }
 
@@ -229,6 +228,7 @@ namespace HPParking.Api.Services.Implementations
             await ValidateDeviceBindingAsync(request.OverviewCameraDeviceId, "Camera toàn cảnh", cancellationToken);
             await ValidateDeviceBindingAsync(request.ControllerDeviceId, "Bộ điều khiển", cancellationToken);
             await ValidateDeviceBindingAsync(request.FaceDeviceId, "Đầu đọc FaceID", cancellationToken);
+            await ValidateDeviceBindingAsync(request.LedBoardDeviceId, "Bảng LED", cancellationToken);
 
             var lane = new Lane
             {
@@ -244,6 +244,7 @@ namespace HPParking.Api.Services.Implementations
                 OverviewCameraDeviceId = request.OverviewCameraDeviceId?.Trim(),
                 ControllerDeviceId = request.ControllerDeviceId?.Trim(),
                 FaceDeviceId = request.FaceDeviceId?.Trim(),
+                LedBoardDeviceId = request.LedBoardDeviceId?.Trim(),
                 OutputRelay = request.OutputRelay,
                 InputReader = request.InputReader,
                 IsActive = request.IsActive,
@@ -312,6 +313,7 @@ namespace HPParking.Api.Services.Implementations
             await ValidateDeviceBindingAsync(request.OverviewCameraDeviceId, "Camera toàn cảnh", cancellationToken);
             await ValidateDeviceBindingAsync(request.ControllerDeviceId, "Bộ điều khiển", cancellationToken);
             await ValidateDeviceBindingAsync(request.FaceDeviceId, "Đầu đọc FaceID", cancellationToken);
+            await ValidateDeviceBindingAsync(request.LedBoardDeviceId, "Bảng LED", cancellationToken);
 
             lane.GateId = gate.Id;
             lane.Code = cleanCode;
@@ -325,6 +327,7 @@ namespace HPParking.Api.Services.Implementations
             lane.OverviewCameraDeviceId = request.OverviewCameraDeviceId?.Trim();
             lane.ControllerDeviceId = request.ControllerDeviceId?.Trim();
             lane.FaceDeviceId = request.FaceDeviceId?.Trim();
+            lane.LedBoardDeviceId = request.LedBoardDeviceId?.Trim();
             lane.OutputRelay = request.OutputRelay;
             lane.InputReader = request.InputReader;
             lane.IsActive = request.IsActive;
@@ -403,19 +406,13 @@ namespace HPParking.Api.Services.Implementations
                 if (gate == null || gate.IsDeleted)
                 {
                     throw new BadRequestException(
-                        $"Không thể khôi phục Làn xe '{lane.Name}' vì Cổng cha đã bị xóa hoặc không tồn tại. Vui lòng khôi phục cổng cha trước.",
+                        $"Không thể khôi phục Làn xe '{lane.Name}' vì Cổng cha đã bị xóa hoặc không tồn tại. Vui lòng khôi phục cổng cha trước. [PARENT_IS_DELETED]",
                         ErrorCodes.PARENT_IS_DELETED);
                 }
             }
 
             // Kiểm tra các thiết bị ngoại vi liên kết: không được ở trạng thái đã xóa
-            var deviceIds = new List<string?>
-            {
-                lane.PlateCameraDeviceId,
-                lane.OverviewCameraDeviceId,
-                lane.ControllerDeviceId,
-                lane.FaceDeviceId
-            }.Where(dId => !string.IsNullOrEmpty(dId)).Distinct().ToList();
+            var deviceIds = lane.GetAllDeviceIds().ToList();
 
             foreach (var dId in deviceIds)
             {
@@ -423,8 +420,8 @@ namespace HPParking.Api.Services.Implementations
                 if (dev == null || dev.IsDeleted)
                 {
                     throw new BadRequestException(
-                        $"Không thể khôi phục Làn xe '{lane.Name}' vì thiết bị ngoại vi liên kết (ID: '{dId}') đã bị xóa hoặc không tồn tại.",
-                        ErrorCodes.BAD_REQUEST);
+                        $"Không thể khôi phục Làn xe '{lane.Name}' vì thiết bị ngoại vi liên kết (ID: '{dId}') đã bị xóa hoặc không tồn tại. [DEVICE_IS_DELETED]",
+                        ErrorCodes.DEVICE_IS_DELETED);
                 }
             }
 
@@ -473,7 +470,7 @@ namespace HPParking.Api.Services.Implementations
             var device = await _deviceRepo.GetByIdAsync(deviceId, cancellationToken);
             if (device == null || device.IsDeleted)
             {
-                throw new BadRequestException($"Thiết bị {deviceRole} với Id '{deviceId}' không tồn tại hoặc đã bị xóa.", ErrorCodes.BAD_REQUEST);
+                throw new BadRequestException($"Thiết bị {deviceRole} với Id '{deviceId}' không tồn tại hoặc đã bị xóa. [DEVICE_IS_DELETED]", ErrorCodes.DEVICE_IS_DELETED);
             }
 
             if (!device.IsActive)

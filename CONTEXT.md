@@ -158,6 +158,10 @@ _Avoid_: ANPR, OCR Reader, PlateScanner
 Đầu đọc thẻ căn cước công dân gắn chip phục vụ nạp nhanh thông tin định danh khi làm thủ tục đăng ký nhân sự ban đầu.
 _Avoid_: ChipReader, CardScanner
 
+**LED Board**:
+Bảng LED điện tử hiển thị thông tin biển số xe, thông điệp chào mừng hoặc số tiền phí tại làn kiểm soát. Thông số kết nối TCP/IP (IP Address và Port) được quản lý tập trung và bắt buộc lưu trữ trong cơ sở dữ liệu (`Device.Port`), tuyệt đối không sử dụng cổng mặc định ẩn trong mã nguồn phần mềm.
+_Avoid_: LedDisplay, DigitalSign, MatrixLed, HardcodedLedPort
+
 ### System & Identification Terms
 
 **CardNumber**:

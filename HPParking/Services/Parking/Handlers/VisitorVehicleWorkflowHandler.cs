@@ -302,6 +302,8 @@ namespace HPParking.Services.Parking.Handlers
                 feeAmount = 0m;
             }
 
+            context.DisplayFee(feeAmount, "MIEN PHI");
+
             // 6. Bỏ qua xác nhận qua popup TaskDialog (Phương án 1: Tự động ghi nhận thu phí)
             if (feeAmount > 0)
             {

@@ -289,6 +289,8 @@ namespace HPParking.Services.Parking.Handlers
                 await _tripRepository.UpdateAsync(activeTrip);
             }
 
+            if (!isEntry) context.DisplayFee(0m, "XE NOI BO");
+
             // 8. Kích hoạt mở barrier
             if (!_hardwareOrchestrator.TryOpenBarrier(context, onBarrierOpenFailed))
             {

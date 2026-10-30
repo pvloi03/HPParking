@@ -10,5 +10,6 @@ namespace HPParking.Api.DTOs.Lanes
         public DeviceSummaryDto? OverviewCamera { get; set; }
         public DeviceSummaryDto? Controller { get; set; }
         public DeviceSummaryDto? FaceDevice { get; set; }
+        public DeviceSummaryDto? LedBoard { get; set; }
     }
 }

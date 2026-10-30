@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { Camera, Cpu, ScanFace, HelpCircle } from 'lucide-react';
+import { Camera, Cpu, ScanFace, HelpCircle, Tv } from 'lucide-react';
 import { DeviceType, LaneDirection } from '@/types/infrastructure';
 
 /**
@@ -26,6 +26,13 @@ export function getDeviceTypeBadge(type: DeviceType) {
         <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 gap-1.5 text-xs font-medium py-0.5 px-2">
           <ScanFace className="h-3.5 w-3.5" />
           <span>Nhận Diện Khuôn Mặt (FaceID)</span>
+        </Badge>
+      );
+    case DeviceType.LedBoard:
+      return (
+        <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100 dark:bg-purple-950 dark:text-purple-300 gap-1.5 text-xs font-medium py-0.5 px-2">
+          <Tv className="h-3.5 w-3.5" />
+          <span>Bảng LED (TCP)</span>
         </Badge>
       );
     default:

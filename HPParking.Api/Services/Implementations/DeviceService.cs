@@ -181,10 +181,7 @@ namespace HPParking.Api.Services.Implementations
             if (device.IsActive && !request.IsActive)
             {
                 var activeLanes = await _laneRepo.FindAsync(
-                    l => l.IsActive && !l.IsDeleted &&
-                    (l.OverviewCameraDeviceId == id || l.PlateCameraDeviceId == id ||
-                     l.ControllerDeviceId == id || l.FaceDeviceId == id),
-                    cancellationToken);
+                    Lane.HasActiveDeviceAssigned(id), cancellationToken);
 
                 if (activeLanes.Count > 0)
                 {
@@ -235,10 +232,7 @@ namespace HPParking.Api.Services.Implementations
             // Universal Restrict Deletion Policy (ADR 0030 & ADR 0031):
             // Chặn xóa nếu thiết bị đang được gán ở bất kỳ Làn xe nào chưa bị xóa (!IsDeleted)
             var referencedLanes = await _laneRepo.FindAsync(
-                l => !l.IsDeleted &&
-                (l.OverviewCameraDeviceId == id || l.PlateCameraDeviceId == id ||
-                 l.ControllerDeviceId == id || l.FaceDeviceId == id),
-                cancellationToken);
+                Lane.HasDeviceAssigned(id), cancellationToken);
 
             if (referencedLanes.Count > 0)
             {

@@ -18,6 +18,7 @@ namespace HPParking.Api.DTOs.Lanes
         public string? PlateCameraDeviceId { get; set; }
         public string? ControllerDeviceId { get; set; }
         public string? FaceDeviceId { get; set; }
+        public string? LedBoardDeviceId { get; set; }
         public int OutputRelay { get; set; }
         public int InputReader { get; set; }
         public bool IsActive { get; set; } = true;

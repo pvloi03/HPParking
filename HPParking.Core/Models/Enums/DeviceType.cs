@@ -5,6 +5,7 @@ namespace HPParking.Core.Models.Enums
         Camera = 1,       // Camera (Biển số / Toàn cảnh)
         Controller = 2,   // Bộ điều khiển Barie (ZKTeco / C3-400 / Inbio)
         FaceId = 3,       // Máy nhận diện khuôn mặt FaceID
-        Other = 4         // Thiết bị khác
+        Other = 4,        // Thiết bị khác
+        LedBoard = 5      // Bảng LED hiển thị làn xe (TCP Port 10000)
     }
 }

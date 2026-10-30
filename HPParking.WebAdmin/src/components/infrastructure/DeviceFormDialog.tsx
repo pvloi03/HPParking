@@ -42,7 +42,7 @@ const deviceSchema = z.object({
     .trim()
     .min(2, 'Tên thiết bị phải có ít nhất 2 ký tự')
     .max(100, 'Tên thiết bị không được quá 100 ký tự'),
-  type: z.number().int().min(1).max(4),
+  type: z.number().int().min(1).max(5),
   ipAddress: z
     .string()
     .trim()
@@ -181,7 +181,9 @@ export function DeviceFormDialog({
             </label>
             <Select
               value={String(selectedType)}
-              onValueChange={(val) => setValue('type', Number(val), { shouldValidate: true })}
+              onValueChange={(val) => {
+                setValue('type', Number(val), { shouldValidate: true });
+              }}
             >
               <SelectTrigger className="text-xs">
                 <SelectValue placeholder="-- Chọn loại thiết bị --" />
@@ -195,6 +197,9 @@ export function DeviceFormDialog({
                 </SelectItem>
                 <SelectItem value={String(DeviceType.FaceId)} className="text-xs">
                   Thiết bị nhận diện khuôn mặt (FaceID)
+                </SelectItem>
+                <SelectItem value={String(DeviceType.LedBoard)} className="text-xs">
+                  Bảng LED (TCP)
                 </SelectItem>
                 <SelectItem value={String(DeviceType.Other)} className="text-xs">
                   Thiết bị khác (Cảm biến, Đầu đọc RFID)

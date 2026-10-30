@@ -507,6 +507,10 @@ namespace HPParking.Services.Parking.Handlers
                 feeAmount = 0m;
             }
 
+            string zeroText = card?.TargetType == CardTargetType.VIP ? "VE VIP"
+                            : (card != null ? "VE THANG" : "MIEN PHI");
+            context.DisplayFee(feeAmount, zeroText);
+
             // 6. Bỏ qua xác nhận qua popup TaskDialog (Phương án 1: Tự động ghi nhận thu phí)
             if (feeAmount > 0)
             {

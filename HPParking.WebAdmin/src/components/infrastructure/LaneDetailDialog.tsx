@@ -17,6 +17,7 @@ import {
   Camera,
   Cpu,
   ScanFace,
+  Tv,
   ArrowDownLeft,
   ArrowUpRight,
   ArrowLeftRight,
@@ -209,7 +210,7 @@ export function LaneDetailDialog({
             {/* 4 THIẾT BỊ NGOẠI VI GÁN VÀO LÀN */}
             <div className="space-y-2">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                4 Thiết Bị Ngoại Vi Liên Kết (ADR 0034)
+                Thiết Bị Ngoại Vi Liên Kết (ADR 0034)
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {renderDeviceCard(
@@ -234,6 +235,11 @@ export function LaneDetailDialog({
                   'Nhận Diện Khuôn Mặt (FaceID)',
                   <ScanFace className="h-4 w-4 text-emerald-600" />,
                   detail.faceDevice
+                )}
+                {renderDeviceCard(
+                  'Bảng LED Hiển Thị (TCP)',
+                  <Tv className="h-4 w-4 text-purple-600" />,
+                  detail.ledBoard
                 )}
               </div>
             </div>

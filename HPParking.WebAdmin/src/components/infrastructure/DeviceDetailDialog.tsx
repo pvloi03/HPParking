@@ -37,6 +37,7 @@ import { devicesApi, lanesApi, extractErrorMessage } from '@/api/infrastructureA
 import {
   type DeviceDto,
   type DevicePingResultDto,
+  laneUsesDevice,
 } from '@/types/infrastructure';
 import { useDevicePingStore, isPingRecordFresh } from '@/stores/devicePingStore';
 import { getDeviceTypeBadge, getLaneDirectionBadge } from '@/components/infrastructure/deviceBadges';
@@ -85,13 +86,7 @@ export function DeviceDetailDialog({
   // Lọc các làn xe đang sử dụng thiết bị này
   const associatedLanes = useMemo(() => {
     if (!lanesData?.items || !device?.id) return [];
-    return lanesData.items.filter(
-      (l) =>
-        l.overviewCameraDeviceId === device.id ||
-        l.plateCameraDeviceId === device.id ||
-        l.controllerDeviceId === device.id ||
-        l.faceDeviceId === device.id
-    );
+    return lanesData.items.filter((l) => laneUsesDevice(l, device.id));
   }, [lanesData, device?.id]);
 
   // Xử lý sao chép mã thiết bị
@@ -456,6 +451,7 @@ export function DeviceDetailDialog({
                       if (lane.overviewCameraDeviceId === device.id) roles.push('Camera Toàn Cảnh');
                       if (lane.controllerDeviceId === device.id) roles.push('Bộ Điều Khiển Barrier');
                       if (lane.faceDeviceId === device.id) roles.push('Đầu Đọc Khuôn Mặt (FaceID)');
+                      if (lane.ledBoardDeviceId === device.id) roles.push('Bảng LED Hiển Thị (TCP)');
 
                       return (
                         <div
