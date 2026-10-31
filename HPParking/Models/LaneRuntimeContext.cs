@@ -2,7 +2,6 @@ using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Services.Controller;
 using HPParking.Services.Devices;
-using HPParking.UI;
 using System;
 using System.Globalization;
 
@@ -19,8 +18,6 @@ namespace HPParking.Models
         public LaneCamera? Cameras { get; set; }
 
         public ControllerService? Controller { get; set; }
-
-        public VehicleUI? UI { get; set; }
 
         public LedBoardService? LedBoard { get; set; }
 
