@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full w-full">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lane Info Card</title>
+  <link rel="stylesheet" href="tailwind.min.css" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      background-color: #f1f5f9;
+    }
+
+    @keyframes flashSuccess {
+      0% {
+        background-color: #bbf7d0;
+        border-color: #16a34a;
+      }
+
+      100% {
+        background-color: #ffffff;
+        border-color: #22c55e;
+      }
+    }
+
+    @keyframes flashError {
+      0% {
+        background-color: #fecdd3;
+        border-color: #e11d48;
+      }
+
+      100% {
+        background-color: #fff1f2;
+        border-color: #f43f5e;
+      }
+    }
+
+    .flash-success {
+      animation: flashSuccess 0.65s ease-out forwards;
+    }
+
+    .flash-error {
+      animation: flashError 0.65s ease-out forwards;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 font-sans select-none p-[2px] h-full w-full overflow-hidden flex flex-col">
+  <!-- Container Card có viền 2px đồng đều cả 4 cạnh, cách mép viewport 2px để không bị cắt sub-pixel -->
+  <div id="cardContainer"
+    class="flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-slate-300 rounded p-1.5 transition-colors duration-300">
+
+    <!-- Danh sách thông tin (font chữ to rõ, chiếm phần lớn chiều cao) -->
+    <div
+      class="bg-slate-50 rounded px-3 py-2 flex-[6] min-h-0 flex flex-col justify-evenly text-sm border border-slate-300">
+      <!-- Dòng 1 phụ trợ (Chỉ hiện cho Người đi bộ: Họ và tên) -->
+      <div id="rowPrimary1" class="hidden justify-between items-center gap-2 border-b border-slate-200 pb-1.5">
+        <span class="text-slate-600 font-medium shrink-0" id="lblRow1Title">Họ và tên:</span>
+        <span class="font-bold text-slate-900 text-base text-right truncate" id="lblRow1Val">---</span>
+      </div>
+
+      <!-- Biển số nhận diện (Xe cơ giới) hoặc CCCD/Mã (Người đi bộ) -->
+      <div class="flex justify-between items-center gap-2 border-b border-slate-200 pb-1.5">
+        <span class="text-slate-600 font-medium shrink-0" id="lblRow2Title">Biển số nhận diện:</span>
+        <span class="font-bold text-emerald-700 font-mono text-lg text-right truncate" id="lblRow2Val">---</span>
+      </div>
+
+      <!-- Tài xế / Chủ xe hoặc Đối tượng -->
+      <div class="flex justify-between items-center gap-2 border-b border-slate-200 pb-1.5">
+        <span class="text-slate-600 font-medium shrink-0" id="lblSubTitle1">Tài xế / Chủ xe:</span>
+        <span class="font-bold text-slate-800 text-right truncate" id="lblSubVal1">---</span>
+      </div>
+
+      <!-- Mã thẻ (Mã thẻ - Loại thẻ - Phí) -->
+      <div class="flex justify-between items-center gap-2 border-b border-slate-200 pb-1.5">
+        <span class="text-slate-600 font-medium shrink-0" id="lblSubTitle2">Mã thẻ:</span>
+        <span class="font-semibold text-slate-800 text-right truncate" id="lblSubVal2">---</span>
+      </div>
+
+      <!-- Làn vào chỉ hiện Giờ vào -->
+      <div id="rowTimeIn" class="flex justify-between items-center gap-2 pt-0.5">
+        <span class="text-slate-600 font-medium shrink-0">Giờ vào:</span>
+        <span class="font-mono font-semibold text-slate-800 text-right truncate" id="lblTimeIn">---</span>
+      </div>
+
+      <!-- Làn ra chỉ hiện Giờ ra -->
+      <div id="rowTimeOut" class="hidden justify-between items-center gap-2 pt-0.5">
+        <span class="text-slate-600 font-medium shrink-0">Giờ ra:</span>
+        <span class="font-mono font-semibold text-slate-800 text-right truncate" id="lblTimeOut">---</span>
+      </div>
+    </div>
+
+    <!-- Hình ảnh đối chiếu (Thu gọn chiều cao xuống để ưu tiên phần thông tin) -->
+    <div class="grid grid-cols-2 gap-1.5 mt-1.5 flex-[4] min-h-[60px] max-h-[145px]">
+      <div
+        class="flex-1 min-h-0 w-full bg-slate-100 rounded border border-slate-300 overflow-hidden flex items-center justify-center">
+        <img id="img1" src="" class="w-full h-full object-contain hidden" alt="Ảnh 1" />
+        <span id="img1Placeholder" class="text-xs text-slate-400 italic">Chưa có ảnh</span>
+      </div>
+      <div
+        class="flex-1 min-h-0 w-full bg-slate-100 rounded border border-slate-300 overflow-hidden flex items-center justify-center">
+        <img id="img2" src="" class="w-full h-full object-contain hidden" alt="Ảnh 2" />
+        <span id="img2Placeholder" class="text-xs text-slate-400 italic">Chưa có ảnh</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function triggerFlash(card, isSuccess) {
+      card.classList.remove('flash-success', 'flash-error');
+      void card.offsetWidth;
+      card.classList.add(isSuccess ? 'flash-success' : 'flash-error');
+    }
+
+    function renderCardInfoWithGreenFee(el, cardCodeText, feeHighlight, hasTariffWarning) {
+      el.innerHTML = '';
+      const codeText = cardCodeText || '---';
+      if (hasTariffWarning) {
+        el.className = 'font-bold text-rose-600 text-right truncate';
+        el.textContent = codeText;
+        return;
+      }
+
+      el.className = 'font-semibold text-slate-800 text-right truncate';
+      const codeSpan = document.createElement('span');
+      codeSpan.textContent = feeHighlight ? `${codeText} - ` : codeText;
+      el.appendChild(codeSpan);
+
+      if (feeHighlight) {
+        const feeSpan = document.createElement('span');
+        feeSpan.className = 'font-bold text-emerald-600';
+        feeSpan.textContent = feeHighlight;
+        el.appendChild(feeSpan);
+      }
+    }
+
+    function updateLaneData(data) {
+      if (!data) return;
+
+      const card = document.getElementById('cardContainer');
+
+      // 1. Hiệu ứng viền 2px đồng nhất cả 4 cạnh theo trạng thái
+      if (data.isIdle) {
+        card.className = 'flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-slate-300 rounded p-1.5 transition-colors duration-300';
+      } else if (data.isSuccess) {
+        card.className = 'flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-emerald-500 rounded p-1.5 transition-colors duration-300';
+        triggerFlash(card, true);
+      } else {
+        card.className = 'flex-1 min-h-0 w-full flex flex-col justify-between bg-rose-50/60 border-2 border-rose-500 rounded p-1.5 transition-colors duration-300';
+        triggerFlash(card, false);
+      }
+
+      // 2. Dòng 1 (Chỉ hiện nếu có row1Title, ví dụ Họ và tên người đi bộ)
+      const rowPrimary1 = document.getElementById('rowPrimary1');
+      if (data.row1Title) {
+        rowPrimary1.classList.remove('hidden');
+        rowPrimary1.classList.add('flex');
+        document.getElementById('lblRow1Title').textContent = data.row1Title;
+        document.getElementById('lblRow1Val').textContent = data.row1Value || '---';
+      } else {
+        rowPrimary1.classList.add('hidden');
+        rowPrimary1.classList.remove('flex');
+      }
+
+      // 3. Biển số nhận diện / CCCD
+      document.getElementById('lblRow2Title').textContent = data.row2Title || 'Biển số nhận diện:';
+      const row2El = document.getElementById('lblRow2Val');
+      row2El.textContent = data.row2Value || '---';
+      if (data.isPlateMismatch) {
+        row2El.className = 'font-bold text-rose-600 font-mono text-lg text-right truncate';
+      } else {
+        row2El.className = 'font-bold text-emerald-700 font-mono text-lg text-right truncate';
+      }
+
+      // 4. Dòng phụ (Tài xế, Mã thẻ, Thời gian)
+      document.getElementById('lblSubTitle1').textContent = data.subTitle1 || 'Tài xế / Chủ xe:';
+      document.getElementById('lblSubVal1').textContent = data.subVal1 || '---';
+      document.getElementById('lblSubTitle2').textContent = data.subTitle2 || 'Mã thẻ:';
+
+      const subVal2El = document.getElementById('lblSubVal2');
+      renderCardInfoWithGreenFee(subVal2El, data.cardCodeText, data.feeHighlight, data.hasTariffWarning);
+
+      // 5. Làn vào chỉ hiện Giờ vào, làn ra chỉ hiện Giờ ra
+      const rowTimeIn = document.getElementById('rowTimeIn');
+      const rowTimeOut = document.getElementById('rowTimeOut');
+      if (data.isEntry) {
+        rowTimeIn.classList.remove('hidden');
+        rowTimeIn.classList.add('flex');
+        rowTimeOut.classList.add('hidden');
+        rowTimeOut.classList.remove('flex');
+        document.getElementById('lblTimeIn').textContent = data.timeIn || '---';
+      } else {
+        rowTimeIn.classList.add('hidden');
+        rowTimeIn.classList.remove('flex');
+        rowTimeOut.classList.remove('hidden');
+        rowTimeOut.classList.add('flex');
+        document.getElementById('lblTimeOut').textContent = data.timeOut || '---';
+      }
+
+      // 6. Ảnh đối chiếu
+      setImage('img1', 'img1Placeholder', data.img1);
+      setImage('img2', 'img2Placeholder', data.img2);
+    }
+
+    function setImage(imgId, placeholderId, src) {
+      const img = document.getElementById(imgId);
+      const placeholder = document.getElementById(placeholderId);
+      if (src && src.length > 0) {
+        img.src = src;
+        img.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+      } else {
+        img.src = '';
+        img.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+      }
+    }
+
+    if (window.chrome && window.chrome.webview) {
+      window.chrome.webview.addEventListener('message', event => {
+        const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        updateLaneData(payload);
+      });
+      window.chrome.webview.postMessage('READY');
+    }
+  </script>
+</body>
+
+</html>

@@ -287,6 +287,102 @@ namespace HPParking.Tests.Forms
             });
         }
 
+        [Fact]
+        public void UpdateLaneSlotUI_ShouldPrepareWebViewCardPayload_ForVehicleAndPedestrianLanes()
+        {
+            RunOnStaThread(() =>
+            {
+                using var form = CreateFrmMain();
+                var vehicleLane = new Lane
+                {
+                    Id = "L1",
+                    Name = "Làn Xe Vào",
+                    Direction = LaneDirection.In,
+                    TargetType = LaneTargetType.Vehicle
+                };
+                var pedestrianLane = new Lane
+                {
+                    Id = "L2",
+                    Name = "Làn Đi Bộ Ra",
+                    Direction = LaneDirection.Out,
+                    TargetType = LaneTargetType.Pedestrian
+                };
+
+                var ctxVehicle = new HPParking.Models.LaneRuntimeContext(vehicleLane);
+                var ctxPedestrian = new HPParking.Models.LaneRuntimeContext(pedestrianLane);
+
+                form.ApplyLaneContexts(new() { ctxVehicle, ctxPedestrian });
+
+                // Kiểm tra khởi tạo WebView2 & trạng thái chờ ban đầu (TabStop = false để không cướp focus phím nóng)
+                form.GetLaneInfoWebView(0).Should().NotBeNull();
+                form.GetLaneInfoWebView(0).TabStop.Should().BeFalse();
+                form.GetLaneInfoWebView(1).Should().NotBeNull();
+                form.GetLaneInfoWebView(1).TabStop.Should().BeFalse();
+                form.GetLastSlotCardPayload(0)!.IsIdle.Should().BeTrue();
+                form.GetLastSlotCardPayload(0)!.TargetType.Should().Be("XE CƠ GIỚI • LÀN VÀO");
+                form.GetLastSlotCardPayload(1)!.TargetType.Should().Be("NGƯỜI ĐI BỘ • LÀN RA");
+
+                // Act 1: Cập nhật kết quả xe cơ giới lệch biển số (Thẻ lượt có phí)
+                var vehicleResult = new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.PlateMismatch,
+                    Vehicle = new Vehicle { PlateNumber = "29A-123.45" },
+                    Card = new Card { CardNumber = "0003456789", TargetType = CardTargetType.Visitor },
+                    LprResult = new HPParking.Services.LPR.LprResult { Plate = "29A-999.99" },
+                    Client = new Client { Name = "Nguyễn Văn A" },
+                    DepartmentName = "Phòng Kỹ Thuật",
+                    FeeAmount = 10000,
+                    IsFeeCollected = true
+                };
+                form.UpdateLaneSlotUI(0, ctxVehicle, vehicleResult);
+
+                var vPayload = form.GetLastSlotCardPayload(0)!;
+                vPayload.IsIdle.Should().BeFalse();
+                vPayload.IsEntry.Should().BeTrue();
+                vPayload.IsSuccess.Should().BeFalse();
+                vPayload.IsPlateMismatch.Should().BeTrue();
+                vPayload.StatusText.Should().Be("SAI BIỂN SỐ");
+                vPayload.Row1Title.Should().BeEmpty();
+                vPayload.Row2Title.Should().Be("Biển số nhận diện:");
+                vPayload.Row2Value.Should().Be("29A-999.99");
+                vPayload.SubVal1.Should().Be("Nguyễn Văn A");
+                vPayload.SubTitle2.Should().Be("Mã thẻ:");
+                vPayload.CardCodeText.Should().Be("0003456789");
+                vPayload.FeeHighlight.Should().Be("10.000 VNĐ");
+                vPayload.TimeIn.Should().NotBe("---");
+                vPayload.TimeOut.Should().Be("---");
+                vPayload.ImgTitle1.Should().Be("Ảnh biển số");
+                vPayload.ImgTitle2.Should().Be("Ảnh toàn cảnh");
+
+                // Act 2: Cập nhật kết quả người đi bộ hợp lệ ở làn ra (Thẻ tháng miễn phí)
+                var pedResult = new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.Success,
+                    Card = new Card { CardNumber = "1234567890", TargetType = CardTargetType.Monthly },
+                    Client = new Client { Name = "Trần Thị B", Code = "NV009", Type = ClientType.Employee },
+                    DepartmentName = "Phòng Nhân Sự"
+                };
+                form.UpdateLaneSlotUI(1, ctxPedestrian, pedResult);
+
+                var pPayload = form.GetLastSlotCardPayload(1)!;
+                pPayload.IsIdle.Should().BeFalse();
+                pPayload.IsEntry.Should().BeFalse();
+                pPayload.IsSuccess.Should().BeTrue();
+                pPayload.StatusText.Should().Be("HỢP LỆ");
+                pPayload.Row1Title.Should().Be("Họ và tên:");
+                pPayload.Row1Value.Should().Be("Trần Thị B");
+                pPayload.Row2Title.Should().Be("CCCD / Mã:");
+                pPayload.Row2Value.Should().Be("NV009");
+                vPayload.SubTitle2.Should().Be("Mã thẻ:");
+                pPayload.SubVal1.Should().Be("Nhân viên");
+                pPayload.SubTitle2.Should().Be("Mã thẻ:");
+                pPayload.CardCodeText.Should().Be("1234567890");
+                pPayload.FeeHighlight.Should().Be("Miễn phí");
+                pPayload.TimeIn.Should().Be("---");
+                pPayload.TimeOut.Should().NotBe("---");
+            });
+        }
+
         private static FrmMain CreateFrmMain(HPParking.Core.Interfaces.IRepository<AuditLog>? auditRepo = null)
         {
             var laneRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Lane>>();

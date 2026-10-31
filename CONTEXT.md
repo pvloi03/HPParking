@@ -128,6 +128,10 @@ _Avoid_: ForceLaneFace, AlwaysFaceCapture, SharedVehicleFaceScan
 Chính sách cấu hình trên từng hồ sơ nhân sự quyết định việc tự động kích hoạt rơ-le mở barie hoặc cổng quay turnstile theo từng chiều vào và ra sau khi xác thực thành công. Khi tắt ở một chiều, phiên lưu thông hợp lệ vẫn được ghi nhận nhưng thanh chắn giữ nguyên để bảo vệ kiểm soát và mở thủ công.
 _Avoid_: ManualVerifyDialog, BlockSessionOnClosedBarrier, LaneLevelAutoOpen
 
+**Gate Alert Preemption**:
+Cơ chế hiển thị hộp thoại cảnh báo hoặc nhập biển số thủ công tại trạm kiểm soát: giữ nguyên trên màn hình cho đến khi nhân viên trực cổng xác nhận đóng hoặc tự động giải phóng ngay khi phát sinh tín hiệu kích hoạt của lượt lưu thông tiếp theo, không tự đóng theo bộ đếm thời gian.
+_Avoid_: TimedAlertDismissal, CountdownPopup, BlockingModalQueue
+
 ### Hardware & Peripherals
 
 **Barrier**:

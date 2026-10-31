@@ -2,6 +2,9 @@ using FluentAssertions;
 using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 using HPParking.Forms;
+using System;
+using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 using Xunit;
 
@@ -23,6 +26,18 @@ namespace HPParking.Tests.Forms
         }
 
         [Fact]
+        public void ParkingTaskDialog_Methods_ShouldNotHaveTimeoutSecondsParameter()
+        {
+            var type = typeof(ParkingTaskDialog);
+            foreach (var methodName in new[] { "ShowError", "ShowWarning", "ShowInfo", "ShowConfirmation" })
+            {
+                var method = type.GetMethod(methodName);
+                method.Should().NotBeNull();
+                method!.GetParameters().Select(p => p.Name).Should().NotContain("timeoutSeconds");
+            }
+        }
+
+        [Fact]
         public void FrmManualPlateInput_DismissActive_WhenNoActiveInstance_ShouldNotThrow()
         {
             // Act & Assert
@@ -36,7 +51,7 @@ namespace HPParking.Tests.Forms
         }
 
         [Fact]
-        public void FrmManualPlateInput_WhenEmptyInput_ShouldDisplayInlineError_WithoutMessageBox()
+        public void FrmManualPlateInput_WhenEmptyInput_ShouldDisplayInlineError_WithoutMessageBox_AndHideCountdown()
         {
             RunOnStaThread(() =>
             {
@@ -49,6 +64,7 @@ namespace HPParking.Tests.Forms
 
                 using var form = new FrmManualPlateInput(lane, "Camera lỗi", "30E-888.88");
                 form.Show();
+                form.lblCountdown.Visible.Should().BeFalse();
                 form.txtPlate.Text = "   ";
 
                 // Giả lập click nút Xác nhận

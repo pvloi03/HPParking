@@ -5,9 +5,8 @@ namespace HPParking.Forms
 {
     /// <summary>
     /// Tiện ích TaskDialog chuẩn hóa dùng chung cho toàn bộ ứng dụng HPParking:
-    /// - Hiển thị giao diện hiện đại Windows (Heading, Text, Expander, Footnote).
-    /// - Hỗ trợ đếm ngược tự đóng (Auto-dismiss countdown) để không phong tỏa màn hình khi xe lỗi rời đi.
-    /// - Hỗ trợ đóng ngay lập tức (DismissActive) khi có lượt quẹt thẻ hoặc sự kiện mới ở bất kỳ làn nào.
+    /// - Hiển thị giao diện hiện đại Windows (Heading, Text, Expander).
+    /// - Giữ cố định trên màn hình cho đến khi nhân viên trực cổng xác nhận đóng hoặc tự động giải phóng (DismissActive) khi có lượt quẹt thẻ/radar mới.
     /// </summary>
     public static class ParkingTaskDialog
     {
@@ -30,59 +29,55 @@ namespace HPParking.Forms
         }
 
         /// <summary>
-        /// Hiển thị cảnh báo LỖI (Error) với đếm ngược tự đóng.
+        /// Hiển thị cảnh báo LỖI (Error).
         /// </summary>
         public static void ShowError(
             IWin32Window? owner,
             string heading,
             string text,
             string? details = null,
-            int timeoutSeconds = 5,
             string caption = "HPParking - Cảnh Báo Lỗi")
         {
-            ShowDialog(owner, heading, text, TaskDialogIcon.Error, details, timeoutSeconds, caption);
+            ShowDialog(owner, heading, text, TaskDialogIcon.Error, details, caption);
         }
 
         /// <summary>
-        /// Hiển thị CẢNH BÁO (Warning) với đếm ngược tự đóng.
+        /// Hiển thị CẢNH BÁO (Warning).
         /// </summary>
         public static void ShowWarning(
             IWin32Window? owner,
             string heading,
             string text,
             string? details = null,
-            int timeoutSeconds = 5,
             string caption = "HPParking - Cảnh Báo")
         {
-            ShowDialog(owner, heading, text, TaskDialogIcon.Warning, details, timeoutSeconds, caption);
+            ShowDialog(owner, heading, text, TaskDialogIcon.Warning, details, caption);
         }
 
         /// <summary>
-        /// Hiển thị THÔNG BÁO (Information) với đếm ngược tự đóng.
+        /// Hiển thị THÔNG BÁO (Information).
         /// </summary>
         public static void ShowInfo(
             IWin32Window? owner,
             string heading,
             string text,
             string? details = null,
-            int timeoutSeconds = 5,
             string caption = "HPParking - Thông Báo")
         {
-            ShowDialog(owner, heading, text, TaskDialogIcon.Information, details, timeoutSeconds, caption);
+            ShowDialog(owner, heading, text, TaskDialogIcon.Information, details, caption);
         }
 
         /// <summary>
-        /// Hiển thị hộp thoại XÁC NHẬN (Yes / No). Mặc định không có timeout trừ khi được chỉ định.
+        /// Hiển thị hộp thoại XÁC NHẬN (Yes / No).
         /// </summary>
         public static bool ShowConfirmation(
             IWin32Window? owner,
             string heading,
             string text,
             string? details = null,
-            int timeoutSeconds = 0,
             string caption = "HPParking - Xác Nhận")
         {
-            return ShowConfirmDialog(owner, heading, text, details, timeoutSeconds, caption);
+            return ShowConfirmDialog(owner, heading, text, details, caption);
         }
 
         private static void ShowDialog(
@@ -91,7 +86,6 @@ namespace HPParking.Forms
             string text,
             TaskDialogIcon icon,
             string? details,
-            int timeoutSeconds,
             string caption)
         {
             // Đóng dialog cũ trước khi mở dialog mới
@@ -119,14 +113,6 @@ namespace HPParking.Forms
                 };
             }
 
-            System.Windows.Forms.Timer? timer = null;
-            int remainingSeconds = timeoutSeconds;
-
-            if (timeoutSeconds > 0)
-            {
-                page.Footnote = new TaskDialogFootnote($"⏱️ Tự động đóng sau {remainingSeconds} giây...");
-            }
-
             page.Created += (s, e) =>
             {
                 lock (_syncLock)
@@ -150,50 +136,10 @@ namespace HPParking.Forms
                         }
                     };
                 }
-
-                if (timeoutSeconds > 0)
-                {
-                    timer = new System.Windows.Forms.Timer { Interval = 1000 };
-                    timer.Tick += (ts, te) =>
-                    {
-                        remainingSeconds--;
-                        if (remainingSeconds <= 0)
-                        {
-                            timer.Stop();
-                            try
-                            {
-                                closeButton.PerformClick();
-                            }
-                            catch
-                            {
-                                // Ignore
-                            }
-                        }
-                        else
-                        {
-                            try
-                            {
-                                if (page.Footnote != null)
-                                {
-                                    page.Footnote.Text = $"⏱️ Tự động đóng sau {remainingSeconds} giây...";
-                                }
-                            }
-                            catch
-                            {
-                                // Ignore if already closed
-                            }
-                        }
-                    };
-                    timer.Start();
-                }
             };
 
             page.Destroyed += (s, e) =>
             {
-                timer?.Stop();
-                timer?.Dispose();
-                timer = null;
-
                 lock (_syncLock)
                 {
                     _activeDismissAction = null;
@@ -213,8 +159,6 @@ namespace HPParking.Forms
             }
             finally
             {
-                timer?.Stop();
-                timer?.Dispose();
                 lock (_syncLock)
                 {
                     _activeDismissAction = null;
@@ -227,7 +171,6 @@ namespace HPParking.Forms
             string heading,
             string text,
             string? details,
-            int timeoutSeconds,
             string caption)
         {
             DismissActive();
@@ -256,14 +199,6 @@ namespace HPParking.Forms
                 };
             }
 
-            System.Windows.Forms.Timer? timer = null;
-            int remainingSeconds = timeoutSeconds;
-
-            if (timeoutSeconds > 0)
-            {
-                page.Footnote = new TaskDialogFootnote($"⏱️ Tự động hủy sau {remainingSeconds} giây...");
-            }
-
             page.Created += (s, e) =>
             {
                 lock (_syncLock)
@@ -287,50 +222,10 @@ namespace HPParking.Forms
                         }
                     };
                 }
-
-                if (timeoutSeconds > 0)
-                {
-                    timer = new System.Windows.Forms.Timer { Interval = 1000 };
-                    timer.Tick += (ts, te) =>
-                    {
-                        remainingSeconds--;
-                        if (remainingSeconds <= 0)
-                        {
-                            timer.Stop();
-                            try
-                            {
-                                btnNo.PerformClick();
-                            }
-                            catch
-                            {
-                                // Ignore
-                            }
-                        }
-                        else
-                        {
-                            try
-                            {
-                                if (page.Footnote != null)
-                                {
-                                    page.Footnote.Text = $"⏱️ Tự động hủy sau {remainingSeconds} giây...";
-                                }
-                            }
-                            catch
-                            {
-                                // Ignore
-                            }
-                        }
-                    };
-                    timer.Start();
-                }
             };
 
             page.Destroyed += (s, e) =>
             {
-                timer?.Stop();
-                timer?.Dispose();
-                timer = null;
-
                 lock (_syncLock)
                 {
                     _activeDismissAction = null;
@@ -346,8 +241,6 @@ namespace HPParking.Forms
             }
             finally
             {
-                timer?.Stop();
-                timer?.Dispose();
                 lock (_syncLock)
                 {
                     _activeDismissAction = null;

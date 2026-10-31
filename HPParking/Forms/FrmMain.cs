@@ -10,10 +10,15 @@ using HPParking.Services.Controller;
 using HPParking.Services.Devices;
 using HPParking.Services.License;
 using HPParking.Services.Parking;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -43,6 +48,15 @@ namespace HPParking.Forms
         private ServerHealthReport? _lastServerHealthReport;
         private CancellationTokenSource? _healthCheckCts;
         private readonly ProcessResult?[] _lastSlotResults = new ProcessResult?[4];
+        private CoreWebView2Environment? _webViewEnvironment;
+        private readonly bool[] _slotWebViewReady = new bool[4];
+        private readonly string?[] _pendingSlotJsonPayloads = new string?[4];
+        private readonly LaneCardPayload?[] _lastSlotPayloads = new LaneCardPayload?[4];
+        private static readonly JsonSerializerOptions _webViewJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        private static readonly CultureInfo _viCulture = CultureInfo.GetCultureInfo("vi-VN");
 
         public FrmMain(
             IRepository<Lane> laneRepository,
@@ -54,6 +68,10 @@ namespace HPParking.Forms
             IRepository<AuditLog>? auditLogRepository = null)
         {
             InitializeComponent();
+            foreach (var wv in new[] { wvInfoLane1, wvInfoLane2, wvInfoLane3, wvInfoLane4 })
+            {
+                wv.TabStop = false;
+            }
 
             _laneRepository = laneRepository;
             _gateRepository = gateRepository;
@@ -96,7 +114,10 @@ namespace HPParking.Forms
                 };
                 _clockTimer.Start();
 
-                // 4. Nạp Cổng, Làn và kết nối toàn bộ thiết bị phần cứng thực tế
+                // 4. Khởi tạo các khung hiển thị thông tin WebView2 (HTML + Tailwind Offline)
+                await InitializeLaneWebViewsAsync();
+
+                // 5. Nạp Cổng, Làn và kết nối toàn bộ thiết bị phần cứng thực tế
                 await LoadHardwareAndLanesAsync();
             }
             catch (Exception ex)
@@ -205,7 +226,20 @@ namespace HPParking.Forms
         private void ConfigureSlotHeader(int slotIndex, Lane lane)
         {
             GetSlotTitleLabel(slotIndex).Text = $"{lane.Name.ToUpperInvariant()} [F{slotIndex + 1}]";
+            ResetLaneSlotCardToIdle(slotIndex, lane);
         }
+
+        internal WebView2 GetLaneInfoWebView(int slotIndex) => slotIndex switch
+        {
+            0 => wvInfoLane1,
+            1 => wvInfoLane2,
+            2 => wvInfoLane3,
+            3 => wvInfoLane4,
+            _ => throw new ArgumentOutOfRangeException(nameof(slotIndex))
+        };
+
+        internal LaneCardPayload? GetLastSlotCardPayload(int slotIndex) =>
+            (slotIndex >= 0 && slotIndex < 4) ? _lastSlotPayloads[slotIndex] : null;
 
         internal (PictureBox Overview, PictureBox Plate, PictureBox Face) GetLaneCamBoxes(int slotIndex)
         {
@@ -387,7 +421,7 @@ namespace HPParking.Forms
             try
             {
                 tlpLane.RowStyles.Clear();
-                tlpLane.RowStyles.Add(new RowStyle(SizeType.Absolute, 68F)); // Tiêu đề cổng
+                tlpLane.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F)); // Tiêu đề làn nhỏ gọn
                 if (isWideMode)
                 {
                     // Chế độ rộng: 1 hàng camera cao 280px (chuẩn 16:9 / 4:3), phần dưới thông tin nhận toàn bộ không gian còn lại
@@ -523,8 +557,7 @@ namespace HPParking.Forms
                         this,
                         heading: "ĐẦU ĐỌC CHƯA GÁN LÀN",
                         text: $"Đầu đọc {data.DoorId} (Bộ điều khiển {data.ControllerIp}) chưa được gán vào làn hoạt động nào!",
-                        details: $"• Mã thẻ: {data.CardNo}\n• Thời gian: {DateTime.Now:HH:mm:ss dd/MM/yyyy}\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.",
-                        timeoutSeconds: 5);
+                        details: $"• Mã thẻ: {data.CardNo}\n• Thời gian: {DateTime.Now:HH:mm:ss dd/MM/yyyy}\n\nVui lòng kiểm tra danh sách Làn trên WebAdmin và bật làn tương ứng.");
                 }));
                 return;
             }
@@ -559,8 +592,7 @@ namespace HPParking.Forms
                         this,
                         heading: "LỖI TÍNH PHÍ ĐỖ XE",
                         text: result.Message,
-                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Cảnh báo biểu phí: {result.HasTariffWarning}\n• Trạng thái: {result.Status}",
-                        timeoutSeconds: 5);
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Cảnh báo biểu phí: {result.HasTariffWarning}\n• Trạng thái: {result.Status}");
                 }
                 else if (result.Status == ProcessStatus.FeeConfirmationRequired)
                 {
@@ -568,8 +600,7 @@ namespace HPParking.Forms
                         this,
                         heading: "CHƯA XÁC NHẬN THU PHÍ",
                         text: result.Message,
-                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Số tiền chưa thu: {result.FeeAmount:N0} VNĐ",
-                        timeoutSeconds: 5);
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Số tiền chưa thu: {result.FeeAmount:N0} VNĐ");
                 }
                 else if (result.Status == ProcessStatus.PlateMismatch)
                 {
@@ -577,8 +608,7 @@ namespace HPParking.Forms
                         this,
                         heading: "BIỂN SỐ KHÔNG KHỚP",
                         text: result.Message,
-                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Biển số xe: {result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? "Chưa rõ"}\n• Trạng thái: {result.Status}",
-                        timeoutSeconds: 5);
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Biển số xe: {result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? "Chưa rõ"}\n• Trạng thái: {result.Status}");
                 }
                 else if (result.Status == ProcessStatus.ConfirmRequired)
                 {
@@ -589,8 +619,7 @@ namespace HPParking.Forms
                         this,
                         heading: title,
                         text: result.Message,
-                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Trạng thái: {result.Status}",
-                        timeoutSeconds: 5);
+                        details: $"• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})\n• Mã thẻ: {trigger.RawCardNo}\n• Trạng thái: {result.Status}");
                 }
                 else if (result.Status != ProcessStatus.Success)
                 {
@@ -598,8 +627,7 @@ namespace HPParking.Forms
                         this,
                         heading: "TỪ CHỐI QUA CỔNG",
                         text: result.Message,
-                        details: $"• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})",
-                        timeoutSeconds: 5);
+                        details: $"• Lý do: {result.Message}\n• Trạng thái: {result.Status}\n• Mã thẻ: {trigger.RawCardNo}\n• Làn: {context.Lane.Name} (Đầu đọc {data.DoorId})");
                 }
             }));
         }
@@ -649,22 +677,6 @@ namespace HPParking.Forms
             }));
         }
 
-        private (PictureBox Box1, PictureBox Box2) GetLaneInfoBoxes(int slotIndex) => slotIndex switch
-        {
-            0 => (pbLane1Avatar, pbLane1FaceSnap),
-            1 => (pbLane2Avatar, pbLane2FaceSnap),
-            2 => (pbLane3PlateCrop, pbLane3DriverAvatar),
-            3 => (pbLane4PlateCrop, pbLane4EntrySnap),
-            _ => throw new ArgumentOutOfRangeException(nameof(slotIndex))
-        };
-
-        private static void SetBoxImage(PictureBox box, Bitmap? newImage)
-        {
-            var old = box.Image;
-            box.Image = newImage != null ? (Bitmap)newImage.Clone() : null;
-            old?.Dispose();
-        }
-
         private static string FormatClientTypeVietnamese(ClientType type) => type switch
         {
             ClientType.Employee => "Nhân viên",
@@ -675,7 +687,161 @@ namespace HPParking.Forms
             _ => type.ToString()
         };
 
-        private void UpdateLaneSlotUI(int slotIndex, LaneRuntimeContext context, ProcessResult result)
+        private static (string CardCodeText, string? FeeHighlight) FormatCardDisplayParts(ProcessResult result)
+        {
+            if (result.HasTariffWarning)
+            {
+                return ("CẢNH BÁO BIỂU PHÍ (Lỗi tính phí)", null);
+            }
+
+            string cardNumber = result.Card?.CardNumber
+                ?? result.ParkingSession?.CardNumber
+                ?? result.Client?.CardCode
+                ?? string.Empty;
+
+            if (result.Card == null && string.IsNullOrWhiteSpace(cardNumber) && result.FeeAmount <= 0)
+            {
+                return ("---", null);
+            }
+
+            string codePart = !string.IsNullOrWhiteSpace(cardNumber) ? cardNumber : "---";
+            string feePart = result.FeeAmount > 0
+                ? $"{result.FeeAmount.ToString("N0", _viCulture)} VNĐ"
+                : "Miễn phí";
+
+            return (codePart, feePart);
+        }
+
+        private static string FormatProcessStatusBadgeText(ProcessStatus status) => status switch
+        {
+            ProcessStatus.Success => "HỢP LỆ",
+            ProcessStatus.PlateMismatch => "SAI BIỂN SỐ",
+            ProcessStatus.TariffError => "LỖI BIỂU PHÍ",
+            ProcessStatus.FeeConfirmationRequired => "CHỜ THU PHÍ",
+            ProcessStatus.ConfirmRequired => "CẢNH BÁO",
+            _ => "TỪ CHỐI"
+        };
+
+        private static string FormatLaneTargetBadge(Lane? lane)
+        {
+            if (lane == null) return "LÀN KIỂM SOÁT";
+            string dirText = lane.Direction == LaneDirection.In ? "LÀN VÀO" : "LÀN RA";
+            string targetText = lane.TargetType == LaneTargetType.Pedestrian ? "NGƯỜI ĐI BỘ" : "XE CƠ GIỚI";
+            return $"{targetText} • {dirText}";
+        }
+
+        private async Task InitializeLaneWebViewsAsync()
+        {
+            try
+            {
+                string userDataFolder = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "HPParking",
+                    "WebView2");
+
+                _webViewEnvironment ??= await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+
+                string htmlFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "UI");
+
+                for (int i = 0; i < 4; i++)
+                {
+                    int slotIndex = i;
+                    WebView2 webView = GetLaneInfoWebView(slotIndex);
+                    webView.TabStop = false;
+
+                    await webView.EnsureCoreWebView2Async(_webViewEnvironment);
+
+                    var settings = webView.CoreWebView2.Settings;
+                    settings.AreDefaultContextMenusEnabled = false;
+                    settings.AreDevToolsEnabled = false;
+                    settings.AreBrowserAcceleratorKeysEnabled = false;
+                    settings.IsStatusBarEnabled = false;
+                    settings.IsZoomControlEnabled = false;
+
+                    webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                        "laneui.local",
+                        htmlFolder,
+                        CoreWebView2HostResourceAccessKind.Allow);
+
+                    webView.CoreWebView2.WebMessageReceived += (s, args) =>
+                    {
+                        FlushPendingSlotPayload(slotIndex, webView);
+                    };
+
+                    webView.CoreWebView2.NavigationCompleted += (s, args) =>
+                    {
+                        if (!args.IsSuccess) return;
+                        FlushPendingSlotPayload(slotIndex, webView);
+                    };
+
+                    webView.CoreWebView2.Navigate($"https://laneui.local/lane-card.html?v={DateTime.UtcNow.Ticks}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[WebView2 Init Error]: {ex.Message}");
+            }
+        }
+
+        private void FlushPendingSlotPayload(int slotIndex, WebView2 webView)
+        {
+            _slotWebViewReady[slotIndex] = true;
+            string? pendingJson = _pendingSlotJsonPayloads[slotIndex];
+            _pendingSlotJsonPayloads[slotIndex] = null;
+            if (!string.IsNullOrEmpty(pendingJson) && !webView.IsDisposed && webView.CoreWebView2 != null)
+            {
+                webView.CoreWebView2.PostWebMessageAsJson(pendingJson);
+            }
+        }
+
+        private void ResetLaneSlotCardToIdle(int slotIndex, Lane lane)
+        {
+            bool isPedestrian = lane.TargetType == LaneTargetType.Pedestrian;
+            bool isEntry = lane.Direction == LaneDirection.In;
+            var idlePayload = new LaneCardPayload
+            {
+                IsIdle = true,
+                IsEntry = isEntry,
+                IsSuccess = true,
+                StatusText = "CHỜ QUẸT THẺ",
+                TargetType = FormatLaneTargetBadge(lane),
+                CurrentTime = "--:--:--",
+                Row1Title = isPedestrian ? "Họ và tên:" : string.Empty,
+                Row1Value = "---",
+                Row2Title = isPedestrian ? "CCCD / Mã:" : "Biển số nhận diện:",
+                Row2Value = "---",
+                IsPlateMismatch = false,
+                SubTitle1 = isPedestrian ? "Đối tượng:" : "Tài xế / Chủ xe:",
+                SubVal1 = "---",
+                SubTitle2 = "Mã thẻ:",
+                CardCodeText = "---",
+                FeeHighlight = null,
+                TimeIn = "---",
+                TimeOut = "---",
+                Img1 = null,
+                Img2 = null,
+                ImgTitle1 = isPedestrian ? "Ảnh đăng ký (Avatar)" : "Ảnh biển số",
+                ImgTitle2 = isPedestrian ? "Ảnh nhận diện (FaceID)" : "Ảnh toàn cảnh"
+            };
+
+            PushLaneCardPayload(slotIndex, idlePayload);
+        }
+
+        private void PushLaneCardPayload(int slotIndex, LaneCardPayload payload)
+        {
+            if (slotIndex < 0 || slotIndex >= 4) return;
+
+            _lastSlotPayloads[slotIndex] = payload;
+            string json = JsonSerializer.Serialize(payload, _webViewJsonOptions);
+            _pendingSlotJsonPayloads[slotIndex] = json;
+
+            if (_slotWebViewReady[slotIndex])
+            {
+                FlushPendingSlotPayload(slotIndex, GetLaneInfoWebView(slotIndex));
+            }
+        }
+
+        internal void UpdateLaneSlotUI(int slotIndex, LaneRuntimeContext context, ProcessResult result)
         {
             if (slotIndex >= 0 && slotIndex < 4)
             {
@@ -686,15 +852,11 @@ namespace HPParking.Forms
             bool isEntry = context.Lane.Direction == LaneDirection.In;
             bool isSuccess = result.Status == ProcessStatus.Success;
 
-            DateTime? sessionInTime = result.ParkingSession?.InTime ?? result.DispatchTrip?.StartTime;
-            string inTimeFormatted = sessionInTime.HasValue
-                ? (sessionInTime.Value.Kind == DateTimeKind.Utc
-                    ? sessionInTime.Value.ToLocalTime().ToString("HH:mm:ss dd/MM/yyyy")
-                    : sessionInTime.Value.ToString("HH:mm:ss dd/MM/yyyy"))
-                : string.Empty;
+            string inTimeVal = isEntry ? timeStr : "---";
+            string outTimeVal = isEntry ? "---" : timeStr;
+            (string cardCodeText, string? feeHighlight) = FormatCardDisplayParts(result);
 
-            string inTimeText = isEntry ? $"Ngày vào: {timeStr}" : (!string.IsNullOrEmpty(inTimeFormatted) ? $"Ngày vào: {inTimeFormatted}" : "Ngày vào:");
-            string outTimeText = isEntry ? "Ngày ra:" : $"Ngày ra: {timeStr}";
+            LaneCardPayload payload;
 
             if (context.Lane.TargetType == LaneTargetType.Pedestrian)
             {
@@ -703,207 +865,79 @@ namespace HPParking.Forms
                 string code = result.Client?.Code
                     ?? (!string.IsNullOrEmpty(result.Client?.CardCode) ? result.Client.CardCode : string.Empty);
 
-                // Yêu cầu 1: Đơn vị: tên phòng ban nếu không có thì tên công ty nếu không có thì tên nhà thầu nếu cả 3 đều không có thì vãng lai
-                string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
-                string deptText = $"Đơn vị: {unitName}";
-
-                // Yêu cầu 2: lblLaneRole hiện dạng tiếng Việt
                 string roleVi = result.Client != null ? FormatClientTypeVietnamese(result.Client.Type) : "Vãng lai";
-                string roleText = $"Đối tượng: {roleVi}";
 
-                Color flashColor = isSuccess ? Color.LightGreen : Color.LightCoral;
-
-                string nameText = !string.IsNullOrEmpty(name) ? $"Họ và tên: {name}" : "Họ và tên:";
-                string codeText = !string.IsNullOrEmpty(code) ? $"CCCD/Mã: {code}" : "CCCD/Mã:";
-
-                if (slotIndex == 0)
+                payload = new LaneCardPayload
                 {
-                    lblLane1Name.Text = nameText;
-                    lblLane1Dept.Text = deptText;
-                    lblLane1Dept.ForeColor = Color.Black;
-                    lblLane1Code.Text = codeText;
-                    lblLane1Role.Text = roleText;
-                    lblLane1Role.ForeColor = Color.Black;
-                    lblLane1TimeIn.Text = inTimeText;
-                    lblLane1TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane1Name, flashColor);
-                }
-                else if (slotIndex == 1)
-                {
-                    lblLane2Name.Text = nameText;
-                    lblLane2Dept.Text = deptText;
-                    lblLane2Dept.ForeColor = Color.Black;
-                    lblLane2Code.Text = codeText;
-                    lblLane2Role.Text = roleText;
-                    lblLane2Role.ForeColor = Color.Black;
-                    lblLane2TimeIn.Text = inTimeText;
-                    lblLane2TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane2Name, flashColor);
-                }
-                else if (slotIndex == 2)
-                {
-                    lblLane3Driver.Text = nameText;
-                    lblLane3Dept.Text = deptText;
-                    lblLane3Dept.ForeColor = Color.Black;
-                    lblLane3PlateReg.Text = codeText;
-                    lblLane3PlateDet.Text = roleText;
-                    lblLane3PlateDet.ForeColor = Color.Black;
-                    lblLane3TimeIn.Text = inTimeText;
-                    lblLane3TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane3Driver, flashColor);
-                }
-                else
-                {
-                    lblLane4Driver.Text = nameText;
-                    lblLane4Dept.Text = deptText;
-                    lblLane4Dept.ForeColor = Color.Black;
-                    lblLane4PlateReg.Text = codeText;
-                    lblLane4PlateDet.Text = roleText;
-                    lblLane4PlateDet.ForeColor = Color.Black;
-                    lblLane4TimeIn.Text = inTimeText;
-                    lblLane4TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane4Driver, flashColor);
-                }
-
-                var (box1, box2) = GetLaneInfoBoxes(slotIndex);
-                if (result.Client?.Avatar != null)
-                {
-                    ImageHelper.SetAvatar(box1, result.Client.Avatar);
-                }
-                else
-                {
-                    SetBoxImage(box1, null);
-                }
-                SetBoxImage(box2, result.FaceImage);
+                    IsIdle = false,
+                    IsEntry = isEntry,
+                    IsSuccess = isSuccess,
+                    StatusText = FormatProcessStatusBadgeText(result.Status),
+                    TargetType = FormatLaneTargetBadge(context.Lane),
+                    CurrentTime = DateTime.Now.ToString("HH:mm:ss"),
+                    Row1Title = "Họ và tên:",
+                    Row1Value = !string.IsNullOrEmpty(name) ? name : "---",
+                    Row2Title = "CCCD / Mã:",
+                    Row2Value = !string.IsNullOrEmpty(code) ? code : "---",
+                    IsPlateMismatch = false,
+                    SubTitle1 = "Đối tượng:",
+                    SubVal1 = roleVi,
+                    SubTitle2 = "Mã thẻ:",
+                    CardCodeText = cardCodeText,
+                    FeeHighlight = feeHighlight,
+                    HasTariffWarning = result.HasTariffWarning,
+                    TimeIn = inTimeVal,
+                    TimeOut = outTimeVal,
+                    Img1 = result.Client?.Avatar != null ? ImageHelper.AvatarToDataUrl(result.Client.Avatar) : null,
+                    Img2 = ImageHelper.BitmapToDataUrl(result.FaceImage),
+                    ImgTitle1 = "Ảnh đăng ký (Avatar)",
+                    ImgTitle2 = "Ảnh nhận diện (FaceID)"
+                };
             }
             else
             {
                 // Cập nhật giao diện Xe cơ giới
                 string plate = result.LprResult?.Plate ?? string.Empty;
-                string regPlate = !string.IsNullOrWhiteSpace(result.RegisteredPlate)
-                    ? result.RegisteredPlate
-                    : (result.Vehicle?.PlateNumber ?? result.ParkingSession?.PlateNumber ?? string.Empty);
                 string driver = result.Client?.Name ?? string.Empty;
-                bool isSharedVehicle = result.DispatchTrip != null
-                    || result.Vehicle?.IsShared == true
-                    || (result.DepartmentName?.StartsWith("Tuyến:") == true)
-                    || (result.DepartmentName?.Contains("Điều vận") == true);
 
-                string deptText;
-                if (isSharedVehicle)
+                if (result.Card?.TargetType == CardTargetType.Visitor && string.IsNullOrWhiteSpace(driver))
                 {
-                    // Yêu cầu 3: Nếu là xe chung thì hiện tuyến: tên tuyến hoặc vãng lai
-                    string routeName = result.DepartmentName ?? string.Empty;
-                    if (routeName.StartsWith("Tuyến:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        routeName = routeName[6..].Trim();
-                    }
-
-                    if (string.IsNullOrWhiteSpace(routeName)
-                        || routeName.Equals("Tuyến tự do", StringComparison.OrdinalIgnoreCase)
-                        || routeName.Contains("Điều vận", StringComparison.OrdinalIgnoreCase))
-                    {
-                        deptText = "Tuyến: Vãng lai";
-                    }
-                    else
-                    {
-                        deptText = $"Tuyến: {routeName}";
-                    }
+                    driver = "Khách vãng lai";
                 }
-                else
-                {
-                    // Yêu cầu 1: Xe riêng thì Đơn vị: tên phòng ban / tên công ty / tên nhà thầu / vãng lai
-                    string unitName = !string.IsNullOrWhiteSpace(result.DepartmentName) ? result.DepartmentName : "Vãng lai";
-                    deptText = $"Đơn vị: {unitName}";
-                }
-
-                if (result.Card?.TargetType == CardTargetType.Visitor)
-                {
-                    driver = $"Khách vãng lai ({result.Card.CardNumber})";
-                    string feeInfo = result.FeeAmount > 0
-                        ? $" - Phí: {result.FeeAmount:N0}đ" + (result.IsFeeCollected ? " (Đã thu)" : "")
-                        : "";
-                    deptText = $"Vé lượt{feeInfo}";
-                }
-                else if (result.FeeAmount > 0)
-                {
-                    deptText += $" | Phí: {result.FeeAmount:N0}đ" + (result.IsFeeCollected ? " (Đã thu)" : "");
-                }
-
-                if (result.HasTariffWarning)
-                {
-                    deptText = "CẢNH BÁO BIỂU PHÍ (Lỗi tính phí)";
-                }
-
-                Color flashColor = isSuccess ? Color.Honeydew : Color.LightCoral;
-
-                string driverText = !string.IsNullOrEmpty(driver) ? $"Tài xế/Chủ xe: {driver}" : "Tài xế/Chủ xe:";
-                string regPlateText = !string.IsNullOrEmpty(regPlate) ? $"Biển số đăng ký: {regPlate}" : "Biển số đăng ký:";
-                string detPlateText = !string.IsNullOrEmpty(plate) ? $"Biển số nhận diện: {plate}" : "Biển số nhận diện:";
-
-                Color plateDetColor = result.Status == ProcessStatus.PlateMismatch
-                    ? Color.Crimson
-                    : (isSuccess ? Color.DarkGreen : Color.Black);
-
-                if (slotIndex == 0)
-                {
-                    lblLane1Name.Text = driverText;
-                    lblLane1Dept.Text = deptText;
-                    lblLane1Dept.ForeColor = Color.Black;
-                    lblLane1Code.Text = regPlateText;
-                    lblLane1Role.Text = detPlateText;
-                    lblLane1Role.ForeColor = plateDetColor;
-                    lblLane1TimeIn.Text = inTimeText;
-                    lblLane1TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane1Role, flashColor);
-                }
-                else if (slotIndex == 1)
-                {
-                    lblLane2Name.Text = driverText;
-                    lblLane2Dept.Text = deptText;
-                    lblLane2Dept.ForeColor = Color.Black;
-                    lblLane2Code.Text = regPlateText;
-                    lblLane2Role.Text = detPlateText;
-                    lblLane2Role.ForeColor = plateDetColor;
-                    lblLane2TimeIn.Text = inTimeText;
-                    lblLane2TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane2Role, flashColor);
-                }
-                else if (slotIndex == 2)
-                {
-                    lblLane3Driver.Text = driverText;
-                    lblLane3Dept.Text = deptText;
-                    lblLane3Dept.ForeColor = Color.Black;
-                    lblLane3PlateReg.Text = regPlateText;
-                    lblLane3PlateDet.Text = detPlateText;
-                    lblLane3PlateDet.ForeColor = plateDetColor;
-                    lblLane3TimeIn.Text = inTimeText;
-                    lblLane3TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane3PlateDet, flashColor);
-                }
-                else
-                {
-                    lblLane4Driver.Text = driverText;
-                    lblLane4Dept.Text = deptText;
-                    lblLane4Dept.ForeColor = Color.Black;
-                    lblLane4PlateReg.Text = regPlateText;
-                    lblLane4PlateDet.Text = detPlateText;
-                    lblLane4PlateDet.ForeColor = plateDetColor;
-                    lblLane4TimeIn.Text = inTimeText;
-                    lblLane4TimeOut.Text = outTimeText;
-                    FrmMainVisualHelper.FlashLabel(lblLane4PlateDet, flashColor);
-                }
-
-                var (box1, box2) = GetLaneInfoBoxes(slotIndex);
 
                 // 1. Ô đầu tiên hiện ảnh biển số nhỏ (cropped plate)
                 Bitmap? smallPlate = result.PlateImage ?? result.LprResult?.PlateImage;
-                SetBoxImage(box1, smallPlate);
 
-                // 2. Ô thứ 2 hiện ảnh chụp khuôn mặt từ faceid nếu làn đó có faceid, không thì cứ để trống
-                bool hasFaceId = context.Lane != null && (context.Lane.UseFaceCam || !string.IsNullOrEmpty(context.Lane.FaceDeviceId));
-                SetBoxImage(box2, (hasFaceId && result.FaceImage != null) ? result.FaceImage : null);
+                // 2. Ô thứ 2 hiện ảnh toàn cảnh (OverviewImage)
+                payload = new LaneCardPayload
+                {
+                    IsIdle = false,
+                    IsEntry = isEntry,
+                    IsSuccess = isSuccess,
+                    StatusText = FormatProcessStatusBadgeText(result.Status),
+                    TargetType = FormatLaneTargetBadge(context.Lane),
+                    CurrentTime = DateTime.Now.ToString("HH:mm:ss"),
+                    Row1Title = string.Empty,
+                    Row1Value = string.Empty,
+                    Row2Title = "Biển số nhận diện:",
+                    Row2Value = !string.IsNullOrEmpty(plate) ? plate : "---",
+                    IsPlateMismatch = result.Status == ProcessStatus.PlateMismatch,
+                    SubTitle1 = "Tài xế / Chủ xe:",
+                    SubVal1 = !string.IsNullOrEmpty(driver) ? driver : "---",
+                    SubTitle2 = "Mã thẻ:",
+                    CardCodeText = cardCodeText,
+                    FeeHighlight = feeHighlight,
+                    HasTariffWarning = result.HasTariffWarning,
+                    TimeIn = inTimeVal,
+                    TimeOut = outTimeVal,
+                    Img1 = ImageHelper.BitmapToDataUrl(smallPlate),
+                    Img2 = ImageHelper.BitmapToDataUrl(result.OverviewImage),
+                    ImgTitle1 = "Ảnh biển số",
+                    ImgTitle2 = "Ảnh toàn cảnh"
+                };
             }
+
+            PushLaneCardPayload(slotIndex, payload);
 
             result.LprResult?.Dispose();
             result.OverviewImage?.Dispose();
@@ -1089,8 +1123,7 @@ namespace HPParking.Forms
                 this,
                 lane,
                 expectedPlate: expectedPlate,
-                mismatchMessage: mismatchMessage,
-                timeoutSeconds: 10);
+                mismatchMessage: mismatchMessage);
 
             return Task.FromResult(plate);
         }
@@ -1341,22 +1374,32 @@ namespace HPParking.Forms
     }
 
     /// <summary>
-    /// Helper hỗ trợ hiệu ứng đồ họa UI trạm kiểm soát
+    /// Dữ liệu JSON truyền từ C# sang thẻ thông tin WebView2 (HTML + Tailwind Offline)
     /// </summary>
-    internal static class FrmMainVisualHelper
+    internal sealed class LaneCardPayload
     {
-        public static void FlashLabel(Label lbl, Color flashColor)
-        {
-            Color orig = lbl.BackColor;
-            lbl.BackColor = flashColor;
-            var t = new Timer { Interval = 400 };
-            t.Tick += (s, args) =>
-            {
-                lbl.BackColor = orig;
-                t.Stop();
-                t.Dispose();
-            };
-            t.Start();
-        }
+        public bool IsIdle { get; set; }
+        public bool IsEntry { get; set; }
+        public bool IsSuccess { get; set; }
+        public string StatusText { get; set; } = string.Empty;
+        public string TargetType { get; set; } = string.Empty;
+        public string CurrentTime { get; set; } = string.Empty;
+        public string Row1Title { get; set; } = string.Empty;
+        public string Row1Value { get; set; } = string.Empty;
+        public string Row2Title { get; set; } = string.Empty;
+        public string Row2Value { get; set; } = string.Empty;
+        public bool IsPlateMismatch { get; set; }
+        public string SubTitle1 { get; set; } = string.Empty;
+        public string SubVal1 { get; set; } = string.Empty;
+        public string SubTitle2 { get; set; } = string.Empty;
+        public string CardCodeText { get; set; } = string.Empty;
+        public string? FeeHighlight { get; set; }
+        public bool HasTariffWarning { get; set; }
+        public string TimeIn { get; set; } = string.Empty;
+        public string TimeOut { get; set; } = string.Empty;
+        public string? Img1 { get; set; }
+        public string? Img2 { get; set; }
+        public string ImgTitle1 { get; set; } = string.Empty;
+        public string ImgTitle2 { get; set; } = string.Empty;
     }
 }

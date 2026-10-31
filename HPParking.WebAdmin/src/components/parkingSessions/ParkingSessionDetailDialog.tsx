@@ -154,8 +154,8 @@ export function ParkingSessionDetailDialog({
               type="button"
               onClick={() => setActiveTab('all')}
               className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'all'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted'
                 }`}
             >
               <Layers className="h-3.5 w-3.5" />
@@ -165,8 +165,8 @@ export function ParkingSessionDetailDialog({
               type="button"
               onClick={() => setActiveTab('slider')}
               className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'slider'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted'
                 }`}
             >
               <Eye className="h-3.5 w-3.5" />
@@ -176,8 +176,8 @@ export function ParkingSessionDetailDialog({
               type="button"
               onClick={() => setActiveTab('details')}
               className={`text-xs px-3 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'details'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-muted-foreground hover:bg-muted'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted'
                 }`}
             >
               <FileText className="h-3.5 w-3.5" />

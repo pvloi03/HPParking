@@ -185,5 +185,36 @@ namespace HPParking.Helper
                 oldImage?.Dispose();
             }
         }
+
+        /// <summary>
+        /// Chuyển đổi Bitmap sang chuỗi Base64 Data URL (data:image/jpeg;base64,...) để hiển thị trên WebView2.
+        /// </summary>
+        public static string? BitmapToDataUrl(Bitmap? bitmap)
+        {
+            if (bitmap == null) return null;
+
+            try
+            {
+                using var ms = new MemoryStream();
+                bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+                return $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ImageHelper] Lỗi BitmapToDataUrl: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Tải ảnh Avatar từ đường dẫn hoặc URL (không khóa file) và chuyển thành Base64 Data URL cho WebView2.
+        /// </summary>
+        public static string? AvatarToDataUrl(string? avatarPath)
+        {
+            if (string.IsNullOrWhiteSpace(avatarPath)) return null;
+
+            using var bmp = LoadBitmapWithoutLock(avatarPath, "Avatar");
+            return BitmapToDataUrl(bmp);
+        }
     }
 }

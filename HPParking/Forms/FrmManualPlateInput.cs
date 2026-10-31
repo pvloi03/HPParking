@@ -13,8 +13,6 @@ namespace HPParking.Forms
 
         private readonly string? _expectedPlate;
         private readonly string? _mismatchMessage;
-        private System.Windows.Forms.Timer? _countdownTimer;
-        private int _remainingSeconds = 10;
 
         public string? EnteredPlate { get; private set; }
 
@@ -66,19 +64,18 @@ namespace HPParking.Forms
             Lane lane,
             string reason = "Camera biển số lỗi hoặc không nhận diện được",
             string? expectedPlate = null,
-            string? mismatchMessage = null,
-            int timeoutSeconds = 10) : this()
+            string? mismatchMessage = null) : this()
         {
             _expectedPlate = expectedPlate;
             _mismatchMessage = mismatchMessage;
-            _remainingSeconds = timeoutSeconds > 0 ? timeoutSeconds : 10;
 
             string laneDesc = $"{(lane.InputReader % 2 != 0 ? "Xe máy" : "Ô tô")} - Cổng {(lane.Direction == LaneDirection.In ? "VÀO" : "RA")} (Đầu đọc {lane.InputReader})";
             string registeredDesc = !string.IsNullOrWhiteSpace(expectedPlate)
                 ? $"\nBiển số đăng ký: {expectedPlate}"
                 : "";
             lblInfo.Text = $"Làn: {laneDesc}\nLý do: {reason}{registeredDesc}\nVui lòng nhập biển số xe thực tế:";
-            lblCountdown.Text = $"⏱️ Tự động hủy sau: {_remainingSeconds}s";
+            lblCountdown.Text = string.Empty;
+            lblCountdown.Visible = false;
         }
 
         private void btnConfirm_Click(object sender, EventArgs e)
@@ -112,7 +109,6 @@ namespace HPParking.Forms
                 }
             }
 
-            StopCountdown();
             EnteredPlate = text;
             DialogResult = DialogResult.OK;
             Close();
@@ -120,7 +116,6 @@ namespace HPParking.Forms
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
-            StopCountdown();
             EnteredPlate = null;
             DialogResult = DialogResult.Cancel;
             Close();
@@ -162,46 +157,10 @@ namespace HPParking.Forms
             }
 
             txtPlate.Focus();
-
-            if (_remainingSeconds > 0)
-            {
-                _countdownTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-                _countdownTimer.Tick += (s, args) =>
-                {
-                    _remainingSeconds--;
-                    if (_remainingSeconds <= 0)
-                    {
-                        StopCountdown();
-                        EnteredPlate = null;
-                        DialogResult = DialogResult.Cancel;
-                        Close();
-                    }
-                    else
-                    {
-                        try
-                        {
-                            lblCountdown.Text = $"⏱️ Tự động hủy sau: {_remainingSeconds}s";
-                        }
-                        catch
-                        {
-                            // Ignore if form closing
-                        }
-                    }
-                };
-                _countdownTimer.Start();
-            }
-        }
-
-        private void StopCountdown()
-        {
-            _countdownTimer?.Stop();
-            _countdownTimer?.Dispose();
-            _countdownTimer = null;
         }
 
         private void FrmManualPlateInput_FormClosed(object? sender, FormClosedEventArgs e)
         {
-            StopCountdown();
             lock (_syncLock)
             {
                 if (_activeInstance == this)
@@ -216,12 +175,11 @@ namespace HPParking.Forms
             Lane lane,
             string reason = "Camera lỗi hoặc không nhận diện được",
             string? expectedPlate = null,
-            string? mismatchMessage = null,
-            int timeoutSeconds = 10)
+            string? mismatchMessage = null)
         {
             DismissActive();
 
-            using var form = new FrmManualPlateInput(lane, reason, expectedPlate, mismatchMessage, timeoutSeconds);
+            using var form = new FrmManualPlateInput(lane, reason, expectedPlate, mismatchMessage);
             var result = form.ShowDialog(owner);
             return result == DialogResult.OK && !string.IsNullOrWhiteSpace(form.EnteredPlate) ? form.EnteredPlate : null;
         }
