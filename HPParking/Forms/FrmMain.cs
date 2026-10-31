@@ -10,10 +10,12 @@ using HPParking.Services.Controller;
 using HPParking.Services.Devices;
 using HPParking.Services.License;
 using HPParking.Services.Parking;
+using HPParking.Services.Printing;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
@@ -35,6 +37,7 @@ namespace HPParking.Forms
         private readonly IParkingWorkflowService _workflowService;
         private readonly IServerHealthService _serverHealthService;
         private readonly IRepository<AuditLog>? _auditLogRepository;
+        private readonly IParkingReceiptPrinterService _receiptPrinterService;
 
         internal Task? LastAuditTask { get; private set; }
 
@@ -65,7 +68,8 @@ namespace HPParking.Forms
             LicenseManager licenseManager,
             IParkingWorkflowService workflowService,
             IServerHealthService serverHealthService,
-            IRepository<AuditLog>? auditLogRepository = null)
+            IRepository<AuditLog>? auditLogRepository = null,
+            IParkingReceiptPrinterService? receiptPrinterService = null)
         {
             InitializeComponent();
             foreach (var wv in new[] { wvInfoLane1, wvInfoLane2, wvInfoLane3, wvInfoLane4 })
@@ -80,6 +84,7 @@ namespace HPParking.Forms
             _workflowService = workflowService;
             _serverHealthService = serverHealthService;
             _auditLogRepository = auditLogRepository;
+            _receiptPrinterService = receiptPrinterService ?? new ParkingReceiptPrinterService();
 
             _deviceOrchestrator.OnControllerStatusChanged += Controller_OnStatusChanged;
         }
@@ -179,6 +184,7 @@ namespace HPParking.Forms
 
         internal void ApplyLaneContexts(List<LaneRuntimeContext> contexts)
         {
+            Array.Clear(_lastSlotResults, 0, _lastSlotResults.Length);
             _laneContexts = contexts ?? [];
             _lanes = [.. _laneContexts.Select(c => c.Lane)];
             BindLanesToUiSlots();
@@ -741,7 +747,7 @@ namespace HPParking.Forms
 
                 _webViewEnvironment ??= await CoreWebView2Environment.CreateAsync(null, userDataFolder);
 
-                string htmlFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "UI");
+                string htmlFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UI");
 
                 for (int i = 0; i < 4; i++)
                 {
@@ -763,9 +769,19 @@ namespace HPParking.Forms
                         htmlFolder,
                         CoreWebView2HostResourceAccessKind.Allow);
 
-                    webView.CoreWebView2.WebMessageReceived += (s, args) =>
+                    webView.CoreWebView2.WebMessageReceived += async (s, args) =>
                     {
-                        FlushPendingSlotPayload(slotIndex, webView);
+                        string? message = null;
+                        try
+                        {
+                            message = args.TryGetWebMessageAsString();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"[WebView2 Message Error]: {ex.Message}");
+                        }
+
+                        await HandleLaneWebViewMessageAsync(slotIndex, message, webView);
                     };
 
                     webView.CoreWebView2.NavigationCompleted += (s, args) =>
@@ -783,6 +799,39 @@ namespace HPParking.Forms
             }
         }
 
+        internal async Task<bool> HandleLaneWebViewMessageAsync(
+            int slotIndex,
+            string? message,
+            WebView2? webView = null)
+        {
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                if (string.Equals(message, "PRINT_RECEIPT", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (IsHandleCreated && !IsDisposed && !Disposing)
+                    {
+                        ActiveControl = null;
+                    }
+
+                    ParkingReceiptPrintResult printResult = await HandlePrintReceiptForSlotAsync(slotIndex);
+                    return printResult.IsSuccess;
+                }
+
+                if (!string.Equals(message, "READY", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            if (webView != null)
+            {
+                FlushPendingSlotPayload(slotIndex, webView);
+                return true;
+            }
+
+            return false;
+        }
+
         private void FlushPendingSlotPayload(int slotIndex, WebView2 webView)
         {
             _slotWebViewReady[slotIndex] = true;
@@ -794,8 +843,71 @@ namespace HPParking.Forms
             }
         }
 
+        internal async Task<ParkingReceiptPrintResult> HandlePrintReceiptForSlotAsync(int slotIndex)
+        {
+            if (!tlpLanes.Enabled || _laneContexts == null || slotIndex < 0 || slotIndex >= _laneContexts.Count || slotIndex >= 4)
+            {
+                return ParkingReceiptPrintResult.Failure("Chỉ số làn không hợp lệ hoặc làn đang bị khóa cấu hình.");
+            }
+
+            ProcessResult? lastResult = _lastSlotResults[slotIndex];
+            LaneRuntimeContext context = _laneContexts[slotIndex];
+
+            ParkingReceiptData? receiptData = _receiptPrinterService.TryCreateReceiptData(lastResult, context, _currentGate);
+            if (receiptData == null)
+            {
+                string invalidMsg = "Lượt xe hiện tại tại làn này không có dữ liệu thu phí hợp lệ để in biên lai.";
+                ShowPrintWarningSafe("KHÔNG THỂ IN BIÊN LAI", invalidMsg, null);
+                return ParkingReceiptPrintResult.Failure(invalidMsg);
+            }
+
+            ParkingReceiptPrintResult printResult = await _receiptPrinterService.PrintReceiptAsync(receiptData);
+            if (!printResult.IsSuccess)
+            {
+                string heading = "LỖI MÁY IN BIÊN LAI NHIỆT (K80)";
+                string text = printResult.ErrorMessage ?? "Không thể gửi lệnh in biên lai thu phí xuống máy in.";
+                string details =
+                    $"• Làn kiểm soát: {context?.Lane?.Name ?? receiptData.OutLaneName}\n" +
+                    $"• Biển số xe: {receiptData.PlateNumber}\n" +
+                    $"• Số tiền thu: {receiptData.FeeAmount.ToString("N0", _viCulture)} VNĐ\n" +
+                    $"• Máy in cấu hình: {(!string.IsNullOrWhiteSpace(printResult.PrinterName) ? printResult.PrinterName : "Default Printer")}";
+
+                ShowPrintWarningSafe(heading, text, details);
+            }
+
+            return printResult;
+        }
+
+        private void ShowPrintWarningSafe(
+            string heading,
+            string text,
+            string? details)
+        {
+            if (!IsHandleCreated || IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => ShowPrintWarningSafe(heading, text, details)));
+                return;
+            }
+
+            ParkingTaskDialog.ShowWarning(
+                this,
+                heading: heading,
+                text: text,
+                details: details);
+        }
+
         private void ResetLaneSlotCardToIdle(int slotIndex, Lane lane)
         {
+            if (slotIndex >= 0 && slotIndex < 4)
+            {
+                _lastSlotResults[slotIndex] = null;
+            }
+
             bool isPedestrian = lane.TargetType == LaneTargetType.Pedestrian;
             bool isEntry = lane.Direction == LaneDirection.In;
             var idlePayload = new LaneCardPayload
@@ -803,6 +915,7 @@ namespace HPParking.Forms
                 IsIdle = true,
                 IsEntry = isEntry,
                 IsSuccess = true,
+                CanPrintReceipt = false,
                 StatusText = "CHỜ QUẸT THẺ",
                 TargetType = FormatLaneTargetBadge(lane),
                 CurrentTime = "--:--:--",
@@ -848,9 +961,18 @@ namespace HPParking.Forms
                 _lastSlotResults[slotIndex] = result;
             }
 
-            string timeStr = DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
             bool isEntry = context.Lane.Direction == LaneDirection.In;
             bool isSuccess = result.Status == ProcessStatus.Success;
+            bool canPrintReceipt = !isEntry && isSuccess && result.FeeAmount > 0m && result.ParkingSession != null;
+
+            DateTime displayTime = isEntry
+                ? (result.ParkingSession?.InTime is DateTime inTime && inTime != default
+                    ? HPParking.Core.Helpers.VietnamTime.ToVietnamTime(inTime)
+                    : DateTime.Now)
+                : (result.ParkingSession?.OutTime is DateTime outTime && outTime != default
+                    ? HPParking.Core.Helpers.VietnamTime.ToVietnamTime(outTime)
+                    : DateTime.Now);
+            string timeStr = displayTime.ToString("HH:mm:ss dd/MM/yyyy");
 
             string inTimeVal = isEntry ? timeStr : "---";
             string outTimeVal = isEntry ? "---" : timeStr;
@@ -872,6 +994,7 @@ namespace HPParking.Forms
                     IsIdle = false,
                     IsEntry = isEntry,
                     IsSuccess = isSuccess,
+                    CanPrintReceipt = canPrintReceipt,
                     StatusText = FormatProcessStatusBadgeText(result.Status),
                     TargetType = FormatLaneTargetBadge(context.Lane),
                     CurrentTime = DateTime.Now.ToString("HH:mm:ss"),
@@ -914,6 +1037,7 @@ namespace HPParking.Forms
                     IsIdle = false,
                     IsEntry = isEntry,
                     IsSuccess = isSuccess,
+                    CanPrintReceipt = canPrintReceipt,
                     StatusText = FormatProcessStatusBadgeText(result.Status),
                     TargetType = FormatLaneTargetBadge(context.Lane),
                     CurrentTime = DateTime.Now.ToString("HH:mm:ss"),
@@ -1381,6 +1505,7 @@ namespace HPParking.Forms
         public bool IsIdle { get; set; }
         public bool IsEntry { get; set; }
         public bool IsSuccess { get; set; }
+        public bool CanPrintReceipt { get; set; }
         public string StatusText { get; set; } = string.Empty;
         public string TargetType { get; set; } = string.Empty;
         public string CurrentTime { get; set; } = string.Empty;

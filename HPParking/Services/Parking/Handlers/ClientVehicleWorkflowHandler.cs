@@ -386,13 +386,13 @@ namespace HPParking.Services.Parking.Handlers
             // 4. Đối soát biển số ra và thực thi chính sách Strict Exit Lockout
             if (requirePlateVerification)
             {
-                bool plateMatchesInitially = matchedVehicle != null
-                    ? matchedVehicle.MatchesPlate(exitPlate)
-                    : PlateHelper.Matches(parking.PlateNumber, exitPlate);
 
-                if (!plateMatchesInitially && onManualPlateInput != null)
+
+
+
+                if (string.IsNullOrEmpty(exitPlate) && onManualPlateInput != null)
                 {
-                    string? manual = await onManualPlateInput(context, rawOutPlateOcr);
+                    string? manual = await onManualPlateInput(context, parking.PlateNumber);
                     if (!string.IsNullOrWhiteSpace(manual))
                     {
                         exitPlate = manual.Trim().ToUpper();
@@ -418,9 +418,9 @@ namespace HPParking.Services.Parking.Handlers
                         card: card);
                 }
 
-                bool finalMatches = matchedVehicle != null
-                    ? matchedVehicle.MatchesPlate(exitPlate)
-                    : PlateHelper.Matches(parking.PlateNumber, exitPlate);
+                bool finalMatches = matchedVehicle != null ? matchedVehicle.MatchesPlate(exitPlate) : PlateHelper.Matches(parking.PlateNumber, exitPlate);
+
+
 
                 if (!finalMatches)
                 {

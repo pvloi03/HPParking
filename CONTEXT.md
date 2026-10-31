@@ -30,6 +30,10 @@ _Avoid_: RfidChip, MagneticCard, BadCode
 Bản ghi phiên gửi xe theo dõi chu trình lưu thông của phương tiện hoặc người từ lúc vào đến khi rời khỏi bãi xe.
 _Avoid_: EventParking, Ticket, Transaction, HistoryLog
 
+**ParkingReceipt**:
+Biên lai thu phí đỗ xe được in trên giấy nhiệt khổ K80 tại làn kiểm soát chiều ra để giao cho khách hàng làm chứng từ xác nhận thanh toán phí gửi xe của một phiên lưu thông.
+_Avoid_: Bill, Ticket, Invoice, PaymentSlip
+
 **AuditLog**:
 Bản ghi sổ cái kiểm toán ghi nhận dấu vết các thao tác quản trị và thay đổi cấu hình trên hệ thống.
 _Avoid_: SystemLog, DebugLog, AccessLog, ActivityHistory

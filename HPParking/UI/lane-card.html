@@ -58,13 +58,93 @@
     .flash-error {
       animation: flashError 0.65s ease-out forwards;
     }
+
+    .relative {
+      position: relative;
+    }
+
+    .absolute {
+      position: absolute;
+    }
+
+    .inset-x-0 {
+      left: 0;
+      right: 0;
+    }
+
+    .bottom-0 {
+      bottom: 0;
+    }
+
+    .z-20 {
+      z-index: 20;
+    }
+
+    .h-max {
+      height: max-content;
+    }
+
+    .py-2\.5 {
+      padding-top: 0.625rem;
+      padding-bottom: 0.625rem;
+    }
+
+    .px-4 {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .bg-emerald-600 {
+      background-color: #059669;
+    }
+
+    .hover\:bg-emerald-700:hover {
+      background-color: #047857;
+    }
+
+    .active\:bg-emerald-800:active {
+      background-color: #065f46;
+    }
+
+    .text-white {
+      color: #ffffff;
+    }
+
+    .shadow-lg {
+      box-shadow: 0 -4px 12px -2px rgba(15, 23, 42, 0.22);
+    }
+
+    .translate-y-full {
+      transform: translateY(100%);
+    }
+
+    .transition-transform {
+      transition-property: transform, background-color, opacity;
+      transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    .duration-200 {
+      transition-duration: 200ms;
+    }
+
+    #receiptActionOverlay {
+      pointer-events: none;
+    }
+
+    .group:hover #receiptActionOverlay {
+      pointer-events: auto;
+    }
+
+    .group:hover .group-hover\:translate-y-0 {
+      transform: translateY(0);
+    }
   </style>
 </head>
 
 <body class="bg-slate-100 text-slate-800 font-sans select-none p-[2px] h-full w-full overflow-hidden flex flex-col">
   <!-- Container Card có viền 2px đồng đều cả 4 cạnh, cách mép viewport 2px để không bị cắt sub-pixel -->
   <div id="cardContainer"
-    class="flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-slate-300 rounded p-1.5 transition-colors duration-300">
+    class="relative overflow-hidden group flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-slate-300 rounded p-1.5 transition-colors duration-300">
 
     <!-- Danh sách thông tin (font chữ to rõ, chiếm phần lớn chiều cao) -->
     <div
@@ -120,9 +200,60 @@
       </div>
     </div>
 
+    <!-- Nút trượt từ cạnh dưới lên khi hover vào Làn Ra có thu phí (ParkingReceipt) -->
+    <div id="receiptActionOverlay" class="hidden absolute inset-x-0 bottom-0 z-20 overflow-hidden">
+      <button id="btnPrintReceipt" type="button" tabindex="-1" onmousedown="event.preventDefault()" onclick="requestPrintReceipt()"
+        class="w-full h-max py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 translate-y-full group-hover:translate-y-0 transition-transform duration-200 ease-out">
+        <span id="lblPrintReceiptText">🖨️ IN BIÊN LAI THU PHÍ</span>
+      </button>
+    </div>
+
   </div>
 
   <script>
+    let isPrintingDebounced = false;
+    let printDebounceTimer = null;
+
+    function resetPrintButtonState() {
+      if (printDebounceTimer) {
+        clearTimeout(printDebounceTimer);
+        printDebounceTimer = null;
+      }
+      isPrintingDebounced = false;
+      const btn = document.getElementById('btnPrintReceipt');
+      const lbl = document.getElementById('lblPrintReceiptText');
+      if (btn) {
+        btn.disabled = false;
+        btn.blur();
+      }
+      if (lbl) lbl.textContent = '🖨️ IN BIÊN LAI THU PHÍ';
+    }
+
+    function requestPrintReceipt() {
+      if (isPrintingDebounced) return;
+
+      isPrintingDebounced = true;
+      const btn = document.getElementById('btnPrintReceipt');
+      const lbl = document.getElementById('lblPrintReceiptText');
+      if (btn) {
+        btn.disabled = true;
+        btn.blur();
+      }
+      if (lbl) lbl.textContent = '⏳ ĐANG GỬI LỆNH IN...';
+
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage('PRINT_RECEIPT');
+      }
+
+      if (printDebounceTimer) {
+        clearTimeout(printDebounceTimer);
+      }
+
+      printDebounceTimer = setTimeout(() => {
+        resetPrintButtonState();
+      }, 1000);
+    }
+
     function triggerFlash(card, isSuccess) {
       card.classList.remove('flash-success', 'flash-error');
       void card.offsetWidth;
@@ -158,12 +289,12 @@
 
       // 1. Hiệu ứng viền 2px đồng nhất cả 4 cạnh theo trạng thái
       if (data.isIdle) {
-        card.className = 'flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-slate-300 rounded p-1.5 transition-colors duration-300';
+        card.className = 'relative overflow-hidden group flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-slate-300 rounded p-1.5 transition-colors duration-300';
       } else if (data.isSuccess) {
-        card.className = 'flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-emerald-500 rounded p-1.5 transition-colors duration-300';
+        card.className = 'relative overflow-hidden group flex-1 min-h-0 w-full flex flex-col justify-between bg-white border-2 border-emerald-500 rounded p-1.5 transition-colors duration-300';
         triggerFlash(card, true);
       } else {
-        card.className = 'flex-1 min-h-0 w-full flex flex-col justify-between bg-rose-50/60 border-2 border-rose-500 rounded p-1.5 transition-colors duration-300';
+        card.className = 'relative overflow-hidden group flex-1 min-h-0 w-full flex flex-col justify-between bg-rose-50/60 border-2 border-rose-500 rounded p-1.5 transition-colors duration-300';
         triggerFlash(card, false);
       }
 
@@ -217,6 +348,18 @@
       // 6. Ảnh đối chiếu
       setImage('img1', 'img1Placeholder', data.img1);
       setImage('img2', 'img2Placeholder', data.img2);
+
+      // 7. Nút in biên lai thu phí (chỉ kích hoạt cho Làn Ra hợp lệ có phát sinh phí)
+      resetPrintButtonState();
+      const receiptOverlay = document.getElementById('receiptActionOverlay');
+      const canShowReceipt = !data.isEntry && !data.isIdle && data.isSuccess && data.canPrintReceipt === true;
+      if (receiptOverlay) {
+        if (canShowReceipt) {
+          receiptOverlay.classList.remove('hidden');
+        } else {
+          receiptOverlay.classList.add('hidden');
+        }
+      }
     }
 
     function setImage(imgId, placeholderId, src) {

@@ -231,11 +231,11 @@ namespace HPParking.Services.Parking.Handlers
             bool isManualPlateOut = false;
             string rawOutOcrPlate = lprResult?.RawPlateText ?? (plateSuccess ? exitPlate : string.Empty);
 
-            if (string.IsNullOrEmpty(exitPlate) || !PlateHelper.Matches(parking.PlateNumber, exitPlate))
+            if (string.IsNullOrEmpty(exitPlate))
             {
                 if (onManualPlateInput != null)
                 {
-                    string? manual = await onManualPlateInput(context, rawOutOcrPlate);
+                    string? manual = await onManualPlateInput(context, string.Empty);
                     if (!string.IsNullOrWhiteSpace(manual))
                     {
                         exitPlate = manual.Trim().ToUpper();

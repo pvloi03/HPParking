@@ -380,10 +380,205 @@ namespace HPParking.Tests.Forms
                 pPayload.FeeHighlight.Should().Be("Miễn phí");
                 pPayload.TimeIn.Should().Be("---");
                 pPayload.TimeOut.Should().NotBe("---");
+                pPayload.CanPrintReceipt.Should().BeFalse();
             });
         }
 
-        private static FrmMain CreateFrmMain(HPParking.Core.Interfaces.IRepository<AuditLog>? auditRepo = null)
+        [Fact]
+        public void UpdateLaneSlotUI_ShouldSetCanPrintReceiptTrue_OnlyForValidChargeableOutboundExitWithSession()
+        {
+            RunOnStaThread(() =>
+            {
+                using var form = CreateFrmMain();
+                var inLane = new Lane { Id = "L-IN", Name = "Làn Vào", Direction = LaneDirection.In, TargetType = LaneTargetType.Vehicle };
+                var outLane = new Lane { Id = "L-OUT", Name = "Làn Ra", Direction = LaneDirection.Out, TargetType = LaneTargetType.Vehicle };
+
+                var ctxIn = new HPParking.Models.LaneRuntimeContext(inLane);
+                var ctxOut = new HPParking.Models.LaneRuntimeContext(outLane);
+
+                form.ApplyLaneContexts(new() { ctxIn, ctxOut });
+
+                // Trạng thái chờ ban đầu: CanPrintReceipt = false
+                form.GetLastSlotCardPayload(0)!.CanPrintReceipt.Should().BeFalse();
+                form.GetLastSlotCardPayload(1)!.CanPrintReceipt.Should().BeFalse();
+
+                var session = new ParkingSession
+                {
+                    Id = "SESSION-100",
+                    PlateNumber = "30A-555.66",
+                    CardNumber = "0001234567",
+                    InTime = System.DateTime.UtcNow.AddHours(-2),
+                    OutTime = System.DateTime.UtcNow
+                };
+
+                // 1. Làn vào: dù có FeeAmount > 0 vẫn CanPrintReceipt = false
+                form.UpdateLaneSlotUI(0, ctxIn, new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.Success,
+                    ParkingSession = session,
+                    FeeAmount = 20000m
+                });
+                form.GetLastSlotCardPayload(0)!.CanPrintReceipt.Should().BeFalse();
+
+                // 2. Làn ra hợp lệ có thu phí (FeeAmount > 0 và có ParkingSession): CanPrintReceipt = true
+                form.UpdateLaneSlotUI(1, ctxOut, new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.Success,
+                    ParkingSession = session,
+                    FeeAmount = 25000m,
+                    IsFeeCollected = true
+                });
+                form.GetLastSlotCardPayload(1)!.CanPrintReceipt.Should().BeTrue();
+
+                // 3. Làn ra hợp lệ nhưng miễn phí (FeeAmount == 0): CanPrintReceipt = false
+                form.UpdateLaneSlotUI(1, ctxOut, new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.Success,
+                    ParkingSession = session,
+                    FeeAmount = 0m
+                });
+                form.GetLastSlotCardPayload(1)!.CanPrintReceipt.Should().BeFalse();
+
+                // 4. Làn ra có phí nhưng sai biển số (Status != Success): CanPrintReceipt = false
+                form.UpdateLaneSlotUI(1, ctxOut, new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.PlateMismatch,
+                    ParkingSession = session,
+                    FeeAmount = 25000m
+                });
+                form.GetLastSlotCardPayload(1)!.CanPrintReceipt.Should().BeFalse();
+            });
+        }
+
+        [Fact]
+        public void HandlePrintReceiptForSlotAsync_WhenValidOutboundResult_ShouldInvokePrinterServiceAndReportWarningOnFailure()
+        {
+            RunOnStaThread(() =>
+            {
+                var printerService = Substitute.For<HPParking.Interfaces.IParkingReceiptPrinterService>();
+                var expectedReceipt = new HPParking.Interfaces.ParkingReceiptData
+                {
+                    SessionId = "S-PRINT-01",
+                    PlateNumber = "29A-777.88",
+                    CardNumber = "0007778889",
+                    FeeAmount = 30000m,
+                    OutLaneName = "Làn Ra 1"
+                };
+
+                printerService
+                    .TryCreateReceiptData(
+                        Arg.Any<HPParking.Services.Parking.ProcessResult?>(),
+                        Arg.Any<HPParking.Models.LaneRuntimeContext?>(),
+                        Arg.Any<Gate?>())
+                    .Returns(expectedReceipt);
+
+                printerService
+                    .PrintReceiptAsync(expectedReceipt, Arg.Any<System.Threading.CancellationToken>())
+                    .Returns(System.Threading.Tasks.Task.FromResult(
+                        HPParking.Interfaces.ParkingReceiptPrintResult.Failure("Máy in K80 mất kết nối", "POS-80C")));
+
+                using var form = CreateFrmMain(receiptPrinterService: printerService);
+                var outLane = new Lane { Id = "L-OUT", Name = "Làn Ra 1", Direction = LaneDirection.Out, TargetType = LaneTargetType.Vehicle };
+                var ctxOut = new HPParking.Models.LaneRuntimeContext(outLane);
+                form.ApplyLaneContexts(new() { ctxOut });
+
+                form.UpdateLaneSlotUI(0, ctxOut, new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.Success,
+                    ParkingSession = new ParkingSession { Id = "S-PRINT-01", PlateNumber = "29A-777.88" },
+                    FeeAmount = 30000m,
+                    IsFeeCollected = true
+                });
+
+                // Act
+                var result = form.HandlePrintReceiptForSlotAsync(0).GetAwaiter().GetResult();
+
+                // Assert
+                result.IsSuccess.Should().BeFalse();
+                result.ErrorMessage.Should().Be("Máy in K80 mất kết nối");
+                result.PrinterName.Should().Be("POS-80C");
+                printerService.Received(1).PrintReceiptAsync(expectedReceipt, Arg.Any<System.Threading.CancellationToken>());
+            });
+        }
+
+        [Fact]
+        public void HandleLaneWebViewMessageAsync_ShouldRoutePrintReceiptAndReadyMessagesWithoutDuplicateHotkeyChannel()
+        {
+            RunOnStaThread(() =>
+            {
+                var printerService = Substitute.For<HPParking.Interfaces.IParkingReceiptPrinterService>();
+                var expectedReceipt = new HPParking.Interfaces.ParkingReceiptData
+                {
+                    SessionId = "S-WV-01",
+                    PlateNumber = "30H-888.99",
+                    CardNumber = "0008889990",
+                    FeeAmount = 25000m,
+                    OutLaneName = "Làn Ra 2"
+                };
+
+                printerService
+                    .TryCreateReceiptData(
+                        Arg.Any<HPParking.Services.Parking.ProcessResult?>(),
+                        Arg.Any<HPParking.Models.LaneRuntimeContext?>(),
+                        Arg.Any<Gate?>())
+                    .Returns(expectedReceipt);
+
+                printerService
+                    .PrintReceiptAsync(expectedReceipt, Arg.Any<System.Threading.CancellationToken>())
+                    .Returns(System.Threading.Tasks.Task.FromResult(
+                        HPParking.Interfaces.ParkingReceiptPrintResult.Success("POS-80C")));
+
+                using var form = CreateFrmMain(receiptPrinterService: printerService);
+                var fakeController = new FakeControllerService();
+
+                var contexts = new System.Collections.Generic.List<HPParking.Models.LaneRuntimeContext>
+                {
+                    new(new Lane { Id = "L1", Name = "Làn Vào 1", Direction = LaneDirection.In, InputReader = 1, OutputRelay = 1 }) { Controller = fakeController },
+                    new(new Lane { Id = "L2", Name = "Làn Vào 2", Direction = LaneDirection.In, InputReader = 2, OutputRelay = 2 }) { Controller = fakeController },
+                    new(new Lane { Id = "L3", Name = "Làn Ra 1", Direction = LaneDirection.Out, InputReader = 3, OutputRelay = 3 }) { Controller = fakeController },
+                    new(new Lane { Id = "L4", Name = "Làn Ra 2", Direction = LaneDirection.Out, InputReader = 4, OutputRelay = 4 }) { Controller = fakeController }
+                };
+
+                form.ApplyLaneContexts(contexts);
+
+                form.UpdateLaneSlotUI(3, contexts[3], new HPParking.Services.Parking.ProcessResult
+                {
+                    Status = HPParking.Services.Parking.ProcessStatus.Success,
+                    ParkingSession = new ParkingSession { Id = "S-WV-01", PlateNumber = "30H-888.99" },
+                    FeeAmount = 25000m,
+                    IsFeeCollected = true
+                });
+
+                // 1. Khi nhân viên bấm nút In biên lai trên WebView2 của làn 4 (slot 3): gửi message PRINT_RECEIPT
+                bool printRouted = form.HandleLaneWebViewMessageAsync(3, "PRINT_RECEIPT").GetAwaiter().GetResult();
+                printRouted.Should().BeTrue();
+                printerService.Received(1).PrintReceiptAsync(expectedReceipt, Arg.Any<System.Threading.CancellationToken>());
+
+                // 2. WebView2 KHÔNG xử lý kênh HOTKEY: để tránh kích hoạt rơ-le 2 lần cùng ProcessCmdKey
+                form.HandleLaneWebViewMessageAsync(3, "HOTKEY:F1").GetAwaiter().GetResult().Should().BeFalse();
+                fakeController.OpenedDoorIds.Should().BeEmpty();
+
+                // 3. Thông điệp READY từ WebView2 sẽ flush payload chờ, trong khi thông điệp lạ phải trả về false
+                var slotWebView = form.GetLaneInfoWebView(3);
+                form.HandleLaneWebViewMessageAsync(3, "READY", slotWebView).GetAwaiter().GetResult().Should().BeTrue();
+                form.HandleLaneWebViewMessageAsync(3, "UNKNOWN_MESSAGE", slotWebView).GetAwaiter().GetResult().Should().BeFalse();
+
+                // 4. Khi form đang khóa cấu hình (SetFormConfigurationLocked), PRINT_RECEIPT bị chặn
+                form.SetFormConfigurationLocked(true);
+                form.HandleLaneWebViewMessageAsync(3, "PRINT_RECEIPT").GetAwaiter().GetResult().Should().BeFalse();
+
+                // 5. Kiểm tra hợp đồng script trong lane-card.html chứa PRINT_RECEIPT và không chứa kênh HOTKEY trùng lặp
+                string laneCardHtmlPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "UI", "lane-card.html");
+                System.IO.File.Exists(laneCardHtmlPath).Should().BeTrue();
+                string htmlContent = System.IO.File.ReadAllText(laneCardHtmlPath);
+                htmlContent.Should().Contain("postMessage('PRINT_RECEIPT')")
+                    .And.NotContain("HOTKEY:");
+            });
+        }
+
+        private static FrmMain CreateFrmMain(
+            HPParking.Core.Interfaces.IRepository<AuditLog>? auditRepo = null,
+            HPParking.Interfaces.IParkingReceiptPrinterService? receiptPrinterService = null)
         {
             var laneRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Lane>>();
             var gateRepo = Substitute.For<HPParking.Core.Interfaces.IRepository<Gate>>();
@@ -394,7 +589,15 @@ namespace HPParking.Tests.Forms
             var serverHealthService = Substitute.For<HPParking.Interfaces.IServerHealthService>();
             var auditLogRepo = auditRepo ?? Substitute.For<HPParking.Core.Interfaces.IRepository<AuditLog>>();
 
-            return new FrmMain(laneRepo, gateRepo, deviceRepo, licenseManager, workflowService, serverHealthService, auditLogRepo);
+            return new FrmMain(
+                laneRepo,
+                gateRepo,
+                deviceRepo,
+                licenseManager,
+                workflowService,
+                serverHealthService,
+                auditLogRepo,
+                receiptPrinterService);
         }
 
         private static void RunOnStaThread(System.Action action)

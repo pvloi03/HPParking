@@ -12,6 +12,7 @@ using HPParking.Services.License;
 using HPParking.Services.LPR;
 using HPParking.Services.Parking;
 using HPParking.Services.Parking.Handlers;
+using HPParking.Services.Printing;
 using HPParking.Services.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -76,6 +77,7 @@ namespace HPParking
                 services.AddScoped<IVisitorVehicleWorkflowHandler, VisitorVehicleWorkflowHandler>();
                 services.AddScoped<IParkingWorkflowService, ParkingWorkflowService>();
                 services.AddSingleton<IServerHealthService, ServerHealthService>();
+                services.AddSingleton<IParkingReceiptPrinterService, ParkingReceiptPrinterService>();
 
                 services.AddTransient<FrmMain>();
 
@@ -113,6 +115,7 @@ namespace HPParking
 
                     // 4. Warm-up hạ tầng trạm trực & bản quyền (các dependency của FrmMain)
                     _ = scope.ServiceProvider.GetRequiredService<IServerHealthService>();
+                    _ = scope.ServiceProvider.GetRequiredService<IParkingReceiptPrinterService>();
                     _ = scope.ServiceProvider.GetRequiredService<LicenseManager>();
                     _ = scope.ServiceProvider.GetRequiredService<IRepository<Lane>>();
                     _ = scope.ServiceProvider.GetRequiredService<IRepository<Gate>>();
