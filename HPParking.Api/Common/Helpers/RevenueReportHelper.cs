@@ -33,6 +33,10 @@ namespace HPParking.Api.Common.Helpers
             if (isFeeCollected.HasValue)
             {
                 filters.Add(builder.Eq(x => x.IsFeeCollected, isFeeCollected.Value));
+                if (isFeeCollected.Value)
+                {
+                    filters.Add(builder.Gt(x => x.FeeAmount, 0m));
+                }
             }
 
             return builder.And(filters);

@@ -1,4 +1,5 @@
 using HPParking.Api.DTOs.Common;
+using HPParking.Core.Models.Entities;
 using HPParking.Core.Models.Enums;
 
 namespace HPParking.Api.DTOs.ParkingSessions
@@ -19,6 +20,7 @@ namespace HPParking.Api.DTOs.ParkingSessions
         // --- ĐỊNH DANH THẺ & PHÍ ---
         public string? CardId { get; set; }
         public string? CardNumber { get; set; }
+        public CardTargetType? CardTargetType { get; set; }
         public string? TariffId { get; set; }
         public decimal FeeAmount { get; set; } = 0m;
         public bool IsFeeCollected { get; set; } = false;

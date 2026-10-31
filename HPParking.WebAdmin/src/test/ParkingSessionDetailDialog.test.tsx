@@ -203,4 +203,37 @@ describe('ParkingSessionDetailDialog Component', () => {
     // Kiểm tra không xuất hiện Biển số xe
     expect(screen.queryByText(/Biển số xe:/i)).not.toBeInTheDocument();
   });
+  it('hiển thị Số tiền thu và Trạng thái thu phí là "Miễn phí", mã thẻ kèm loại thẻ trong ngoặc tròn', async () => {
+    const mockFreeSession = {
+      ...mockSessionNormal,
+      id: 'session-free',
+      cardNumber: '0013181729',
+      cardTargetType: 2, // Monthly
+      feeAmount: 0,
+      isFeeCollected: false,
+    };
+
+    vi.mocked(parkingSessionApi.getSessionById).mockResolvedValueOnce(mockFreeSession as any);
+
+    renderWithClient(
+      <ParkingSessionDetailDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        sessionId="session-free"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/30A-999.88/i).length).toBeGreaterThan(0);
+    });
+
+    const specsTab = screen.getByRole('button', { name: /Bảng Thông Số Chi Tiết/i });
+    fireEvent.click(specsTab);
+
+    // Kiểm tra mã thẻ kèm loại thẻ (Tháng)
+    expect(screen.getByText(/0013181729 \(Tháng\)/i)).toBeInTheDocument();
+
+    // Kiểm tra Số tiền thu là Miễn phí và Trạng thái thu phí là Miễn phí
+    expect(screen.getAllByText('Miễn phí').length).toBeGreaterThanOrEqual(2);
+  });
 });

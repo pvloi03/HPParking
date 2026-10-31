@@ -31,6 +31,7 @@ import { parkingSessionApi } from '@/api/parkingSessionApi';
 import {
   ParkingSessionStatus,
   getSessionCloseReasonLabel,
+  getCardTypeSuffix,
 } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
 import { LaneTargetType } from '@/types/infrastructure';
@@ -524,25 +525,58 @@ export function ParkingSessionDetailDialog({
                           <span className="text-muted-foreground block text-[11px]">Mã thẻ quẹt:</span>
                           <span className="font-mono font-semibold text-foreground flex items-center gap-1 mt-0.5">
                             <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
-                            {session.cardNumber || '—'}
+                            {session.cardNumber ? `${session.cardNumber}${getCardTypeSuffix(session)}` : '—'}
                           </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground block text-[11px]">Số tiền thu:</span>
                           <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5 block">
-                            {(session.feeAmount ?? 0).toLocaleString('vi-VN')} VNĐ
+                            {(() => {
+                              const fee = session.feeAmount ?? 0;
+                              const isActive = session.status === ParkingSessionStatus.Active || !session.outTime;
+                              const isFree =
+                                fee === 0 &&
+                                (session.cardTargetType === 2 ||
+                                  session.cardTargetType === 3 ||
+                                  Boolean(session.personId) ||
+                                  Boolean(session.personFullName) ||
+                                  !isActive);
+
+                              if (isActive && !isFree) {
+                                return <span className="font-mono text-muted-foreground font-medium text-xs">---</span>;
+                              }
+                              if (fee === 0 || isFree) {
+                                return 'Miễn phí';
+                              }
+                              return `${fee.toLocaleString('vi-VN')} VNĐ`;
+                            })()}
                           </span>
                         </div>
                         <div>
                           <span className="text-muted-foreground block text-[11px]">Trạng thái thu phí:</span>
                           <span className="mt-0.5 inline-block">
-                            {session.isFeeCollected ? (
-                              <Badge className="bg-emerald-600 text-white text-[10px]">Đã thu tiền</Badge>
-                            ) : (session.feeAmount ?? 0) > 0 ? (
-                              <Badge variant="destructive" className="text-[10px]">Chưa thu tiền</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-[10px]">Miễn phí (0 đ)</Badge>
-                            )}
+                            {(() => {
+                              const fee = session.feeAmount ?? 0;
+                              const isActive = session.status === ParkingSessionStatus.Active || !session.outTime;
+                              const isFree =
+                                fee === 0 &&
+                                (session.cardTargetType === 2 ||
+                                  session.cardTargetType === 3 ||
+                                  Boolean(session.personId) ||
+                                  Boolean(session.personFullName) ||
+                                  !isActive);
+
+                              if (isActive && !isFree) {
+                                return <span className="font-mono text-muted-foreground font-medium text-xs">---</span>;
+                              }
+                              if (fee === 0 || isFree) {
+                                return <Badge className="bg-emerald-600 text-white text-[10px]">Miễn phí</Badge>;
+                              }
+                              if (session.isFeeCollected) {
+                                return <Badge className="bg-emerald-600 text-white text-[10px]">Đã thu tiền</Badge>;
+                              }
+                              return <Badge variant="destructive" className="text-[10px]">Chưa thu tiền</Badge>;
+                            })()}
                           </span>
                         </div>
                       </div>

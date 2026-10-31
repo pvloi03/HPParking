@@ -225,6 +225,7 @@ namespace HPParking.Services.Parking.Handlers
                 PersonId = client.Id,
                 CardId = card?.Id,
                 CardNumber = card?.CardNumber,
+                CardTargetType = card?.TargetType ?? (client.Type == ClientType.VIP ? CardTargetType.VIP : CardTargetType.Monthly),
                 PlateNumber = sessionPlate,
                 RawInPlateOcr = rawInPlateOcr,
                 IsManualPlateIn = isManualPlateIn,
@@ -523,7 +524,7 @@ namespace HPParking.Services.Parking.Handlers
             parking.RawOutPlateOcr = rawOutPlateOcr;
             parking.IsManualPlateOut = isManualPlateOut;
             parking.FeeAmount = feeAmount;
-            parking.IsFeeCollected = isFeeCollected || (feeAmount == 0m);
+            parking.IsFeeCollected = feeAmount > 0m && isFeeCollected;
             parking.Status = ParkingSessionStatus.Completed;
             parking.CloseReason = SessionCloseReason.Normal;
             parking.UpdatedAt = DateTime.UtcNow;

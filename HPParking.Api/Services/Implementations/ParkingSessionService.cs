@@ -228,6 +228,33 @@ namespace HPParking.Api.Services.Implementations
                 clientMap = clients.ToDictionary(c => c.Id, c => c);
             }
 
+            // 3.1 Tải thông tin thẻ để lấy CardTargetType
+            var cardIds = sessions.Where(s => !string.IsNullOrWhiteSpace(s.CardId)).Select(s => s.CardId!).Distinct().ToList();
+            var cardNumbers = sessions.Where(s => !string.IsNullOrWhiteSpace(s.CardNumber)).Select(s => s.CardNumber!).Distinct().ToList();
+
+            var cardMapById = new Dictionary<string, CardTargetType>();
+            var cardMapByNumber = new Dictionary<string, CardTargetType>(StringComparer.OrdinalIgnoreCase);
+
+            if (cardIds.Count > 0 || cardNumbers.Count > 0)
+            {
+                var cardFilterBuilder = Builders<Card>.Filter;
+                var orFilters = new List<FilterDefinition<Card>>();
+                if (cardIds.Count > 0) orFilters.Add(cardFilterBuilder.In(c => c.Id, cardIds));
+                if (cardNumbers.Count > 0) orFilters.Add(cardFilterBuilder.In(c => c.CardNumber, cardNumbers));
+
+                var cardFilter = cardFilterBuilder.And(
+                    cardFilterBuilder.Eq(c => c.IsDeleted, false),
+                    cardFilterBuilder.Or(orFilters)
+                );
+
+                var cards = await _cardRepo.FindAsync(cardFilter, cancellationToken: cancellationToken);
+                foreach (var c in cards)
+                {
+                    if (!string.IsNullOrWhiteSpace(c.Id)) cardMapById[c.Id] = c.TargetType;
+                    if (!string.IsNullOrWhiteSpace(c.CardNumber)) cardMapByNumber[c.CardNumber] = c.TargetType;
+                }
+            }
+
             // 4. Điền PersonFullName, PersonPhoneNumber, PersonCode cho từng item
             foreach (var item in items)
             {
@@ -263,6 +290,22 @@ namespace HPParking.Api.Services.Implementations
                         item.OutFaceImagePath = client.Avatar.StartsWith("Avatar", StringComparison.OrdinalIgnoreCase)
                             ? client.Avatar
                             : $"Avatar/{client.Avatar}".Replace('\\', '/');
+                    }
+                }
+
+                if (!item.CardTargetType.HasValue)
+                {
+                    if (!string.IsNullOrWhiteSpace(item.CardId) && cardMapById.TryGetValue(item.CardId, out var ttById))
+                    {
+                        item.CardTargetType = ttById;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(item.CardNumber) && cardMapByNumber.TryGetValue(item.CardNumber, out var ttByNum))
+                    {
+                        item.CardTargetType = ttByNum;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(clientId) && clientMap.TryGetValue(clientId, out var clientEntity))
+                    {
+                        item.CardTargetType = clientEntity.Type == ClientType.VIP ? CardTargetType.VIP : CardTargetType.Monthly;
                     }
                 }
             }
@@ -337,6 +380,29 @@ namespace HPParking.Api.Services.Implementations
                         ? client.Avatar
                         : $"Avatar/{client.Avatar}".Replace('\\', '/');
                 }
+            }
+
+            Card? card = null;
+            if (!string.IsNullOrWhiteSpace(session.CardId))
+            {
+                card = await _cardRepo.GetByIdAsync(session.CardId, cancellationToken);
+            }
+            if (card == null && !string.IsNullOrWhiteSpace(session.CardNumber))
+            {
+                card = await _cardRepo.FindOneAsync(c => c.CardNumber == session.CardNumber && !c.IsDeleted, cancellationToken);
+            }
+
+            if (card != null)
+            {
+                detail.CardTargetType = card.TargetType;
+            }
+            else if (session.CardTargetType.HasValue)
+            {
+                detail.CardTargetType = session.CardTargetType.Value;
+            }
+            else if (client != null)
+            {
+                detail.CardTargetType = client.Type == ClientType.VIP ? CardTargetType.VIP : CardTargetType.Monthly;
             }
 
             _logger.LogInformation("Lấy chi tiết phiên đỗ xe {Id}: Biển số {PlateNumber}, Trạng thái {Status}, Khách hàng: {ClientName}.",

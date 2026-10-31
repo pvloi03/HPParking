@@ -124,6 +124,7 @@ namespace HPParking.Services.Parking.Handlers
             {
                 CardId = card.Id,
                 CardNumber = card.CardNumber,
+                CardTargetType = card.TargetType,
                 TargetType = LaneTargetType.Vehicle,
                 VehicleType = card.VehicleType ?? VehicleType.Motorbike,
                 PlateNumber = recognizedPlate,
@@ -316,7 +317,7 @@ namespace HPParking.Services.Parking.Handlers
             parking.RawOutPlateOcr = rawOutOcrPlate;
             parking.IsManualPlateOut = isManualPlateOut;
             parking.FeeAmount = feeAmount;
-            parking.IsFeeCollected = isFeeCollected || (feeAmount == 0m);
+            parking.IsFeeCollected = feeAmount > 0m && isFeeCollected;
             parking.Status = ParkingSessionStatus.Completed;
             parking.CloseReason = SessionCloseReason.Normal;
             parking.UpdatedAt = DateTime.UtcNow;

@@ -38,6 +38,9 @@ namespace HPParking.Core.Models.Entities
         public string? CardId { get; set; }
 
         public string? CardNumber { get; set; }
+        [BsonRepresentation(BsonType.String)]
+        [BsonIgnoreIfNull]
+        public CardTargetType? CardTargetType { get; set; }
 
         // --- BIỂU PHÍ & THU TIỀN ---
         [BsonRepresentation(BsonType.ObjectId)]

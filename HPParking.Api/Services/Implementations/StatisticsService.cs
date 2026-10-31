@@ -264,7 +264,7 @@ namespace HPParking.Api.Services.Implementations
             var completedPaidSessions = await _sessionRepo.FindAsync(
                 x => !x.IsDeleted &&
                      x.Status == ParkingSessionStatus.Completed &&
-                     x.IsFeeCollected &&
+                     x.IsFeeCollected && x.FeeAmount > 0m &&
                      x.OutTime != null &&
                      x.OutTime >= fromUtc &&
                      x.OutTime <= toUtc,
@@ -568,13 +568,19 @@ namespace HPParking.Api.Services.Implementations
 
             var revenueFacet = AggregateFacet.Create("revenueStats",
                 PipelineDefinition<ParkingSession, BsonDocument>.Create(new IPipelineStageDefinition[] {
-                    PipelineStageDefinitionBuilder.Match<ParkingSession>(x => x.IsFeeCollected),
+                    PipelineStageDefinitionBuilder.Match<ParkingSession>(x => x.IsFeeCollected && x.FeeAmount > 0m),
                     PipelineStageDefinitionBuilder.Group<ParkingSession, BsonDocument>(new BsonDocument {
                         { "_id", BsonNull.Value },
                         { "totalRevenue", new BsonDocument("$sum", "$FeeAmount") },
                         { "paidCount", new BsonDocument("$sum", 1) }
                     })
                 }));
+
+            var isPaidCond = new BsonDocument("$and", new BsonArray
+            {
+                new BsonDocument("$eq", new BsonArray { "$IsFeeCollected", true }),
+                new BsonDocument("$gt", new BsonArray { "$FeeAmount", 0 })
+            });
 
             var timelineFacet = AggregateFacet.Create("timeline",
                 PipelineDefinition<ParkingSession, BsonDocument>.Create(new IPipelineStageDefinition[] {
@@ -586,12 +592,12 @@ namespace HPParking.Api.Services.Implementations
                         })},
                         { "completedCount", new BsonDocument("$sum", 1) },
                         { "paidCount", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray {
-                            new BsonDocument("$eq", new BsonArray { "$IsFeeCollected", true }),
+                            isPaidCond,
                             1,
                             0
                         })) },
                         { "revenue", new BsonDocument("$sum", new BsonDocument("$cond", new BsonArray {
-                            new BsonDocument("$eq", new BsonArray { "$IsFeeCollected", true }),
+                            isPaidCond,
                             "$FeeAmount",
                             0
                         })) }
@@ -658,7 +664,7 @@ namespace HPParking.Api.Services.Implementations
                      x.OutTime <= toUtc,
                 cancellationToken);
 
-            var paidSessions = sessions.Where(s => s.IsFeeCollected).ToList();
+            var paidSessions = sessions.Where(s => s.IsFeeCollected && s.FeeAmount > 0m).ToList();
             decimal totalRevenue = paidSessions.Sum(s => s.FeeAmount);
             long paidSessionsCount = paidSessions.Count;
             long completedSessionsCount = sessions.Count;
@@ -670,7 +676,7 @@ namespace HPParking.Api.Services.Implementations
             var timelineMap = new Dictionary<string, (decimal Revenue, int PaidCount, int CompletedCount)>();
             foreach (var (day, daySessions) in groups)
             {
-                var dayPaid = daySessions.Where(s => s.IsFeeCollected).ToList();
+                var dayPaid = daySessions.Where(s => s.IsFeeCollected && s.FeeAmount > 0m).ToList();
                 timelineMap[day.ToString("yyyy-MM-dd")] = (
                     dayPaid.Sum(s => s.FeeAmount),
                     dayPaid.Count,

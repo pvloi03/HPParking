@@ -1,5 +1,6 @@
 import type { PaginationQuery } from './masterData';
 import type { VehicleType } from './vehicle';
+import type { CardTargetType } from './card';
 
 export const ParkingSessionStatus = {
   Active: 1, // Đang đỗ
@@ -33,6 +34,38 @@ export function getSessionCloseReasonLabel(reason?: SessionCloseReason | null): 
 }
 
 /**
+ * Lấy hậu tố phân loại thẻ hiển thị trong ngoặc tròn: (Tháng), (VIP), (Lượt), (Xe nội bộ)
+ */
+export function getCardTypeSuffix(session?: {
+  cardTargetType?: CardTargetType;
+  personId?: string;
+  personFullName?: string;
+  cardNumber?: string;
+} | null): string {
+  if (!session) return '';
+  if (session.cardTargetType !== undefined && session.cardTargetType !== null) {
+    switch (session.cardTargetType) {
+      case 2:
+        return ' (Tháng)';
+      case 3:
+        return ' (VIP)';
+      case 1:
+        return ' (Lượt)';
+      case 0:
+        return ' (Xe nội bộ)';
+    }
+  }
+  // Fallback nếu chưa lưu cardTargetType trong phiên
+  if (session.personId || session.personFullName) {
+    return ' (Tháng)';
+  }
+  if (session.cardNumber) {
+    return ' (Lượt)';
+  }
+  return '';
+}
+
+/**
  * DTO tóm tắt danh sách phiên đỗ xe phục vụ hiển thị bảng (ParkingSessionDto.cs)
  */
 export interface ParkingSessionDto {
@@ -47,6 +80,7 @@ export interface ParkingSessionDto {
   // --- ĐỊNH DANH THẺ & PHÍ ---
   cardId?: string;
   cardNumber?: string;
+  cardTargetType?: CardTargetType;
   tariffId?: string;
   feeAmount?: number;
   isFeeCollected?: boolean;

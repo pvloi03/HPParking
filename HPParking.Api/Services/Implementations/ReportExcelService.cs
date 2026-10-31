@@ -244,7 +244,7 @@ namespace HPParking.Api.Services.Implementations
             }).ToList();
 
             var paidCompletedSessions = sessions
-                .Where(s => s.Status == ParkingSessionStatus.Completed && s.IsFeeCollected && !s.IsDeleted)
+                .Where(s => s.Status == ParkingSessionStatus.Completed && s.IsFeeCollected && s.FeeAmount > 0m && !s.IsDeleted)
                 .ToList();
             var totalRevenue = paidCompletedSessions.Sum(s => s.FeeAmount);
             var paidCount = paidCompletedSessions.Count;

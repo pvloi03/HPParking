@@ -372,6 +372,72 @@ namespace HPParking.Tests.Api.Unit
         }
 
         [Fact]
+        public async Task GetRevenueReportAsync_WhenSessionsHaveZeroFee_ShouldNotCountThemAsPaidSessions()
+        {
+            // Arrange
+            var service = CreateService();
+            var targetDate = new DateTime(2026, 10, 30);
+
+            var sessions = new List<ParkingSession>
+            {
+                // Lượt 1: Có thu phí 25.000đ
+                new ParkingSession
+                {
+                    Id = "s1",
+                    Status = ParkingSessionStatus.Completed,
+                    IsFeeCollected = true,
+                    FeeAmount = 25000m,
+                    IsDeleted = false,
+                    OutTime = targetDate.AddHours(9)
+                },
+                // Lượt 2: Không thu phí (0đ) nhưng IsFeeCollected bị đánh dấu true
+                new ParkingSession
+                {
+                    Id = "s2",
+                    Status = ParkingSessionStatus.Completed,
+                    IsFeeCollected = true,
+                    FeeAmount = 0m,
+                    IsDeleted = false,
+                    OutTime = targetDate.AddHours(10)
+                },
+                // Lượt 3: Không thu phí (0đ) vé tháng
+                new ParkingSession
+                {
+                    Id = "s3",
+                    Status = ParkingSessionStatus.Completed,
+                    IsFeeCollected = false,
+                    FeeAmount = 0m,
+                    IsDeleted = false,
+                    OutTime = targetDate.AddHours(11)
+                }
+            };
+
+            _sessionRepo.FindAsync(Arg.Any<Expression<Func<ParkingSession, bool>>>(), Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var expr = callInfo.Arg<Expression<Func<ParkingSession, bool>>>();
+                    var compiled = expr.Compile();
+                    return Task.FromResult<IReadOnlyList<ParkingSession>>(sessions.Where(compiled).ToList());
+                });
+
+            var query = new RevenueStatisticsQuery
+            {
+                FromDate = targetDate,
+                ToDate = targetDate
+            };
+
+            // Act
+            var report = await service.GetRevenueReportAsync(query);
+
+            // Assert
+            report.TotalRevenue.Should().Be(25000m);
+            report.CompletedSessionsCount.Should().Be(3);
+            report.PaidSessionsCount.Should().Be(1); // Chỉ tính lượt thực sự phát sinh thu phí > 0
+            report.AverageFeePerSession.Should().Be(25000m); // 25.000 / 1 lượt = 25.000đ, không bị chia cho các lượt 0đ
+            report.PaidRatio.Should().Be(33.3); // 1 / 3 = 33.3%
+        }
+
+        [Fact]
         public async Task GetRevenueReportAsync_CallsRepoWithDateRangePredicate_AvoidingInMemoryFullLoad()
         {
             // Arrange
@@ -418,6 +484,7 @@ namespace HPParking.Tests.Api.Unit
                 OutTime = toUtc.AddSeconds(1)
             };
             compiled(afterSession).Should().BeFalse();
+
         }
 
         [Fact]
@@ -458,6 +525,7 @@ namespace HPParking.Tests.Api.Unit
                 IsDeleted = false,
                 Status = ParkingSessionStatus.Completed,
                 IsFeeCollected = true,
+                FeeAmount = 50000m,
                 OutTime = fromUtc.AddHours(5)
             };
             compiled(validSession).Should().BeTrue();
@@ -478,6 +546,7 @@ namespace HPParking.Tests.Api.Unit
                 IsDeleted = false,
                 Status = ParkingSessionStatus.Completed,
                 IsFeeCollected = true,
+                FeeAmount = 50000m,
                 OutTime = fromUtc.AddSeconds(-1)
             };
             compiled(beforeSession).Should().BeFalse();
@@ -488,9 +557,20 @@ namespace HPParking.Tests.Api.Unit
                 IsDeleted = false,
                 Status = ParkingSessionStatus.Completed,
                 IsFeeCollected = true,
+                FeeAmount = 50000m,
                 OutTime = toUtc.AddSeconds(1)
             };
             compiled(afterSession).Should().BeFalse();
+            // 5. Session có FeeAmount == 0 -> false (không tính vào PaidSessions)
+            var zeroFeeSession = new ParkingSession
+            {
+                IsDeleted = false,
+                Status = ParkingSessionStatus.Completed,
+                IsFeeCollected = true,
+                FeeAmount = 0m,
+                OutTime = fromUtc.AddHours(5)
+            };
+            compiled(zeroFeeSession).Should().BeFalse();
         }
 
         [Fact]

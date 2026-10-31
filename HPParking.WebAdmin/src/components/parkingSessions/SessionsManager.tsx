@@ -47,6 +47,7 @@ import {
 } from '@/types/parkingSession';
 import { VehicleType } from '@/types/vehicle';
 import { LaneTargetType } from '@/types/infrastructure';
+import { CardTargetType } from '@/types/card';
 import { DEFAULT_PAGE_SIZE } from '@/types/masterData';
 
 export interface SessionsManagerProps {
@@ -304,16 +305,41 @@ export function SessionsManager({ targetType }: SessionsManagerProps) {
     },
     {
       header: 'Tiền Phí',
-      cell: (item) => (
-        <div className="text-xs">
-          <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-            {(item.feeAmount ?? 0).toLocaleString('vi-VN')} đ
-          </span>
-          {item.isFeeCollected && (
-            <span className="text-[10px] text-emerald-600 block">Đã thu</span>
-          )}
-        </div>
-      ),
+      cell: (item) => {
+        const fee = item.feeAmount ?? 0;
+        const isActive = item.status === ParkingSessionStatus.Active || !item.outTime;
+        const isFree =
+          fee === 0 &&
+          (item.cardTargetType === CardTargetType.Monthly ||
+            item.cardTargetType === CardTargetType.VIP ||
+            Boolean(item.personId) ||
+            !isActive);
+
+        if (isActive && !isFree) {
+          return <span className="font-mono text-muted-foreground font-medium">---</span>;
+        }
+
+        if (fee === 0 || isFree) {
+          return (
+            <span className="font-medium text-emerald-600 dark:text-emerald-400 text-xs">
+              Miễn phí
+            </span>
+          );
+        }
+
+        return (
+          <div className="text-xs">
+            <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+              {fee.toLocaleString('vi-VN')} đ
+            </span>
+            {item.isFeeCollected ? (
+              <span className="text-[10px] text-emerald-600 block">Đã thu</span>
+            ) : (
+              <span className="text-[10px] text-amber-600 block">Chưa thu</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: 'Trạng Thái',
